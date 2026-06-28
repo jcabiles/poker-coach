@@ -1,0 +1,39 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# ---- Node / frontend ----
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ---- Databases / generated data ----
+# SQLite dev DB is recreated from Alembic migrations on first boot.
+backend/data/*.db
+backend/data/*.sqlite3
+
+# ---- Tooling exhaust ----
+.playwright-mcp/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# ---- Local helper notes (not part of the project) ----
+RUN-THESE-COMMANDS.md
+
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
