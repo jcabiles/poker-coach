@@ -14,12 +14,17 @@ from app.main import app
 
 with TestClient(app) as c:  # triggers lifespan -> alembic upgrade head (incl srs_item)
     assert c.get("/api/v1/health").status_code == 200, "health"
-    for mode in ("random", "review", "leak_focus"):
+    # random + leak_focus are preflop-pool only; review can serve postflop spots
+    # too (Phase 2c) when postflop SRS rows are due, so it's checked separately.
+    for mode in ("random", "leak_focus"):
         r = c.get(f"/api/v1/drill/next?mode={mode}")
         assert r.status_code == 200, f"next {mode}"
         body = r.json()
         assert body["spot"]["street"] == "preflop", f"spot {mode}"
         assert body["grid"], f"grid {mode}"  # per-hand coloring present
+
+    rev = c.get("/api/v1/drill/next?mode=review")
+    assert rev.status_code == 200 and rev.json()["spot"], "review serves a valid spot"
 
     spot = c.get("/api/v1/drill/next").json()["spot"]
     g = c.post("/api/v1/drill/grade", json={"spot": spot, "action": {"action": "fold"}})
@@ -75,5 +80,10 @@ with TestClient(app) as c:  # triggers lifespan -> alembic upgrade head (incl sr
     vg = c.post("/api/v1/drill/grade", json={"spot": vc["spot"], "action": {"action": "call"}})
     assert vg.status_code == 200 and vg.json()["leak_category"] == 201, "vs_cbet grade (VS_CBET)"
 
+    # --- Phase 2c: postflop SRS review (deep graduation correctness covered by pytest above) ---
+    pgrade = c.post("/api/v1/drill/grade", json={"spot": pf["spot"], "action": {"action": "check"}})
+    assert pgrade.status_code == 200, "postflop grade for SRS"
+    rv = c.get("/api/v1/drill/next?mode=review")
+    assert rv.status_code == 200 and rv.json()["spot"], "review mode serves a spot"
 print("BACKEND VERIFY OK")
 PY

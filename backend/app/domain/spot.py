@@ -144,6 +144,7 @@ class Spot(BaseModel):
     villain_type: VillainType | None = None  # set for exploit drills
     hero_range: str | None = None  # range-notation string (postflop grading)
     villain_range: str | None = None  # range-notation string (postflop grading)
+    srs_signature: str | None = None  # SRS-key override for review spots (metadata; NOT in spot_signature)
 
     @field_validator("board")
     @classmethod

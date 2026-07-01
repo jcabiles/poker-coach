@@ -171,3 +171,17 @@ def test_vs_cbet_distinct_from_cbet_node():
     assert spot_signature(_vs_cbet_spot(["As", "Kd", "2c"], cbet=2.0)) != spot_signature(
         _flop_spot(["As", "Kd", "2c"])
     )
+
+
+# --- Phase 2c: srs_signature is metadata, excluded from the hash ---
+
+
+def test_srs_signature_excluded_from_hash():
+    base = make_rfi_spot()
+    assert spot_signature(base) == spot_signature(
+        base.model_copy(update={"srs_signature": "deadbeef0000"})
+    )
+    flop = _flop_spot(["As", "Kd", "2c"])
+    assert spot_signature(flop) == spot_signature(
+        flop.model_copy(update={"srs_signature": "x"})
+    )

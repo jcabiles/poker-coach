@@ -92,20 +92,35 @@ def test_postflop_mode_returns_flop_spot_no_grid(client):
     assert spot.hero_range and spot.villain_range
 
 
-def test_postflop_grade_persists_and_grades(client, temp_engine):
-    spot = client.get("/api/v1/drill/next?mode=postflop").json()["spot"]
-    resp = client.post(
-        "/api/v1/drill/grade",
-        json={"spot": spot, "action": {"action": "check"}},
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["leak_category"] == 200  # FLOP_CBET
-    assert body["correctness"] is not None
+def test_postflop_due_row_graduates_via_review(client, temp_engine):
+    from datetime import date, timedelta
+    from factories import make_cbet_spot
+
+    # 1. grade a postflop spot (with strong hand so check is acceptable) -> creates exactly one SRS row
+    spot = make_cbet_spot(hole_cards=("Kh", "Kd")).model_dump(mode="json")
+    client.post("/api/v1/drill/grade", json={"spot": spot, "action": {"action": "check"}})
     with Session(temp_engine) as s:
-        assert len(list(s.exec(select(DrillAttempt)))) == 1
+        rows = list(s.exec(select(SRSItemRow)))
+        assert len(rows) == 1
+        row = rows[0]
+        sig = row.signature
+        row.due_date = date.today() - timedelta(days=1)  # backdate so it's due
+        s.add(row)
+        s.commit()
 
+    # 2. review serves a postflop spot carrying the SRS-key override
+    review = client.get("/api/v1/drill/next?mode=review").json()["spot"]
+    assert review["street"] == "flop"
+    assert review["srs_signature"] == sig
 
+    # 3. re-grade the review spot -> the SAME row graduates; NO new row is created
+    #    (even though the reconstructed board's own signature may differ)
+    client.post("/api/v1/drill/grade", json={"spot": review, "action": {"action": "check"}})
+    with Session(temp_engine) as s:
+        rows = list(s.exec(select(SRSItemRow)))
+        assert len(rows) == 1
+        assert rows[0].signature == sig
+        assert rows[0].repetitions >= 1
 
 
 def test_vs_cbet_mode_grades_and_persists(client, temp_engine):
@@ -120,6 +135,20 @@ def test_vs_cbet_mode_grades_and_persists(client, temp_engine):
     )
     assert resp.status_code == 200
     assert resp.json()["leak_category"] == 201  # VS_CBET
+    with Session(temp_engine) as s:
+        assert len(list(s.exec(select(DrillAttempt)))) == 1
+
+
+def test_postflop_grade_persists_and_grades(client, temp_engine):
+    spot = client.get("/api/v1/drill/next?mode=postflop").json()["spot"]
+    resp = client.post(
+        "/api/v1/drill/grade",
+        json={"spot": spot, "action": {"action": "check"}},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["leak_category"] == 200  # FLOP_CBET
+    assert body["correctness"] is not None
     with Session(temp_engine) as s:
         assert len(list(s.exec(select(DrillAttempt)))) == 1
 

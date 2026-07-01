@@ -33,6 +33,7 @@ export interface Spot {
   villain_type?: string | null;
   hero_range?: string | null;
   villain_range?: string | null;
+  srs_signature?: string | null; // SRS-key override for review spots; echoed back on grade
   action_history: HistoryAction[];
 }
 
