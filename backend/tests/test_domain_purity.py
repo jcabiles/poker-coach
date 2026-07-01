@@ -14,7 +14,8 @@ def test_domain_has_no_web_or_db_imports():
         "'app.domain.scenarios','app.domain.grading','app.domain.hand_rank','app.domain.archetypes']\n"
         "for m in mods:\n"
         "    importlib.import_module(m)\n"
-        "banned = [b for b in ('fastapi','starlette','sqlmodel','sqlalchemy') if b in sys.modules]\n"
+        "web_libs = ('fastapi', 'starlette', 'sqlmodel', 'sqlalchemy')\n"
+        "banned = [b for b in web_libs if b in sys.modules]\n"
         "assert not banned, 'domain imported: ' + repr(banned)\n"
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)

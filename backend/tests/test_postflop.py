@@ -178,7 +178,9 @@ def _vscbet_spot(hole, board, faced, hero=Position.BB, villain=Position.BTN):
         node_context=[NodeContext.VS_CBET],
         facing=villain,
         action_history=[
-            HistoryAction(street=Street.FLOP, position=villain, action=ActionType.BET, amount_bb=faced),
+            HistoryAction(
+                street=Street.FLOP, position=villain, action=ActionType.BET, amount_bb=faced
+            ),
         ],
         legal_actions=[
             LegalAction(action=ActionType.FOLD),
@@ -205,7 +207,9 @@ def test_strong_never_folds_vs_cbet():
     res = grade_vs_cbet(spot, spot.hero_range, spot.villain_range, None)
     assert res.best_action.action in (ActionType.CALL, ActionType.RAISE)
     assert res.leak_category == int(LeakCategory.VS_CBET)
-    fold = grade_vs_cbet(spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.FOLD))
+    fold = grade_vs_cbet(
+        spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.FOLD)
+    )
     assert fold.correctness in (Correctness.MISTAKE, Correctness.BLUNDER)
 
 
@@ -242,9 +246,7 @@ def test_vs_cbet_frequencies_normalized_and_raise_sized():
     res = grade_vs_cbet(spot, spot.hero_range, spot.villain_range, None)
     assert abs(sum(e.frequency for e in res.per_action) - 1.0) < 1e-6
     # a sized raise decision grades without a Decision validation error
-    sized = grade_vs_cbet(
-        spot, None, None, Decision(action=ActionType.RAISE, size_bb=3 * SMALL)
-    )
+    sized = grade_vs_cbet(spot, None, None, Decision(action=ActionType.RAISE, size_bb=3 * SMALL))
     assert sized.correctness is not None
 
 

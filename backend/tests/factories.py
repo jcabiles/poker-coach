@@ -72,10 +72,18 @@ def make_cbet_spot(
         effective_stack_bb=remaining,
         spr=spr,
         action_history=[
-            HistoryAction(street=Street.PREFLOP, position=Position.SB, action=ActionType.POST, amount_bb=1.0),
-            HistoryAction(street=Street.PREFLOP, position=Position.BB, action=ActionType.POST, amount_bb=2.0),
-            HistoryAction(street=Street.PREFLOP, position=position, action=ActionType.RAISE, amount_bb=osize),
-            HistoryAction(street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=osize),
+            HistoryAction(
+                street=Street.PREFLOP, position=Position.SB, action=ActionType.POST, amount_bb=1.0
+            ),
+            HistoryAction(
+                street=Street.PREFLOP, position=Position.BB, action=ActionType.POST, amount_bb=2.0
+            ),
+            HistoryAction(
+                street=Street.PREFLOP, position=position, action=ActionType.RAISE, amount_bb=osize
+            ),
+            HistoryAction(
+                street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=osize
+            ),
         ],
         to_act=position,
         legal_actions=[
@@ -128,12 +136,27 @@ def make_check_raise_spot(
         effective_stack_bb=effective,
         spr=spr,
         action_history=[
-            HistoryAction(street=Street.PREFLOP, position=Position.SB, action=ActionType.POST, amount_bb=1.0),
-            HistoryAction(street=Street.PREFLOP, position=Position.BB, action=ActionType.POST, amount_bb=2.0),
-            HistoryAction(street=Street.PREFLOP, position=position, action=ActionType.RAISE, amount_bb=osize),
-            HistoryAction(street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=osize),
-            HistoryAction(street=Street.FLOP, position=position, action=ActionType.BET, amount_bb=cbet),
-            HistoryAction(street=Street.FLOP, position=Position.BB, action=ActionType.RAISE, amount_bb=raise_to),
+            HistoryAction(
+                street=Street.PREFLOP, position=Position.SB, action=ActionType.POST, amount_bb=1.0
+            ),
+            HistoryAction(
+                street=Street.PREFLOP, position=Position.BB, action=ActionType.POST, amount_bb=2.0
+            ),
+            HistoryAction(
+                street=Street.PREFLOP, position=position, action=ActionType.RAISE, amount_bb=osize
+            ),
+            HistoryAction(
+                street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=osize
+            ),
+            HistoryAction(
+                street=Street.FLOP, position=position, action=ActionType.BET, amount_bb=cbet
+            ),
+            HistoryAction(
+                street=Street.FLOP,
+                position=Position.BB,
+                action=ActionType.RAISE,
+                amount_bb=raise_to,
+            ),
         ],
         to_act=position,
         legal_actions=[

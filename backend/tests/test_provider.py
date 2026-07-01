@@ -154,6 +154,7 @@ def test_postflop_provider_rejects_turn_street():
     # Phase 2e-0 T3: PostflopHeuristicProvider only supports FLOP, not TURN.
     # A turn spot with CBET context must still return NOT_FOUND.
     from factories import make_cbet_spot
+
     from app.domain.spot import Street
 
     p = get_provider()
@@ -170,6 +171,7 @@ def test_postflop_provider_rejects_river_street():
     # Phase 2e-0 T3: PostflopHeuristicProvider only supports FLOP, not RIVER.
     # A river spot with CBET context must still return NOT_FOUND.
     from factories import make_cbet_spot
+
     from app.domain.spot import Street
 
     p = get_provider()

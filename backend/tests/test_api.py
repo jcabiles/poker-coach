@@ -94,9 +94,10 @@ def test_postflop_mode_returns_flop_spot_no_grid(client):
 
 def test_postflop_due_row_graduates_via_review(client, temp_engine):
     from datetime import date, timedelta
+
     from factories import make_cbet_spot
 
-    # 1. grade a postflop spot (with strong hand so check is acceptable) -> creates exactly one SRS row
+    # 1. grade a postflop spot (strong hand, check is acceptable) -> one SRS row
     spot = make_cbet_spot(hole_cards=("Kh", "Kd")).model_dump(mode="json")
     client.post("/api/v1/drill/grade", json={"spot": spot, "action": {"action": "check"}})
     with Session(temp_engine) as s:
@@ -169,13 +170,12 @@ def test_vs_check_raise_mode_grades_and_persists(client, temp_engine):
 
 def test_vs_check_raise_due_row_graduates_via_review(client, temp_engine):
     from datetime import date, timedelta
+
     from factories import make_check_raise_spot
 
     # 1. grade a check-raise spot (top two pair -> a natural call) -> exactly one SRS row
     spot = make_check_raise_spot().model_dump(mode="json")
-    graded = client.post(
-        "/api/v1/drill/grade", json={"spot": spot, "action": {"action": "call"}}
-    )
+    graded = client.post("/api/v1/drill/grade", json={"spot": spot, "action": {"action": "call"}})
     assert graded.status_code == 200
     assert graded.json()["leak_category"] == 202
     with Session(temp_engine) as s:

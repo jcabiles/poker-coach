@@ -34,7 +34,9 @@ def _vs_bet_spot(cbet: float, flop_pot: float = 6.0) -> Spot:
         node_context=[NodeContext.VS_CBET],
         facing=Position.BTN,
         action_history=[
-            HistoryAction(street=Street.FLOP, position=Position.BTN, action=ActionType.BET, amount_bb=cbet),
+            HistoryAction(
+                street=Street.FLOP, position=Position.BTN, action=ActionType.BET, amount_bb=cbet
+            ),
         ],
         legal_actions=[LegalAction(action=ActionType.CALL, min_bb=cbet)],
     )
@@ -67,8 +69,15 @@ def _vs_check_raise_spot(flop_pot: float, cbet: float, raise_total: float) -> Sp
         node_context=[NodeContext.VS_CBET],
         facing=Position.BB,
         action_history=[
-            HistoryAction(street=Street.FLOP, position=Position.BTN, action=ActionType.BET, amount_bb=cbet),
-            HistoryAction(street=Street.FLOP, position=Position.BB, action=ActionType.RAISE, amount_bb=raise_total),
+            HistoryAction(
+                street=Street.FLOP, position=Position.BTN, action=ActionType.BET, amount_bb=cbet
+            ),
+            HistoryAction(
+                street=Street.FLOP,
+                position=Position.BB,
+                action=ActionType.RAISE,
+                amount_bb=raise_total,
+            ),
         ],
         legal_actions=[LegalAction(action=ActionType.CALL, min_bb=faced)],
     )
@@ -86,7 +95,9 @@ def test_faced_bet_bucket_first_bet_matches_legacy_formula():
 
 def test_faced_bet_bucket_none_when_hero_is_bettor():
     spot = _vs_bet_spot(cbet=2.0)
-    hero_is_bettor = spot.model_copy(update={"legal_actions": [LegalAction(action=ActionType.RAISE, min_bb=6.0)]})
+    hero_is_bettor = spot.model_copy(
+        update={"legal_actions": [LegalAction(action=ActionType.RAISE, min_bb=6.0)]}
+    )
     assert faced_bet_bucket(hero_is_bettor) == "none"
 
 

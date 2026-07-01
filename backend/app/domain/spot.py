@@ -7,7 +7,7 @@ provider can key off it later with no schema migration.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -26,7 +26,7 @@ def validate_card(c: str) -> str:
     return c
 
 
-class Position(str, Enum):
+class Position(StrEnum):
     UTG = "UTG"
     UTG1 = "UTG1"
     UTG2 = "UTG2"
@@ -38,14 +38,14 @@ class Position(str, Enum):
     BB = "BB"
 
 
-class Street(str, Enum):
+class Street(StrEnum):
     PREFLOP = "preflop"
     FLOP = "flop"
     TURN = "turn"
     RIVER = "river"
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     FOLD = "fold"
     CHECK = "check"
     CALL = "call"
@@ -54,13 +54,13 @@ class ActionType(str, Enum):
     POST = "post"  # blind/straddle posting in action history
 
 
-class PlayerStatus(str, Enum):
+class PlayerStatus(StrEnum):
     IN = "in"
     FOLDED = "folded"
     ALLIN = "allin"
 
 
-class NodeContext(str, Enum):
+class NodeContext(StrEnum):
     """Strategic node tags — drive provider lookup and leak mapping.
 
     CBET is the Phase 2a postflop node (flop c-bet, HU SRP). VS_CBET and later
@@ -145,7 +145,8 @@ class Spot(BaseModel):
     villain_type: VillainType | None = None  # set for exploit drills
     hero_range: str | None = None  # range-notation string (postflop grading)
     villain_range: str | None = None  # range-notation string (postflop grading)
-    srs_signature: str | None = None  # SRS-key override for review spots (metadata; NOT in spot_signature)
+    # SRS-key override for review spots (metadata; NOT in spot_signature)
+    srs_signature: str | None = None
 
     @field_validator("board")
     @classmethod
