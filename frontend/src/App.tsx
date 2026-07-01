@@ -31,6 +31,7 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "leak_focus", label: "Leak focus" },
   { id: "exploit", label: "Exploit" },
   { id: "postflop", label: "Postflop (c-bet)" },
+  { id: "vs_cbet", label: "Facing c-bet" },
 ];
 
 export default function App() {

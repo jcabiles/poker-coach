@@ -316,3 +316,73 @@ def build_cbet_spot(
 def sample_cbet_spot(rng: random.Random | None = None) -> Spot:
     rng = rng or random.Random()
     return build_cbet_spot(rng, eff_bb=rng.choice(_DEPTHS))
+
+
+# --- Postflop: facing a flop c-bet (Phase 2b) ---
+# Same HU SRP pairing as 2a, flipped: hero = BB defender (OOP) facing the
+# opener's flop c-bet. hero_range = BB defend (call) range; villain_range =
+# opener RFI range (the c-bettor's range). Decision: fold / call / raise.
+def build_vs_cbet_spot(
+    rng: random.Random,
+    pairing: tuple[Position, Position] | None = None,
+    eff_bb: float = 100.0,
+    cbet_frac: float | None = None,
+) -> Spot:
+    from app.domain.equity import combos_for_range
+
+    opener, caller = pairing or rng.choice(_CBET_PAIRINGS)
+    rfi = _find_entry(NodeContext.RFI, opener, None)
+    bd = _find_entry(NodeContext.BLIND_DEFENSE, caller, opener)
+    villain_range = _combos_for(rfi, ActionType.RAISE) or "22+, A2s+, KTs+, QJs, AJo+"
+    hero_range = _combos_for(bd, ActionType.CALL) or "22-99, ATs+, KJs+, QJs, AJo+, KQo"
+
+    h1, h2 = rng.choice(combos_for_range(hero_range))
+    dead = {h1, h2}
+    flop = rng.sample([c for c in _DECK if c not in dead], 3)
+
+    osize = _OPEN_SIZE.get(opener, 2.5)
+    flop_pot = round(2 * osize + 0.5, 2)  # opener + BB call + SB dead 0.5
+    frac = cbet_frac if cbet_frac is not None else rng.choice([0.33, 0.75])
+    cbet = round(frac * flop_pot, 1)
+    pot = round(flop_pot + cbet, 2)  # pot hero faces INCLUDES the c-bet
+    hero_remaining = round(eff_bb - osize, 2)
+    villain_remaining = round(eff_bb - osize - cbet, 2)
+    effective = min(hero_remaining, villain_remaining)
+    spr = round(effective / pot, 1)
+    raise_size = round(3 * cbet, 1)
+
+    history = _blinds() + [
+        _raise(opener, osize),
+        HistoryAction(street=Street.PREFLOP, position=caller, action=ActionType.CALL, amount_bb=osize),
+        HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
+    ]
+
+    return Spot(
+        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+        street=Street.FLOP,
+        board=flop,
+        pot_bb=pot,
+        hero=Hero(position=caller, hole_cards=(h1, h2), stack_bb=hero_remaining),
+        players=[
+            PlayerState(position=caller, stack_bb=hero_remaining, is_hero=True),
+            PlayerState(position=opener, stack_bb=villain_remaining),
+        ],
+        effective_stack_bb=effective,
+        spr=spr,
+        action_history=history,
+        to_act=caller,
+        legal_actions=[
+            LegalAction(action=ActionType.FOLD),
+            LegalAction(action=ActionType.CALL, min_bb=cbet),
+            LegalAction(action=ActionType.RAISE, min_bb=raise_size, max_bb=hero_remaining),
+        ],
+        node_context=[NodeContext.VS_CBET],
+        facing=opener,
+        hero_range=hero_range,
+        villain_range=villain_range,
+    )
+
+
+def sample_vs_cbet_spot(rng: random.Random | None = None) -> Spot:
+    rng = rng or random.Random()
+    return build_vs_cbet_spot(rng, eff_bb=rng.choice(_DEPTHS))

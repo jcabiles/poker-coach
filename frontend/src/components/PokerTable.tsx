@@ -14,6 +14,8 @@ function bettingLine(history: HistoryAction[]): string {
       raises += 1;
     } else if (h.action === "call") {
       parts.push(`${h.position} ${h.amount_bb <= 1 ? "limps" : "calls"}`);
+    } else if (h.action === "bet") {
+      parts.push(`${h.position} bets ${h.amount_bb}`);
     }
   }
   return parts.join(" · ");

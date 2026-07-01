@@ -66,5 +66,14 @@ with TestClient(app) as c:  # triggers lifespan -> alembic upgrade head (incl sr
 
     for p in ("/api/v1/drill/quiz/next", "/api/v1/drill/quiz/grade"):
         assert p in paths, f"openapi missing {p}"
+
+    # --- Phase 2b: facing a flop c-bet (defense) ---
+    vc = c.get("/api/v1/drill/next?mode=vs_cbet").json()
+    assert vc["spot"]["street"] == "flop" and "vs_cbet" in vc["spot"]["node_context"], "vs_cbet spot"
+    assert vc["grid"] == {}, "grid should be empty for vs_cbet"
+    assert {la["action"] for la in vc["spot"]["legal_actions"]} == {"fold", "call", "raise"}, "vs_cbet legal actions"
+    vg = c.post("/api/v1/drill/grade", json={"spot": vc["spot"], "action": {"action": "call"}})
+    assert vg.status_code == 200 and vg.json()["leak_category"] == 201, "vs_cbet grade (VS_CBET)"
+
 print("BACKEND VERIFY OK")
 PY

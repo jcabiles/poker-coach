@@ -75,6 +75,7 @@ class NodeContext(str, Enum):
     SQUEEZE = "squeeze"
     VS_LIMPERS = "vs_limpers"
     CBET = "cbet"  # flop c-bet decision (Phase 2a)
+    VS_CBET = "vs_cbet"  # facing a flop c-bet — defense (Phase 2b)
 
 
 class Stakes(BaseModel):

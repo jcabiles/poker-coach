@@ -201,3 +201,36 @@ def test_cbet_spot_grades_via_provider():
     res = asyncio.run(p.evaluate(s, Decision(action=ActionType.CHECK)))
     assert res.leak_category == 200  # FLOP_CBET
     assert res.correctness is not None
+
+
+# --- Phase 2b: facing-a-c-bet spot ---
+def test_vs_cbet_spot_is_valid_defense_spot():
+    from app.domain.scenarios import build_vs_cbet_spot
+    from app.domain.spot import Street
+
+    s = build_vs_cbet_spot(random.Random(7), eff_bb=100.0)
+    assert s.street == Street.FLOP and len(s.board) == 3
+    assert s.node_context == [NodeContext.VS_CBET]
+    assert s.hero.position == Position.BB  # hero is the BB defender (OOP)
+    assert s.facing is not None and s.facing != s.hero.position  # villain = opener
+    assert any(h.action == ActionType.BET for h in s.action_history)  # villain c-bet
+    acts = {la.action for la in s.legal_actions}
+    assert acts == {ActionType.FOLD, ActionType.CALL, ActionType.RAISE}
+    raise_la = next(la for la in s.legal_actions if la.action == ActionType.RAISE)
+    assert raise_la.min_bb and raise_la.min_bb > 0  # raise carries a size
+    faced = next(la.min_bb for la in s.legal_actions if la.action == ActionType.CALL)
+    assert s.pot_bb > faced  # pot includes the faced c-bet
+    cards = list(s.hero.hole_cards) + s.board
+    assert len(set(cards)) == 5
+
+
+def test_vs_cbet_spot_grades_via_provider():
+    from app.domain.action import Decision
+    from app.domain.providers import get_provider
+    from app.domain.scenarios import build_vs_cbet_spot
+
+    s = build_vs_cbet_spot(random.Random(13), eff_bb=100.0)
+    p = get_provider()
+    res = asyncio.run(p.evaluate(s, Decision(action=ActionType.CALL)))
+    assert res.leak_category == 201  # VS_CBET
+    assert res.correctness is not None

@@ -106,6 +106,24 @@ def test_postflop_grade_persists_and_grades(client, temp_engine):
         assert len(list(s.exec(select(DrillAttempt)))) == 1
 
 
+
+
+def test_vs_cbet_mode_grades_and_persists(client, temp_engine):
+    body = client.get("/api/v1/drill/next?mode=vs_cbet").json()
+    spot = Spot.model_validate(body["spot"])
+    assert spot.street.value == "flop"
+    assert "vs_cbet" in spot.node_context
+    assert body["grid"] == {}
+    resp = client.post(
+        "/api/v1/drill/grade",
+        json={"spot": body["spot"], "action": {"action": "call"}},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["leak_category"] == 201  # VS_CBET
+    with Session(temp_engine) as s:
+        assert len(list(s.exec(select(DrillAttempt)))) == 1
+
+
 def test_texture_quiz_round_trips(client, temp_engine):
     item = client.get("/api/v1/drill/quiz/next?kind=texture").json()
     assert item["kind"] == "texture"

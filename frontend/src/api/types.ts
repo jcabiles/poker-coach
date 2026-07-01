@@ -83,7 +83,7 @@ export interface StatsSummary {
   trend: number;
 }
 
-export type Mode = "random" | "review" | "leak_focus" | "exploit" | "postflop";
+export type Mode = "random" | "review" | "leak_focus" | "exploit" | "postflop" | "vs_cbet";
 
 // --- Foundational quizzes (Phase 2a) ---
 export type QuizKind = "texture" | "equity";

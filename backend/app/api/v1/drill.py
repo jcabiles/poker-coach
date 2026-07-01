@@ -1,6 +1,6 @@
 """Drill endpoints.
 
-GET  /drill/next?mode=random|review|leak_focus|exploit|postflop -> a Spot to solve.
+GET  /drill/next?mode=random|review|leak_focus|exploit|postflop|vs_cbet -> a Spot to solve.
 POST /drill/grade -> grade via the StrategyProvider, persist the attempt, update SM-2.
 GET  /drill/quiz/next?kind=texture|equity|random -> a foundational quiz item.
 POST /drill/quiz/grade -> grade a quiz answer, persist it (provider="quiz").
@@ -27,6 +27,7 @@ from app.domain.scenarios import (
     sample_cbet_spot,
     sample_exploit_spot,
     sample_spot,
+    sample_vs_cbet_spot,
 )
 from app.domain.spot import NodeContext, Position, Spot, Street
 from app.domain.srs import spot_signature
@@ -68,6 +69,10 @@ def _next_postflop() -> Spot:
     return sample_cbet_spot(_RNG)
 
 
+def _next_vs_cbet() -> Spot:
+    return sample_vs_cbet_spot(_RNG)
+
+
 def _next_review(session: Session) -> Spot:
     for row in due_items(session):
         try:
@@ -105,6 +110,8 @@ async def next_drill(
         spot = _next_exploit()
     elif mode == "postflop":
         spot = _next_postflop()
+    elif mode == "vs_cbet":
+        spot = _next_vs_cbet()
     else:
         spot = _next_random()
     # range_grid is preflop-only; the frontend hides the grid for postflop spots.

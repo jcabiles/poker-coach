@@ -86,6 +86,19 @@ def test_composite_routes_flop_to_postflop():
     assert res.coverage == Coverage.FULL
 
 
+def test_composite_routes_vs_cbet_to_postflop():
+    import random
+
+    from app.domain.scenarios import build_vs_cbet_spot
+
+    p = get_provider()
+    spot = build_vs_cbet_spot(random.Random(5), eff_bb=100.0)
+    assert _run(p.supports(spot)) is True
+    res = _run(p.evaluate(spot, Decision(action=ActionType.CALL)))
+    assert res.leak_category == int(LeakCategory.VS_CBET)
+    assert res.coverage == Coverage.FULL
+
+
 def test_composite_unknown_flop_node_is_not_found():
     # A turn spot with no postflop node -> routed provider doesn't support -> NOT_FOUND.
     from app.domain.spot import Street

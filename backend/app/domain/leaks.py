@@ -35,6 +35,7 @@ class LeakCategory(IntEnum):
 
     # --- Postflop (200-299) ---
     FLOP_CBET = 200  # flop c-bet decision (HU SRP)
+    VS_CBET = 201  # facing a flop c-bet — defense (HU SRP)
     BOARD_TEXTURE = 210  # board-texture classification drill
     EQUITY_EST = 211  # equity-estimation drill
 
