@@ -226,14 +226,14 @@ def grade_cbet(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.FLOP_CBET)
 
-    base_kwargs = dict(
-        per_action=evals,
-        best_action=best,
-        provider=ProviderKind.HEURISTIC,
-        coverage=Coverage.FULL,
-        leak_category=leak,
-        is_mixed=is_mixed,
-    )
+    base_kwargs = {
+        "per_action": evals,
+        "best_action": best,
+        "provider": ProviderKind.HEURISTIC,
+        "coverage": Coverage.FULL,
+        "leak_category": leak,
+        "is_mixed": is_mixed,
+    }
 
     def _size_label(size: float | None) -> str:
         if size is None:
@@ -403,20 +403,20 @@ def grade_vs_cbet(
     freqs = _frequencies([m for _, _, m in specs])
     evals = [
         ActionEval(action=a, size_bb=size, frequency=round(f, 3), ev_bb=round(m, 2))
-        for (a, size, m), f in zip(specs, freqs)
+        for (a, size, m), f in zip(specs, freqs, strict=False)
     ]
     best = max(evals, key=lambda e: e.ev_bb)
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.VS_CBET)
 
-    base_kwargs = dict(
-        per_action=evals,
-        best_action=best,
-        provider=ProviderKind.HEURISTIC,
-        coverage=Coverage.FULL,
-        leak_category=leak,
-        is_mixed=is_mixed,
-    )
+    base_kwargs = {
+        "per_action": evals,
+        "best_action": best,
+        "provider": ProviderKind.HEURISTIC,
+        "coverage": Coverage.FULL,
+        "leak_category": leak,
+        "is_mixed": is_mixed,
+    }
 
     if decision is None:
         return EvaluationResult(

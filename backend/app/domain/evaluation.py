@@ -7,27 +7,27 @@ fall back to heuristics without any interface change.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from app.domain.spot import ActionType
 
 
-class Correctness(str, Enum):
+class Correctness(StrEnum):
     OPTIMAL = "optimal"
     ACCEPTABLE = "acceptable"
     MISTAKE = "mistake"
     BLUNDER = "blunder"
 
 
-class Coverage(str, Enum):
+class Coverage(StrEnum):
     FULL = "full"
     PARTIAL = "partial"
     NOT_FOUND = "not_found"  # heuristic is authoritative for this spot
 
 
-class ProviderKind(str, Enum):
+class ProviderKind(StrEnum):
     HEURISTIC = "heuristic"
     SOLVER = "solver"
     HYBRID = "hybrid"

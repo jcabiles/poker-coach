@@ -96,6 +96,7 @@ def _rebuild_postflop(row) -> Spot | None:
     except ValueError:
         return None
     if row.node_context == NodeContext.CBET.value:
+
         def build() -> Spot:
             return build_cbet_spot(_RNG, pairing=(pos, Position.BB), eff_bb=_RNG.choice(_DEPTHS))
     elif row.node_context == NodeContext.VS_CBET.value and row.facing:
@@ -104,6 +105,7 @@ def _rebuild_postflop(row) -> Spot | None:
         except ValueError:
             return None
         frac = 0.33 if row.faced_bet_bucket == "small" else 0.75
+
         def build() -> Spot:
             return build_vs_cbet_spot(
                 _RNG, pairing=(opener, Position.BB), eff_bb=_RNG.choice(_DEPTHS), cbet_frac=frac
@@ -133,7 +135,10 @@ def _rebuild_postflop(row) -> Spot | None:
 
     chosen = (
         next((s for s in candidates if _key(s) == target), None)  # tier a: exact
-        or next((s for s in candidates if classify(s.board[:3]).texture_class == row.texture_class), None)  # tier b
+        or next(  # tier b: same texture class
+            (s for s in candidates if classify(s.board[:3]).texture_class == row.texture_class),
+            None,
+        )
         or candidates[0]  # tier c: same node + position
     )
     chosen.srs_signature = row.signature

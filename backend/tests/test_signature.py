@@ -151,15 +151,17 @@ def _vs_cbet_spot(board, cbet, flop_pot=6.0, spr=5.0):
         node_context=[NodeContext.VS_CBET],
         facing=Position.BTN,
         action_history=[
-            HistoryAction(street=Street.FLOP, position=Position.BTN, action=ActionType.BET, amount_bb=cbet),
+            HistoryAction(
+                street=Street.FLOP, position=Position.BTN, action=ActionType.BET, amount_bb=cbet
+            ),
         ],
         legal_actions=[LegalAction(action=ActionType.CALL, min_bb=cbet)],
     )
 
 
 def test_faced_bet_size_changes_signature():
-    small = spot_signature(_vs_cbet_spot(["As", "Kd", "2c"], cbet=2.0))   # 33% of 6
-    big = spot_signature(_vs_cbet_spot(["As", "Kd", "2c"], cbet=4.5))     # 75% of 6
+    small = spot_signature(_vs_cbet_spot(["As", "Kd", "2c"], cbet=2.0))  # 33% of 6
+    big = spot_signature(_vs_cbet_spot(["As", "Kd", "2c"], cbet=4.5))  # 75% of 6
     assert small != big  # small vs big c-bet must not collapse to one SRS item
 
 
@@ -184,6 +186,4 @@ def test_srs_signature_excluded_from_hash():
         base.model_copy(update={"srs_signature": "deadbeef0000"})
     )
     flop = _flop_spot(["As", "Kd", "2c"])
-    assert spot_signature(flop) == spot_signature(
-        flop.model_copy(update={"srs_signature": "x"})
-    )
+    assert spot_signature(flop) == spot_signature(flop.model_copy(update={"srs_signature": "x"}))

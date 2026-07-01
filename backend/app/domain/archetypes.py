@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class VillainType(str, Enum):
+class VillainType(StrEnum):
     CALLING_STATION = "calling_station"  # calls too much, won't fold, rarely raises
     NIT = "nit"  # folds too much, only premiums
     LAG = "lag"  # opens/3-bets too wide, aggressive

@@ -1,11 +1,19 @@
+import asyncio as _asyncio
+import random as _random
+
 from factories import make_rfi_spot
 
 from app.domain.action import Decision
+from app.domain.archetypes import VillainType
 from app.domain.content.models import ActionRange, Entry
+from app.domain.content.registry import build_index as _build_index
+from app.domain.content.registry import load_preflop_packs as _load
 from app.domain.evaluation import Correctness
 from app.domain.grading import grade, leak_category_for
 from app.domain.hand_rank import hand_rank
 from app.domain.leaks import LeakCategory
+from app.domain.providers import get_provider as _get_provider
+from app.domain.scenarios import build_spot as _build_spot
 from app.domain.spot import ActionType, LegalAction, NodeContext, Position
 
 
@@ -177,15 +185,6 @@ def test_exploit_spot_leak_is_per_archetype():
 
 
 # --- Phase 1c: exploit grading (via provider, real content) ---
-import asyncio as _asyncio
-import random as _random
-
-from app.domain.archetypes import VillainType
-from app.domain.content.registry import build_index as _build_index
-from app.domain.content.registry import load_preflop_packs as _load
-from app.domain.providers import get_provider as _get_provider
-from app.domain.scenarios import build_spot as _build_spot
-
 _EIDX = _build_index(_load())
 
 

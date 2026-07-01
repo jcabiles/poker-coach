@@ -353,7 +353,9 @@ def build_vs_cbet_spot(
 
     history = _blinds() + [
         _raise(opener, osize),
-        HistoryAction(street=Street.PREFLOP, position=caller, action=ActionType.CALL, amount_bb=osize),
+        HistoryAction(
+            street=Street.PREFLOP, position=caller, action=ActionType.CALL, amount_bb=osize
+        ),
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
     ]
 
