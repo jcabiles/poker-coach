@@ -62,7 +62,7 @@ and *partly* real new work (baseline preflop + all postflop are templated tautol
       **Pass/fail:** `pytest` green incl. updated hand-rank expectations; EV labeled approximate in the UI; `verify.sh` +
       FE build clean. **Appetite:** ~1 small epic. **No-gos:** no solver tables; don't touch `spot_signature()` (orphans SRS).
 
-- [ ] **N3 — Authored strategic rationale (content path + first tranche).** ICE 9·7·4.
+- [x] **N3 — Authored strategic rationale (content path + first tranche).** *(done 2026-07-03: non-exploit preflop + postflop rationale paths wired into authored_rationale; rfi 6/6 + vs_rfi 6/6 + new content/postflop/cbet.json 3/3 authored, doc-grounded; refuter pass)* ICE 9·7·4.
       **Problem:** the bulk teaching gap — every non-exploit preflop pack has **zero** authored `rationale` (~85% of reps),
       and postflop graders **never read `Entry.rationale`** at all. N1's tiers are empty without this.
       **Outcome-link:** primary (teach the why across streets).
@@ -83,7 +83,7 @@ and *partly* real new work (baseline preflop + all postflop are templated tautol
       *(INVEST note: a near-horizontal enabler, kept standalone deliberately — it DOES change observable contrast/focus, is
       cheap, and de-risks N6/N7 by giving them a real visual hierarchy to build on. Fold into N6 if you'd rather not ship it alone.)*
 
-- [ ] **N5 — Frequency-mix grid cells (backend contract + FE render).** ICE 6·8·4.
+- [x] **N5 — Frequency-mix grid cells (backend contract + FE render).** *(done 2026-07-03: range_grid() returns per-action freqs; stacked-segment cells with mix aria-labels; challenge.py adapter lossless for RFI; orphaned mixed legend dropped; refuter pass)* ICE 6·8·4.
       **Problem:** grid cells show one dominant color; the real per-action mix is computed then **collapsed to a single
       label** in `range_grid()` (`grading.py:241-257`) before the wire — the #1 grid oversimplification. It's a *backend*
       contract, not a FE-only change.
@@ -95,7 +95,7 @@ and *partly* real new work (baseline preflop + all postflop are templated tautol
       matches the new response shape and typechecks; `verify.sh` + typecheck/build green. **Appetite:** ~1 epic.
       **No-gos:** don't change grading logic/thresholds; don't restyle non-grid components.
 
-- [ ] **N6 — App-shell + minimal routing (hub walking-skeleton).** ICE 5·8·6.
+- [x] **N6 — App-shell + minimal routing (hub walking-skeleton).** *(done 2026-07-03: hand-rolled hash routing #/<view>[/<mode>], reload+deep-link restore, back/forward safe, keyboard guard intact, no router lib; refuter pass)* ICE 5·8·6.
       **Problem:** no router — pure conditional rendering; reload resets to drill/random; no deep-link/resume; `App.tsx`
       owns all state with the topbar/StatsStrip/VIEWS-row unconditional and shortcuts gated on `view==="drill"`. A hub/path
       can't be resumable without this.
