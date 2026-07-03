@@ -11,11 +11,11 @@
   margin-bottom: calc(var(--space) * 2);
 }
 .topbar h1 {
-  font-size: 20px;
+  font-size: var(--text-lg);
   margin: 0;
 }
 .tag {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
   font-weight: 400;
 }
@@ -38,10 +38,10 @@
   color: var(--felt-text);
   border-radius: var(--radius);
   padding: calc(var(--space) * 2);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-felt);
 }
 .ctx {
-  font-size: 13px;
+  font-size: var(--text-md);
   opacity: 0.9;
   margin-bottom: var(--space);
 }
@@ -51,10 +51,10 @@
   flex-wrap: wrap;
 }
 .seat {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--felt-chip-bg);
   border-radius: 8px;
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 .seat .pos {
   font-weight: 600;
@@ -75,7 +75,7 @@
 }
 .herometa {
   margin-top: var(--space);
-  font-size: 13px;
+  font-size: var(--text-md);
   opacity: 0.95;
 }
 
@@ -90,17 +90,17 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-card);
   color: var(--suit-black);
 }
 .card.red {
   color: var(--suit-red);
 }
 .card .r {
-  font-size: 22px;
+  font-size: var(--text-xl);
 }
 .card .s {
-  font-size: 20px;
+  font-size: var(--text-lg);
 }
 
 /* Decisions */
@@ -115,7 +115,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 16px;
-  font-size: 15px;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 .btn:hover {
@@ -131,7 +131,7 @@
   border-color: var(--primary);
 }
 kbd {
-  font-size: 11px;
+  font-size: var(--text-xs);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0 4px;
@@ -146,6 +146,7 @@ kbd {
   border-radius: var(--radius);
   padding: calc(var(--space) * 2);
   margin-top: calc(var(--space) * 2);
+  box-shadow: var(--shadow-panel);
 }
 .good-bg {
   background: var(--good-bg);
@@ -200,7 +201,7 @@ kbd {
   margin: var(--space) 0;
 }
 .rationale-chip {
-  font-size: 12px;
+  font-size: var(--text-sm);
   background: var(--bg);
   color: var(--muted);
   border: 1px solid var(--border);
@@ -216,7 +217,7 @@ kbd {
   padding: var(--space);
 }
 .gridtitle {
-  font-size: 13px;
+  font-size: var(--text-md);
   color: var(--muted);
   margin-bottom: var(--space);
 }
@@ -232,7 +233,7 @@ kbd {
   border-radius: var(--radius);
   padding: 6px var(--space);
   margin-bottom: var(--space);
-  font-size: 13px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
 }
@@ -254,7 +255,7 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: var(--text-2xs);
   background: var(--bg);
   color: var(--muted);
   border-radius: 2px;
@@ -272,7 +273,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
   margin-top: var(--space);
 }
@@ -328,7 +329,7 @@ kbd {
   margin-bottom: 0;
 }
 .mode-group-label {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -349,7 +350,7 @@ kbd {
   gap: var(--space);
 }
 .studytest-hint {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -372,10 +373,10 @@ kbd {
   min-width: 64px;
 }
 .statstrip .stat b {
-  font-size: 20px;
+  font-size: var(--text-lg);
 }
 .statstrip .stat span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .statstrip .leaks {
@@ -386,13 +387,13 @@ kbd {
   margin-left: auto;
 }
 .lk-title {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .lk {
-  font-size: 12px;
+  font-size: var(--text-sm);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -404,7 +405,7 @@ kbd {
 
 /* Feedback mixed note */
 .mixed {
-  font-size: 13px;
+  font-size: var(--text-md);
   font-style: italic;
   margin: 4px 0;
 }
@@ -428,9 +429,9 @@ kbd {
 
 /* Betting-line summary on the table */
 .line {
-  font-size: 13px;
+  font-size: var(--text-md);
   font-weight: 600;
-  background: rgba(0, 0, 0, 0.18);
+  background: var(--felt-line-bg);
   border-radius: 6px;
   padding: 4px 8px;
   margin-bottom: var(--space);
@@ -461,7 +462,7 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 12px;
-  font-size: 15px;
+  font-size: var(--text-base);
   width: 120px;
 }
 .input:focus-visible {
@@ -471,7 +472,7 @@ kbd {
 /* Villain archetype badge (exploit drills) */
 .villain {
   display: inline-block;
-  font-size: 13px;
+  font-size: var(--text-md);
   font-weight: 700;
   text-transform: capitalize;
   background: var(--warn);
