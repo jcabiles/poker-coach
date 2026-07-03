@@ -17,6 +17,7 @@
   margin: 0;
 }
 .tag {
+  font-family: var(--font-body); /* serif floor: never inherit Fraunces below 15px */
   font-size: var(--text-sm);
   color: var(--muted);
   font-weight: 400;
