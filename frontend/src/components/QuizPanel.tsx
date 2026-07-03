@@ -70,9 +70,7 @@ export default function QuizPanel({ kind }: { kind: QuizKind }) {
             </div>
           </>
         )}
-        <div className="ctx" style={{ marginTop: "var(--space)" }}>
-          Flop
-        </div>
+        <div className="ctx quiz-spacer">Flop</div>
         <div className="board">
           {item.board.map((c, i) => (
             <Card key={i} card={c} />

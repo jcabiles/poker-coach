@@ -101,6 +101,13 @@
   --radius-pill: 999px;
   --radius: var(--radius-lg); /* alias, was a flat 10px value */
 
+  /* Layout sizes — fixed dimensions previously hardcoded in app.css,
+     tokenized in T3 (values unchanged). */
+  --content-width: 1080px; /* .app shell max-width */
+  --sidebar-w: 360px; /* .layout right column (range grid) */
+  --card-w: 52px; /* playing-card face */
+  --card-h: 72px;
+
   /* Elevation model — distinct levels for felt (base surface) → panel →
      card → overlay (highest, for future modals/popovers). Light theme
      casts soft warm-umber shadows (cream room, not gray office). */
@@ -171,7 +178,6 @@ body {
   --act-raise: #c85a31; /* terracotta chip */
   --act-call: #43905a; /* felt-green chip */
   --act-fold: #8d8879; /* stone chip */
-  --act-mixed: #8a6410;
   --act-on: #0a0d0b; /* label ink — near-black green, NOT white */
 }
 

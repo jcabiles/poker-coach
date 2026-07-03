@@ -1,5 +1,8 @@
+/* T3 note: remaining off-ramp px literals (2/3/6/10/14/36px pads, gaps and
+   minor margins) are intentional exact values with no token equivalent —
+   kept as-is rather than rounded to the nearest --space-* step. */
 .app {
-  max-width: 1080px;
+  max-width: var(--content-width);
   margin: 0 auto;
   padding: calc(var(--space) * 2);
 }
@@ -25,7 +28,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1fr var(--sidebar-w);
   gap: calc(var(--space) * 2);
   align-items: start;
 }
@@ -55,7 +58,7 @@
 }
 .seat {
   background: var(--felt-chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 6px 10px;
   font-size: var(--text-md);
 }
@@ -85,9 +88,9 @@
 /* Cards */
 .card {
   background: var(--card-bg);
-  border-radius: 8px;
-  width: 52px;
-  height: 72px;
+  border-radius: var(--radius-md);
+  width: var(--card-w);
+  height: var(--card-h);
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -137,8 +140,8 @@ kbd {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
   margin-left: 6px;
   opacity: 0.8;
 }
@@ -165,7 +168,7 @@ kbd {
   display: inline-block;
   font-weight: 700;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--primary-text);
 }
 .badge.good {
@@ -278,7 +281,7 @@ kbd {
   background: var(--bg);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
 }
 
@@ -329,7 +332,7 @@ kbd {
   overflow: hidden;
   background: var(--bg);
   color: var(--muted);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 /* N5: proportional per-action frequency segments (freq-mix grid cells). A
    pure single-action hand renders one segment at 100% width, i.e. identical
@@ -352,10 +355,6 @@ kbd {
   font-size: var(--text-2xs);
   color: var(--act-on);
   pointer-events: none;
-}
-.cell.pair {
-  color: var(--text);
-  font-weight: 600;
 }
 .cell.hero {
   background: var(--accent-cell);
@@ -489,8 +488,8 @@ kbd {
   font-size: var(--text-sm);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
 }
 .lk.muted {
   color: var(--muted);
@@ -506,7 +505,7 @@ kbd {
 /* Range-grid action coloring — also used by the legend's static swatches
    (`.cell.sample.action-*`, no children, so the flat background applies
    directly). Actual grid cells color their `.cell-segment` children instead
-   (see N5 proportional-mix rules above `.cell.pair`). */
+   (see N5 proportional-mix rules above `.cell.hero`). */
 .cell.action-raise { background: var(--act-raise); color: var(--act-on); }
 .cell.action-call { background: var(--act-call); color: var(--act-on); }
 .cell.action-fold { background: var(--act-fold); color: var(--act-on); }
@@ -521,7 +520,7 @@ kbd {
 .gridlegend .lgi {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   margin-right: 10px;
 }
 
@@ -530,8 +529,8 @@ kbd {
   font-size: var(--text-md);
   font-weight: 600;
   background: var(--felt-line-bg);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border-radius: 6px; /* between --radius-sm(4) and --radius-md(8); no token — exact value kept */
+  padding: var(--space-1) var(--space-2);
   margin-bottom: var(--space);
   display: inline-block;
 }
@@ -550,6 +549,10 @@ kbd {
 }
 
 /* Quizzes */
+.quiz-spacer {
+  /* was an inline style on QuizPanel's second .ctx row (T3) */
+  margin-top: var(--space);
+}
 .quizpanel .prompt {
   margin: calc(var(--space) * 2) 0 var(--space);
   font-weight: 600;
@@ -575,7 +578,7 @@ kbd {
   text-transform: capitalize;
   background: var(--warn);
   color: var(--primary-text);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
   margin-bottom: var(--space);
 }
