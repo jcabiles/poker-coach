@@ -248,17 +248,15 @@
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  padding: 10px var(--space-4);
   font-size: var(--text-base);
   cursor: pointer;
 }
 .btn:hover {
   border-color: var(--primary);
 }
-.btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+/* (:disabled treatment lives in the T8 states section at the end of the
+   file — it must out-cascade the equal-specificity variants above.) */
 .btn-primary {
   background: var(--primary);
   color: var(--primary-text);
@@ -340,7 +338,7 @@ kbd {
 .badge {
   display: inline-block;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: var(--space-1) 10px;
   border-radius: var(--radius-pill);
   color: var(--primary-text);
 }
@@ -700,7 +698,7 @@ kbd {
    ::after — NOT `outline`, so :focus-visible keeps sole ownership of
    outlines and the brass focus ring can never swallow the marker. The
    var(--text) layer carries the ≥3:1 guarantee over every segment chip in
-   both themes (T2 floor: 3.1:1 over --act-fold, dark); the 1px brass inlay
+   both themes (T2 floor, T8-raised: 3.2:1 over --act-fold, dark); the 1px brass inlay
    is decorative and keeps it visually distinct from the plain focus ring. */
 .cell.hero::after {
   content: "";
@@ -754,13 +752,16 @@ kbd {
 }
 
 /* Test-mode grid reveal (CW-6): plays once when the answer grid mounts after
-   grading. prefers-reduced-motion users get an instant, static appearance. */
+   grading. prefers-reduced-motion users get an instant, static appearance.
+   T8: retimed onto the motion tokens; the `reveal` keyframes are shared with
+   the feedback/quiz-result/error-banner and disclosure reveals (see the T8
+   motion section at the end of the file). */
 @media (prefers-reduced-motion: no-preference) {
   .gridwrap.reveal {
-    animation: gridReveal 220ms ease-out;
+    animation: reveal var(--dur-2) var(--ease-1);
   }
 }
-@keyframes gridReveal {
+@keyframes reveal {
   from {
     opacity: 0;
     transform: translateY(-4px);
@@ -929,7 +930,7 @@ kbd {
 .mixed {
   font-size: var(--text-md);
   font-style: italic;
-  margin: 4px 0;
+  margin: var(--space-1) 0;
 }
 
 /* Range-grid action coloring — also used by the legend's static swatches
@@ -972,9 +973,14 @@ kbd {
   margin: var(--space) 0;
 }
 
-/* Single-column layout (postflop: no range grid) */
+/* Single-column layout (postflop: no range grid). T8: cap the lone column at
+   content-width minus the absent grid sidebar and center it, so the felt
+   reads composed instead of stretching the full content width. */
 .layout-single {
   grid-template-columns: 1fr;
+  max-width: calc(var(--content-width) - var(--sidebar-w));
+  margin-inline: auto;
+  width: 100%;
 }
 
 /* Quizzes — T7: same room standard as the drill. Shares .felt/.ctx/.board/
@@ -1010,7 +1016,7 @@ kbd {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 12px;
+  padding: 10px var(--space-3);
   font-size: var(--text-base);
   width: 120px;
 }
@@ -1135,8 +1141,16 @@ kbd {
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
+/* Empty due-queue — a calm note, not a collapse: the "Nothing due —" phrase
+   and its next action sit on one composed line (T8; the button IS the
+   empty-state's next step, .btn supplies its states). */
 .home-empty {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   margin: 0;
+  padding: var(--space-2) 0;
   color: var(--muted);
 }
 .home-path-key {
@@ -1200,4 +1214,116 @@ kbd {
   background: var(--bg);
   color: var(--muted);
   border: 1px solid var(--border);
+}
+
+/* ============================== T8 — states ==============================
+   Interaction-state and status-state treatments. This section sits LAST on
+   purpose: several rules must out-cascade equal-specificity variants above
+   (.btn:hover, .decision-btn.btn-primary, .studytest-toggle .btn-primary). */
+
+/* Error banner — the room's tone voice for failures (App.tsx + QuizPanel
+   render a bare `.panel.bad-bg`; the :not() guards keep FeedbackPanel and
+   quiz results on their own T6/T7 treatments). Same top-rule idiom as the
+   feedback panel, led by the room's diamond pip in the bad tone. */
+.panel.bad-bg:not(.feedback):not(.quiz-result) {
+  border-top: 3px solid var(--bad);
+  padding: var(--space-4) var(--space-6);
+}
+.panel.bad-bg:not(.feedback):not(.quiz-result)::before {
+  /* decorative pip (empty content, invisible to AT) — echoes .brand/.lk */
+  content: "";
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-right: var(--space-3);
+  background: var(--bad);
+  transform: rotate(45deg);
+}
+
+/* Disabled controls: settled, not ghosted — the fill recedes toward the page,
+   ink drops to --muted (≥5.4:1 on the recessed fill, both themes — readable
+   but clearly parked), elevation and hover affordances go away. Replaces the
+   old 0.5-opacity fade. The extra .quizpanel selector out-ranks that
+   surface's (0,3,0) box-shadow rule. */
+.btn:disabled,
+.quizpanel .decisionbar .btn:disabled {
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+  box-shadow: none;
+  cursor: default;
+}
+.btn:disabled kbd {
+  /* key hints stay engraved on parked consoles, in the muted ink */
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 40%, transparent);
+  opacity: 1;
+}
+
+/* Active (pressed) states — the app-wide press is the decision console's 1px
+   settle, extended to every button-shaped control. A static position jump:
+   under reduced motion it stays an instant state change (fine); under
+   no-preference the transition block below eases it. */
+.btn:not(:disabled):active,
+.gridtoggle:active {
+  transform: translateY(1px);
+}
+.nav-tab:not(.active):active {
+  /* pressing a tab previews the underline it's about to earn */
+  color: var(--text);
+  border-bottom-color: var(--border);
+}
+.tier-deepdive summary:active,
+.concept-card summary:active {
+  color: var(--text);
+}
+.gridtoggle:active {
+  background: var(--bg);
+  border-color: var(--border);
+}
+.input:hover {
+  border-color: color-mix(in srgb, var(--border) 50%, var(--muted));
+}
+
+/* ============================== T8 — motion ==============================
+   The whole motion vocabulary: 120ms paint-only micro-transitions on
+   interactive controls, 200ms `reveal` (opacity + 4px settle, keyframes
+   above with the grid rules) on panels and disclosures. Everything lives
+   inside this one no-preference block — reduce users get instant state
+   changes and instant, static appearances. No layout properties animate;
+   transform is transitioned only for the 1px press settle. */
+@media (prefers-reduced-motion: no-preference) {
+  .btn,
+  .gridtoggle {
+    transition:
+      background-color var(--dur-1) var(--ease-1),
+      border-color var(--dur-1) var(--ease-1),
+      color var(--dur-1) var(--ease-1),
+      box-shadow var(--dur-1) var(--ease-1),
+      transform var(--dur-1) var(--ease-1);
+  }
+  .nav-tab {
+    transition:
+      color var(--dur-1) var(--ease-1),
+      border-bottom-color var(--dur-1) var(--ease-1);
+  }
+  .tier-deepdive summary,
+  .concept-card summary {
+    transition: color var(--dur-1) var(--ease-1);
+  }
+  .input {
+    transition: border-color var(--dur-1) var(--ease-1);
+  }
+  /* Teaching panels + error banners settle in as they mount. */
+  .panel.feedback,
+  .panel.quiz-result,
+  .panel.bad-bg:not(.feedback):not(.quiz-result) {
+    animation: reveal var(--dur-2) var(--ease-1);
+  }
+  /* Disclosure contents (deep dive, concept-card body) settle on open —
+     CSS-only, keyed off the [open] attribute; summaries stay put. */
+  .tier-deepdive[open] > :not(summary),
+  .concept-card details[open] > :not(summary) {
+    animation: reveal var(--dur-2) var(--ease-1);
+  }
 }

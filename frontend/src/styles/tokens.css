@@ -31,8 +31,9 @@
   font-display: swap;
 }
 @font-face {
-  /* Declared 700–800 so the one Bold file also serves the grid's 800-weight
-     labels without the browser stacking synthetic bold on top of it. */
+  /* Declared as the 700–800 range so the one Bold file covers any bold-range
+     request without the browser stacking synthetic bold on top of it (the
+     app's heaviest weight in use is 700 — grid labels are mono/700). */
   font-family: "Source Sans 3";
   src: url("/fonts/SourceSans3-Bold.woff2") format("woff2");
   font-weight: 700 800;
@@ -116,6 +117,14 @@
   --shadow-card: 0 2px 6px rgba(62, 52, 30, 0.16), 0 6px 16px rgba(62, 52, 30, 0.08);
   --shadow-overlay: 0 10px 28px rgba(62, 52, 30, 0.28);
   --shadow: var(--shadow-panel); /* alias, was a flat single-level value */
+
+  /* Motion — subtle card-room: state changes breathe, nothing travels.
+     Two durations only (T8): micro state changes and panel/tier reveals.
+     Every use in app.css sits inside a prefers-reduced-motion:
+     no-preference block — these tokens never animate for reduce users. */
+  --dur-1: 120ms; /* hover/focus/active micro-transitions */
+  --dur-2: 200ms; /* panel + disclosure reveals */
+  --ease-1: ease-out;
 }
 
 [data-theme="dark"] {
@@ -123,7 +132,7 @@
      gray, never pure #000), one brass voice, cream text. */
   --bg: #0e1512; /* room black-green */
   --surface: #18211c; /* raised panel */
-  --text: #f3efe2; /* warm cream — 3.1:1 over --act-fold (hero outline floor) */
+  --text: #f3efe2; /* warm cream — 3.2:1 over --act-fold (hero outline floor) */
   --muted: #a9b1a2; /* sage — 7.5:1 on --surface */
   --border: #39443c; /* 1.6:1 on --surface */
   --primary: #c9a45c; /* brass — 3.7:1 vs --felt (focus ring on the table) */
@@ -162,22 +171,25 @@ body {
 :focus-visible {
   outline: 3px solid var(--primary);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* Range-grid action colors (theme-independent — they must clear 3:1 against
    BOTH themes' bg/surface, and --act-on must clear 4.5:1 on all of them at
    the 9px cell-label size). Label ink is near-black (chip-inlay engraving),
    not white: brass-adjacent mid-tone chips + white text is the classic AA
-   failure. Verified: on/raise 4.6, on/call 5.0, on/fold 5.5, on/accent-cell
+   failure. Verified: on/raise 4.6, on/call 5.0, on/fold 5.3, on/accent-cell
    5.3 (light) / 8.3 (dark). Luminance steps raise < call < fold
-   (L 0.20 / 0.22 / 0.25) but the spread is small — the two-theme 3:1
+   (L 0.20 / 0.22 / 0.23) but the spread is small — the two-theme 3:1
    constraint caps it, so for color-blind users the redundant cues are the
-   segment PROPORTIONS and the grid legend, not tone. Don't rely on hue. */
+   segment PROPORTIONS and the grid legend, not tone. Don't rely on hue.
+   T8 darkened fold a step (#8d8879 → #8a8574): dark --text/fold and
+   fold/light-bg both move 3.08 → 3.21 (the two tightest floors), and the
+   stone chip sits quieter next to raise/call. */
 :root {
   --act-raise: #c85a31; /* terracotta chip */
   --act-call: #43905a; /* felt-green chip */
-  --act-fold: #8d8879; /* stone chip */
+  --act-fold: #8a8574; /* stone chip */
   --act-on: #0a0d0b; /* label ink — near-black green, NOT white */
 }
 
