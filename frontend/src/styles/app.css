@@ -1119,73 +1119,112 @@ kbd {
   color: var(--muted);
 }
 
-/* Stats strip */
+/* Stats strip — T3: the club marquee. An engraved brass ledger board under
+   the masthead: enlarged Fraunces numerals over letterspaced smallcaps labels,
+   hairline column dividers between figures, and a gilded "Top leaks" panel.
+   Single-row flex, no wrap (holds at 1024px); leak pills carry the room's gold
+   diamond pip. Register matches T2's serif nav + gilded switch. */
 .statstrip {
   display: flex;
-  gap: calc(var(--space) * 2);
-  align-items: center;
-  flex-wrap: wrap;
-  background: var(--surface);
+  align-items: stretch;
+  flex-wrap: nowrap;
+  background:
+    radial-gradient(140% 180% at 12% -40%, var(--gold-glow), transparent 62%),
+    var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: var(--space) calc(var(--space) * 2);
+  box-shadow: var(--shadow-panel);
   margin-bottom: calc(var(--space) * 1.5);
+  overflow: hidden;
 }
 .statstrip .stat {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 64px;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
 }
 .statstrip .stat b {
-  /* ledger numerals: display serif at 20px — above the 15px serif floor */
+  /* marquee numerals: enlarged display serif, tabular so figures column-align */
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.1rem);
   font-weight: 600;
+  line-height: 0.95;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.statstrip .stat.stat-accent b {
+  color: var(--gold-bright);
 }
 .statstrip .stat span {
   font-size: var(--text-xs);
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.statstrip .stat + .stat {
+/* Hairline column dividers between figures and before the leaks panel. */
+.statstrip .stat + .stat,
+.statstrip .leaks {
   border-left: 1px solid var(--border);
-  padding-left: var(--space-4);
 }
 .statstrip .leaks {
   display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-2);
+  justify-content: center;
   margin-left: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  min-width: 0;
 }
 .lk-title {
   font-size: var(--text-xs);
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
 }
-/* Leak chips — T7: proper markers, still a quiet ledger (T4). Each named
-   leak leads with a small diamond pip (the room's pip idiom) in the bad
-   tone — an accent, not an alarm; the no-leaks chip drops the pip. */
+.lk-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: nowrap;
+}
+/* Gilded leak pills — T3: named leak + mono percentage behind a small gold
+   diamond pip (the room's pip idiom), on a raised chip. Foil accent, not an
+   alarm; the no-leaks chip drops the pip and reads muted. */
 .lk {
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: baseline;
+  gap: var(--space-2);
   font-size: var(--text-sm);
+  color: var(--text);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  padding: 2px var(--space-2);
+  padding: 3px var(--space-3);
+  white-space: nowrap;
 }
 .lk::before {
   content: "";
   flex: none;
+  align-self: center;
   width: var(--space-1);
   height: var(--space-1);
-  background: var(--bad);
+  background: var(--gold-bright);
   transform: rotate(45deg);
+}
+.lk .lk-name {
+  letter-spacing: 0.02em;
+}
+.lk .num {
+  font-family: var(--font-mono);
+  color: var(--bad);
+  font-variant-numeric: tabular-nums;
 }
 .lk.muted {
   color: var(--muted);
