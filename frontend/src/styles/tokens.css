@@ -43,18 +43,23 @@
 
 /* Design tokens — the ONLY place raw colors live. Components reference var().
 
-   Palette: "refined card-room" — deep felt greens, brass/cream accents,
-   ivory card stock. Light theme = the same room by day: cream paper,
-   green ink, bronze hardware. All ratios below are WCAG-verified; the
-   tight ones are annotated — nudge with care. */
+   Palette: "Midnight Club" — a private members' card room. Deep felt greens,
+   champagne-gold foil (the one metal voice), ivory card stock. Light theme =
+   the same room by day: warm parchment paper, green ink, bronze hardware.
+   The felt table and its --stage-bg frame stay dark objects in BOTH themes
+   (a lit stage). All ratios below are WCAG-verified; the tight ones are
+   annotated — nudge with care. */
 :root {
-  --bg: #f4efe1; /* warm cream paper */
-  --surface: #fcfaf2; /* ivory panel */
-  --text: #1c241e; /* deep green ink */
-  --muted: #5b6357; /* sage gray — 5.4:1 on --bg */
+  --bg: #f6f0e2; /* warm parchment paper */
+  --surface: #fdfaf1; /* ivory panel */
+  --surface-2: #f4ecda; /* higher-elevation ivory (nested panels/chips) */
+  --text: #1c241e; /* deep green ink — 14.0:1 on --bg */
+  --muted: #5b6357; /* sage gray — 5.5:1 on --bg */
   --border: #cfc7b0; /* parchment line — 1.6:1 on --surface */
-  --primary: #8a6828; /* dark bronze — 4.5:1 vs --bg, 3.2:1 vs --felt (focus ring) */
-  --primary-text: #fbf8ec; /* cream — 4.8:1 on bronze, ≥5.6:1 on all badge tones */
+  --primary: #856820; /* dark bronze — 4.6:1 vs --bg, 3.1:1 vs --felt (focus ring) */
+  --primary-text: #fbf8ec; /* cream — 4.9:1 on bronze, ≥5.6:1 on all badge tones */
+  --gold-bright: #a3821f; /* emphasis foil — still legible on cream grounds */
+  --gold-glow: rgba(138, 109, 34, 0.14); /* gilt radial/glow wash (day) */
   --good: #21714b;
   --good-bg: #e3efdd;
   --bad: #b03a26;
@@ -63,6 +68,9 @@
   --warn-bg: #f3e9cf;
   --felt: #0c2519; /* felt stays night-deep in daylight — keeps --primary ring ≥3:1 on it */
   --felt-text: #eaf2e0;
+  --stage-bg: #070907; /* dark frame around the felt — theme-invariant (dark in
+     both themes; the lit stage sits in a black surround even by day) */
+  --page-glow: rgba(36, 81, 57, 0.06); /* radial ambience wash behind the shell (day) */
   --card-bg: #f9f4e4; /* ivory card stock */
   --suit-red: #b03327; /* 5.7:1 on card stock */
   --suit-black: #232921;
@@ -128,15 +136,21 @@
 }
 
 [data-theme="dark"] {
-  /* Primary theme — the room at night. Green-black surfaces (never neutral
-     gray, never pure #000), one brass voice, cream text. */
-  --bg: #0e1512; /* room black-green */
-  --surface: #18211c; /* raised panel */
-  --text: #f3efe2; /* warm cream — 3.2:1 over --act-fold (hero outline floor) */
-  --muted: #a9b1a2; /* sage — 7.5:1 on --surface */
-  --border: #39443c; /* 1.6:1 on --surface */
-  --primary: #c9a45c; /* brass — 3.7:1 vs --felt (focus ring on the table) */
-  --primary-text: #171c14; /* engraved near-black — 7.4:1 on brass */
+  /* Primary theme — the room at night. Near-black green-black grounds (never
+     neutral gray, never pure #000), one champagne-gold voice, cream text.
+     Grounds deepened toward the Midnight Club ramp: page / surface / higher
+     surface / hairline step down from the reference. --stage-bg and --felt
+     inherit their (dark) :root values — the stage is dark in both themes. */
+  --bg: #0a0e0b; /* room near-black green (page) */
+  --surface: #10150f; /* raised panel */
+  --surface-2: #151c15; /* higher-elevation panel (nested cards/chips) */
+  --text: #f3efe2; /* warm cream — 16.1:1 on --surface, 3.2:1 over --act-fold (hero outline floor) */
+  --muted: #a9b1a2; /* sage — 8.4:1 on --surface */
+  --border: #303e2a; /* 1.6:1 on --surface (structural hairline) */
+  --primary: #c9a75c; /* champagne gold — 3.8:1 vs --felt (focus ring on the table) */
+  --primary-text: #171c14; /* engraved near-black — 7.6:1 on gold */
+  --gold-bright: #e6d29a; /* emphasis foil — bright champagne highlight */
+  --gold-glow: rgba(201, 167, 92, 0.16); /* gilt radial/glow wash (night) */
   --good: #66c992;
   --good-bg: #142a1e;
   --bad: #ef8672;
@@ -145,15 +159,17 @@
   --warn-bg: #2b2412;
   --felt: #1b563e; /* deep felt green */
   --felt-text: #eaf2e0; /* 7.5:1 on felt */
+  --page-glow: rgba(36, 81, 57, 0.22); /* radial ambience wash behind the shell (night) */
   --card-bg: #f4eede; /* same ivory stock as light theme — cards are physical */
   --suit-red: #ad3125; /* 5.6:1 on card stock */
   --suit-black: #20261f;
-  --accent-cell: #c9a45c; /* hero-cell brass = --primary; --act-on ink 8.3:1 on it */
-  /* Dark-room shadows: deep green-black, soft and wide — not harsh #000. */
-  --shadow-felt: 0 1px 2px rgba(3, 9, 6, 0.4);
-  --shadow-panel: 0 1px 3px rgba(3, 9, 6, 0.55);
-  --shadow-card: 0 2px 6px rgba(3, 9, 6, 0.5), 0 8px 20px rgba(3, 9, 6, 0.3);
-  --shadow-overlay: 0 12px 32px rgba(2, 7, 5, 0.65);
+  --accent-cell: #c9a75c; /* hero-cell brass = --primary; --act-on ink 8.5:1 on it */
+  /* Dark-room shadows: deep green-black, soft and wide — not harsh #000.
+     Deepened toward the reference's near-black night elevation. */
+  --shadow-felt: 0 1px 2px rgba(2, 6, 4, 0.45);
+  --shadow-panel: 0 1px 3px rgba(2, 6, 4, 0.6);
+  --shadow-card: 0 2px 6px rgba(2, 6, 4, 0.55), 0 8px 20px rgba(2, 6, 4, 0.35);
+  --shadow-overlay: 0 12px 32px rgba(1, 4, 3, 0.7);
   --shadow: var(--shadow-panel);
 }
 
