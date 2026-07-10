@@ -79,6 +79,9 @@ def _best7(cards: list[str]) -> tuple:
     return best
 
 
+best7 = _best7  # public alias; 7-card list[str] -> comparable strength tuple
+
+
 def class_to_combos(cls: str) -> list[tuple[str, str]]:
     """'AA' -> 6 combos, 'AKs' -> 4, 'AKo' -> 12."""
     if len(cls) == 2:  # pair
