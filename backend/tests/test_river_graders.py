@@ -262,26 +262,28 @@ def test_river_barrel_rationale_tags_are_6_wide_with_river_class():
 
 
 def test_river_barrel_tiers_name_both_turn_and_river_card_class():
-    from app.domain.feedback import compose_tiers
-
-    grade_river_barrel, _ = _import_graders()
-    # Ac Kd Qh Ts (straight-completing turn) + Js (further straight-completing
-    # river) — a scare-card river spot where both cards matter to the story.
-    spot = _river_barrel_spot(river_card="Js")
-    res = grade_river_barrel(spot, spot.hero_range, spot.villain_range, None)
-    tiers = compose_tiers(spot, res, None)
-    reasoning = tiers.reasoning.lower()
-    assert "straight" in reasoning or "scare" in reasoning
-    # Both the turn-card sentence and the river-card sentence must appear —
-    # count "straight" mentions (turn AND river both complete a straight here)
-    # or fall back to checking the dedicated river vocabulary directly.
-    from app.domain.feedback import _RIVER_CLASS, _TURN_CLASS
+    from app.domain.feedback import _RIVER_CLASS, _TURN_CLASS, compose_tiers
     from app.domain.texture import river_card_class, turn_card_class
 
+    grade_river_barrel, _ = _import_graders()
+    # Ac Kd Qh Ts (straight-completing turn) + 2s (river bricks) — turn_class
+    # and river_class deliberately DIFFER here ("straight" vs "blank"), so a
+    # test that only exercised one of the two dispatch gates could not pass
+    # by accident on a fixture where both classes happen to be equal.
+    spot = _river_barrel_spot(river_card="2s")
     tclass = turn_card_class(spot.board)
     rclass = river_card_class(spot.board)
-    assert _TURN_CLASS[tclass].lower() in reasoning or tclass in reasoning
-    assert _RIVER_CLASS[rclass].lower() in reasoning or rclass in reasoning
+    assert tclass != rclass  # guards the fixture's own premise
+
+    res = grade_river_barrel(spot, spot.hero_range, spot.villain_range, None)
+    tiers = compose_tiers(spot, res, None)
+    reasoning = tiers.reasoning
+
+    # Exact sentence strings for THIS fixture's classes — no `or` fallback —
+    # so the assertion only passes if BOTH the turn-class gate (tags[4]) and
+    # the river-class gate (tags[5]) actually fired.
+    assert _TURN_CLASS[tclass] in reasoning
+    assert _RIVER_CLASS[rclass] in reasoning
 
 
 # --- leak_category wiring (both mapping sites) ---
