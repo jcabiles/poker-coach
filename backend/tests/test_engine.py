@@ -157,19 +157,31 @@ def test_split_main_pot_and_sole_side_pot_winner():
     state = _act(state, 6, ActionType.BET, 10.0)
     state = _act(state, 0, ActionType.CALL, None)
 
+    # seat3 is ALLIN; seat0/seat6 are still IN with chips behind, so betting
+    # continues — check the turn and river down to a legitimate showdown
+    # (rule 5: street only auto-advances to hand_over when <=1 IN seat can act).
+    for _ in range(2):
+        state = _act(state, 6, ActionType.CHECK, None)
+        state = _act(state, 0, ActionType.CHECK, None)
+
     assert state.hand_over is True
     settlement = settle(state)
 
+    # main pot: 3x10 preflop/flop-call layer + 1.5 dead money (SB 0.5 + BB 1.0
+    # folded preflop) = 31.5, eligible seats 0/3/6 (rule 7). side pot: seat0 and
+    # seat6's flop bet/call beyond seat3's 10bb cap = 2x10 = 20.0.
     pot_amounts = sorted(p.amount_bb for p in settlement.pots)
-    assert pot_amounts == pytest.approx([20.0, 30.0])  # side pot, then main pot
+    assert pot_amounts == pytest.approx([20.0, 31.5])  # side pot, then main pot
 
     by_seat = {d.seat: d.delta_bb for d in settlement.deltas}
-    assert by_seat[0] == pytest.approx(15.0)  # 15 (split main) + 20 (side) - 20 invested
-    assert by_seat[3] == pytest.approx(5.0)  # 15 (split main) - 10 invested
+    assert by_seat[0] == pytest.approx(15.75)  # 15.75 (split main) + 20 (side) - 20 invested
+    assert by_seat[3] == pytest.approx(5.75)  # 15.75 (split main) - 10 invested
     assert by_seat[6] == pytest.approx(-20.0)  # 0 won - 20 invested
+    assert by_seat[1] == pytest.approx(-0.5)  # SB dead money
+    assert by_seat[2] == pytest.approx(-1.0)  # BB dead money
     assert sum(by_seat.values()) == pytest.approx(0.0, abs=1e-9)
 
-    main_pot = next(p for p in settlement.pots if p.amount_bb == pytest.approx(30.0))
+    main_pot = next(p for p in settlement.pots if p.amount_bb == pytest.approx(31.5))
     side_pot = next(p for p in settlement.pots if p.amount_bb == pytest.approx(20.0))
     main_idx = settlement.pots.index(main_pot)
     side_idx = settlement.pots.index(side_pot)
