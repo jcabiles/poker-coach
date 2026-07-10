@@ -194,24 +194,27 @@ _CHECK_BASE = {
     StrengthBucket.ACE_HIGH: 0.95,
     StrengthBucket.AIR: 0.95,
 }
-# Facing chips: fold / call / raise merit.
+# Facing chips: fold / call / raise merit. Calibration (refuter round 2):
+# tuned so a stickiness ~1.0 persona folds to a flop c-bet ~0.45-0.55 and
+# stickiness 1.8 lands ~0.25-0.35; call floors keep low-stickiness personas
+# (nit, 0.6) calling with real pairs so AF isn't call-starved.
 _FOLD_BASE = {
     StrengthBucket.MONSTER: 0.0,
     StrengthBucket.TWO_PAIR_PLUS: 0.05,
-    StrengthBucket.OVERPAIR_TPTK: 0.10,
-    StrengthBucket.TOP_PAIR: 0.25,
-    StrengthBucket.MIDDLE_PAIR: 0.55,
-    StrengthBucket.ACE_HIGH: 0.85,
-    StrengthBucket.AIR: 0.95,
+    StrengthBucket.OVERPAIR_TPTK: 0.05,
+    StrengthBucket.TOP_PAIR: 0.12,
+    StrengthBucket.MIDDLE_PAIR: 0.35,
+    StrengthBucket.ACE_HIGH: 0.60,
+    StrengthBucket.AIR: 0.75,
 }
 _CALL_BASE = {
     StrengthBucket.MONSTER: 0.35,
     StrengthBucket.TWO_PAIR_PLUS: 0.55,
-    StrengthBucket.OVERPAIR_TPTK: 0.65,
-    StrengthBucket.TOP_PAIR: 0.65,
-    StrengthBucket.MIDDLE_PAIR: 0.40,
-    StrengthBucket.ACE_HIGH: 0.15,
-    StrengthBucket.AIR: 0.05,
+    StrengthBucket.OVERPAIR_TPTK: 0.70,
+    StrengthBucket.TOP_PAIR: 0.78,
+    StrengthBucket.MIDDLE_PAIR: 0.60,
+    StrengthBucket.ACE_HIGH: 0.40,
+    StrengthBucket.AIR: 0.25,
 }
 _RAISE_BASE = {
     StrengthBucket.MONSTER: 0.65,
@@ -241,6 +244,7 @@ def sample_postflop_decision(
     opponents: int,
     rng: random.Random,
     noise: float = 1.0,
+    current_bet_to: float = 0.0,
 ) -> Decision:
     """Draw a frequency-mixed postflop decision from the pack's levers.
 
@@ -252,12 +256,12 @@ def sample_postflop_decision(
     Sizing (spec-pinned): pot-fraction `f` sampled from pack sizing weights,
     independent of bucket. BET: `f * pot_bb`. RAISE:
     `raise_to = current_bet_to + f * (pot_bb + to_call)` where `to_call` is
-    the CALL entry's min_bb and `current_bet_to` is APPROXIMATED by `to_call`
-    (exact whenever the acting seat has 0 invested this street — the common
-    postflop case; the RAISE bracket's min_bb is min_raise_to, NOT the bet
-    being raised, so it cannot recover current_bet_to reliably). Legality is
-    guaranteed by rounding 2dp then clamping into [min_bb, max_bb]; a jam
-    bracket (min == max) resolves to it.
+    the CALL entry's min_bb and `current_bet_to` is the caller-supplied
+    street current bet-TO amount (HandState.current_bet_bb; 0.0 = unopened —
+    it is NOT derivable from the legal bracket, whose RAISE min_bb is
+    min_raise_to, not the bet being raised). Legality is guaranteed by
+    rounding 2dp then clamping into [min_bb, max_bb]; a jam bracket
+    (min == max) resolves to it.
     """
     pf = pack.postflop
     if pf is None:
@@ -328,7 +332,7 @@ def sample_postflop_decision(
         size = f * pot_bb
     else:
         to_call = by_kind[ActionType.CALL].min_bb or 0.0 if ActionType.CALL in by_kind else 0.0
-        size = to_call + f * (pot_bb + to_call)  # current_bet_to ~= to_call (see docstring)
+        size = current_bet_to + f * (pot_bb + to_call)  # spec formula, exact
     bracket = by_kind[action]
     size = min(max(round(size, 2), bracket.min_bb), bracket.max_bb)
     return Decision(action=action, size_bb=size)
