@@ -105,8 +105,13 @@ export default function PokerTable({ spot }: { spot: Spot }) {
                       D
                     </span>
                   )}{" "}
-                  · {spot.hero.stack_bb}bb ·{" "}
-                  <span className="toact">you are to act</span>
+                  · {spot.hero.stack_bb}bb
+                  {spot.legal_actions.length > 0 && (
+                    <>
+                      {" "}
+                      · <span className="toact">you are to act</span>
+                    </>
+                  )}
                 </div>
               </div>
             );

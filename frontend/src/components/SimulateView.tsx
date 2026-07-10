@@ -101,6 +101,20 @@ export default function SimulateView() {
 
   return (
     <section className="simulate">
+      {error && (
+        <div className="panel bad-bg">
+          Error: {error}. Is the backend running on :8008?
+        </div>
+      )}
+
+      {hand ? (
+        <PokerTable spot={toSpot(hand)} />
+      ) : (
+        !error && <div className="panel simulate-empty">Dealing the first hand…</div>
+      )}
+
+      {/* Action bar sits below the table, under the hero seat — where S9's
+          real action buttons will live. */}
       <div className="simulate-bar">
         <span className="simulate-count">
           Hand <span className="simulate-count-no">{hand ? hand.hand_no : "—"}</span>
@@ -114,18 +128,6 @@ export default function SimulateView() {
           Next hand
         </button>
       </div>
-
-      {error && (
-        <div className="panel bad-bg">
-          Error: {error}. Is the backend running on :8008?
-        </div>
-      )}
-
-      {hand ? (
-        <PokerTable spot={toSpot(hand)} />
-      ) : (
-        !error && <div className="panel simulate-empty">Dealing the first hand…</div>
-      )}
     </section>
   );
 }

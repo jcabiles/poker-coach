@@ -2580,11 +2580,13 @@ kbd {
    idiom), the gilded .btn-primary as the single deal control. Tokens only; the
    button inherits the global :focus-visible ring. */
 .simulate-bar {
+  /* Below the felt, centered under the hero seat — the slot S9's real action
+     buttons will occupy. */
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
 }
 .simulate-count {
   font-family: var(--font-display);
