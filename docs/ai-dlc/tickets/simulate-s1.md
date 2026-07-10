@@ -5,7 +5,7 @@
 > Branch: one shared `feat/simulate-s1` (workers share the main tree — no worktrees, .venv/node_modules).
 > DAG: **T1 ‖ T3** first (disjoint files), **T2 after T1** (imports it), **T4 last** (lead).
 
-- [ ] **T1 — Domain deck + rotation (Track A · agent: implementer).**
+- [x] **T1 — Domain deck + rotation (Track A · agent: implementer).**
   Pure-domain dealing: `deal_hand(rng)` → `DealtHand` (9×2 hole + 5 board, `rng.shuffle` on
   the `equity.py:24`-style 52-card list) and `positions_for_button(button_seat)` per the
   spec's worked example.
@@ -18,7 +18,7 @@
   no fastapi/starlette/sqlmodel/sqlalchemy in `sys.modules` after import.
   **No-gos:** no web/DB imports; no session state (T2's); no changes outside owned files.
 
-- [ ] **T2 — Simulate API (Track E backend · agent: implementer · AFTER T1 merges).**
+- [x] **T2 — Simulate API (Track E backend · agent: implementer · AFTER T1 merges).**
   `POST /simulate/session` + `POST /simulate/session/{id}/hand` per the frozen contract:
   module-level `dict[str, SimSession]` (`button_seat`, `hand_no` minimum), per-hand
   `random.Random(secrets.randbits(256))`, seed logged server-side never on the wire, button
@@ -35,7 +35,7 @@
   **No-gos:** no DB models/migrations (touching `alembic/versions/` = scope violation); no
   reuse of drill's `_RNG`; no grader/provider imports.
 
-- [ ] **T3 — Simulate tab UI (Track E frontend · agent: ux-ui-designer · parallel with T1).**
+- [x] **T3 — Simulate tab UI (Track E frontend · agent: ux-ui-designer · parallel with T1).**
   View registration at all 4 points (`View` union + `VIEW_IDS` in `hashRoute.ts`; `VIEWS` +
   explicit render branch in `App.tsx` — must not fall into the `QuizPanel` else);
   `SimulateView.tsx` with the **synthetic-Spot adapter exactly as pinned in the spec**
@@ -51,7 +51,7 @@
   **No-gos:** don't touch `PokerTable.tsx`, `Card.tsx`, keyboard-shortcut effect, StatsStrip;
   no new deps; no board rendering.
 
-- [ ] **T4 — Integration verify + slice close-out (lead — not delegated).**
+- [x] **T4 — Integration verify + slice close-out (lead — not delegated).**
   Merge order T1 → T2 → T3 on `feat/simulate-s1`; run full Verify-by (spec §Verify-by):
   `verify.sh` + FE typecheck/build + manual probe on `#/simulate` (hand renders, villains
   face-down, one dealer chip, Next hand rotates button, reload restores view). Then:
