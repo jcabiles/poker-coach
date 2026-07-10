@@ -87,7 +87,7 @@ the serial spine S2→S4→S9→S10, not the agent budget.
 
 ## NOW — spec-ready vertical slices (ICE = Impact·Confidence·Ease, 1–10)
 
-- [x] **S1 — Table walking skeleton: deal a real hand on a Simulate tab.** *(done 2026-07-10, PR #27: domain/table deck + rotation, /simulate endpoints w/ hero-only wire + 404 precedent, Simulate tab via synthetic-Spot adapter over PokerTable; 277 tests + verify.sh green; refuter pass; design-review pass after 2 fixes. Carry-forward notes: StrictMode dev double-session (benign), leak test is key-name-based, PokerTable "you are to act" copy misleading pre-betting → S2 polish)* ICE 8·9·7. *(Track A+E seed, W1)*
+- [x] **S1 — Table walking skeleton: deal a real hand on a Simulate tab.** *(done 2026-07-10, PR #27: domain/table deck + rotation, /simulate endpoints w/ hero-only wire + 404 precedent, Simulate tab via synthetic-Spot adapter over PokerTable; 277 tests + verify.sh green; refuter pass; design-review pass after 2 fixes. Carry-forward notes: StrictMode dev double-session (benign), leak test is key-name-based; "you are to act" now conditional on legal_actions + deal bar moved under the felt (a2ab3c9, post-review UX pass); "Pot 0bb" w/o posted blinds → resolves in S2)* ICE 8·9·7. *(Track A+E seed, W1)*
       **Problem:** no game surface exists at all. **Outcome-link:** transfer layer exists end-to-end.
       **Solution:** pure-domain `Deck` (`random.Random.shuffle`, per-hand seed from
       `secrets.randbits(256)`, hole cards + full board dealt upfront); minimal
