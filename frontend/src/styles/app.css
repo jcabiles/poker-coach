@@ -2572,3 +2572,30 @@ kbd {
     z-index: 2;
   }
 }
+
+/* Simulate S1 — the walking-skeleton tab. The dealt felt table is the focal
+   point (rendered by the shared PokerTable); this is only the thin control
+   rail above it — a hand counter and the "Next hand" deal button. Serif label
+   in the club register, mono for the numeric counter (the app's numeric-data
+   idiom), the gilded .btn-primary as the single deal control. Tokens only; the
+   button inherits the global :focus-visible ring. */
+.simulate-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.simulate-count {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--muted);
+}
+.simulate-count-no {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.simulate-empty {
+  color: var(--muted);
+}

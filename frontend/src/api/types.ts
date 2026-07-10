@@ -194,3 +194,18 @@ export interface ReviewPlanResponse {
   due_count: number;
   items: DuePlanItem[];
 }
+
+// Simulate S1 — hand-authored mirror of backend/app/schemas/simulate.py.
+// The domain PlayerState/Hero shapes ARE the wire contract (same shapes the
+// drill Spot already inlines). Only hero hole_cards are on the wire in S1 —
+// villain cards and the board are dealt server-side but never serialized.
+export interface SimulateHandView {
+  hand_no: number; // 1-based, increments per hand
+  players: { position: string; stack_bb: number; is_hero: boolean; status: string }[];
+  hero: { position: string; hole_cards: [string, string]; stack_bb: number };
+}
+
+export interface SimulateSessionResponse {
+  session_id: string; // uuid4 hex
+  hand: SimulateHandView;
+}

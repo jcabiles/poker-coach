@@ -117,3 +117,6 @@ duplicated at **five independent call sites** (`postflop.py:184`, `postflop.py:3
 `providers/postflop.py`'s async `supports`/`optimal`/`evaluate` interface shape ·
 `api/v1/drill.grade_drill` · `services/review.record_attempt` (persistence/SM-2 machinery) ·
 `db/models.SRSItemRow` (nullable string columns) · `PokerTable.tsx` board rendering.
+
+> **SUPERSEDED for S5 scoping (2026-07-10):** predates commit 53c865c — several hazards fixed since.
+> Current-state delta: `simulate-s5.md` in this directory.
