@@ -1,4 +1,5 @@
 import type {
+  CalendarDay,
   CardMatchResponse,
   Decision,
   EvaluationResult,
@@ -9,6 +10,7 @@ import type {
   QuizItem,
   QuizKind,
   QuizResult,
+  RecapResponse,
   ReviewPlanResponse,
   Spot,
   StatsSummary,
@@ -41,6 +43,18 @@ export async function getLeaks(): Promise<LeakStat[]> {
 
 export async function getSummary(): Promise<StatsSummary> {
   return json(await fetch(`${BASE}/stats/summary`));
+}
+
+// T8 — practice heat-calendar (Monday-aligned, zero days included). Home fetches
+// this best-effort/fire-and-forget: the calendar hides if it fails.
+export async function getCalendar(weeks = 8): Promise<CalendarDay[]> {
+  return json(await fetch(`${BASE}/stats/calendar?weeks=${weeks}`));
+}
+
+// T8 — most-recent practice day's recap. Best-effort like the calendar; the
+// House Recap card empty-states when `day` is null or the fetch fails.
+export async function getRecap(): Promise<RecapResponse> {
+  return json(await fetch(`${BASE}/stats/recap`));
 }
 
 export async function quizNext(kind: QuizKind | "random" = "random"): Promise<QuizItem> {

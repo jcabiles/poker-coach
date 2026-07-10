@@ -93,6 +93,25 @@ export interface StatsSummary {
   due_count: number;
   streak_days: number;
   trend: number;
+  ev_given_up_today_bb: number; // T8: sum of today's ev_loss_bb (local day), 2dp; approximate
+}
+
+// T8 — practice heat-calendar: one entry per day, Monday-aligned, zero days
+// included (full grid). accuracy is 0 on zero-attempt days.
+export interface CalendarDay {
+  date: string; // "YYYY-MM-DD"
+  attempts: number;
+  accuracy: number; // 0..1
+}
+
+// T8 — most-recent practice day's recap. `day` is null when no attempts exist;
+// `biggest_miss` is null when the day had no graded misses.
+export interface RecapResponse {
+  day: string | null; // "YYYY-MM-DD" or null (empty history)
+  hands: number;
+  accuracy: number; // 0..1
+  bb_given_up: number; // approximate
+  biggest_miss: { label: string; ev_loss_bb: number } | null;
 }
 
 export type Mode =

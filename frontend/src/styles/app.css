@@ -1850,49 +1850,193 @@ kbd {
   margin-bottom: var(--space-2);
 }
 
-/* N7 — home/curriculum hub. T4: the private-room entry. One focal point —
-   the due-count numeral; the path scans as a numbered course beside it.
-   Two columns ≥821px so "today's plan" and the path read in one glance. */
+/* ============================== T9 — masthead EV ledger ==================
+   The running tab at the club bar. Sits in .masthead-right beside the Night|Day
+   switch: a gilded card carrying today's bb given up (loss tone when EV was
+   given up) + a slim leak-budget meter. The figure + label carry meaning for
+   AT; the bar is aria-hidden. Budget is a FE constant (labeled approx.). */
+.masthead-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.ev-ledger-widget {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(120% 160% at 100% 0%, var(--gold-glow), transparent 60%),
+    var(--surface-2);
+  box-shadow: var(--shadow-panel);
+}
+.elw-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.elw-eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.elw-figures {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.elw-figure {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.elw-figure.loss {
+  color: var(--bad);
+}
+.elw-unit {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.elw-meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 132px;
+}
+.elw-bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.elw-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  /* a clean day fills brass; a leaking day runs brass→loss */
+  background: var(--primary);
+}
+.elw-fill.loss {
+  background: linear-gradient(90deg, var(--primary), var(--bad));
+}
+.elw-budget {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  text-align: right;
+  letter-spacing: 0.02em;
+}
+
+/* NEW chip — a struck brass tag marking the epic's fresh features (EV ledger,
+   calendar, recap). Engraved ink on gold; ≥4.5:1 both themes. */
+.new-tag {
+  flex: none;
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary-text);
+  background: linear-gradient(180deg, var(--gold-bright), var(--primary));
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+/* On the ledger widget the chip pins to the top-right corner, half-off the
+   card edge like a wax seal. */
+.ev-ledger-widget .new-tag {
+  position: absolute;
+  top: -8px;
+  right: var(--space-3);
+}
+
+/* ============================== N7/T9 — home hub =========================
+   The private-room entry. The upper fold pairs "the evening's card" (due queue,
+   its count the focal numeral) with "the curriculum" (a numbered course); the
+   lower fold carries the attendance calendar + the House Recap. .home stacks
+   the two folds; .home-grid / .home-lower own their internal two-up layouts,
+   each collapsing to one column ≤820px. */
 .home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.home-grid,
+.home-lower {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-6);
   align-items: start;
 }
+/* Recap reads wider than the calendar — give it the larger column ≥821px. */
+.home-lower {
+  grid-template-columns: 1fr 1.25fr;
+}
 @media (max-width: 820px) {
-  .home {
+  .home-grid,
+  .home-lower {
     grid-template-columns: 1fr;
   }
 }
 .home-section {
-  margin-top: 0; /* .panel's stacked-flow margin; the grid gap owns rhythm here */
+  margin-top: 0; /* the fold grids own vertical rhythm, not .panel's flow margin */
   padding: var(--space-6);
+}
+/* Section header — a gold eyebrow over the serif title, the New chip pinned
+   opposite. The eyebrow replaces the old bare title rule's underline. */
+.home-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.home-eyebrow {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary);
 }
 .home-section-title {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 600;
-  margin: 0 0 var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  margin: 0;
+  line-height: 1.1;
 }
 .home-due-count {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-2);
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
 }
 .home-due-num {
-  /* the hub's focal numeral — 2× the largest type step (no larger token
+  /* the hub's focal numeral — 3× the largest type step (no larger token
      exists); large-text AA: brass ≥4.5:1 on --surface both themes */
   font-family: var(--font-display);
-  font-size: calc(var(--text-xl) * 2);
+  font-size: calc(var(--text-xl) * 3);
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 0.85;
   color: var(--primary);
 }
 .home-due-word {
   color: var(--muted);
+  font-size: var(--text-base);
 }
 /* Due queue rows — styled via .home-due-list only (.mix is shared with
    FeedbackPanel; equal specificity, these later rules win for Home). */
@@ -1906,6 +2050,20 @@ kbd {
   gap: var(--space-3);
   padding: var(--space-2) 0;
   border-top: 1px solid var(--border);
+}
+.home-due-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.home-due-pip {
+  /* the room's brass diamond pip leading each due row (decorative) */
+  flex: none;
+  align-self: center;
+  width: 5px;
+  height: 5px;
+  transform: rotate(45deg);
+  background: var(--primary);
 }
 .home-due-date {
   font-family: var(--font-mono);
@@ -1925,67 +2083,287 @@ kbd {
   padding: var(--space-2) 0;
   color: var(--muted);
 }
+/* the curriculum's key sits at the top-right of the header, quiet mono caps */
 .home-path-key {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
+  flex: none;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--muted);
+  align-self: center;
 }
 .home-path {
   counter-reset: pathstep;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 2px;
   list-style: none;
   padding: 0;
-  margin: var(--space-3) 0 0;
+  margin: 0;
 }
 .home-path li {
   counter-increment: pathstep;
 }
+/* Course rows are borderless ghost buttons — the whole row lights on hover.
+   Reset the shared .btn's surface/border so it reads as a list row, not a
+   pill (states below re-supply hover + the global focus ring). */
 .home-path-node {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   text-align: left;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+.home-path-node:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
 }
 .home-path-node::before {
-  /* numbered course steps — mono ledger digits */
+  /* numbered course steps — brass mono ledger digits */
   content: counter(pathstep, decimal-leading-zero);
   flex: none;
+  width: 1.4em;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   letter-spacing: 0.5px;
-  color: var(--muted);
+  color: var(--primary);
+}
+.home-path-title {
+  /* serif course names — the club register */
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 500;
 }
 .home-path-node .badge {
   margin-left: auto;
 }
 
-/* Mastery badges — NEW .mastery class; base .badge is shared with
-   FeedbackPanel + QuizPanel (T6/T7 own those) and stays untouched.
-   Tone-tinted fills with tone ink (all pairs ≥5:1 both themes); state is
-   also written out as text, never color-only. */
+/* Mastery / gilded status chips — NEW .mastery class; base .badge is shared
+   with FeedbackPanel + QuizPanel (T6/T7 own those) and stays untouched. Club
+   register: tinted-outline chips (not filled), tone ink on a faint tone wash.
+   All pairs ≥4.5:1 both themes; state is also written as text, never color-
+   only. LEARNING reads gilt (brass), SOLID gain, NEW neutral. */
 .badge.mastery {
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-size: var(--text-2xs);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px var(--space-2);
+  letter-spacing: 0.14em;
+  padding: 3px var(--space-2);
+  border: 1px solid transparent;
 }
 .badge.mastery.good {
   background: var(--good-bg);
   color: var(--good);
+  border-color: color-mix(in srgb, var(--good) 40%, transparent);
 }
 .badge.mastery.warn {
-  background: var(--warn-bg);
-  color: var(--warn);
+  /* LEARNING — the gilt tone: brass ink on a gold wash, gold-deep rule */
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--gold-bright);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
 }
 .badge.mastery.neutral {
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--muted);
-  border: 1px solid var(--border);
+  border-color: var(--border);
+}
+
+/* --- T9: attendance heat calendar --- */
+/* 7 Mon-aligned weekday rows; weeks flow down the columns (grid-auto-flow:
+   column). Cells are square via aspect-ratio; the 5 intensity steps are all
+   composed from --primary via color-mix over --surface-2, so both themes get
+   theme-correct foil with no new colors. */
+.cal-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 5px;
+}
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.cal-cell.l0 {
+  background: var(--surface-2);
+}
+.cal-cell.l1 {
+  background: color-mix(in srgb, var(--primary) 24%, var(--surface-2));
+}
+.cal-cell.l2 {
+  background: color-mix(in srgb, var(--primary) 48%, var(--surface-2));
+}
+.cal-cell.l3 {
+  background: color-mix(in srgb, var(--primary) 72%, var(--surface-2));
+}
+.cal-cell.l4 {
+  /* the top step: full brass foil with a faint gilt glow (inlaid) */
+  background: linear-gradient(180deg, var(--gold-bright), var(--primary));
+  border-color: var(--primary);
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.cal-legend .cal-cell {
+  width: 12px;
+  height: 12px;
+  aspect-ratio: auto;
+  flex: none;
+}
+.cal-legend-note {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* --- T9: the House Recap — last session as a settled ledger --- */
+/* A faint gilt wash blooms from the top-right corner behind the figures. */
+.home-recap {
+  position: relative;
+  overflow: hidden;
+}
+.home-recap::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -12%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, var(--gold-glow), transparent 65%);
+  pointer-events: none;
+}
+.home-recap > * {
+  position: relative;
+  z-index: 1;
+}
+.recap-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+.recap-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.recap-figure {
+  font-family: var(--font-display);
+  font-size: calc(var(--text-xl) * 1.35);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  margin: 0;
+}
+.recap-figure.loss {
+  color: var(--bad);
+}
+.recap-pct {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.recap-label {
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Biggest-miss row — struck in the loss tone on a faint bad wash. */
+.recap-miss {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--bad-bg);
+}
+.recap-miss-badge {
+  flex: none;
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bad);
+  border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 3px var(--space-2);
+  background: color-mix(in srgb, var(--bad) 8%, transparent);
+}
+.recap-miss-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.recap-miss-label {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--text);
+}
+.recap-miss-cost {
+  font-size: var(--text-sm);
+  color: var(--bad);
+  font-variant-numeric: tabular-nums;
+}
+.recap-clean {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+.recap-empty {
+  padding: 0;
+}
+
+/* --- T9: art-deco corner brackets on the home cards (echoes the concept
+   card / range-grid frame). Decorative pseudos; the .panel already supplies
+   the surface + border, so these just add the gilt corner ticks. Bottom-right
+   is skipped on .home-recap so it doesn't collide with the gilt-wash bloom. */
+.home .card--deco::before,
+.home .card--deco::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--primary);
+  opacity: 0.65;
+  pointer-events: none;
+}
+.home .card--deco::before {
+  top: 7px;
+  left: 7px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+.home .card--deco::after {
+  bottom: 7px;
+  right: 7px;
+  border-bottom: 1px solid;
+  border-right: 1px solid;
+}
+.home .card--deco {
+  position: relative;
+}
+.home-recap.card--deco::after {
+  content: none;
 }
 
 /* ============================== T8 — states ==============================

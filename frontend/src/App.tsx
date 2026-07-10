@@ -46,6 +46,11 @@ const POSTFLOP_MODES: { id: Mode; label: string }[] = [
   { id: "vs_check_raise", label: "Facing check-raise" },
 ];
 
+// T9 — the masthead EV ledger's "daily leak budget". A frontend constant for
+// now (no solver-backed budget exists yet), so the bar + its label are marked
+// approximate. The bar fills toward this ceiling and clamps at 100%.
+const DAILY_LEAK_BUDGET_BB = 12;
+
 // T2: Night|Day room. Default dark ("night"); the chosen theme persists so
 // the room stays the way you left it across reloads.
 const THEME_KEY = "theme";
@@ -85,6 +90,39 @@ function writeStudyTestMode(mode: StudyTestMode): void {
   } catch {
     /* localStorage unavailable — preference just won't persist */
   }
+}
+
+// T9 — the running EV tab at the club bar. `givenUpBb` is today's summed
+// ev_loss_bb (approximate, 2dp); a value > 0 means EV was given up and reads in
+// the loss tone. The meter fills toward DAILY_LEAK_BUDGET_BB and clamps at 100%
+// (an over-budget day is still capped visually, but the mono figure tells the
+// full story). The whole widget is decorative-of-a-stat; the figure + label
+// carry the meaning for AT, so the bar itself is aria-hidden.
+function EvLedger({ givenUpBb }: { givenUpBb: number }) {
+  const lost = givenUpBb > 0;
+  const pct = Math.min(100, Math.round((Math.max(0, givenUpBb) / DAILY_LEAK_BUDGET_BB) * 100));
+  // Loss tone only when EV was actually given up; a clean day (0) stays neutral.
+  const figure = lost ? `−${givenUpBb.toFixed(1)}` : givenUpBb.toFixed(1);
+  return (
+    <div className="ev-ledger-widget">
+      <span className="new-tag" aria-hidden="true">
+        New
+      </span>
+      <div className="elw-body">
+        <span className="elw-eyebrow">EV Ledger · Today</span>
+        <span className="elw-figures">
+          <span className={"elw-figure" + (lost ? " loss" : "")}>{figure}</span>
+          <span className="elw-unit">bb given up</span>
+        </span>
+      </div>
+      <div className="elw-meter">
+        <span className="elw-bar" aria-hidden="true">
+          <span className={"elw-fill" + (lost ? " loss" : "")} style={{ width: `${pct}%` }} />
+        </span>
+        <span className="elw-budget">{pct}% of daily leak budget · approx.</span>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
@@ -263,20 +301,28 @@ export default function App() {
             <span className="tag">preflop + flop · heuristic</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="theme-toggle"
-          role="switch"
-          aria-checked={theme === "light"}
-          aria-label="Switch between Night and Day rooms"
-          onClick={toggleTheme}
-        >
-          <span className="tt-track" aria-hidden="true">
-            <span className="tt-opt tt-night">Night</span>
-            <span className="tt-opt tt-day">Day</span>
-            <span className="tt-knob" />
-          </span>
-        </button>
+        <div className="masthead-right">
+          <button
+            type="button"
+            className="theme-toggle"
+            role="switch"
+            aria-checked={theme === "light"}
+            aria-label="Switch between Night and Day rooms"
+            onClick={toggleTheme}
+          >
+            <span className="tt-track" aria-hidden="true">
+              <span className="tt-opt tt-night">Night</span>
+              <span className="tt-opt tt-day">Day</span>
+              <span className="tt-knob" />
+            </span>
+          </button>
+
+          {/* T9 — EV ledger widget: today's running bb given up + a daily
+              leak-budget bar. Renders from the summary the app already fetches
+              (best-effort — hidden until summary resolves). The budget is a FE
+              constant; the figure and label are approximate. */}
+          {summary && <EvLedger givenUpBb={summary.ev_given_up_today_bb} />}
+        </div>
       </header>
 
       <nav className="nav-tabs" aria-label="Sections">
