@@ -114,7 +114,7 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       **Appetite:** ~1 epic. **No-gos:** no straddles/antes/rake; no UI here;
       no persona logic (random-policy playouts suffice for tests).
 
-- [ ] **S3 — Persona packs + preflop bot play.** ICE 9·7·5. *(Track B, W1)*
+- [x] **S3 — Persona packs + preflop bot play.** *(done 2026-07-10, wave-1b: PersonaPack models + pure-domain sampling engine; 6 band-tuned packs; VillainType += tag/maniac w/ EXPLOIT_ARCHETYPES decoupling + leak cats 304/305; closed-loop proxy-band test 19/19, 0.4s unmarked; refuter pass)* ICE 9·7·5. *(Track B, W1)*
       **Problem:** archetypes are hero-exploit hints, not acting opponents; TAG + maniac
       don't exist. **Outcome-link:** the "special sauce" — seats that play like people.
       **Solution:** persona JSON schema + 6 packs (fish, station, nit, TAG, LAG, maniac) with
@@ -140,7 +140,7 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       **Appetite:** ~1 large epic. **No-gos:** no solver lookups; no persona learning/tilt;
       tuning stays in content data, not code constants.
 
-- [ ] **S5 — Turn/river routing seams + residual hazard closure.** ICE 6·8·7. *(Track C, W1)*
+- [x] **S5 — Turn/river routing seams + residual hazard closure.** *(done 2026-07-10, wave-1b: pinned-hash tripwires + turn/river signature fixtures; flop-only grader guards; street-keyed dispatch map; append-rule docstring; zero behavior change — provider tests byte-identical; LIVE record_attempt truncation gap documented → S6; refuter pass)* ICE 6·8·7. *(Track C, W1)*
       **Problem:** the worst hazards (silent flop-truncation of turn/river spots) were already
       fixed in commit `53c865c` — `supports()` street-gates to FLOP, `faced_bet_bucket()`
       reads the current decision point (see staleness warning above). What REMAINS: no
@@ -170,7 +170,10 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       today — contract-map hazard 4, still live at HEAD; barrel logic needs it); strategy
       thresholds in `content/postflop/` packs; tiered feedback inherited via the composer;
       new leak buckets; **explicit `_rebuild_postflop` branches for the new turn node
-      contexts** (else Practice SRS review silently degrades to random — hazard 6).
+      contexts** (else Practice SRS review silently degrades to random — hazard 6);
+      **coverage-gate `record_attempt`/`spot_signature` in `grade_drill`** (S5 audit found a
+      LIVE gap: a client-supplied turn/river spot persists a truncated-texture SRS row today
+      despite NOT_FOUND — see `contracts/simulate-s5.md` item 4).
       **Pass/fail:** turn spots return freq+EV verdicts (never boolean) with non-tautological
       reasoning; `range_advantage` behavior differs by node context (test); SRS review of a
       due turn spot rebuilds that spot, not a random one (test); signature golden tests prove
