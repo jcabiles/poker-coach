@@ -12,6 +12,8 @@ import type {
   QuizResult,
   RecapResponse,
   ReviewPlanResponse,
+  SimulateHandView,
+  SimulateSessionResponse,
   Spot,
   StatsSummary,
 } from "./types";
@@ -85,4 +87,14 @@ export async function matchCard(
   const params = new URLSearchParams({ leak_category: String(leakCategory) });
   if (tags.length > 0) params.set("tags", tags.join(","));
   return json(await fetch(`${BASE}/cards/match?${params.toString()}`));
+}
+
+// Simulate S1 — lazy session create + deal-next-hand. No request body; the
+// server seeds each hand server-side (seed never on the wire).
+export async function postSimulateSession(): Promise<SimulateSessionResponse> {
+  return json(await fetch(`${BASE}/simulate/session`, { method: "POST" }));
+}
+
+export async function postSimulateHand(sessionId: string): Promise<SimulateHandView> {
+  return json(await fetch(`${BASE}/simulate/session/${sessionId}/hand`, { method: "POST" }));
 }

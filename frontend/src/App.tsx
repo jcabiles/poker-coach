@@ -18,6 +18,7 @@ import ModeGroup from "./components/ModeGroup";
 import PokerTable from "./components/PokerTable";
 import QuizPanel from "./components/QuizPanel";
 import RangeGrid from "./components/RangeGrid";
+import SimulateView from "./components/SimulateView";
 import StatsStrip from "./components/StatsStrip";
 import StudyTestToggle, { type StudyTestMode } from "./components/StudyTestToggle";
 import { legalDecisions } from "./lib/decisions";
@@ -28,6 +29,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "drill", label: "Practice" },
   { id: "texture", label: "Texture quiz" },
   { id: "equity", label: "Equity quiz" },
+  { id: "simulate", label: "Simulate" },
 ];
 
 // Spot-selection strategy: which spot to serve next, within the current mode.
@@ -384,6 +386,8 @@ export default function App() {
             </main>
           )}
         </>
+      ) : view === "simulate" ? (
+        <SimulateView />
       ) : (
         <QuizPanel kind={view} />
       )}
