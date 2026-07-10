@@ -358,9 +358,13 @@ def _preflop_decision(pack, position, facing, hole, legal, rng) -> Decision:
     return Decision(action=act_action)
 
 
-def _postflop_decision(pack, hole, board, legal, pot_bb, stack_bb, opponents, rng) -> Decision:
+def _postflop_decision(
+    pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to
+) -> Decision:
     kinds = {la.action for la in legal}
-    d = sample_postflop_decision(pack, hole, board, legal, pot_bb, stack_bb, opponents, rng)
+    d = sample_postflop_decision(
+        pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to=current_bet_to
+    )
     if d.action not in kinds:
         # Defensive: never happens if the sampler honors `legal`, but keep
         # the harness crash-proof against an engine/sampler mismatch.
@@ -432,6 +436,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
                 seat_state.stack_bb,
                 opponents,
                 rng,
+                state.current_bet_bb,
             )
             log.append((seat, state.street.value, decision.action.value))
         state = apply(state, decision)
@@ -468,7 +473,9 @@ def _derive_n(hands_per_s: float) -> int:
     """Frozen budget: whole file <=12s. Scale N DOWN only, floor at 150/persona
     so the >=30-occurrence stat floors stay reachable (spec allocation:
     600/persona x 6 + 1500 texture ~= 5100 hands at ~430 h/s ~= 11.8s)."""
-    budget_s = 11.0  # leave ~1s headroom under the 12s cap for probe overhead
+    budget_s = 9.5  # headroom under the 12s cap for the throughput probe itself
+    # (60-hand probe + unit-test overhead + fixture/import cost, empirically
+    # ~1.5-2s combined at this file's measured throughput)
     total_budget_hands = max(int(hands_per_s * budget_s), 900)
     # Reserve a texture share (~30%) and split the rest across 6 persona-lineups.
     texture_n = min(1500, int(total_budget_hands * 0.3))
@@ -487,27 +494,99 @@ def budget():
 
 
 # =====================================================================
-# Per-persona stat bands (PRD §8, `docs/ai-dlc/prd/simulate-table.md:172-184`)
-# widened per the occurrence-floor math above. Lineup: the tested persona at
-# every non-hero seat is a mix of itself + tag fillers so streets actually
-# reach postflop reliably; stats are read off ONLY the tested-persona seats.
-# =====================================================================
+# Per-persona stat bands: PRD §8 edges (`docs/ai-dlc/prd/simulate-table.md:
+# 172-184`) +/- 3-sigma at this file's MEASURED occurrence n (not the 30
+# floor -- the floor only gates whether a stat is asserted AT ALL; once
+# asserted, the tolerance must reflect the real sample size actually
+# achieved, which for most stats here is in the ~100-1000 range).
+#
+# fold-to-cbet / WTSD are binomial proportions: tol = 3*sqrt(p(1-p)/n),
+# p = PRD band midpoint (or 0.3 as a conservative prior for one-sided "<X%"
+# bands), n = this maker's measured occurrence count at the throughput-
+# calibrated N (~650-700/persona; see `_derive_n`).
+#
+# AF = (BET+RAISE count R) / (CALL count C) is a RATIO of two counts, not a
+# single proportion; using the delta method for Var(R/C) with R, C treated
+# as independent (Poisson-like) counts: Var(AF) ~= AF^2 * (1/R + 1/C), so
+# tol = 3 * AF * sqrt(1/R + 1/C), evaluated at R = AF*C from this maker's
+# measured (AF, call_n) pair. One-sided "5+" (maniac) keeps only the lower
+# edge; all others keep both PRD edges +/- tol.
+#
+# Measured occurrence n (this maker, seed 20260710, N~670/persona-lineup):
+#   call_n:  passive_fish 630, calling_station 970, nit 100, tag 89, lag 115, maniac 183
+#   ftc_n:   passive_fish 160, calling_station 237, nit  31, tag 37, lag  62, maniac 201
+#   wtsd_n:  passive_fish 726, calling_station 991, nit 160, tag 253, lag 356, maniac 713
+#
+# WTSD FINDING (escalated to lead, same category as the table-texture floor;
+# lead ruling below): at these levers, honest (PRD +/- 3sigma) WTSD bands
+# MISS for 5/6 personas (passive_fish, calling_station, nit, tag, lag all
+# measure WTSD ~0.40-0.54 vs PRD's tighter 0.20-0.45 population bands).
+# Verified structural, not a lever- or lineup-tunable artifact: (a) nit's
+# stickiness swept from 0.6 -> 0.3 (an extreme, AF-breaking cut) only moved
+# WTSD 0.62 -> ~0.48-0.52, nowhere near the PRD [0.20,0.24] ceiling; (b) a
+# single-copy-per-lineup harness variant (1 tested seat among 8 DISTINCT
+# others, vs this file's 3-copy construction) showed the same ~0.41-0.50
+# elevation across all personas, ruling out the 3x-same-persona lineup as
+# the cause. Root cause: this engine's showdown_seats marks EVERY
+# non-folded seat once 2+ players reach the river together, and the
+# stickiness/aggression levers needed to hit the (honest, passing) AF and
+# fold-to-cbet targets keep pots multiway long enough that showdown is
+# systematically more common than the PRD's real-live-table anchor assumes
+# (which embeds fold pressure -- sizing tells, rake tightness -- this
+# heuristic engine does not model). maniac's WTSD alone lands inside its
+# HONEST PRD band and keeps it (it passes; no need to re-anchor).
+#
+# LEAD RULING (wave-3 T2 escalation, 2026-07-10): for the 5 structural
+# misses, WTSD bands below are ENGINE-ANCHORED regression bands, not
+# PRD-fidelity claims -- PRD §8 WTSD anchors embed real-table fold pressure
+# (sizing tells, rake tightness) the heuristic engine does not model;
+# per-seat levers cannot control this population statistic (see wave-3 T2
+# escalation). These pin current engine behavior against silent drift;
+# PRD-fidelity revisit deferred (roadmap note at S4 close-out). Anchor =
+# this maker's measured WTSD +/- 3*sqrt(p(1-p)/n) at a representative
+# N~650/persona-lineup run (stable across N=550-1000 spot checks):
+#   calling_station 0.5247 (n=953)  -> (0.476, 0.573)
+#   lag             0.3947 (n=342)  -> (0.315, 0.474)
+#   nit             0.5414 (n=157)  -> (0.422, 0.661)
+#   passive_fish    0.5072 (n=694)  -> (0.450, 0.564)
+#   tag             0.4268 (n=246)  -> (0.332, 0.521)
+
+# NOTE (lever-scale disclaimer): aggression/stickiness/bluff_freq/spr_commit
+# /multiway_bluff_damp are RELATIVE multipliers into a shared merit table
+# (personas_postflop.py), not absolute probabilities or semantic claims --
+# e.g. maniac's aggression=15.0 is a tuning outcome that clears the PRD AF
+# floor at this merit table's saturation curve, not a statement that maniac
+# is "15x normal". Only cross-persona ORDERING and the resulting measured
+# stat bands are meaningful; the raw lever magnitudes are calibration
+# artifacts of this specific merit-table implementation.
 
 # persona -> (AF band or None, fold_to_cbet band, WTSD band), all fractions.
 BANDS = {
-    "passive_fish": (None, (0.20, 0.60), (0.15, 0.55)),
-    "calling_station": (None, (0.05, 0.55), (0.15, 0.60)),
-    "nit": (None, (0.35, 0.90), (0.05, 0.45)),
-    "tag": ((0.5, 8.0), (0.20, 0.75), (0.10, 0.55)),
-    "lag": ((0.5, 10.0), (0.15, 0.70), (0.10, 0.60)),
-    "maniac": ((0.5, 15.0), (0.10, 0.70), (0.10, 0.70)),
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.450, 0.564)),  # WTSD engine-anchored
+    "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.476, 0.573)),  # WTSD engine-anchored
+    "nit": ((0.975, 2.025), (0.289, 0.961), (0.422, 0.661)),  # WTSD engine-anchored
+    "tag": ((2.469, 3.531), (0.203, 0.797), (0.332, 0.521)),  # WTSD engine-anchored
+    "lag": ((2.975, 4.525), (0.163, 0.637), (0.315, 0.474)),  # WTSD engine-anchored
+    "maniac": ((3.79, 999.0), (0.0, 0.430), (0.228, 0.402)),  # WTSD honest PRD band (passes)
 }
+
+
+_STATS_CACHE: dict[tuple[str, int], tuple] = {}
 
 
 def _persona_stats(packs, persona: str, n: int):
     """Run N hands with a 9-seat lineup of ALL personas (round-robin fill,
     tested persona repeated to guarantee representation), collect AF /
-    fold-to-cbet / WTSD for the tested persona's seats only."""
+    fold-to-cbet / WTSD for the tested persona's seats only.
+
+    Memoized per (persona, n) within the process: the band test and the
+    ordering-invariant test both need every persona's stats at the same N
+    (from the shared `budget` fixture) -- caching avoids re-simulating the
+    same N hands twice and keeps the whole file inside its runtime budget.
+    """
+    key = (persona, n)
+    if key in _STATS_CACHE:
+        return _STATS_CACHE[key]
     rng = random.Random(20260710)
     fillers = [p for p in ALL_PERSONAS if p != persona]
     lineup = ([persona] * 3 + [fillers[i % len(fillers)] for i in range(6)])[:9]
@@ -559,7 +638,9 @@ def _persona_stats(packs, persona: str, n: int):
     af = (bet_raise / call_count) if call_count >= 30 else None
     ftc = (folds_to_first_cbet / cbet_opportunities) if cbet_opportunities >= 30 else None
     wtsd = (showdown_hands / saw_flop_hands) if saw_flop_hands >= 30 else None
-    return af, ftc, wtsd, call_count, cbet_opportunities, saw_flop_hands
+    result = (af, ftc, wtsd, call_count, cbet_opportunities, saw_flop_hands)
+    _STATS_CACHE[key] = result
+    return result
 
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
@@ -579,6 +660,37 @@ def test_persona_postflop_bands(persona, budget):
     if wtsd is not None:
         lo, hi = wtsd_band
         assert lo <= wtsd <= hi, f"{persona} WTSD {wtsd:.2f} outside [{lo},{hi}] (n={wtsd_n})"
+
+
+def test_persona_wtsd_ordering_invariants(budget):
+    """Cross-persona WTSD ORDERING (lead-authorized, alongside the
+    engine-anchored absolute bands above): absolute WTSD bands can't catch a
+    "persona-flattening" regression where every persona's WTSD converges to
+    the same population-average value -- these relative comparisons are
+    robustly true regardless of the engine's absolute showdown-rate ceiling,
+    since they follow directly from each persona's PRD-intended fold/call
+    discipline (station folds least -> highest WTSD; maniac folds most among
+    the aggressive personas -> lowest WTSD relative to the calling personas).
+    """
+    packs, per_persona_n, _texture_n, _hands_per_s = budget
+    wtsd = {}
+    for persona in ("calling_station", "tag", "lag", "passive_fish", "maniac"):
+        _af, _ftc, w, _cn, _fn, wn = _persona_stats(packs, persona, per_persona_n)
+        assert w is not None, f"{persona} WTSD unmeasurable at n={wn} (<30 floor)"
+        wtsd[persona] = w
+
+    assert wtsd["calling_station"] > wtsd["tag"], (
+        f"station WTSD {wtsd['calling_station']:.3f} not > tag WTSD {wtsd['tag']:.3f}"
+    )
+    assert wtsd["calling_station"] > wtsd["lag"], (
+        f"station WTSD {wtsd['calling_station']:.3f} not > lag WTSD {wtsd['lag']:.3f}"
+    )
+    assert wtsd["passive_fish"] > wtsd["tag"], (
+        f"passive_fish WTSD {wtsd['passive_fish']:.3f} not > tag WTSD {wtsd['tag']:.3f}"
+    )
+    assert wtsd["maniac"] < wtsd["calling_station"], (
+        f"maniac WTSD {wtsd['maniac']:.3f} not < station WTSD {wtsd['calling_station']:.3f}"
+    )
 
 
 # =====================================================================
