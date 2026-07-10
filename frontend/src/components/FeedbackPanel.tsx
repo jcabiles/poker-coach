@@ -16,6 +16,12 @@ function actionLabel(action: string, sizeBb?: number | null): string {
   return sizeBb ? `${action} ${sizeBb}bb` : action;
 }
 
+// EV figures render with a true minus (U+2212), matching the masthead ledger
+// and recap figures — number stringification would emit an ASCII hyphen.
+function fmtEv(n: number): string {
+  return String(n).replace("-", "−");
+}
+
 export default function FeedbackPanel({
   result,
   chosen,
@@ -70,27 +76,33 @@ export default function FeedbackPanel({
       aria-live="polite"
       aria-atomic="true"
     >
-      {/* Tier 0 — verdict badge. The numbers live in the EV block below (R4:
-          every figure renders exactly once in the panel). */}
+      {/* Tier 0 — correctness stamp chip. The numbers live in the EV ledger
+          below (R4: every figure renders exactly once in the panel). */}
       <div className="verdict-row">
-        <span className={"badge " + tone}>{(result.correctness ?? "").toUpperCase()}</span>
+        <span className={"stamp " + tone}>{(result.correctness ?? "").toUpperCase()}</span>
       </div>
-      {/* Tier 1 — short lede: what happened, in words (falls back to the flat
-          explanation for any result graded outside the tiered wrapper). */}
+      {/* Tier 1 — verdict as a serif headline. The backend sends a plain
+          sentence (tiers.verdict / explanation); it isn't split into action
+          words, so the whole line is set as the headline rather than parsed. */}
       <p className="tier-verdict">{result.tiers?.verdict ?? result.explanation}</p>
       {result.is_mixed && (
         <p className="mixed">Mixed spot — more than one action is defensible here.</p>
       )}
-      {/* EV comparison — one line per decision (replaces the old one-sentence
-          number pile and the .chosen-eval stat line). */}
+      {/* EV comparison — a settled ledger: one row per decision (YOU / BEST /
+          COST) on a dark plate behind a gold left rule, mono figures right.
+          Replaces the old one-sentence number pile and .chosen-eval line. */}
       {result.chosen_eval && chosen && (
-        <div className={"ev-compare " + tone + "-edge"}>
+        <div className={"ev-ledger " + tone + "-edge"}>
           <div className={"ev-row " + tone}>
             <span className="ev-who">You</span>
-            <span className="ev-act">{actionLabel(chosen.action, chosen.size_bb)}</span>
+            <span className="ev-act">
+              {actionLabel(chosen.action, chosen.size_bb)}
+              <span className="ev-played">
+                played <span className="num">{Math.round(result.chosen_eval.frequency * 100)}%</span>
+              </span>
+            </span>
             <span className="ev-nums">
-              played <span className="num">{Math.round(result.chosen_eval.frequency * 100)}%</span>{" "}
-              · EV <span className="num">≈{result.chosen_eval.ev_bb}</span>bb
+              EV <span className="num">≈{fmtEv(result.chosen_eval.ev_bb)}</span>bb
             </span>
             {choseBest && <span className="best">best</span>}
           </div>
@@ -98,17 +110,21 @@ export default function FeedbackPanel({
             <>
               <div className="ev-row good">
                 <span className="ev-who">Best</span>
-                <span className="ev-act">{actionLabel(best.action, best.size_bb)}</span>
+                <span className="ev-act">
+                  {actionLabel(best.action, best.size_bb)}
+                  <span className="ev-played">
+                    played <span className="num">{Math.round(best.frequency * 100)}%</span>
+                  </span>
+                </span>
                 <span className="ev-nums">
-                  played <span className="num">{Math.round(best.frequency * 100)}%</span> · EV{" "}
-                  <span className="num">≈{best.ev_bb}</span>bb
+                  EV <span className="num">≈{fmtEv(best.ev_bb)}</span>bb
                 </span>
               </div>
               <div className="ev-row cost">
                 <span className="ev-who">Cost</span>
-                <span className="ev-act" />
+                <span className="ev-act ev-cost-note">bb given up on this decision</span>
                 <span className="ev-nums">
-                  <span className="num">≈−{result.ev_loss_bb}</span>bb given up
+                  <span className="num">≈{result.ev_loss_bb}</span>bb
                 </span>
               </div>
             </>
@@ -132,7 +148,7 @@ export default function FeedbackPanel({
               </b>
               <span className="num mix-freq">{Math.round(a.frequency * 100)}%</span>
               <span className="mix-ev">
-                EV <span className="num">≈{a.ev_bb}</span>bb
+                EV <span className="num">≈{fmtEv(a.ev_bb)}</span>bb
               </span>
               {a.action === result.best_action.action &&
                 a.size_bb === result.best_action.size_bb && <span className="best">best</span>}

@@ -10,7 +10,7 @@ export default function StatsStrip({
   if (!summary) return null;
   return (
     <div className="statstrip">
-      <div className="stat">
+      <div className="stat stat-accent">
         <b>{Math.round(summary.accuracy * 100)}%</b>
         <span>accuracy</span>
       </div>
@@ -28,12 +28,15 @@ export default function StatsStrip({
       </div>
       <div className="leaks">
         <span className="lk-title">Top leaks</span>
-        {leaks.length === 0 && <span className="lk muted">none yet</span>}
-        {leaks.slice(0, 3).map((l) => (
-          <span key={l.category} className="lk">
-            {l.name} · <span className="num">{Math.round(l.accuracy * 100)}%</span>
-          </span>
-        ))}
+        <div className="lk-row">
+          {leaks.length === 0 && <span className="lk muted">none yet</span>}
+          {leaks.slice(0, 3).map((l) => (
+            <span key={l.category} className="lk">
+              <span className="lk-name">{l.name}</span>
+              <span className="num">{Math.round(l.accuracy * 100)}%</span>
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
