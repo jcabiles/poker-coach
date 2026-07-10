@@ -170,7 +170,10 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       today — contract-map hazard 4, still live at HEAD; barrel logic needs it); strategy
       thresholds in `content/postflop/` packs; tiered feedback inherited via the composer;
       new leak buckets; **explicit `_rebuild_postflop` branches for the new turn node
-      contexts** (else Practice SRS review silently degrades to random — hazard 6).
+      contexts** (else Practice SRS review silently degrades to random — hazard 6);
+      **coverage-gate `record_attempt`/`spot_signature` in `grade_drill`** (S5 audit found a
+      LIVE gap: a client-supplied turn/river spot persists a truncated-texture SRS row today
+      despite NOT_FOUND — see `contracts/simulate-s5.md` item 4).
       **Pass/fail:** turn spots return freq+EV verdicts (never boolean) with non-tautological
       reasoning; `range_advantage` behavior differs by node context (test); SRS review of a
       due turn spot rebuilds that spot, not a random one (test); signature golden tests prove

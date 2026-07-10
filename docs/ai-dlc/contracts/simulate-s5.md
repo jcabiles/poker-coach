@@ -16,10 +16,15 @@
 
 ## STILL LIVE
 
-4. **9 latent `board[:3]` truncation sites**, shielded only by the street gate — reactivate
-   simultaneously the moment anything feeds a 4/5-card board past it:
-   `texture.py:37` (documented flop-only) · `postflop.py:332,530,704` (three graders) ·
-   `srs.py:115` · `services/review.py:30` · `api/v1/drill.py:137,142,311`.
+4. **9 latent `board[:3]` truncation sites** — most shielded by the street gate, but
+   **⚠️ CORRECTION (refuter 2026-07-10): `srs.py:115` + `services/review.py:30` are LIVE, not
+   shielded.** `POST /drill/grade` with a client-supplied TURN/RIVER spot returns `NOT_FOUND`
+   from the provider, yet `grade_drill` calls `spot_signature()` + `record_attempt()`
+   unconditionally (no coverage check, `drill.py:238-256`) — silently persisting a
+   truncated-texture SRS row today. The FE can't construct such a request; the fix
+   (coverage-gating rule) is assigned to S6. Shielded/flop-only: `texture.py:37` (documented
+   flop-only) · `postflop.py:332,530,704` (three graders — S5 adds loud street guards) ·
+   `api/v1/drill.py:137,142,311` (flop-only call paths, verified).
 5. **`range_advantage()` dead `node_context` param** (`postflop.py:103-133`) — bound, never
    read. Callers: `grade_cbet:334-335`, `grade_vs_check_raise:706-710`. (`grade_vs_cbet`
    uses the separate `range_advantage_defender`, no dead param.) Behavior-neutral to leave
