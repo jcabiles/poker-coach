@@ -54,7 +54,11 @@ export default function SimTable({ hand }: { hand: SimulateHandView }) {
           Simulate · 0.5/1 · 9-max · hand{" "}
           <span className="sim-ctx-no">{hand.hand_no}</span> · {hand.street}
         </div>
-        <div className="tablering" role="group" aria-label="table seats">
+        <div
+          className={"tablering" + (hand.hand_over ? " sim-ring-over" : "")}
+          role="group"
+          aria-label="table seats"
+        >
           <div className="rail" aria-hidden="true" />
           <div className="table-center">
             {board.length > 0 && (
