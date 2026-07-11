@@ -23,6 +23,7 @@ from app.domain.table.engine import HandState, SeatDelta, Settlement, apply, sta
 from app.domain.table.engine import legal_actions as engine_legal_actions
 from app.services import sim_session
 from app.services.sim_session import (
+    SessionNotFound,
     apply_hero_action,
     create_session,
     deal_next_hand,
@@ -133,6 +134,20 @@ def test_restore_mid_hand_exact_decision_point(db):
     assert restored.hand.board == view.hand.board
     assert restored.hand.pot_bb == view.hand.pot_bb
     assert restored.hand.events == []  # events are per-request, not persisted
+
+
+def test_apply_and_deal_raise_session_not_found_on_missing_or_ended(db):
+    fold = Decision(action=ActionType.FOLD)
+    with pytest.raises(SessionNotFound):
+        apply_hero_action(db, "missing", fold)
+    with pytest.raises(SessionNotFound):
+        deal_next_hand(db, "missing")
+    view = create_session(db)
+    leave_session(db, view.session_id)
+    with pytest.raises(SessionNotFound):
+        apply_hero_action(db, view.session_id, fold)
+    with pytest.raises(SessionNotFound):
+        deal_next_hand(db, view.session_id)
 
 
 def test_restore_missing_or_ended_session_is_none(db):

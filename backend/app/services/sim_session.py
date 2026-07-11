@@ -55,6 +55,12 @@ _STARTING_STACK_BB = 100.0
 _REBUY_FLOOR_BB = 1.0
 
 
+class SessionNotFound(Exception):
+    """Session missing/ended/not-owned — the API maps this to 404.
+
+    ValueError stays reserved for illegal / not-hero-turn actions (=> 400)."""
+
+
 @cache
 def _packs() -> dict:
     return load_persona_packs()
@@ -262,7 +268,7 @@ def apply_hero_action(
 ) -> SessionView:
     session = _get_session(db, session_id, owner_id)
     if session is None:
-        raise ValueError("session not found")
+        raise SessionNotFound(session_id)
     hand = _current_hand(db, session)
     if hand is None or hand.status != "in_progress" or hand.state_json is None:
         raise ValueError("no hand in progress")
@@ -286,7 +292,7 @@ def apply_hero_action(
 def deal_next_hand(db: Session, session_id: str, owner_id: str = "") -> SessionView:
     session = _get_session(db, session_id, owner_id)
     if session is None:
-        raise ValueError("session not found")
+        raise SessionNotFound(session_id)
     hand = _current_hand(db, session)
     if hand is not None and hand.status == "in_progress":
         # Idempotent no-op: the current hand is still live — return it.
