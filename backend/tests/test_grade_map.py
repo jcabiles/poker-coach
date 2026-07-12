@@ -221,9 +221,21 @@ def test_limped_pot_returns_none():
     assert map_decision_point(state, HERO_SEAT) is None
 
 
-def test_off_size_open_returns_none():
-    # A bot-style min-raise to 2.0 is not the canonical 2.5bb CO open.
+def test_min_raise_open_maps_within_band():
+    # W1 refuter high-1 relaxation: bots always open to the engine minimum
+    # (2.0bb) — accepted within [2.0..canonical] and graded against the
+    # canonical VS_RFI entry (registry lookup never keys on bet size).
     state = _facing_open(Position.BTN, Position.CO, 2.0)
+    spot = map_decision_point(state, HERO_SEAT)
+    assert spot is not None
+    assert NodeContext.VS_RFI in spot.node_context
+    assert spot.facing is Position.CO
+
+
+def test_oversize_open_returns_none():
+    # Larger-than-canonical opens stay out — defense ranges tighten
+    # materially vs oversizes (band is [2.0..canonical], not open-ended).
+    state = _facing_open(Position.BTN, Position.CO, 4.0)
     assert map_decision_point(state, HERO_SEAT) is None
 
 
@@ -333,8 +345,9 @@ def test_graded_decision_writes_sim_decision_and_tagged_attempt(db):
 
 
 def test_unmappable_decision_writes_no_baseline_row_and_no_attempt(db):
-    # Off-size (min-raise) open: unmappable ⇒ SimDecision only, no attempt.
-    session_id = _persist_hand(db, _facing_open(Position.BTN, Position.CO, 2.0))
+    # Off-size (oversize 4.0bb) open: unmappable ⇒ SimDecision only, no
+    # attempt. (Min-raise opens map since the W1 band relaxation.)
+    session_id = _persist_hand(db, _facing_open(Position.BTN, Position.CO, 4.0))
     view = asyncio.run(
         apply_hero_action(db, session_id, Decision(action=ActionType.FOLD))
     )
@@ -399,3 +412,70 @@ def test_range_helpers_never_fabricate():
         bd = _find_entry(NodeContext.BLIND_DEFENSE, Position.BB, opener)
         assert _combos_for(rfi, ActionType.RAISE)
         assert _combos_for(bd, ActionType.CALL)
+
+
+def test_report_endpoint_http_shape(db, tmp_path, monkeypatch):
+    # W1 refuter low-2: the HTTP layer (routing, response_model, owner wiring)
+    # was untested — only the service function was.
+    from fastapi.testclient import TestClient
+
+    from app.db.session import get_session
+    from app.main import app
+
+    def _override():
+        yield db
+
+    app.dependency_overrides[get_session] = _override
+    try:
+        client = TestClient(app)
+        resp = client.get("/api/v1/simulate/report/streets")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [r["street"] for r in body["rows"]] == [
+            "preflop", "flop", "turn", "river",
+        ]
+        assert body["total_decisions"] == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_bot_driven_facing_raise_decision_grades(db, monkeypatch):
+    # W1 refuter low-1 + high-1: end-to-end proof that a REAL bot-driven hand
+    # produces a graded facing-a-raise (VS_RFI / BLIND_DEFENSE) hero decision
+    # now that the open-size band accepts the bots' min-raise opens. Clean
+    # single-raise-to-hero shapes are RARE in this limpy 9-max lineup (~1-2%
+    # of hands), so live secrets-based bot RNG made this flake at any sane
+    # hand cap — pin the per-advance RNG to a seeded stream instead (deal RNG
+    # is already reproducible from rng_seed). The play is still fully real:
+    # engine, personas, service wire — only the entropy source is pinned.
+    from app.services import sim_session as svc
+    from app.services.sim_session import create_session, deal_next_hand
+
+    rng_seeds = iter(range(10_000))
+    deal_seeds = iter(range(50_000, 60_000))
+    monkeypatch.setattr(svc, "_fresh_rng", lambda: random.Random(next(rng_seeds)))
+    monkeypatch.setattr(svc.secrets, "randbits", lambda _bits: next(deal_seeds))
+
+    view = create_session(db)
+    for _ in range(160):
+        while not view.hand.hand_over:
+            kinds = {la.action for la in view.hand.legal_actions}
+            if ActionType.CHECK in kinds:
+                d = Decision(action=ActionType.CHECK)
+            elif ActionType.CALL in kinds:
+                d = Decision(action=ActionType.CALL)
+            else:
+                d = Decision(action=ActionType.FOLD)
+            view = asyncio.run(apply_hero_action(db, view.session_id, d))
+        markers = [
+            a.spot_signature
+            for a in db.exec(select(DrillAttempt)).all()
+            if a.source == "simulate"
+        ]
+        if any(("vs_rfi" in m or "blind_defense" in m) for m in markers):
+            return  # graded facing-a-raise decision reached through real play
+        view = deal_next_hand(db, view.session_id)
+    raise AssertionError(
+        "no bot-driven VS_RFI/BLIND_DEFENSE decision graded in 40 hands "
+        "(open-size band regression?)"
+    )

@@ -84,8 +84,17 @@ def _map_preflop(state: HandState, hero_seat: int) -> Spot | None:
 
     opener_pos = raises[0].position
     canonical_open = _OPEN_SIZE.get(opener_pos)
-    # Off-size open (e.g. a bot min-raise to 2.0) ⇒ not the canonical shape.
-    if canonical_open is None or abs(state.current_bet_bb - canonical_open) > _EPS:
+    # Open-size band [min-raise 2.0 .. canonical]: bots always open to the
+    # engine minimum (play.py sizes at la.min_bb = 2.0) while charts are
+    # authored at 2.5/3.0 — a strict equality gate made VS_RFI/BLIND_DEFENSE
+    # ungradeable against real bot play (W1 combined-refuter high-1, relaxation
+    # ACCEPTED: registry lookup keys by node/position, never bet size, so
+    # grading a 2.0 open against the canonical entry is no more approximate
+    # than the ≈ EV labels already are). Larger-than-canonical opens still
+    # return None — defense ranges tighten materially vs oversizes.
+    if canonical_open is None or not (
+        2.0 - _EPS <= state.current_bet_bb <= canonical_open + _EPS
+    ):
         return None
     ctx = (
         NodeContext.BLIND_DEFENSE

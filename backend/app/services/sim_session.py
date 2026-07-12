@@ -165,8 +165,12 @@ def _get_session(db: Session, session_id: str, owner_id: str) -> SimSession | No
 def _grade_view(row: SimDecision, tiers: FeedbackTiers | None = None) -> GradeView:
     """GradeView from a persisted SimDecision. verdict/reasoning come from the
     in-memory evaluation tiers of the decision graded THIS request; persisted
-    rows carry no tier text (frozen S10 schema), so recap rows for earlier
-    decisions surface freq/EV fields only."""
+    rows carry no tier text (frozen S10 schema). Scope of the gap (W1 refuter
+    med-1): recap rows for earlier decisions lack tiers on the LIVE path, and
+    a session reload (restore_session) rebuilds the recap with tiers=None for
+    EVERY row — including the hand's final decision. correctness/ev_loss/
+    coverage always survive. Reload-durable reasoning = a SimDecision
+    verdict/reasoning migration (0011), tracked as a roadmap NEXT note."""
     return GradeView(
         street=row.street,
         ordinal=row.ordinal,

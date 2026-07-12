@@ -315,6 +315,11 @@ the serial spine S2→S4→S9→S10, not the agent budget.
   perf; disclaimer wording; interplay with hidden-persona mode (a reveal button is a
   training wheel that mode would gate); does always-available reveal soften the
   read-development goal.
+- **Reload-durable recap reasoning (migration 0011).** *(W1 combined-refuter med-1,
+  2026-07-12.)* `SimDecision` stores no verdict/reasoning text — the recap's "why" tiers
+  exist only in-memory for the live request; a session reload rebuilds the recap with
+  freq/EV/correctness intact but tiers=None for every row. If reload-durable reasoning
+  becomes a real ask, add `verdict`/`reasoning` columns via migration 0011.
 - **Simulate mobile responsiveness.** *(design-review 2026-07-11; deferred by the
   desktop-primary decision — desktop + tablet 768px ship premium/clean.)* *Evidence:* at
   ≤~600px the 9-seat felt collapses into overlap (measured 30 overlapping seat pairs at 375px;

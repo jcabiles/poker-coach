@@ -37,6 +37,8 @@ class DrillAttempt(SQLModel, table=True):
     hand_class: str | None = Field(default=None)
     # Attempt origin (S10): 'practice' (default, matches all historical rows) or
     # 'simulate'. Practice stats reads filter on it so sim rows never skew them.
+    # NOTE: DB column is intentionally nullable (migration 0010 add-column
+    # pattern) — readers must treat NULL as 'practice' (stats.py does).
     source: str = Field(default="practice")
 
 
