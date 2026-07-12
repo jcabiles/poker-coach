@@ -14,12 +14,18 @@ import Card from "../Card";
 // Canonical 9-max seating order (clockwise) — same ring PokerTable uses.
 const RING = ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"];
 
-// Seat-pod coordinates on the elliptical rail (identical math to PokerTable's
+// Seat-pod coordinates on the elliptical rail (same math as PokerTable's
 // slotStyle — geometry DATA, not styling). Slot 0 (hero) sits bottom-center.
+// Sim-owned copy: the vertical radius is asymmetric (PokerTable keeps 38 all
+// around) — the TOP half of the ellipse spreads to 41 so the HJ/CO pods clear
+// the five-card board on the wave-4.5 taller sim ring, while the bottom half
+// keeps 38 (the hero pod hangs below the rail by design; 41 pushed it past
+// .stage's overflow:hidden). Verified by bounding-box sweep at 1440/1280/1024.
 function slotStyle(i: number, n: number): CSSProperties {
   const theta = Math.PI / 2 + (i * 2 * Math.PI) / n;
+  const sin = Math.sin(theta);
   const x = 50 + 43 * Math.cos(theta);
-  const y = 50 + 38 * Math.sin(theta);
+  const y = 50 + (sin < 0 ? 41 : 38) * sin;
   return { left: `${x}%`, top: `${y}%` };
 }
 
