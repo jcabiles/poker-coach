@@ -2950,9 +2950,37 @@ kbd {
 }
 
 /* Narrow gate — collapse to a single column; the side table drops below the
-   felt. Matches the drill stage's 1024×768 density philosophy. */
-@media (max-width: 900px) {
+   felt. Matches the drill stage's 1024×768 density philosophy. Raised from
+   900 to 1100 in wave 4.5: below ~1100px the shell can't widen, and a 360px
+   sidebar starves the 9-max ring to ~536px — the five-card board overlapped
+   the HJ/CO pods again. Dropping the rail sheet below the felt at these
+   widths restores full-width table geometry (the same gate S9 shipped, one
+   step earlier). */
+@media (max-width: 1100px) {
   .sim-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Simulate table size (wave 4.5) ─────────────────────────────────────────
+   The 9-max felt was starved: the 1080px shell minus the 360px rail sheet left
+   ~640px of table, and five 52×72 board cards covered half the ring — pods
+   overlapped the board. The Simulate route alone gets the wide shell (the
+   masthead/nav/stats rows are flex and reflow with it); Practice/Quiz keep
+   --content-width. All rules here are NEW sim-scoped overrides — the shared
+   .stage/.felt/.tablering base classes are untouched. */
+.app:has(.simulate) {
+  max-width: var(--content-width-wide);
+}
+/* A ring worthy of the wider felt. The bare 5× cap only rules on tall
+   viewports: the 920px height-density gate below re-caps it, mirroring the
+   base .tablering's 3.9→3.4 step so short rooms (1440×900, 1024×768) keep
+   the felt + hero console in view without scroll. */
+.simulate .tablering {
+  max-height: calc(var(--card-h) * 5);
+}
+@media (max-height: 920px) {
+  .simulate .tablering {
+    max-height: calc(var(--card-h) * 4);
   }
 }

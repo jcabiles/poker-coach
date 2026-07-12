@@ -222,6 +222,8 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       `verify.sh` + typecheck/build green. **Appetite:** ~1 large epic.
       **No-gos:** no grading yet (S10); no pacing polish (S11); no multi-session tables list.
 
+- [x] **S9b — Table size + crowding fix.** *(done 2026-07-12, wave 4.5 — user-reported: felt starved at ~640px on 1440px screens, board cards overlapped HJ/CO pods. Simulate route alone widens to `--content-width-wide` 1360px via `.app:has(.simulate)`; sim ring caps 5×card-h with a 4× re-cap inside the existing `@media (max-height:920px)` density gate (refuter caught the specificity beating the gate); SimTable slotStyle top-half y-radius 38→41 (bottom stays 38 — hero pod otherwise clipped `.stage overflow:hidden`); sim-layout single-column gate raised 900→1100px so ≤1100px drops the rail sheet below the felt instead of starving the ring. Playwright bounding-box sweep: zero overlaps + zero stage-clipping at 1440×900/1280×800/1024×768; Practice/Quiz shells verified untouched at 1080px. Spec/contracts/tickets: `simulate-table-size.md`.)* *(Track E, W4.5 — between S9 and S10)*
+
 - [ ] **S10 — Grading wired in: live badge + end-of-hand recap + tagged attempts.** ICE 10·7·4. *(Track E, W5 — needs S9; consumes whatever graders exist)*
       **Problem:** the key value — Practice-grade verdicts inside the game — isn't wired.
       **Outcome-link:** primary metric becomes measurable in-sim.

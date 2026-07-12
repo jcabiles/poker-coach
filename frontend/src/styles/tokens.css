@@ -113,6 +113,7 @@
   /* Layout sizes — fixed dimensions previously hardcoded in app.css,
      tokenized in T3 (values unchanged). */
   --content-width: 1080px; /* .app shell max-width */
+  --content-width-wide: 1360px; /* Simulate-route shell — the 9-max felt needs the room */
   --sidebar-w: 360px; /* .layout right column (range grid) */
   --card-w: 52px; /* playing-card face */
   --card-h: 72px;
