@@ -23,8 +23,32 @@ otherwise.
 - **Preflop only.** Panel renders only when `street == preflop` and it is the hero's
   turn; hidden postflop (it is a preflop chart, not a range viewer — that's the separate
   villain-range-reveal slice).
-- **Collapsed by default, state persisted** (localStorage), mirroring Practice's
-  RangeGrid idiom (`rangeGrid.collapsed` precedent; sim uses its own key).
+- **Collapsed by default, state persisted** (localStorage key exactly
+  `"simChart.collapsed"` — refuter low-1: never reuse Practice's literal
+  `"rangeGrid.collapsed"`).
+- **Preflop mapping coverage EXTENDED (refuter high-2, autonomous scope decision
+  2026-07-12):** grade_map's v1 preflop scope (RFI/vs-RFI) would render "no chart yet"
+  on most real preflop spots even though content/preflop has full charts for
+  blind_defense, vs_3bet, vs_4bet, vs_limpers. New ticket C0 extends
+  `grade_map.map_decision_point` to those four HU-canonical preflop families under the
+  SAME full-confidence gate (return None on any ambiguity — never fabricate). This
+  widens S10's graded coverage too (a deliberate, flagged supersession of S10's
+  "RFI/vs-RFI only" enumeration; the refuter on C0's diff must re-verify the
+  no-fabrication gate per family). Anything unmappable still gets the honest no-chart
+  message.
+- **Stale-response guard (refuter high-1):** the chart fetch never blocks the action
+  bar; instead the client stamps each request with the current (session_id, hand_no,
+  is_hero_turn) identity and DISCARDS any response arriving after the identity changed
+  (hero acted / events landed / hand advanced). No chart for a resolved decision point
+  is ever rendered.
+- **Villain resolution named (refuter med-1):** the mapped Spot carries
+  `villain_type=None`; the service resolves the note's persona by mapping the Spot's
+  `facing` position → the matching `sim_seat.persona_type`, then
+  `registry.lookup(index, spot, villain_type=persona)`. Unit test asserts the note's
+  villain equals the actual live opponent seat (mis-pairing = fabrication).
+- **Refetch only while expanded (refuter med-2):** a new hero preflop turn refetches
+  ONLY if the panel is currently expanded; collapsed panels cost zero fetches across
+  all turns, not just before first expand.
 - **Copy-don't-touch idiom:** a new `SimRangeChart.tsx` renders the same markup/CSS
   classes as Practice's `RangeGrid.tsx` (`.gridwrap/.grid/.cell/...`, read-only reuse —
   the SimTable↔PokerTable precedent). `RangeGrid.tsx` itself is NOT edited (Practice

@@ -39,11 +39,33 @@ function personaLabel(persona: string): string {
     .join(" ");
 }
 
-export default function SimTable({ hand }: { hand: SimulateHandView }) {
+export default function SimTable({
+  hand,
+  stagedIndex,
+  revealAt,
+}: {
+  hand: SimulateHandView;
+  // How many of the current events batch have been narrated (shared with the
+  // event log — SimulateView owns it). Drives the LOCKSTEP reveal below.
+  stagedIndex: number;
+  // position → 1-based staged-index threshold at which that seat's LAST action
+  // in this batch is narrated. A seat's resolved fold/all-in/chips state is
+  // held back until stagedIndex reaches this threshold, so the felt never runs
+  // ahead of the log. Positions absent from the map settled before this batch
+  // (hero, seats already folded) → revealed from the start.
+  revealAt: Map<string, number>;
+}) {
   const { seats, board, pot_bb, hero, to_act_seat, button_seat } = hand;
   const showdownBySeat = new Map<number, ShowdownSeatView>(
     hand.showdown.map((s) => [s.seat_index, s]),
   );
+
+  // Has this seat's action in the current batch been narrated yet? Seats with no
+  // entry acted before this batch (or never) and are always considered revealed.
+  const isRevealed = (position: string): boolean => {
+    const threshold = revealAt.get(position);
+    return threshold == null || stagedIndex >= threshold;
+  };
 
   // Rotate the ring so the hero pod is always bottom-center, exactly like
   // PokerTable. Seats arrive indexed 0..8; position tells us where each sits on
@@ -79,16 +101,23 @@ export default function SimTable({ hand }: { hand: SimulateHandView }) {
 
           {ordered.map((seat, i) => {
             const isButton = seat.seat_index === button_seat;
-            const folded = seat.status === "folded";
-            const allin = seat.status === "allin";
+            // Lockstep gate: a bot seat's resolved status (fold-dim / all-in)
+            // and its this-street chips are held back until the log has narrated
+            // that seat's action. Pre-reveal the seat reads as still live — no
+            // premature felt state ahead of the call sheet. The hero pod is
+            // never gated (it acts by the player's own click, not the batch).
+            const revealed = seat.is_hero || isRevealed(seat.position);
+            const folded = revealed && seat.status === "folded";
+            const allin = revealed && seat.status === "allin";
             const isToAct = to_act_seat != null && seat.seat_index === to_act_seat;
             const reveal = showdownBySeat.get(seat.seat_index);
             const style = slotStyle(i, ordered.length);
 
             // Chips-in-front: this street's commitment, shown as a small puck in
-            // front of the seat. Suppressed for folded seats (nothing to show).
+            // front of the seat. Suppressed for folded seats (nothing to show)
+            // and until this seat's action is narrated (lockstep).
             const chips =
-              seat.invested_street_bb > 0 && !folded ? (
+              revealed && seat.invested_street_bb > 0 && !folded ? (
                 <span className="sim-chips" title="chips in front">
                   {seat.invested_street_bb}bb
                 </span>

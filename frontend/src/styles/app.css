@@ -2984,3 +2984,110 @@ kbd {
     max-height: calc(var(--card-h) * 4);
   }
 }
+
+/* ── Pacing + speed picker (S11) ────────────────────────────────────────────
+   Client-side replay of the server's already-resolved bot-action batch: the
+   event log reveals lines one at a time and the felt reveals each seat's
+   resolved state in lockstep (shared staged index in SimulateView). This block
+   owns the entrance choreography for the log lines and the table-speed control
+   in the Simulate chrome. Tokens-only; AA + visible focus in both themes;
+   prefers-reduced-motion collapses all motion (the JS already runs pacing at
+   instant under reduce — this just kills the CSS entrance too). */
+
+/* Topbar right cluster: speed picker + leave button share a baseline row. */
+.sim-topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Speed picker — a segmented radio group dressed as a pill of chips. The real
+   <input>s are visually hidden but keep native keyboard + a11y semantics; the
+   .sim-speed-face spans carry the segmented look. */
+.sim-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* fieldset reset — it must read as a compact inline control, not a form box */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.sim-speed-label {
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sim-speed-opts {
+  display: inline-flex;
+  padding: var(--space-1);
+  gap: var(--space-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.sim-speed-opt {
+  position: relative;
+  display: inline-flex;
+}
+/* Visually hide the native radio but keep it in the a11y tree + focusable. */
+.sim-speed-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.sim-speed-face {
+  display: inline-flex;
+  align-items: center;
+  /* ≥24px target for the pill segment; comfortable pointer + touch hit area. */
+  min-height: var(--space-6);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  transition: color var(--dur-1) var(--ease-1), background var(--dur-1) var(--ease-1);
+}
+.sim-speed-opt:hover .sim-speed-face {
+  color: var(--text);
+}
+/* Selected segment wears the gilt chip — 4.5:1+ (primary-text on primary in
+   both themes: 4.9:1 day, 7.6:1 night). Redundant with aria-checked. */
+.sim-speed-input:checked + .sim-speed-face {
+  color: var(--primary-text);
+  background: var(--primary);
+}
+/* Focus lands on the hidden input; paint the ring on the visible face so it is
+   never lost (≥3px, ≥3:1 primary vs both surfaces). */
+.sim-speed-input:focus-visible + .sim-speed-face {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Event-log entrance: each newly-revealed call-sheet line breathes in (opacity
+   + a short slide from the leading edge, logical so it flips under RTL). The
+   list itself is unchanged from S9 — only the freshly-staged <li> animates,
+   because SimEventLog keys each reveal so it mounts once. */
+@media (prefers-reduced-motion: no-preference) {
+  .sim-log-reveal {
+    animation: sim-log-in var(--dur-2) var(--ease-1) both;
+  }
+  @keyframes sim-log-in {
+    from {
+      opacity: 0;
+      transform: translateX(calc(-1 * var(--space-2)));
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

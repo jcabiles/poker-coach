@@ -21,24 +21,45 @@ privacy structure S9 established. Test-enforced: the computed range for a hand m
 IDENTICAL across re-deals where only the villain's actual cards differ (same persona,
 same public line).
 
-## Mechanics (verified against code)
-- **Preflop = exact.** `personas.py` bots decide by sampling explicit combo ranges
-  (`parse_range`) per node with per-action frequencies. Posterior after a sequence of
-  actions = prior combos intersected/weighted by each action's probability for that
-  combo at that node (weight = product of action probs; combos the persona never plays
-  that way drop to 0). Deterministic math over pack data — no estimate.
-- **Postflop = approximate, ≈-labeled.** `personas_postflop.py` decides via the 7-rung
-  merit ladder over the villain's ACTUAL cards + board. The reveal instead conditions
-  per candidate combo: what WOULD this persona have done holding that combo on this
-  board (rung + lever probabilities) — then reweights by the observed action. Category-
-  level approximation is acceptable (rung probabilities, not exact lever RNG); the UI
+## Mechanics (verified against code; refuter-corrected 2026-07-12)
+- **Reconstruction is a REPLAY, not a list scan (refuter high-1/high-2).** A villain's
+  node at each historical decision depends on GLOBAL hand state: preflop `facing` is
+  computed from the whole interleaved `action_history` (`play.py _preflop_facing`), and
+  postflop `sample_postflop_decision` conditions on point-in-time `pot_bb`/`stack_bb`/
+  `opponents`/`current_bet_to` — none persisted standalone. The estimator therefore
+  replays the hand from `start_hand()` through `apply()` per historical action to
+  regenerate each decision's context (a few apply() calls per estimate — cheap vs the
+  ~430 hands/s full-hand ceiling), reconstructing facing exactly as `_preflop_facing`
+  does. Tested against MULTIWAY lines, not just HU open/4-bet.
+- **Preflop = exact.** With per-decision context reconstructed, the posterior is
+  deterministic pack math: weight(combo) ×= P(observed action | combo class, node) from
+  the pack's mix frequencies; classes the persona never plays that way drop to 0.
+- **Postflop = approximate, ≈-labeled.** Per candidate combo: what WOULD this persona
+  have done holding it at that reconstructed decision (rung + lever probabilities, incl.
+  the SPR-commit branch — snapshot errors there zero fold mass, hence the replay
+  requirement) → reweight by the observed action. Category-level approximation OK; UI
   labels every postflop chart "estimated".
-- **Dead cards:** combos containing the hero's cards or revealed board cards are
-  excluded (hero knows those); OTHER villains' cards are NOT excluded (hero can't know).
-- **Folded villains have no button** (user decision); the panel closes if its villain
-  folds.
-- **Pacing lockstep:** during S11 staged playback the chart may only reflect actions the
-  staged index has narrated — driven by the same staged index, never the raw batch.
+- **Class ↔ combo granularity (refuter med-2):** pack mixes are 169-class-level; dead-
+  card math is 1326-combo-level. Expand matching classes to suit combos, zero the
+  blocked combos, re-aggregate to class weights for the 13×13 chart. Fixture: hero holds
+  AhKs ⇒ villain's AKo class weight REDUCED (not zeroed), AKs drops only blocked combos.
+- **Dead cards:** hero's cards + revealed board only; other villains' unseen cards are
+  NOT excluded (hero can't know), prior showdowns don't carry into a new hand's deck.
+- **NO-PEEK is structural (refuter high-3):** the V2 service layer strips the loaded
+  `HandState` to a `PublicActionHistory` projection (street/position/action/amount only
+  — no `SeatState`, no hole cards) BEFORE calling the domain estimator; the pure
+  function's parameter TYPE cannot carry hole cards. (Replay internals reconstruct
+  context from the projection + a fresh deal-free state, never from `state_json` seats.)
+- **Folded villains have no button** (user decision) — using the STAGED fold state
+  (same per-seat `revealed` computation SimTable already uses), never raw `seat.status`
+  (refuter low-2); the panel closes when its villain folds (staged) AND on `hand_over`
+  (showdown reveals real cards — an estimate beside the truth is noise; refuter low-3).
+- **Pacing lockstep needs a truncation param (refuter med-1):** `stagedIndex` is client-
+  only. The endpoint takes `?through_action=N`; the FE passes its narrated count per
+  refetch, the estimator conditions on that prefix only. Server never volunteers the
+  fully-resolved posterior during playback.
+- **Availability semantics (refuter low-1):** 200 + `available=false` for hero/folded/
+  hand-over seats (benign poll states); HTTP 404 stays reserved for `SessionNotFound`.
 
 ## Files / interfaces to touch
 **Backend**
