@@ -128,10 +128,12 @@ export default function SimulateView() {
   // live path. Reset per hand (a new hand_no). A ref (not state): it's read at
   // render time from the current view and never needs to trigger its own render.
   const tiersByOrdinal = useRef<Map<number, GradeView>>(new Map());
-  const gradedHandNo = useRef<number | null>(null);
-  // The hand_no we've already refetched the report for, so a restore/re-render
+  // "session_id#hand_no" keys — session-scoped so a 404-recovery into a fresh
+  // session (which restarts at hand 1) can't reuse the previous hand's state.
+  const gradedHandNo = useRef<string | null>(null);
+  // The hand we've already refetched the report for, so a restore/re-render
   // of an already-finished hand doesn't refetch on every adopt.
-  const reportedHandNo = useRef<number | null>(null);
+  const reportedHandNo = useRef<string | null>(null);
 
   // Bumped whenever a hand completes so the all-time per-street report refetches
   // its aggregate. Also nudged on mount by the report's own effect.
@@ -210,23 +212,27 @@ export default function SimulateView() {
       // reload-restore is lost. Non-fatal.
     }
 
-    // S10 grade bookkeeping. A new hand_no resets the per-hand tier accumulator
-    // (each hand's "why" text is independent). Then stash this response's
-    // live grade (if any) by ordinal so the hand-over recap can merge in the
-    // tiers the persisted rows lack, and surface it as the hero-pod badge.
+    // S10 grade bookkeeping. A new (session, hand_no) pair resets the per-hand
+    // tier accumulator — hand_no ALONE is not a safe key: every session starts
+    // at hand 1, so a mid-hand-1 404 recovery into a fresh session would
+    // otherwise bleed session A's "why" text into session B's recap (final-gate
+    // refuter med-1). Then stash this response's live grade (if any) by ordinal
+    // so the hand-over recap can merge in the tiers the persisted rows lack,
+    // and surface it as the hero-pod badge.
     const hand = res.hand;
-    if (gradedHandNo.current !== hand.hand_no) {
+    const gradeKey = `${res.session_id}#${hand.hand_no}`;
+    if (gradedHandNo.current !== gradeKey) {
       tiersByOrdinal.current = new Map();
-      gradedHandNo.current = hand.hand_no;
+      gradedHandNo.current = gradeKey;
     }
     const grade = hand.last_grade ?? null;
     if (grade) tiersByOrdinal.current.set(grade.ordinal, grade);
     setHeroBadge(grade);
 
     // A finished hand's decisions have persisted — refetch the all-time report
-    // (once per hand_no, so a reload of an already-over hand doesn't re-fetch).
-    if (hand.hand_over && reportedHandNo.current !== hand.hand_no) {
-      reportedHandNo.current = hand.hand_no;
+    // (once per hand, so a reload of an already-over hand doesn't re-fetch).
+    if (hand.hand_over && reportedHandNo.current !== gradeKey) {
+      reportedHandNo.current = gradeKey;
       setReportKey((k) => k + 1);
     }
 
@@ -340,7 +346,16 @@ export default function SimulateView() {
       if (action === "fold") {
         clearTimer();
         void run(async (id) => {
-          await postHeroAction(id, { action });
+          // The fold response ends the hand but is never adopted (we jump
+          // straight to the next deal) — without the bump here the per-street
+          // report went stale after every fold-ended hand (final-gate refuter
+          // high-1: adopt() only sees the NEXT hand, whose hand_over is false).
+          const folded = await postHeroAction(id, { action });
+          const foldedKey = `${folded.session_id}#${folded.hand.hand_no}`;
+          if (folded.hand.hand_over && reportedHandNo.current !== foldedKey) {
+            reportedHandNo.current = foldedKey;
+            setReportKey((k) => k + 1);
+          }
           return postNextHand(id);
         });
         return;

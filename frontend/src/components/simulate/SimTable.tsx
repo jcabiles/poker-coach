@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 import type { GradeView, SeatView, ShowdownSeatView, SimulateHandView } from "../../api/types";
 import Card from "../Card";
-import { fmtBb, tierOf } from "./simGrade";
+import { fmtBb, fmtEvLoss, tierOf } from "./simGrade";
 
 // Simulate S9 table. A purpose-built felt for the persistent session: it reuses
 // PokerTable's felt/ring/rail CSS classes and elliptical geometry verbatim (so
@@ -234,13 +234,13 @@ function SimVerdictBadge({ grade }: { grade: GradeView }) {
       role="status"
       aria-label={
         graded
-          ? `Verdict: ${meta.label}${showLoss ? `, gave up about ${grade.ev_loss_bb.toFixed(1)} big blinds` : ""}`
+          ? `Verdict: ${meta.label}${showLoss ? `, gave up about ${fmtEvLoss(grade.ev_loss_bb)}` : ""}`
           : "No baseline for this spot yet"
       }
     >
       <span className="sim-badge-word">{meta.label}</span>
       {showLoss && (
-        <span className="sim-badge-ev num">≈{grade.ev_loss_bb.toFixed(1)}bb</span>
+        <span className="sim-badge-ev num">{fmtEvLoss(grade.ev_loss_bb)}</span>
       )}
     </div>
   );

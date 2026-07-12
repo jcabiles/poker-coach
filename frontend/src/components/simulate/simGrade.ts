@@ -52,5 +52,6 @@ export function fmtEvLoss(bb: number): string {
 // to ≤2 decimals and trim trailing zeros so the felt shows "93.52" / "40" —
 // never a float smear. One formatter for every raw bb figure the table renders.
 export function fmtBb(bb: number): string {
+  if (!Number.isFinite(bb)) return "—"; // never render "NaNbb" on the felt
   return String(Number(bb.toFixed(2)));
 }
