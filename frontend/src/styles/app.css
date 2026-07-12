@@ -3561,9 +3561,10 @@ kbd {
    RangeGrid's three action hues: this chart answers "how likely is this class",
    not "what does it do". Weight → fill OPACITY, but weight is never conveyed by
    opacity ALONE: nonzero cells floor at a visible intensity and the class label
-   is drawn full-contrast (near-black --act-on on the ivory-to-brass ground,
-   ≥4.5:1 at every weight, theme-independent). Zero-weight classes recede to
-   bare mat. */
+   is drawn full-contrast on NONZERO cells (near-black --act-on on the
+   ivory-to-brass ground, ≥4.5:1 at every nonzero weight, theme-independent).
+   Zero-weight classes recede to bare mat with a deliberately MUTED label
+   (45% mix — legible-but-quiet by design, not an AA claim). */
 
 /* Reveal token on a live villain pod. A struck brass chip on the felt (the
    room's one metal, same family as .sim-chips), ≥24px target, ink legible on
@@ -3752,11 +3753,11 @@ kbd {
   background: var(--sim-vrange-heat);
   opacity: var(--w, 0);
 }
-/* Class glyph — engraved near-black instrument lettering, ALWAYS full-contrast
-   over the ivory-to-brass ground (--act-on clears ≥4.5:1 at every weight; this
-   is the redundant, non-color cue that makes the heat honest). Zero-weight cells
-   step the label back to muted so bare mat reads as "not in range" without
-   shouting the class. */
+/* Class glyph — engraved near-black instrument lettering, full-contrast on
+   NONZERO cells (--act-on clears ≥4.5:1 at every nonzero weight; the redundant
+   non-color cue that makes the heat honest). Zero-weight cells step the label
+   back to a muted 45% mix so bare mat reads as "not in range" without shouting
+   the class — deliberately quiet, not an AA claim (refuter low-2). */
 .sim-vrange-label {
   position: absolute;
   inset: 0;

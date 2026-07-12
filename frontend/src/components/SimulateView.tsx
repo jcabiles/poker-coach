@@ -277,13 +277,24 @@ export default function SimulateView() {
     if (narratedHandRef.current !== gradeKey) {
       narratedHandRef.current = gradeKey;
       narratedBaseRef.current = 0;
+      // Any hand transition closes an open villain-range panel — including
+      // hand endings whose hand_over view was never adopted (the hero-fold
+      // shortcut jumps straight to the next deal; without this a panel open on
+      // a NON-folding villain silently carried across the hand boundary —
+      // villain-range refuter med-1).
+      setOpenRangeSeat(null);
     } else {
       narratedBaseRef.current = narratedBaseRef.current + prevEventCountRef.current + 1;
     }
     prevEventCountRef.current = newBatch;
+    // Reset the staged index ATOMICALLY with the base bump: the playback
+    // effect also resets it, but that runs a flush later — in between,
+    // rangeThrough would read newBase + the OLD batch's terminal stagedIndex
+    // and fire one inflated lockstep request (refuter low-1).
+    setStaged(0);
 
     setView(res);
-  }, []);
+  }, [setStaged]);
 
   const clearStored = useCallback(() => {
     sessionIdRef.current = null;
