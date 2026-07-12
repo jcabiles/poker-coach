@@ -260,3 +260,95 @@ def test_endpoint_http_shape_and_404(db):
         assert client.get("/api/v1/simulate/nope/preflop-chart").status_code == 404
     finally:
         app.dependency_overrides.clear()
+
+
+# ------------------------------------- widened families (chart refuter med-1)
+
+
+def test_chart_grid_and_note_vs_3bet(db):
+    # Hero CO opens 2.5, folds to BTN who 3-bets 7.5 (=3x cap), blinds fold,
+    # back on hero. facing = the 3-BETTOR (BTN) — the note must key off the
+    # live BTN seat's persona (an authored vs_3bet/CO/BTN/nit pair exists).
+    state = _state(Position.CO)
+    moves = [_fold(p) for p in _before(Position.CO) if p not in _BLINDS]
+    moves += [
+        (Position.CO, Decision(action=ActionType.RAISE, size_bb=2.5)),
+        (Position.BTN, Decision(action=ActionType.RAISE, size_bb=7.5)),
+        _fold(Position.SB),
+        _fold(Position.BB),
+    ]
+    state = _play(state, moves)
+    assert state.to_act_seat == HERO_SEAT
+    session_id = _persist(db, state, personas_by_position={Position.BTN: "nit"})
+    view = preflop_chart(db, session_id)
+    assert view.available is True
+    entry = _find_entry(NodeContext.VS_3BET, Position.CO, Position.BTN)
+    spot = build_spot(
+        entry, random.Random(0), eff_bb=100.0,
+        hole_cards=state.seats[HERO_SEAT].hole_cards,
+    )
+    assert view.grid == range_grid(lookup(_INDEX, spot))
+    note = view.exploit_note
+    assert note is not None and note.villain_label == "nit"
+
+
+def test_chart_grid_vs_4bet(db):
+    # UTG opens 3.0, hero CO 3-bets 9.0 (=3x), UTG 4-bets 20.7 (=2.3*9 cap),
+    # everyone else folds, back on hero. facing = the ORIGINAL OPENER (UTG).
+    state = _state(Position.CO)
+    moves = [
+        (Position.UTG, Decision(action=ActionType.RAISE, size_bb=3.0)),
+        _fold(Position.UTG1),
+        _fold(Position.UTG2),
+        _fold(Position.LJ),
+        _fold(Position.HJ),
+        (Position.CO, Decision(action=ActionType.RAISE, size_bb=9.0)),
+        _fold(Position.BTN),
+        _fold(Position.SB),
+        _fold(Position.BB),
+        (Position.UTG, Decision(action=ActionType.RAISE, size_bb=20.7)),
+    ]
+    state = _play(state, moves)
+    assert state.to_act_seat == HERO_SEAT
+    session_id = _persist(db, state)
+    view = preflop_chart(db, session_id)
+    assert view.available is True
+    entry = _find_entry(NodeContext.VS_4BET, Position.CO, Position.UTG)
+    spot = build_spot(
+        entry, random.Random(0), eff_bb=100.0,
+        hole_cards=state.seats[HERO_SEAT].hole_cards,
+    )
+    assert view.grid == range_grid(lookup(_INDEX, spot))
+
+
+def test_chart_grid_vs_limpers_note_omitted(db):
+    # One limper (UTG2), folds around to the hero BTN. Grid = the 1-limper BTN
+    # entry; NOTE stays None even though vs_limpers exploit content exists —
+    # the mapped Spot has no facing seat, and guessing "the limper" would be
+    # exactly the mis-pairing the spec forbids (C1 honest omission).
+    state = _state(Position.BTN)
+    moves = [
+        _fold(Position.UTG),
+        _fold(Position.UTG1),
+        (Position.UTG2, Decision(action=ActionType.CALL)),
+        _fold(Position.LJ),
+        _fold(Position.HJ),
+        _fold(Position.CO),
+    ]
+    state = _play(state, moves)
+    assert state.to_act_seat == HERO_SEAT
+    session_id = _persist(
+        db, state, personas_by_position={Position.UTG2: "passive_fish"}
+    )
+    view = preflop_chart(db, session_id)
+    assert view.available is True
+    from app.domain.table.grade_map import _find_limp_entry
+
+    entry = _find_limp_entry(Position.BTN, 1)
+    assert entry is not None
+    spot = build_spot(
+        entry, random.Random(0), eff_bb=100.0,
+        hole_cards=state.seats[HERO_SEAT].hole_cards,
+    )
+    assert view.grid == range_grid(lookup(_INDEX, spot))
+    assert view.exploit_note is None

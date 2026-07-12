@@ -465,13 +465,18 @@ export default function SimulateView() {
             )}
 
             {/* Point-of-need baseline range chart (C2). Preflop hero turns only,
-                and never during bot playback (pacing). The identity key stamps
-                the chart fetch with (session, hand_no, is_hero_turn) so a stale
-                response for an already-resolved decision is discarded. */}
+                and never during bot playback (pacing). The identity key must
+                change PER DECISION POINT, not per hand: two hero preflop turns
+                in one hand (open → villain 3-bets → hero faces it) would
+                otherwise share a key and keep the FIRST decision's chart on
+                screen for the second (chart refuter high-1). pot_bb strictly
+                grows between consecutive preflop hero decisions, so it is the
+                per-decision discriminator; is_hero_turn added nothing (always
+                true when mounted). */}
             {hand.is_hero_turn && hand.street === "preflop" && !playing && view && (
               <SimRangeChart
                 sessionId={view.session_id}
-                identityKey={`${view.session_id}#${hand.hand_no}#${hand.is_hero_turn}`}
+                identityKey={`${view.session_id}#${hand.hand_no}#${hand.pot_bb}`}
                 heroCards={hand.hero.hole_cards}
               />
             )}
