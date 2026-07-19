@@ -254,6 +254,35 @@ export interface GradeView {
   coverage: string; // "full" | "partial" | "not_found" | "unmappable"
   verdict: string | null; // tiered verdict line; null when no baseline / reloaded
   reasoning: string | null; // the "why"; recap expands it for mistakes+ only
+  // N5 spot dims surfaced for the N6 coach; position always set, facing/node
+  // null on unmappable spots. Survive a reload (persisted), unlike verdict.
+  node_context: string | null;
+  position: string | null;
+  facing_position: string | null;
+}
+
+// N6 — on-demand LLM coach ("Explain this"). Hero-only context, assembled by
+// explicit field-picking on the FE (never spread `hand` — showdown puts villain
+// cards in the same scope). Live-per-request; nothing persisted server-side.
+export interface CoachExplainRequest {
+  street: string;
+  chosen_action: string;
+  correctness: "optimal" | "acceptable" | "mistake" | "blunder" | null;
+  sizing_correctness?: "optimal" | "acceptable" | "mistake" | "blunder" | null;
+  ev_loss_bb: number;
+  coverage: string;
+  node_context: string | null;
+  position: string | null;
+  facing_position: string | null;
+  verdict: string | null;
+  reasoning: string | null;
+  hero_cards: [string, string] | null;
+  board: string[];
+}
+
+export interface CoachExplainView {
+  explanation: string;
+  source: string; // "anthropic" | "template"
 }
 
 // Simulate S10 all-time per-street report. ALWAYS all four streets in order.

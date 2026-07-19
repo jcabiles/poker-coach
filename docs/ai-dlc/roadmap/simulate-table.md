@@ -681,12 +681,23 @@ the serial spine S2→S4→S9→S10, not the agent budget.
 > columns below (cross-referenced there). **Do NOT hand these to `/ai-dlc` until N1–N5 land + the
 > flagged interview happens.**
 
-- **N6 — LLM coach (feedback on good/bad decisions).** *Supersedes R7. Sequence: right after N1–N5.*
-  Problem (P4): verdicts flag good/bad but don't *teach*. Direction: an LLM-backed coach that turns a
-  graded decision + spot context + RES-A/B/C rationales into a plain-language concept + fix.
-  **⚠️ NEEDS EXTENSIVE INTERVIEW before spec** — API-vs-local, model, cost/latency/privacy of sending
-  hand data off-device, prompt design, trigger conditions, capability-seam/toggle; **no external
-  dependency lands without that interview.** → graduates to `## NEXT` (canonical) once N1–N5 ship.
+- [x] **N6 — LLM coach (feedback on good/bad decisions).** *(DONE 2026-07-18 — spec
+  `specs/n6-llm-coach.md`. Interview locked: Claude API behind a swappable `CoachProvider` seam +
+  deterministic templated fallback (default when no key); on-demand "Explain this" button per recap
+  row.)* Shipped: `app/services/coach.py` (`CoachContext`/`CoachProvider` Protocol, `TemplateCoach`
+  offline default, `AnthropicCoach` via **stdlib urllib** — no new dependency; `ANTHROPIC_API_KEY`/
+  `ANTHROPIC_MODEL` env, `asyncio.to_thread`, singleton + `reset_coach`); `explain_decision` always
+  returns text (falls back to template on any primary failure). `POST /simulate/{id}/explain`
+  (`assert_session_active` 404 idiom; hero-only `CoachExplainRequest` — **no villain-card slot**,
+  live-per-request, **no persistence/migration**). GradeView gained node_context/position/
+  facing_position (from the N5 sim_decision dims) so the live coach prompt matches what's tested
+  (refuter-on-diff med). FE: per-row "Explain this" in SimRecap (coach-mode gated) + loading/error
+  states + tokens-only CSS. 682 backend tests + verify.sh + FE typecheck/build green. Spec-refuter
+  PASS-w-issues (3 folded pre-build), refuter-on-diff PASS (1 med folded). Design-review: first
+  pass FAIL → 3 CSS fixes applied verbatim (align-items:flex-start; mobile indent reset; light
+  border →3:1); **re-review blocked** by an un-killable orphaned dev-server (sandbox can't signal
+  cross-session PIDs) — fixes verified in source + build + hand-computed contrast; browser re-review
+  offered on request. No `spot_signature()`/grader/pin/`TAXONOMY_VERSION` change.
 
 - **N7 — IA restructure: Simulate as home + Practice organized around leaks.** *Sequence: after N1–N5.*
   Problem (P5): the app is grader-first, not Simulate-first; Practice isn't organized around the

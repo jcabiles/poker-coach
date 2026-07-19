@@ -769,7 +769,14 @@ export default function SimulateView() {
                   revealScope={revealScope}
                   onReveal={onReveal}
                 />
-                {coachMode && <SimRecap recap={mergedRecap} />}
+                {coachMode && (
+                  <SimRecap
+                    recap={mergedRecap}
+                    sessionId={sessionIdRef.current}
+                    heroCards={hand.hero.hole_cards}
+                    board={hand.board}
+                  />
+                )}
               </>
             )}
 

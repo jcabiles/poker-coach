@@ -16,6 +16,8 @@ GET  /simulate/{id}/villain-range/{seat} -> live estimated hand-range for a
                                          (villain-range V2).
 GET  /simulate/{id}/reveal/{scope}   -> on-demand villain-card reveal after a
                                          hero fold; scope last-in|all (R1).
+POST /simulate/{id}/explain          -> live LLM/template coaching for a graded
+                                         decision (N6); hero-only body, no persist.
 
 All state lives in the DB (`app.services.sim_session`); this module only
 translates HTTP <-> service calls. No auth: `owner_id=""`. See
@@ -30,6 +32,8 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.domain.action import Decision
 from app.schemas.simulate import (
+    CoachExplainRequest,
+    CoachExplainView,
     PostflopChartView,
     PreflopChartView,
     RevealView,
@@ -37,7 +41,8 @@ from app.schemas.simulate import (
     StreetReportView,
     VillainRangeView,
 )
-from app.services import sim_session
+from app.services import coach, sim_session
+from app.services.coach import CoachContext
 from app.services.sim_session import SessionNotFound
 
 router = APIRouter(prefix="/simulate", tags=["simulate"])
@@ -126,6 +131,38 @@ async def reveal(
         return sim_session.reveal(db, session_id, scope, owner_id=_OWNER_ID)
     except SessionNotFound as exc:
         raise HTTPException(status_code=404, detail="session not found") from exc
+
+
+@router.post("/{session_id}/explain", response_model=CoachExplainView)
+async def explain_decision(
+    session_id: str,
+    body: CoachExplainRequest,
+    db: Session = Depends(get_session),
+) -> CoachExplainView:
+    # N6: on-demand LLM coach for a graded decision. Live-per-request (no
+    # persistence); 404 stays SessionNotFound-only. Body carries hero-only grade
+    # context — no villain-card slot. Always returns text (template fallback).
+    try:
+        sim_session.assert_session_active(db, session_id, owner_id=_OWNER_ID)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail="session not found") from exc
+    ctx = CoachContext(
+        street=body.street,
+        chosen_action=body.chosen_action,
+        correctness=body.correctness,
+        sizing_correctness=body.sizing_correctness,
+        ev_loss_bb=body.ev_loss_bb,
+        coverage=body.coverage,
+        node_context=body.node_context,
+        position=body.position,
+        facing_position=body.facing_position,
+        verdict=body.verdict,
+        reasoning=body.reasoning,
+        hero_cards=body.hero_cards,
+        board=tuple(body.board),
+    )
+    text, source = await coach.explain_decision(ctx)
+    return CoachExplainView(explanation=text, source=source)
 
 
 @router.get("/{session_id}/villain-range/{seat_index}", response_model=VillainRangeView)

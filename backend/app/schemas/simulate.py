@@ -54,6 +54,39 @@ class GradeView(BaseModel):
     coverage: str  # full / partial / not_found / unmappable
     verdict: str | None  # FeedbackTiers.verdict; None when no baseline
     reasoning: str | None  # FeedbackTiers.reasoning; recap expands for mistakes+
+    # N5 spot dims (persisted on sim_decision) surfaced for the N6 coach prompt:
+    # position always present; facing/node None on unmappable spots.
+    node_context: str | None = None
+    position: str | None = None
+    facing_position: str | None = None
+
+
+class CoachExplainRequest(BaseModel):
+    """Hero-only context for the N6 'Explain this' button. Assembled FE-side by
+    explicit field-picking (never spreading `hand`) — there is NO villain-card
+    slot, so villain hole cards have no channel into the coach prompt even though
+    the FE holds them in scope at showdown. Live-per-request; nothing persisted."""
+
+    street: str
+    chosen_action: str
+    correctness: str | None = None
+    sizing_correctness: str | None = None
+    ev_loss_bb: float = 0.0
+    coverage: str = "unmappable"
+    node_context: str | None = None
+    position: str | None = None
+    facing_position: str | None = None
+    verdict: str | None = None
+    reasoning: str | None = None
+    hero_cards: tuple[str, str] | None = None
+    board: list[str] = []
+
+
+class CoachExplainView(BaseModel):
+    """One live coaching explanation (N6). source: 'anthropic' | 'template'."""
+
+    explanation: str
+    source: str
 
 
 class StreetReportRow(BaseModel):

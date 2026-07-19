@@ -213,6 +213,14 @@ def _get_session(db: Session, session_id: str, owner_id: str) -> SimSession | No
     return session
 
 
+def assert_session_active(db: Session, session_id: str, owner_id: str = "") -> None:
+    """Raise SessionNotFound unless the session exists and is active. Lets router
+    endpoints that don't need the hand state (N6 coach) keep the established
+    `except SessionNotFound` 404 idiom instead of an ad-hoc None-check."""
+    if _get_session(db, session_id, owner_id) is None:
+        raise SessionNotFound(session_id)
+
+
 def _grade_view(row: SimDecision, tiers: FeedbackTiers | None = None) -> GradeView:
     """GradeView from a persisted SimDecision. verdict/reasoning come from the
     in-memory evaluation tiers of the decision graded THIS request; persisted
@@ -232,6 +240,9 @@ def _grade_view(row: SimDecision, tiers: FeedbackTiers | None = None) -> GradeVi
         coverage=row.coverage,
         verdict=tiers.verdict if tiers is not None else None,
         reasoning=tiers.reasoning if tiers is not None else None,
+        node_context=row.node_context,
+        position=row.position,
+        facing_position=row.facing_position,
     )
 
 
