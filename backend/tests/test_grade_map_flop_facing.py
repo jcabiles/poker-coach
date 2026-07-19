@@ -319,9 +319,19 @@ def test_noncanonical_inband_open_maps_flop_cbet_with_actual_pot():
     assert bets == [round(0.33 * pot, 1), round(0.75 * pot, 1)]
 
 
-def test_out_of_band_open_still_gates_flop_cbet():
-    # Oversized opens (e.g. 4.0bb persona opens) stay unmapped — band cap holds.
+def test_persona_oversize_open_maps_flop_cbet():
+    # Coverage widen (2026-07-19): persona opens up to 4.5bb now map postflop too
+    # (aligned with the preflop facing-open band), with pot math on the ACTUAL
+    # open — so a c-bet line off a 4.0bb (fish) open is no longer "no baseline".
     state = _state(Position.UTG)
     state = _play(state, _srp_preflop_moves(Position.UTG, 4.0))
+    state = _play(state, [_check(Position.BB)])
+    assert map_decision_point(state, HERO_SEAT) is not None
+
+
+def test_open_above_cap_still_gates_flop_cbet():
+    # Above the persona-open cap (5.0bb) stays unmapped — band cap holds.
+    state = _state(Position.UTG)
+    state = _play(state, _srp_preflop_moves(Position.UTG, 5.0))
     state = _play(state, [_check(Position.BB)])
     assert map_decision_point(state, HERO_SEAT) is None

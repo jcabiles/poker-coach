@@ -362,9 +362,14 @@ def test_std_band_open_maps_turn_barrel_oversize_still_gates():
     assert spot.node_context == [NodeContext.TURN_BARREL]
     fp = round(2 * 3.0 + 0.5, 2)
     assert spot.pot_bb == round(fp + 2 * round(0.33 * fp, 1), 2)  # 10.7
-    # A genuine oversize (station 3.5 / fish 4.0 territory) still refuses even
-    # with every postflop street canonical on the actual pot.
-    state = _turn_after_open(3.5)
+    # Coverage widen (2026-07-19): persona oversizes up to 4.5 (station 3.5 /
+    # fish 4.0 / maniac 4.5) now map the turn barrel too, pot math on the actual
+    # open — aligned with the preflop facing-open band.
+    state = _turn_after_open(4.0)
+    assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
+    assert map_decision_point(state, HERO_SEAT) is not None
+    # Above the cap (5.0) still refuses, even fully canonical on the actual pot.
+    state = _turn_after_open(5.0)
     assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
     assert map_decision_point(state, HERO_SEAT) is None
 
