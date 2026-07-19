@@ -1,6 +1,8 @@
 import type {
   CalendarDay,
   CardMatchResponse,
+  CoachExplainRequest,
+  CoachExplainView,
   Decision,
   EvaluationResult,
   LeakStat,
@@ -134,6 +136,22 @@ export async function postNextHand(sessionId: string): Promise<SessionView> {
 export async function leaveSession(sessionId: string): Promise<void> {
   const r = await fetch(`${BASE}/simulate/session/${sessionId}/leave`, { method: "POST" });
   if (!r.ok) throw new Error(`${r.url} -> ${r.status}`);
+}
+
+// N6 — on-demand LLM coach for one graded decision. Live-per-request; server
+// persists nothing. Always resolves with text (server falls back to a template
+// when no API key is set). `body` is hero-only, field-picked at the call site.
+export async function explainDecision(
+  sessionId: string,
+  body: CoachExplainRequest,
+): Promise<CoachExplainView> {
+  return json(
+    await fetch(`${BASE}/simulate/${sessionId}/explain`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
 }
 
 // S10 — all-time per-street grading report (across every session). Session

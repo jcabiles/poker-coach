@@ -3425,6 +3425,58 @@ kbd {
   max-width: 68ch;
 }
 
+/* N6 — on-demand coach. Indented to the same margin as the why-note so the
+   button and its explanation read as belonging to the decision above. */
+.sim-recap-coach {
+  margin-left: calc(var(--card-w) * 1.1 + var(--space-3));
+  margin-top: var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  /* flex-start so the quiet button stays top-left and never drifts to the
+     vertical middle of a tall expanded explanation (design-review med). */
+  align-items: flex-start;
+  gap: var(--space-2) var(--space-3);
+}
+.sim-recap-explain-btn {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  /* Boundary mixed toward --primary so the control shape clears WCAG 1.4.11 3:1
+     against --surface in both themes (plain --border was 1.62:1 in light). */
+  border: 1px solid color-mix(in srgb, var(--primary) 70%, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+.sim-recap-explain-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+.sim-recap-explain-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.sim-recap-explain-btn:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.sim-recap-explain-error {
+  font-size: var(--text-xs);
+  color: var(--warn);
+}
+.sim-recap-explain {
+  flex-basis: 100%;
+  padding-left: var(--space-3);
+  border-left: 2px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  font-size: var(--text-md);
+  line-height: 1.55;
+  color: var(--text);
+  max-width: 68ch;
+}
+
 /* ── Per-street record — the side-column report book ────────────────────────
    A numbers-only aggregate over every graded decision, all four streets always.
    Sits between the call sheet and the rail sheet; reads as another ruled sheet. */
@@ -4323,6 +4375,11 @@ kbd {
   .dash-kpis,
   .dash-skel-kpis {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* Drop the desktop card-relative indent so the coach explanation uses the
+     recap's full width instead of a ~28ch column (design-review med). */
+  .sim-recap-coach {
+    margin-left: 0;
   }
 }
 
