@@ -36,7 +36,7 @@ from app.domain.spot import (
 )
 from app.domain.table.engine import HandState
 from app.domain.table.grade_map_common import _BLIND_POSITIONS, _EPS, _street_actions
-from app.domain.table.grade_map_preflop import _STD_OPEN_CAP
+from app.domain.table.grade_map_preflop import _OVERSIZE_OPEN_CAP
 from app.domain.table.sizing import FACING_RAISE_MULTS, POSTFLOP_BET_FRACS
 
 
@@ -73,7 +73,7 @@ def map_flop_cbet(state: HandState, hero_seat: int) -> Spot | None:
     # size (refuter HIGH: a relaxed gate with canonical pot math would
     # re-reject — or mis-price — every non-canonical in-band open).
     open_to = raises[0].amount_bb
-    if not (2.0 - _EPS <= open_to <= _STD_OPEN_CAP + _EPS):
+    if not (2.0 - _EPS <= open_to <= _OVERSIZE_OPEN_CAP + _EPS):
         return None
 
     flop_acts = _street_actions(state, Street.FLOP)
@@ -205,7 +205,7 @@ def _hu_srp_preflop(state: HandState) -> tuple | None:
     # (2.5 for HJ/CO/BTN) would silently zero those seats' turn/river coverage.
     # Oversized persona opens (station 3.5 / fish 4.0 / maniac 4.5) still
     # return None — defense ranges tighten materially vs oversizes.
-    if not (2.0 - _EPS <= open_to <= _STD_OPEN_CAP + _EPS):
+    if not (2.0 - _EPS <= open_to <= _OVERSIZE_OPEN_CAP + _EPS):
         return None
     return opener, bb, open_to
 
@@ -697,7 +697,7 @@ def _mw_srp_preflop(state: HandState) -> tuple | None:
     ):
         return None  # a fourth live player — not the 3-way shape
     open_to = raises[0].amount_bb
-    if not (2.0 - _EPS <= open_to <= _STD_OPEN_CAP + _EPS):
+    if not (2.0 - _EPS <= open_to <= _OVERSIZE_OPEN_CAP + _EPS):
         return None
     return opener, caller, bb, open_to
 
