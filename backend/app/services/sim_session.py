@@ -685,6 +685,7 @@ def _view(
                     action=e.action.value,
                     amount_bb=e.amount_bb,
                     street=e.street.value,
+                    all_in=e.all_in,
                 )
                 for e in events
             ],

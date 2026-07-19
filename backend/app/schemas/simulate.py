@@ -39,6 +39,7 @@ class EventView(BaseModel):
     action: str
     amount_bb: float
     street: str
+    all_in: bool = False
 
 
 class GradeView(BaseModel):

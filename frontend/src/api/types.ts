@@ -234,6 +234,7 @@ export interface EventView {
   action: string; // "fold" | "check" | "call" | "bet" | "raise" | "post"
   amount_bb: number;
   street: string;
+  all_in: boolean;
 }
 
 // Simulate S10 grading — one graded hero decision. `correctness` null means

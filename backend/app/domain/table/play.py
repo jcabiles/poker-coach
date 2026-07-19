@@ -57,6 +57,9 @@ class ActionEvent:
 
     amount_bb: raise-TO / bet-TO for BET/RAISE (the decision's size), the call
     increment for CALL, 0.0 for FOLD/CHECK.
+
+    all_in: True when this action left the seat all-in (post-apply status), so
+    the UI can label the shove instead of showing a bare BB amount.
     """
 
     seat: int
@@ -64,6 +67,7 @@ class ActionEvent:
     action: ActionType
     amount_bb: float
     street: Street
+    all_in: bool = False
 
 
 # --- Harness mirrors (tests/test_personas_postflop.py) — keep byte-equivalent ---
@@ -230,6 +234,7 @@ def advance_to_hero(
             amount = state.action_history[-1].amount_bb  # the call increment
         else:
             amount = 0.0
+        all_in = state.seats[seat].status is PlayerStatus.ALLIN
         events.append(
             ActionEvent(
                 seat=seat,
@@ -237,6 +242,7 @@ def advance_to_hero(
                 action=decision.action,
                 amount_bb=round(amount, 2),
                 street=street,
+                all_in=all_in,
             )
         )
     return state, events

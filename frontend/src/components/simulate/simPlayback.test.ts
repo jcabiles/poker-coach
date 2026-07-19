@@ -10,6 +10,7 @@ function event(street: string, position = "BTN"): EventView {
     action: "call",
     amount_bb: 1,
     street,
+    all_in: false,
   };
 }
 
