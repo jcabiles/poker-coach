@@ -164,6 +164,7 @@ export default function SimTable({
               revealed && seat.invested_street_bb > 0 && !folded ? (
                 <span className="sim-chips" title="chips in front">
                   {fmtBb(seat.invested_street_bb)}bb
+                  {allin && <span className="sim-chips-allin"> · all-in</span>}
                 </span>
               ) : null;
 

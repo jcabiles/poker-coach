@@ -2737,6 +2737,15 @@ kbd {
 .sim-ring-over .sim-chips {
   opacity: 0.35;
 }
+/* All-in marker ON the chips pill. The pill's own background is a bright gold
+   gradient, so the gold .sim-allin tag (used on the felt stack line) would be
+   gold-on-gold — instead this inherits the pill's dark --primary-text, matching
+   the amount, and just adds weight + uppercase to read as a distinct label. */
+.sim-chips-allin {
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
 
 /* Last-action verb — the seat's most recent VOLUNTARY action this street, struck
    above the cards and above the chips puck (order:-2 clears .sim-chips's -1, so

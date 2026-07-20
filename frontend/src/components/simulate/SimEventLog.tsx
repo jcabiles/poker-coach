@@ -9,20 +9,22 @@ import type { EventView } from "../../api/types";
 // keeping call and table in lockstep. Reads like a dealer's call sheet:
 // position, verb, amount. Empty when the hero opens the action.
 
-function verb(action: string, amount: number): string {
+function verb(action: string, amount: number, allIn: boolean): string {
   switch (action) {
     case "fold":
       return "folds";
     case "check":
       return "checks";
     case "call":
+      // All-in short-call never reads as a limp — the shove is the point.
+      if (allIn) return `calls all-in ${amount}bb`;
       return amount <= 1 ? "limps" : `calls ${amount}bb`;
     case "bet":
-      return `bets ${amount}bb`;
+      return allIn ? `shoves all-in ${amount}bb` : `bets ${amount}bb`;
     case "raise":
-      return `raises to ${amount}bb`;
+      return allIn ? `raises all-in to ${amount}bb` : `raises to ${amount}bb`;
     case "post":
-      return `posts ${amount}bb`;
+      return allIn ? `posts all-in ${amount}bb` : `posts ${amount}bb`;
     default:
       return action;
   }
@@ -52,7 +54,7 @@ export default function SimEventLog({
             className={"sim-log-item sim-log-reveal sim-log-" + e.action}
           >
             <span className="sim-log-pos">{e.position}</span>
-            <span className="sim-log-verb">{verb(e.action, e.amount_bb)}</span>
+            <span className="sim-log-verb">{verb(e.action, e.amount_bb, e.all_in)}</span>
           </li>
         ))}
       </ol>
