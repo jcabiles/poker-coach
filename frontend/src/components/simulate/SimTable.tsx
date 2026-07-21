@@ -11,7 +11,9 @@ import { fmtBb, fmtEvLoss, tierOf } from "./simGrade";
 // showdown reveals. PokerTable.tsx itself stays untouched (Practice/Quiz still
 // use it). Privacy: a non-hero seat's hole cards are rendered ONLY when that
 // seat is in `showdown` or the hero explicitly revealed it after folding (R1,
-// `revealedBySeat`) — otherwise folded/live villains stay face-down.
+// `revealedBySeat`) — otherwise folded/live villains stay face-down. The
+// `showdown` reveal additionally waits for `playbackComplete` so it flips when
+// the staged board finishes running out, never mid-playback at the flop.
 
 // Canonical 9-max seating order (clockwise) — same ring PokerTable uses.
 const RING = ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"];
@@ -53,6 +55,7 @@ export default function SimTable({
   street,
   stagedIndex,
   revealAt,
+  playbackComplete,
   lastGrade,
   openRangeSeat,
   onToggleRange,
@@ -73,6 +76,14 @@ export default function SimTable({
   // ahead of the log. Positions absent from the map settled before this batch
   // (hero, seats already folded) → revealed from the start.
   revealAt: Map<string, number>;
+  // True once the staged replay has reached the end of the current batch (the
+  // board has fully run out). `hand.showdown` is populated the moment the hand
+  // is over server-side, but during a hero-fold the client still stages the
+  // final batch street-by-street — so villain-vs-villain showdown cards must
+  // stay face-down until playback completes, matching the board staging, rather
+  // than flashing face-up at the flop. Gates ONLY the showdown reveal below;
+  // the R1 on-demand `revealedBySeat` fires only when not playing anyway.
+  playbackComplete: boolean;
   // S10 verdict for the hero's just-taken action, or null. SimulateView owns
   // the gating: it passes the grade only once it's safe to show (the hero's own
   // decision isn't part of the bot playback, so this can appear immediately —
@@ -147,7 +158,11 @@ export default function SimTable({
             const folded = revealed && seat.status === "folded";
             const allin = revealed && seat.status === "allin";
             const isToAct = to_act_seat != null && seat.seat_index === to_act_seat;
-            const reveal = showdownBySeat.get(seat.seat_index);
+            // A genuine showdown reveal waits for playback to complete so the
+            // cards flip when the board finishes running out — not at the flop.
+            const reveal = playbackComplete
+              ? showdownBySeat.get(seat.seat_index)
+              : undefined;
             // Cards to show face-up: a genuine showdown (settlement) OR an
             // on-demand R1 reveal after a hero fold. R1 reveals can include
             // FOLDED seats ("Reveal All"), so a revealed card overrides the

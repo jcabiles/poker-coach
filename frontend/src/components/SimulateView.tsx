@@ -752,6 +752,7 @@ export default function SimulateView() {
               street={tableState?.street ?? hand.street}
               stagedIndex={stagedIndex}
               revealAt={revealAt}
+              playbackComplete={!playing}
               lastGrade={coachMode ? heroBadge : null}
               openRangeSeat={openRangeSeat}
               onToggleRange={toggleRange}
