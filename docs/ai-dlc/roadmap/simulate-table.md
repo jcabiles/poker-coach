@@ -780,8 +780,22 @@ the serial spine S2→S4→S9→S10, not the agent budget.
 
 ### Research spikes (front-loaded, parallel — output = decision doc + numbers, no app code)
 
-- [ ] **RES-D — Theory→engine calibration: price-aware defense + size-linked bluff bands + re-derived
-      S4.** **Problem:** the postflop merit tables (`_FOLD_BASE`/`_CALL_BASE`/`_RAISE_BASE`/`_AGG_BASE`
+- [x] **RES-D — Theory→engine calibration: price-aware defense + size-linked bluff bands + re-derived
+      S4.** *(done 2026-07-21, `docs/ai-dlc/research/RES-D-calibration.md`. Root-caused both confirmed
+      bugs in `personas_postflop.py`: facing a bet, fold/call/raise merits read `_FOLD_BASE/_CALL_BASE/
+      _RAISE_BASE[bucket]` ONLY — zero size/pot-odds input (price-blind); bluff mass is flat `bluff_freq`
+      with size drawn independently after (bluff-freq decoupled). Maniac saturation quantified: aggression
+      15.0 vs ≤3.2 for every other persona. Delivered: (a) per-persona × 4-size-bucket **fold-to-bet target
+      bands** anchored to the α fold-ceiling with hard invariants F1 must reproduce — monotone-in-size,
+      ordering station<fish≈maniac<lag<tag<nit, ceiling-not-floor; (b) per-persona **chosen-size→value:bluff
+      curves** anchored to polar f/(1+2f) with size-linked + anti-sizing-tell invariants for F2; (c)
+      re-derived S4 bands — fold-to-cbet becomes size-conditional (slope-checked), WTSD re-anchored toward
+      the PRD population bands via a measure-then-anchor procedure keyed to F1 (current bands are inflated
+      BECAUSE price-blind defense keeps pots to showdown — the doc proves the causal link); (d) the A1
+      fold-ceiling guardrail written as a concrete F5 grading rule. Every number tagged SOLVED/SOURCED/
+      DERIVED; no app code. Open calls handed down: RES-E finalizes size-bucket cutoffs; F1 picks the
+      mechanism (price multiplier vs pot-odds gate) — this doc fixes targets, not code shape.)*
+      **Problem:** the postflop merit tables (`_FOLD_BASE`/`_CALL_BASE`/`_RAISE_BASE`/`_AGG_BASE`
       in `personas_postflop.py`) and the S4 WTSD bands (`test_personas_postflop.py`) were tuned to
       *engine-anchored* targets, not to first-principles price theory — so bots don't move with bet
       size and grading can't cite a theory bar. **Outcome-link:** every defense decision and every
