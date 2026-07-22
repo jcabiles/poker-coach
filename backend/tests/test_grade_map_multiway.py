@@ -2,9 +2,11 @@
 else stays "no baseline yet", and the dormant "mw" signature dimension goes
 live without touching HU hashes.
 
-Scope pins (the enumerated still-None matrix from the spec): limped multiway,
-donk leads, 4+-way, caller raises (hero faces a raise, not the bet), delayed
-c-bets (checked-through flop), and hero-not-BB multiway all return None.
+Scope pins (the still-None matrix). Updated by Epic 5: caller-raises are now
+graded (M4 `vs_caller_raise`) and 4-way SRP where HERO CLOSES now grades (M6,
+direction-only). Still `None`: limped multiway, donk leads, 4-way with a live
+player BEHIND hero, 5+-way (binary bucket, not a calibrated tier), delayed
+c-bets (checked-through flop), and hero-not-closing multiway.
 """
 
 from __future__ import annotations
