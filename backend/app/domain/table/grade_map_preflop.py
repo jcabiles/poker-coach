@@ -229,8 +229,12 @@ def _map_vs_limpers(
     the limpers at _LIMP_SEATS[:count] — so WHICH non-blind seats limped is
     canonicalized away, exactly like the canonical sizes/stacks the other
     preflop families substitute. An SB complete is NOT a canonical limp
-    (_LIMP_SEATS is non-blind only; it also means the hero is the BB, a
-    position with no vs_limpers entry) ⇒ None."""
+    (_LIMP_SEATS is non-blind only) ⇒ None — this includes every
+    SB-complete-vs-BB pot. M3 (RES-G §6-B): the hero-as-BB CHECK-or-iso node
+    now maps through this same path — when the SB folded, the calls are all
+    non-blind limps, the blind gate passes, and the BB (position, count)
+    lookup finds the M3 content entries (build_spot offers CHECK+RAISE, no
+    FOLD). No hero-position gate exists or is needed."""
     hero = state.seats[hero_seat]
     if any(h.position in _BLIND_POSITIONS for h in calls):
         return None

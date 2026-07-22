@@ -21,7 +21,7 @@ from __future__ import annotations
 import random
 
 from app.domain.scenarios import _entries, build_spot
-from app.domain.spot import ActionType, NodeContext, Street
+from app.domain.spot import ActionType, NodeContext, Position, Street
 
 
 def _vs_limpers_entries():
@@ -49,3 +49,23 @@ def test_every_vs_limpers_entry_builds_a_coherent_spot():
             f"{entry.position} x{limper_count}: pot_bb {spot.pot_bb} != "
             f"expected {expected_pot} (blinds 1.5 + {limper_count} limps)"
         )
+        kinds = [la.action for la in spot.legal_actions]
+        if entry.position is Position.BB:
+            # M3 (RES-G §6-B pass/fail b): the BB holds a FREE option — a FOLD
+            # action must NEVER be offered, CHECK must be; the SB (who acted
+            # before the BB) is folded in the canonical shape; and the entry
+            # itself must not author a fold leg.
+            assert ActionType.FOLD not in kinds, f"BB x{limper_count} offers FOLD: {kinds}"
+            assert ActionType.CHECK in kinds, f"BB x{limper_count} missing CHECK: {kinds}"
+            assert any(
+                a.position is Position.SB and a.action is ActionType.FOLD
+                for a in spot.action_history
+            ), f"BB x{limper_count}: SB never acted before the BB's option"
+            assert all(a.action is not ActionType.FOLD for a in entry.actions), (
+                f"BB x{limper_count} entry authors a fold leg"
+            )
+        else:
+            # Non-BB shapes byte-unchanged: fold/call/raise as before M3.
+            assert kinds == [ActionType.FOLD, ActionType.CALL, ActionType.RAISE], (
+                f"{entry.position} x{limper_count}: legal actions drifted: {kinds}"
+            )

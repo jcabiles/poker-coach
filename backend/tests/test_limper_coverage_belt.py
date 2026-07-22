@@ -36,6 +36,17 @@ HANDS = 4000
 
 _WANT_1 = {"UTG2", "LJ", "HJ", "SB"}
 _WANT_2 = {"CO", "SB"}
+# M3 (RES-G Slice B): the BB check-or-iso option node fires organically too.
+_WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
+# M3 regression pin: fire counts for every pair that mapped BEFORE M3, at this
+# exact seed. M3 is content + a BB-only builder/grader path — it must not move
+# the engine's hand stream or any non-BB pair's mapping (measured identical on
+# the pre-M3 tree). A drift here means a non-BB limped shape changed.
+_PRE_M3_FIRES = {
+    ("UTG2", 1): 99, ("LJ", 1): 128, ("HJ", 1): 142, ("CO", 1): 139,
+    ("CO", 2): 39, ("SB", 1): 102, ("SB", 2): 54, ("BTN", 1): 111,
+    ("BTN", 2): 56,
+}
 
 
 def _count_limper_coverage(proxy: str, seed: int, hands: int) -> dict[tuple[str, int], int]:
@@ -72,3 +83,9 @@ def test_limper_coverage_fires_on_organic_play():
         assert fires.get((pos, 1), 0) >= 1, f"faces-1 @ {pos} never fired: {fires}"
     for pos in _WANT_2:
         assert fires.get((pos, 2), 0) >= 1, f"faces-2 @ {pos} never fired: {fires}"
+    for key in _WANT_BB:
+        assert fires.get(key, 0) >= 1, f"BB x{key[1]} never fired: {fires}"
+    for key, count in _PRE_M3_FIRES.items():
+        assert fires.get(key, 0) == count, (
+            f"pre-M3 pair {key} fire count moved: {fires.get(key, 0)} != {count}"
+        )

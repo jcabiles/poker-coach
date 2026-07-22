@@ -176,7 +176,9 @@ def build_spot(
     # hero's decision point and is not in the hand gets an explicit FOLD entry
     # at its chronological slot (canonical order). Blinds fold ONLY when they
     # faced a raise before hero's turn (e.g. SB in BB blind defense, blinds
-    # behind a non-blind 3-bettor) — never in unopened/limped pots.
+    # behind a non-blind 3-bettor) — never in unopened/limped pots, EXCEPT the
+    # SB when hero is the BB behind limpers (M3): the SB acted before the BB's
+    # option and the canonical shape has it folded (SB-complete is off-pack).
     folded: set[Position] = set()
 
     def fold_all(seats: list[Position]) -> None:
@@ -204,6 +206,12 @@ def build_spot(
             LegalAction(action=ActionType.RAISE, min_bb=entry.sizing_bb or 9.0, max_bb=eff_bb),
         ]
     elif ctx == NodeContext.VS_LIMPERS:
+        # M3 (RES-G §3d/§6-B): hero=BB holds its OPTION behind the limpers —
+        # the SB (who acted before the BB) folds in the canonical shape (an SB
+        # complete is non-canonical; grade_map returns None for it), and the
+        # BB's legal actions are CHECK (free) + RAISE (iso). FOLD is never
+        # offered: checking is free, so folding the BB is dominated.
+        hero_is_bb = entry.position is Position.BB
         limpers = _LIMP_SEATS[:limper_count]
         for pos in _before(entry.position):
             if pos in limpers:
@@ -212,14 +220,22 @@ def build_spot(
                         street=Street.PREFLOP, position=pos, action=ActionType.CALL, amount_bb=1.0
                     )
                 )
-            elif pos not in _BLIND_SEATS:
+            elif pos not in _BLIND_SEATS or (hero_is_bb and pos is Position.SB):
                 fold_all([pos])
         pot = round(1.5 + limper_count * 1.0, 2)
-        legal = [
-            LegalAction(action=ActionType.FOLD),
-            LegalAction(action=ActionType.CALL, min_bb=round(1.0 - _posted(entry.position), 2)),
-            LegalAction(action=ActionType.RAISE, min_bb=entry.sizing_bb or 5.0, max_bb=eff_bb),
-        ]
+        if hero_is_bb:
+            legal = [
+                LegalAction(action=ActionType.CHECK),
+                LegalAction(action=ActionType.RAISE, min_bb=entry.sizing_bb or 5.0, max_bb=eff_bb),
+            ]
+        else:
+            legal = [
+                LegalAction(action=ActionType.FOLD),
+                LegalAction(
+                    action=ActionType.CALL, min_bb=round(1.0 - _posted(entry.position), 2)
+                ),
+                LegalAction(action=ActionType.RAISE, min_bb=entry.sizing_bb or 5.0, max_bb=eff_bb),
+            ]
     elif ctx == NodeContext.VS_3BET:
         osize = _OPEN_SIZE.get(entry.position, 2.5)
         tbet = round(osize * 3, 2)
