@@ -947,7 +947,7 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       RES-D §4 re-anchor if later slices add multiway fold pressure). 742 backend tests + ruff +
       verify.sh green.)* ICE 6·6·5.
 
-- [ ] **F5 — Theory-calibrated hero grading + re-derived S4 bands (fixes hero grading; bakes the A1
+- [x] **F5 — Theory-calibrated hero grading + re-derived S4 bands (fixes hero grading; bakes the A1
       guardrail).** Route the re-derived RES-D bands through the async `StrategyProvider`/`grade_map`
       so hero grading is **price-aware** and uses α as a **fold-ceiling sanity check** — explicitly NOT
       a fold≈MDF assertion on flop/turn or vs capped/polar bettors. Re-anchor the S4 bands in
@@ -957,6 +957,27 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       grades stay freq+EV with EV labeled *approximate*; all `grade_map`/S10 tests green. **Appetite:**
       ~1 slice. **No-gos:** grading stays behind the one provider seam; no boolean verdicts; no
       exploit/persona-aware grading (that's L1). ICE 9·7·5.
+      *(Done 2026-07-22, PR #70. Audit: the `_merits_vs_*` functions already carried linear price
+      terms, so the real gap was α-anchoring — pre-F5 the marginal catcher's graded fold share ran
+      well OVER the ceiling (weak_made vs ¾-pot: ~0.74 vs α=0.43; the grader recommended
+      over-folding). Fix: `_calibrate_catcher_fold` (postflop.py), a merit-space clamp bounding the
+      weak_made tier's FOLD share into [min(0.25, α), α] using size-exact α — which equals `price`
+      since the facing-node pot includes the faced bet (RES-E §2), so no duplicated bucket
+      constants. Applied in `grade_vs_cbet` + `grade_vs_turn_bet` only, before `_apply_multiway`
+      (multiway may fold past the HU ceiling per F4). A1 floor: fold credit 0.25 (α at SMALL,
+      RES-D §1a row 1) > POST_MIX 0.20 ⇒ a below-MDF flop/turn fold grades ≥ ACCEPTABLE via the
+      frequency rule (A1 regression test cites RES-D §1c/§5.2). Deviations, documented in-code:
+      (1) per-hand α as proxy for the range-aggregate ceiling, scoped to weak_made (air may fold
+      above α; strong-hand folds stay punished — scope-guard test); (2) `grade_vs_check_raise`
+      exempt (RES-D §1c: α is the flat-call form); (3) river untouched (RES-D §5.2 scopes the rule
+      to flop/turn); (4) S4 bands NOT re-anchored again — F1–F4 already did, personas byte-
+      untouched. Refuter cycle: initial FAIL (HIGH — docstring promised an unconditional
+      ACCEPTABLE floor but α<0.25 tiny bets fall to the EV ladder; reachable via the drill path's
+      arbitrary bet fracs). Adjudicated behavior-correct: α-ceiling and 0.25-floor are jointly
+      unsatisfiable below ⅓-pot, the ceiling is the binding A1 contract, and folding a catcher at
+      ~12:1 is a genuine mistake — docs re-scoped to α ≥ 0.25 and tiny-bet / POST_MIX-boundary /
+      degenerate-α behavior pinned by 3 regression tests. coverage_baseline unchanged (grading ≠
+      mappability). 751 backend tests + ruff + verify.sh green, 3× stable.)*
 
 - [x] **F6 — Min-bet legality fix (from RES-F).** *(done 2026-07-21: RES-F Option 1 verbatim —
       `sim_session.py::_hero_postflop_size_bb` `HERO_NODE_SIZE` miss (donk/lead, probe, delayed
