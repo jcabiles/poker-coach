@@ -1920,6 +1920,17 @@ def _merits_limped_vs_lead(
         raise_ = value - r["raise_draw_penalty"]
         if texture.wetness == "wet" and edge == "hero":
             raise_ += r["raise_semibluff_wet_bonus"]
+        else:
+            # Refuter HIGH (M5): the draw raise merit is otherwise FLAT while
+            # call/fold DECAY with price, so at the big canonical leads
+            # (0.75/1.0/1.5-pot) the flat raise crossed over and RAISE graded
+            # best for a drawing hand — the opposite of §4b-2 (big limped-pot
+            # leads are value-heavy: defend draws at a price, don't raise
+            # into value). Outside the ONE sanctioned semibluff condition
+            # (wet board + hero texture edge) the draw raise can never exceed
+            # the draw call; a tie resolves to CALL (it precedes RAISE in the
+            # graders' eval order).
+            raise_ = min(raise_, call)
     elif cat == "weak_made":
         raise_ = r["raise_middle"]
     else:  # air

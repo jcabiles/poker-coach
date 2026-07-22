@@ -293,6 +293,57 @@ def test_directions_middle_checks_and_big_lead_folds_more(board):
     assert f_big > f_small
 
 
+def test_draw_vs_big_lead_calls_not_raises():
+    # Refuter HIGH repro (end-to-end): BB Jc-Tc (OESD) on dry Qh-9d-4c faces a
+    # 1.0x-pot lead (2.5 on 2.5) from the BTN limper — edge reads "villain",
+    # board is dry. Pre-fix the flat draw raise merit crossed over the
+    # price-decayed call/fold and RAISE graded best; §4b-2 says a big
+    # limped-pot lead is value-heavy: defend the draw at a price. CALL must
+    # be the best action and grade OPTIMAL; RAISE must not be best.
+    state = _limped_hu_preflop(Position.BB, limper=Position.BTN)
+    state = _play(state, [_check(Position.BB), _bet(Position.BTN, 2.5)])
+    spot = map_decision_point(state, HERO_SEAT)
+    assert spot is not None and spot.node_context == [NodeContext.LIMPED_VS_LEAD]
+    spot = spot.model_copy(
+        update={
+            "board": ["Qh", "9d", "4c"],
+            "hero": spot.hero.model_copy(update={"hole_cards": ("Jc", "Tc")}),
+        }
+    )
+    res = grade_limped_vs_lead(spot, None, None, Decision(action=ActionType.CALL))
+    assert res.best_action.action is not ActionType.RAISE
+    assert res.best_action.action is ActionType.CALL
+    assert res.correctness is Correctness.OPTIMAL
+
+
+def test_draw_raise_best_only_wet_plus_hero_edge_sweep():
+    # Mechanical sweep (refuter-mandated): all 5 RECOGNIZED_BET_FRACS ×
+    # edge{hero,neutral,villain} × texture{wet,dry} for the "draw" category.
+    # RAISE may be the best action ONLY in wet + hero-edge cells (§4b's one
+    # sanctioned semibluff-raise condition); everywhere else CALL or FOLD
+    # must win — in particular RAISE is NEVER best on dry or vs villain edge.
+    # "Best" = strictly-greater merit, matching the grader's tie resolution
+    # (fold/call precede raise in the eval order, so a tie never picks raise).
+    from app.domain.postflop import _merits_limped_vs_lead
+    from app.domain.table.sizing import RECOGNIZED_BET_FRACS
+    from app.domain.texture import classify
+
+    wet = classify(["9h", "8h", "6d"])
+    dry = classify(["Kh", "7d", "2s"])
+    assert wet.wetness == "wet" and dry.wetness == "dry"
+    raise_best_cells = set()
+    for tex, tname in ((wet, "wet"), (dry, "dry")):
+        for edge in ("hero", "neutral", "villain"):
+            for frac in RECOGNIZED_BET_FRACS:
+                price = frac / (1.0 + frac)  # bet/(pot+bet): the graders' price
+                m_fold, m_call, m_raise = _merits_limped_vs_lead(edge, price, tex, "draw")
+                if m_raise > max(m_fold, m_call):
+                    raise_best_cells.add((tname, edge, frac))
+    assert all(cell[:2] == ("wet", "hero") for cell in raise_best_cells), raise_best_cells
+    # the sanctioned semibluff cells actually exist (the knob isn't dead):
+    assert raise_best_cells, "semibluff-raise never best — wet+hero knob is dead"
+
+
 # ------------------------------ (a) belt: organic bot-driven fires (fixed seed)
 
 

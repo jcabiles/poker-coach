@@ -56,7 +56,7 @@
       "fold_value_relief": 0.6,
       "big_lead_price": 0.4,
       "big_lead_middle_fold_bonus": 0.5,
-      "value": { "strong": 2.0, "weak_made": 0.8, "draw": 1.2, "air": 0.0 },
+      "value": { "strong": 2.0, "weak_made": 0.8, "draw": 1.4, "air": 0.0 },
       "call_price_anchor": 0.5,
       "call_price_weight": 2.0,
       "call_air_penalty": 1.0,
