@@ -1,8 +1,8 @@
 {
   "id": "preflop-vs-limpers",
-  "version": 2,
+  "version": 3,
   "domain": "preflop",
-  "description": "Facing limper(s): isolate-raise / over-limp(call) / fold, by limper count + hero position. Iso ranges value-skewed; over-limp reserved for speculative hands in multiway. Live-specific.",
+  "description": "Facing limper(s): isolate-raise / over-limp(call) / fold, by limper count + hero position. Iso ranges value-skewed; over-limp reserved for speculative hands in multiway. BB entries (M3, RES-G Slice B) are the check-or-iso option node: raise/check only, never fold — checking is free. Live-specific.",
   "entries": [
     {
       "node_context": "vs_limpers",
@@ -102,6 +102,39 @@
       ],
       "sizing_bb": 6.0,
       "rationale": "With two limpers the pot likely goes multiway even after a raise, so you tighten the isolation to hands that fare well against several callers (77+, suited aces/Broadways) and size larger (4bb + 1bb per limper); more speculative pairs and connectors shift to over-limping, since 3-way-plus pots reward set-mining and drawing over thin isolation (doc 01 §9, §11)."
+    },
+    {
+      "node_context": "vs_limpers",
+      "position": "BB",
+      "limper_count": 1,
+      "actions": [
+        { "action": "raise", "combos": "55+, A8s+, A5s, KTs+, QTs+, JTs, T9s, 98s, ATo+, KJo+", "frequency": 1.0 },
+        { "action": "check", "combos": "22-44, A2s, A3s, A4s, A6s, A7s, K9s, Q9s, J9s, T8s, 97s, 87s, 76s, 65s, 54s, A9o, KTo, QJo, JTo", "frequency": 1.0 }
+      ],
+      "sizing_bb": 5.0,
+      "rationale": "You close the action with a free flop on offer, so NEVER fold — iso-raise a wide value+equity range (55+, suited aces/Broadways, ATo+) to punish the limper's dead money and thin the field, and check everything else: the BB arrives with a weaker range and should mostly take its free flop rather than bloat a pot out of position (GTO Wizard BB-in-limped-pots; doc 01 §9)."
+    },
+    {
+      "node_context": "vs_limpers",
+      "position": "BB",
+      "limper_count": 2,
+      "actions": [
+        { "action": "raise", "combos": "77+, ATs+, A5s, KTs+, QJs, JTs, AJo+, KQo", "frequency": 1.0 },
+        { "action": "check", "combos": "22-66, A2s, A3s, A4s, A6s, A7s, A8s, A9s, K9s, QTs, Q9s, J9s, T9s, 98s, 87s, 76s, 65s, 54s, ATo, KJo, QJo", "frequency": 1.0 }
+      ],
+      "sizing_bb": 6.0,
+      "rationale": "Two limpers means an iso likely still gets called somewhere, so tighten to a value core that plays well multiway (77+, suited aces/Broadways, AJo+) and size 4bb+1 per limper; everything else checks its option — the free flop with speculative and marginal hands beats folding or bloating the pot out of position (GTO Wizard BB-in-limped-pots; doc 01 §9, §11)."
+    },
+    {
+      "node_context": "vs_limpers",
+      "position": "BB",
+      "limper_count": 3,
+      "actions": [
+        { "action": "raise", "combos": "99+, AJs+, KQs, AQo+", "frequency": 1.0 },
+        { "action": "check", "combos": "22-88, ATs, A9s, A5s, A4s, A3s, A2s, KJs, KTs, QJs, QTs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, ATo, AJo, KJo, KQo", "frequency": 1.0 }
+      ],
+      "sizing_bb": 7.0,
+      "rationale": "Against three limpers fold equity is at its lowest and the pot goes multiway almost regardless, so iso only the premium top (99+, AJs+, AQo+) at 4bb+1 per limper for pure value; every other hand — including medium pairs and suited connectors that love a cheap 4-way flop — checks the free option (GTO Wizard BB-in-limped-pots; doc 01 §9, §11)."
     }
   ]
 }

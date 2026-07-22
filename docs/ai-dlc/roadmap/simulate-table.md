@@ -1099,7 +1099,15 @@ the serial spine S2→S4→S9→S10, not the agent budget.
 
 ### Build slices (ICE = Impact·Confidence·Ease, 1–10)
 
-- [ ] **M1 — MW funnel levers: `VS_RFI` content pairs + size-grid recognition (RES-I L3+L4).**
+- [x] **M1 — MW funnel levers: `VS_RFI` content pairs + size-grid recognition (RES-I L3+L4).**
+      *(done 2026-07-22, PR #73. 12 new VS_RFI pairs (UTG1/UTG2 equal-shape to UTG per RES-A
+      precedent; LJ rows per doc-05 §3.3, containment parser-verified); new recognition-only
+      `RECOGNIZED_BET_FRACS=(0.33,0.5,0.75,1.0,1.5)` consumed by `_is_canonical_bet` — graders
+      already price the TRUE faced amount so RES-E needed no grader change (pinned by tests);
+      off-grid still None (grid gaps ≥0.17·pot vs 0.06bb tol — double-match impossible). Mapper
+      fires 1→9/2000-hand belt. **30k re-measure: tag 0.23–0.27, station 1.93–2.73 per 1000 —
+      below ≥5/1000 threshold ⇒ RES-I §6 records GO for M7.** Zero bot-behavior change (baseline
+      total 1233 stable, graded 242→267). Refuter PASS 0 issues. 765 tests 3× stable.)*
       (I8·C8·E7) **Scope:** author the 12 missing `VS_RFI` caller pairs (RES-A-grade ranges, not
       filler — they're grading baselines + Practice content); widen `_is_canonical_bet` size
       recognition to the persona grid, extending RES-E bucket/price treatment to newly recognized
@@ -1109,16 +1117,44 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       proxy it assumes; (c) every newly recognized faced size maps to a defined RES-E bucket (test);
       (d) S10/S11 display==grade invariant re-verified; (e) zero bot-behavior change (S4 bands
       byte-stable); verify.sh + build green; refuter PASS.
-- [ ] **M2 — Limper iso/over-limp coverage fill (RES-G Slice A, content-only).** (I8·C9·E9)
+- [x] **M2 — Limper iso/over-limp coverage fill (RES-G Slice A, content-only).**
+      *(done 2026-07-22, PR #74. 6 entries added (pack v1→2): faces-1 @ UTG2/LJ/HJ/SB, faces-2 @
+      CO/SB — verbatim from RES-G §3 with ONE refuter-forced correction: the spike authored the EP
+      entry at "UTG", which is organically unreachable (first non-blind to act) AND live-broken in
+      Practice (`build_spot` seats limpers from `_before(position)`; `_before(UTG)==[]` → phantom
+      limp chip, empty history). RES-G §1d itself measured UTG2 → entry renamed UTG2 (fires 99/4000
+      organic hands); correction note added to RES-G. New belt test (all 6 pairs fire) + build_spot
+      coherence test over EVERY vs_limpers entry (would have caught the bug; sed-revert-proven).
+      Baseline total 1233 stable, graded 267→313. Refuter PASS-w-issues, both folded. 767 tests.)*
+      (I8·C9·E9)
       **Scope:** add the missing `vs_limpers` entries from RES-G §3 (UTG/LJ/HJ/SB ×1; CO/SB ×2);
       bump pack version 1→2; zero code. **Pass/fail:** RES-G §6-A verbatim — named (position,count)
       pairs map where they returned `None`; coverage graded count UP, total UNCHANGED; schema-valid;
       `spot_signature()` + `TAXONOMY_VERSION` untouched.
-- [ ] **M3 — BB-check node vs limpers (RES-G Slice B, small new grader).** (I6·C7·E6) **Scope:**
+- [x] **M3 — BB-check node vs limpers (RES-G Slice B, small new grader).**
+      *(done 2026-07-22. BB×1/2/3 vs_limpers entries (pack v2→3) {raise, check} — NO fold leg;
+      ranges are [DERIVED-ASSUMPTION] per RES-G §3d direction (no copy-ready JSON existed): iso
+      tightens 55+→77+→99+ with count, 4bb+1/limper sizing, check = complement. build_spot hero-BB
+      branch (SB folds at chronological slot; legal = CHECK+RAISE). **Documented deviation:** the
+      roadmap's "lift the blind-seat gate" needed NO code change — the gate keys on the LIMPERS'
+      seats (only excludes SB-complete), never hero's; BB×N was dark purely for missing content
+      (refuter-verified). Real gate lifted = `grading.py` synthetic-FOLD append: new `check_is_free`
+      fallback (CHECK offered + no FOLD → unassigned chart mass checks, no phantom fold eval) —
+      refuter proved unreachable for every pre-existing node (grade() is preflop-gated; only
+      vs_limpers BB entries author "check"). SB-complete stays None (SB's CALL carries a blind
+      position — gate catches it unconditionally). BB fires 80/54/10 per 4000 organic hands; 9
+      pre-M3 belt counts pinned identical. Baseline total 1233 stable, graded 313→327. Refuter
+      PASS 0 issues incl. live API round-trip (no FOLD offered/evaluated). 777 tests 3× stable.)*
+      (I6·C7·E6) **Scope:**
       BB `vs_limpers` entries with `{iso, check}` (NO fold leg — checking is free), `build_spot`
       branch seating hero=BB behind limpers, lift the blind-seat `None` gate for BB-check only.
       **Pass/fail:** RES-G §6-B verbatim — BB facing 1–3 limpers grades iso vs check freq+EV; fold
       never offered; all non-BB limped shapes byte-unchanged.
+> **RUN PAUSED HERE (2026-07-22, user call: token budget).** M1–M3 shipped; M4–M7 below are
+> spec-ready and unstarted — resume by handing M4 to the standard worker→refuter cycle on a branch
+> off the tip of the merged chain. Note for M7: its go/no-go input already exists (RES-I §6 M1
+> re-measure = GO — L3+L4 landed 0.23–2.73/1000 vs the ≥5/1000 threshold; L5 build is warranted).
+
 - [ ] **M4 — Caller-re-raises-c-bet grader (RES-H H1).** (I8·C8·E5) **Scope:**
       `_merits_vs_caller_raise` + `grade_vs_caller_raise` (sibling of `grade_vs_check_raise`) with
       the §3.2 value-skewed prior; `map_flop_vs_caller_raise` mapper (SRP, hero=opener, canonical

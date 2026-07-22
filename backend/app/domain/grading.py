@@ -183,13 +183,27 @@ def grade(spot: Spot, entry: Entry | None, decision: Decision | None) -> Evaluat
     rank = hand_rank(hand)
     # One eval per legal action (each RAISE keeps its own size_bb — no
     # action-keyed dedup, so two open/3-bet sizes stay distinguishable).
+    # M3 (RES-G §3d): when the spot offers CHECK and no FOLD (the BB holding
+    # its option behind limpers), checking is FREE — folding is dominated and
+    # must never appear as an eval, and the chart's unassigned mass CHECKS
+    # instead of folding. Every other preflop spot offers FOLD, so this branch
+    # changes nothing for existing nodes.
     legal_actions = list(spot.legal_actions)
-    if not any(la.action == ActionType.FOLD for la in legal_actions):
+    check_is_free = any(la.action == ActionType.CHECK for la in legal_actions) and not any(
+        la.action == ActionType.FOLD for la in legal_actions
+    )
+    if not check_is_free and not any(la.action == ActionType.FOLD for la in legal_actions):
         legal_actions = [*legal_actions, LegalAction(action=ActionType.FOLD)]
 
     mix = _chart_mix(entry, hand)
     full = dict(mix)
-    full[ActionType.FOLD] = max(0.0, 1.0 - sum(mix.values()))
+    if check_is_free:
+        full[ActionType.CHECK] = max(
+            full.get(ActionType.CHECK, 0.0),
+            1.0 - sum(v for a, v in mix.items() if a is not ActionType.CHECK),
+        )
+    else:
+        full[ActionType.FOLD] = max(0.0, 1.0 - sum(mix.values()))
     top = max(full, key=lambda a: (full[a], _PRIORITY.get(a, 0)))
     top_freq = full[top]
     floor = _range_floor(entry)  # range edge
@@ -289,10 +303,22 @@ def range_grid(entry: Entry | None) -> dict[str, dict[str, float]]:
     render the 13x13 grid as proportional per-action segments so it teaches
     the node's whole range, not a single collapsed label.
     """
+    # M3 (RES-G §3d): a node authored with a CHECK action (BB vs limpers) has a
+    # free passive option — the unassigned mass checks, never folds, so the
+    # grid teaches "never fold the BB for free" instead of a phantom fold band.
+    check_fallback = entry is not None and any(
+        ar.action == ActionType.CHECK and ar.frequency > 0 for ar in entry.actions
+    )
     grid: dict[str, dict[str, float]] = {}
     for hand in all_hands():
         mix = _chart_mix(entry, hand)
         full = dict(mix)
-        full[ActionType.FOLD] = max(0.0, 1.0 - sum(mix.values()))
+        if check_fallback:
+            full[ActionType.CHECK] = max(
+                full.get(ActionType.CHECK, 0.0),
+                1.0 - sum(v for a, v in mix.items() if a is not ActionType.CHECK),
+            )
+        else:
+            full[ActionType.FOLD] = max(0.0, 1.0 - sum(mix.values()))
         grid[hand] = {a.value: round(v, 3) for a, v in full.items() if v > 0}
     return grid
