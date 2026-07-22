@@ -663,6 +663,84 @@ def _match(evals: list[ActionEval], decision: Decision, small, big) -> ActionEva
 _HAND_VALUE = {"strong": 2.0, "draw": 1.2, "weak_made": 0.8, "air": 0.0}
 
 
+# --- F5: theory-calibrated price band for the marginal bluff-catcher ---
+#
+# The facing graders compute `price` = faced_bet / pot where the pot ALREADY
+# includes the faced bet, so price = B/(P+B) — which is exactly α, the
+# bettor's bluff-indifference point and the defender's fold-CEILING for that
+# exact size (RES-D §1a; RES-E §2 boundary ruling: use the size-exact α, not
+# a bucket midpoint, when the live pot-fraction is known).
+#
+# RES-D §5 (the A1 guardrail, Sol+Opus #1 finding) as a grading rule:
+#   * CEILING — a defender systematically folding MORE than α of the
+#     marginal continue-decision region vs a balanced bet is over-folding,
+#     so the graded FOLD share of a marginal bluff-catcher is capped at α
+#     for the faced size (folding gets MORE credit as the bet grows, since
+#     α rises with size — RES-D §1a's monotone column).
+#   * NEVER A FLOOR ON THE PLAYER — α/MDF must NOT be used to mark a
+#     below-MDF fold as wrong on the flop/turn (RES-D §1c: solver defense
+#     routinely sits below raw MDF pre-river vs range-bets/capped bettors).
+#     For any MEANINGFUL bet — α ≥ _A1_FOLD_CREDIT, i.e. at least the
+#     ⅓-pot shape of the RES-E SMALL bucket (RES-D §1a row 1) — the grader
+#     guarantees the marginal catcher's FOLD action a minimum graded share
+#     (_A1_FOLD_CREDIT > POST_MIX, so a hero fold can never grade worse
+#     than ACCEPTABLE there); it never asserts the hero MUST fold.
+#   * TINY BETS (α < _A1_FOLD_CREDIT, sub-⅓-pot: min-bets/probes) — the
+#     ACCEPTABLE-floor guarantee deliberately does NOT apply. The two
+#     bounds are jointly unsatisfiable there (an unconditional 0.25 floor
+#     would push fold share ABOVE α for α < ~0.23, breaking the α-ceiling
+#     — the hard A1/RES-D contract, which wins), so the floor tracks α by
+#     design (floor_q = min(_A1_FOLD_CREDIT, α)). That is also the right
+#     verdict: theory never endorsed folding a bluff-catcher to a tiny bet
+#     (at α ≈ 0.08 hero gets ~12:1) — A1 protects below-MDF folds vs
+#     meaningful sizes where naive MDF over-demands defense, not min-bet
+#     folds, which correctly fall through to the EV-loss ladder
+#     (MISTAKE/BLUNDER).
+#
+# Scope (deliberate): flop `grade_vs_cbet` + turn `grade_vs_turn_bet` only.
+# NOT the check-raise node — α is the flat-call form and "doesn't work with
+# a raise" (RES-D §1c, GTO Wizard); its fold-heavy live-exploit prior stays.
+# NOT the river — RES-D §5.2 scopes the don't-flag-below-MDF rule to
+# flop/turn; river bluff-catching stays with its existing pot-odds terms.
+# Applied BEFORE `_apply_multiway`: multiway defense correctly folds beyond
+# the HU α ceiling (RES-D §6 — direction only, no per-opponent constant).
+_A1_FOLD_CREDIT = 0.25  # α at the SMALL bucket (⅓-pot, RES-D §1a row 1):
+# vs any bet of at least the smallest canonical shape, up to a quarter of
+# the marginal region may correctly fold — the minimum graded credit a
+# catcher's fold receives THERE. For sub-⅓-pot bets (α < 0.25) the floor
+# tracks α instead (see TINY BETS above): the ACCEPTABLE guarantee is
+# scoped to α ≥ _A1_FOLD_CREDIT, never unconditional.
+_PRICE_CATCHER_CATS = ("weak_made",)  # the bluff-catch tier where fold-vs-
+# call is the graded decision; strong ~never folds, air folds freely, and
+# draws are priced by their equity terms, not by α (RES-D §5.2).
+
+
+def _calibrate_catcher_fold(
+    m_fold: float, m_call: float, m_raise: float, *, alpha: float, cat: str
+) -> float:
+    """F5: clamp the FOLD merit of the marginal bluff-catcher so its graded
+    share lands in the theory band [min(_A1_FOLD_CREDIT, α), α] for the faced
+    size (see the block comment above for the RES-D §1a/§1c/§5 derivation —
+    including the TINY BETS scoping: for α < _A1_FOLD_CREDIT both bounds
+    collapse to α, the A1 ACCEPTABLE-floor guarantee does not apply, and a
+    catcher's fold to a sub-⅓-pot bet correctly grades by the EV ladder).
+    Merit-space clamp: with continue mass S = call⁺ + raise⁺, fold share q
+    means fold = q/(1−q)·S — so frequencies, per-action EVs and the
+    correctness ladder all stay consistent (freq + approximate EV, never a
+    boolean verdict). Call/raise merits are untouched: pot-odds keeps
+    driving the call threshold via their existing price terms."""
+    if cat not in _PRICE_CATCHER_CATS or alpha <= 0.0:
+        return m_fold
+    cont = max(m_call, 0.0) + max(m_raise, 0.0)
+    if cont <= 0.0:
+        return m_fold  # nothing continues — folding outright is fine
+    ceil_q = min(alpha, 0.95)
+    floor_q = min(_A1_FOLD_CREDIT, ceil_q)
+    lo = floor_q / (1.0 - floor_q) * cont
+    hi = ceil_q / (1.0 - ceil_q) * cont
+    return min(max(m_fold, lo), hi)
+
+
 def range_advantage_defender(
     aggressor_pos: Position, defender_pos: Position, texture: Texture
 ) -> str:
@@ -767,6 +845,9 @@ def grade_vs_cbet(
         default=None,
     )
     m_fold, m_call, m_raise = _merits_vs_cbet(value, adv, price, tex, cat)
+    # F5: price-calibrate the marginal catcher's fold share (α ceiling + A1
+    # fold-credit floor, RES-D §5) — `price` here IS the size-exact α.
+    m_fold = _calibrate_catcher_fold(m_fold, m_call, m_raise, alpha=price, cat=cat)
     if is_multiway(spot):
         mw = _apply_multiway(
             {"fold": m_fold, "call": m_call, "raise": m_raise},
@@ -1292,6 +1373,9 @@ def grade_vs_turn_bet(
         default=None,
     )
     m_fold, m_call, m_raise = _merits_vs_turn_bet(value, price, cat, tclass)
+    # F5: price-calibrate the marginal catcher's fold share (α ceiling + A1
+    # fold-credit floor, RES-D §5) — `price` here IS the size-exact α.
+    m_fold = _calibrate_catcher_fold(m_fold, m_call, m_raise, alpha=price, cat=cat)
     if is_multiway(spot):
         mw = _apply_multiway(
             {"fold": m_fold, "call": m_call, "raise": m_raise},

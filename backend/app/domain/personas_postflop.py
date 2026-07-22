@@ -255,6 +255,24 @@ _DRAW_CALL_BONUS = {DrawCategory.NONE: 0.0, DrawCategory.WEAK: 0.20, DrawCategor
 # Structural constants (shared mechanics).
 _BLUFF_RAISE_FACTOR = 0.3  # bluff-raising is structurally rarer than bluff-betting
 _COMMIT_AGG_BOOST = 3.0  # SPR-commit shift toward call/jam
+# F3 bounded aggression (RES-D §0 saturation fix): the `aggression` lever is
+# capped before it scales any merit. An uncapped maniac lever (15.0) multiplies
+# one side of the un-normalized merit ratio so hard that rng.choices degenerates
+# to near-argmax (top-pair unopened P(bet)=0.948, entropy 0.29 bits; with the
+# SPR-commit boost the effective multiplier hit 15×3=45, monster-commit
+# P(bet)=0.991, entropy 0.08 bits). The cap is a MECHANIC (shared compression
+# law, lives in code per the S4 split); persona identity stays in the pack's
+# lever. 5.6 = 1.75 × the highest non-maniac lever (lag 3.2), fitted by sweep
+# (4.8/5.6/6.4 against the closed-loop harness): the cap is the identity map
+# for every other authored persona (all ≤ 3.2 — their sampled decisions are
+# byte-unchanged, F3-verified) while the maniac stays strictly the most
+# aggressive persona everywhere the lever applies — per-node (exact-weight
+# ordering test) AND in population AF (~3.2-3.3 vs lag ~2.1-2.5; the tighter
+# 4.8 cap dropped maniac AF into lag's range). The commit interaction is
+# bounded as a consequence (5.6 × 3 = 16.8, was 45). Mixing restored:
+# top-pair unopened P(bet) 0.948 → 0.873 (entropy 0.29 → 0.55 bits) — see
+# the F3 tests.
+_AGGRESSION_CAP = 5.6
 
 # F1 price-aware defense (RES-D §1a/§2 + RES-E buckets). α = B/(P+B) is the
 # fold-CEILING for the bucket's representative size — an anchor the fold merit
@@ -304,6 +322,24 @@ _BUCKET_BLUFF_SHARE = {
     SizeBucket.OVERBET: 0.375,
 }
 _BLUFF_SHARE_REF = _BUCKET_BLUFF_SHARE[SizeBucket.MEDIUM]
+
+
+# F4 multiway calibration correction (RES-D §6, direction only): "bluff less
+# + value-lean" per added opponent. The unopened/aggressor-side half of this
+# is already live via `multiway_bluff_damp ** max(opponents-1, 0)` on
+# `bluff_mass` (S4-era) — confirmed measurably lower 3-way vs HU in the F4
+# audit. This constant closes the facing-side gap: bluff-catching (folding a
+# weak made hand to a bet) was flat across `opponents` on the bot path (S8's
+# `_MW_CATCH_TIGHTEN` only ever touched the GRADER). Mirrors the S8 pattern —
+# a flat multiplicative tighten on the fold merit for bluff-catch-class
+# buckets (AIR/ACE_HIGH/MIDDLE_PAIR facing a bet), exponentiated the same way
+# as `multiway_bluff_damp` (per-added-opponent decay, NOT an n-th-root
+# MDF/defense constant — no per-opponent MDF number is asserted anywhere).
+# 1.15 = the grader's `_MW_VALUE_LEAN` value, reused here as "value-lean"
+# framed as tightening the fold-ceiling side; kept deliberately modest (a
+# direction, not a target level).
+_MW_CATCH_TIGHTEN = 1.15
+_MW_CATCH_BUCKETS = (StrengthBucket.AIR, StrengthBucket.ACE_HIGH, StrengthBucket.MIDDLE_PAIR)
 
 
 def _bluff_size_factor(frac: float) -> float:
@@ -381,7 +417,7 @@ def sample_postflop_decision(
         draw is DrawCategory.NONE
     )
     bluff_mass = pf.bluff_freq * noise * pf.multiway_bluff_damp ** max(opponents - 1, 0)
-    agg_scale = pf.aggression * noise
+    agg_scale = min(pf.aggression, _AGGRESSION_CAP) * noise  # F3: bounded, see _AGGRESSION_CAP
 
     # F2 size-linked bluffing: the joint (action, size) law for a pure-air
     # bluff candidate is  w(s) · bluff_mass · factor(s)  — sampled in two
@@ -428,6 +464,10 @@ def sample_postflop_decision(
         to_call_bb = by_kind[ActionType.CALL].min_bb or 0.0
         faced_frac = to_call_bb / max(pot_bb - max(current_bet_to, to_call_bb), 0.01)
         fold_merit = _FOLD_BASE[bucket] * _price_factor(faced_frac, pf.stickiness)
+        # F4 (RES-D §6): bluff-catch-class buckets fold MORE per added
+        # opponent — direction only, see _MW_CATCH_TIGHTEN above.
+        if bucket in _MW_CATCH_BUCKETS:
+            fold_merit *= _MW_CATCH_TIGHTEN ** max(opponents - 1, 0)
         entries.append((ActionType.FOLD, fold_merit))
         entries.append(
             (ActionType.CALL, (_CALL_BASE[bucket] + _DRAW_CALL_BONUS[draw]) * pf.stickiness)

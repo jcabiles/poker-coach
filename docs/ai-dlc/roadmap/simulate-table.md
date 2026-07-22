@@ -903,24 +903,51 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       graded ratchet now guards from 228). 4 new tests incl. a scale-then-redraw killer. 720
       backend tests + ruff + verify.sh green; refuter PASS.)* ICE 8·7·5.
 
-- [ ] **F3 — Bounded maniac aggression (fixes saturation → near-argmax).** Cap / renormalize the
-      aggression multiplier (`content/personas/maniac.json` `aggression`=15 + `_COMMIT_AGG_BOOST`
-      interaction in `personas_postflop.py`) so it stops collapsing the action mix toward a single
-      choice, while keeping the maniac clearly the most aggressive persona. **Pass/fail:** maniac
-      action **entropy** in a fixed spot stays above a floor (still mixes — not deterministic), AND its
-      AFq/WTSD land inside the maniac band from RES-D/the modeling doc; other personas' behavior
-      byte-unchanged where their levers didn't move. **Appetite:** ~1 slice. **No-gos:** don't replace
-      the `rng.choices` mix with a threshold; don't retune non-maniac personas. ICE 7·8·6.
+- [x] **F3 — Bounded maniac aggression (fixes saturation → near-argmax).** *(done 2026-07-22:
+      `_AGGRESSION_CAP = 5.6` in code (S4 mechanic — levers stay in packs, maniac.json keeps 15.0
+      as "above the cap"), applied `min(pf.aggression, cap)` at the single site where the lever is
+      read; `_COMMIT_AGG_BOOST` interaction bounded as a consequence (45×→16.8×). Knee chosen by
+      measured sweep: 4.8 dropped maniac AF to lag-level (2.03–2.39 vs lag ~2.1–2.5), violating
+      "clearly most aggressive"; 5.6 = 1.75× lag keeps AF 3.19–3.32. Entropy roughly doubled in
+      the pinned spots (top-pair unopened 0.294→0.551 bits; overpair facing ½-pot 0.484→0.824;
+      floor 0.5 bits ≈ mix no more extreme than 89:11, pre-fix values pinned in-test). Monster-
+      SPR-commit spot deliberately NOT floored (H 0.168 post-fix — commit-boost mechanics, even
+      tag is P≈0.976 there; not maniac saturation). Non-maniac personas byte-unchanged (maker:
+      2,000 decisions × 5 personas × 10 shapes JSON-identical; refuter independently confirmed —
+      all other levers ≤3.2 < knee ⇒ min() is identity; noise param never non-default in codebase).
+      Maniac AF band re-anchored (2.4,999)→(2.4,4.5) — the ∞ top was a saturation artifact;
+      delta-method 3σ CIs at N=399/N=670 + small-n headroom (in-file comment). WTSD 0.56–0.57
+      mid-band, (0.47,0.65) kept. Per-node strict most-aggressive ordering test (maniac BET weight
+      > lag/tag, refuter-verified across 5 spot types). coverage_baseline re-recorded 1275/228→
+      1196/242 (refuter reproduced exactly; graded share ROSE 17.9%→20.2% — maniac betting less ⇒
+      more mappable spots; spot-checked, no double-grading). F1 fold-ordering (fish≈maniac) + F2
+      bluff-ordering (maniac tops) orthogonal and passing. 723 backend tests + ruff + verify.sh
+      green, 5× stable; refuter PASS (2 LOW: brief-citation traceability, pre-existing
+      coverage-baseline docstring scoped to mapper-only changes).)* ICE 7·8·6.
 
-- [ ] **F4 — Multiway calibration correction (direction, not constant).** Ensure the multiway path
+- [x] **F4 — Multiway calibration correction (direction, not constant).** Ensure the multiway path
       (`_apply_multiway` / `multiway_bluff_damp`) encodes "**bluff less + value-lean** with each added
       opponent" as a **direction**, never a per-opponent MDF/defense constant (both reviewers: the
       n-th-root is a symmetric-independent idealization). **Pass/fail:** multiway c-bet/bluff frequency
       is **lower** than the HU baseline for the same spot (test-asserted), no per-opponent MDF number
       is asserted anywhere, and value-hand continuation is at least as tight as HU. **Appetite:** ~1
       slice. **No-gos:** no second multiway model; no n-th-root constant baked as a target. ICE 6·6·5.
+      *(Done 2026-07-22, PR #69. Audit: the bet-side directions were already true — existing
+      `multiway_bluff_damp` monotonically cuts bluff frequency per added opponent and value
+      continuation is never looser than HU (both now test-asserted, opponents 1→2→3). Gap closed:
+      the CALL-side had no multiway response — bluff-catchers defended bets at HU frequency
+      regardless of field size. Added `_MW_CATCH_TIGHTEN = 1.15` applied as
+      `fold_merit *= 1.15 ** max(opponents-1, 0)` on the facing-a-bet path only, scoped to catcher
+      buckets (AIR, ACE_HIGH, MIDDLE_PAIR) — a direction multiplier, not a defense-share constant
+      (guard test greps source for `1/opponents` MDF patterns and bounds the constant). HU behavior
+      byte-identical (refuter: 1920 paired samples, exact; exponent 0 at opponents=1). F1 α-ceiling
+      test HU-scoped by construction, unaffected. coverage_baseline re-recorded 1196/242→1266/231
+      (refuter reproduced exactly, double-grading spot-check clean). Refuter PASS (1 LOW:
+      passive_fish WTSD floor margin thinned 0.084→0.024 — inside band, 5×71/71 stable; noted for
+      RES-D §4 re-anchor if later slices add multiway fold pressure). 742 backend tests + ruff +
+      verify.sh green.)* ICE 6·6·5.
 
-- [ ] **F5 — Theory-calibrated hero grading + re-derived S4 bands (fixes hero grading; bakes the A1
+- [x] **F5 — Theory-calibrated hero grading + re-derived S4 bands (fixes hero grading; bakes the A1
       guardrail).** Route the re-derived RES-D bands through the async `StrategyProvider`/`grade_map`
       so hero grading is **price-aware** and uses α as a **fold-ceiling sanity check** — explicitly NOT
       a fold≈MDF assertion on flop/turn or vs capped/polar bettors. Re-anchor the S4 bands in
@@ -930,6 +957,27 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       grades stay freq+EV with EV labeled *approximate*; all `grade_map`/S10 tests green. **Appetite:**
       ~1 slice. **No-gos:** grading stays behind the one provider seam; no boolean verdicts; no
       exploit/persona-aware grading (that's L1). ICE 9·7·5.
+      *(Done 2026-07-22, PR #70. Audit: the `_merits_vs_*` functions already carried linear price
+      terms, so the real gap was α-anchoring — pre-F5 the marginal catcher's graded fold share ran
+      well OVER the ceiling (weak_made vs ¾-pot: ~0.74 vs α=0.43; the grader recommended
+      over-folding). Fix: `_calibrate_catcher_fold` (postflop.py), a merit-space clamp bounding the
+      weak_made tier's FOLD share into [min(0.25, α), α] using size-exact α — which equals `price`
+      since the facing-node pot includes the faced bet (RES-E §2), so no duplicated bucket
+      constants. Applied in `grade_vs_cbet` + `grade_vs_turn_bet` only, before `_apply_multiway`
+      (multiway may fold past the HU ceiling per F4). A1 floor: fold credit 0.25 (α at SMALL,
+      RES-D §1a row 1) > POST_MIX 0.20 ⇒ a below-MDF flop/turn fold grades ≥ ACCEPTABLE via the
+      frequency rule (A1 regression test cites RES-D §1c/§5.2). Deviations, documented in-code:
+      (1) per-hand α as proxy for the range-aggregate ceiling, scoped to weak_made (air may fold
+      above α; strong-hand folds stay punished — scope-guard test); (2) `grade_vs_check_raise`
+      exempt (RES-D §1c: α is the flat-call form); (3) river untouched (RES-D §5.2 scopes the rule
+      to flop/turn); (4) S4 bands NOT re-anchored again — F1–F4 already did, personas byte-
+      untouched. Refuter cycle: initial FAIL (HIGH — docstring promised an unconditional
+      ACCEPTABLE floor but α<0.25 tiny bets fall to the EV ladder; reachable via the drill path's
+      arbitrary bet fracs). Adjudicated behavior-correct: α-ceiling and 0.25-floor are jointly
+      unsatisfiable below ⅓-pot, the ceiling is the binding A1 contract, and folding a catcher at
+      ~12:1 is a genuine mistake — docs re-scoped to α ≥ 0.25 and tiny-bet / POST_MIX-boundary /
+      degenerate-α behavior pinned by 3 regression tests. coverage_baseline unchanged (grading ≠
+      mappability). 751 backend tests + ruff + verify.sh green, 3× stable.)*
 
 - [x] **F6 — Min-bet legality fix (from RES-F).** *(done 2026-07-21: RES-F Option 1 verbatim —
       `sim_session.py::_hero_postflop_size_bb` `HERO_NODE_SIZE` miss (donk/lead, probe, delayed
