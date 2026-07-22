@@ -903,14 +903,27 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       graded ratchet now guards from 228). 4 new tests incl. a scale-then-redraw killer. 720
       backend tests + ruff + verify.sh green; refuter PASS.)* ICE 8·7·5.
 
-- [ ] **F3 — Bounded maniac aggression (fixes saturation → near-argmax).** Cap / renormalize the
-      aggression multiplier (`content/personas/maniac.json` `aggression`=15 + `_COMMIT_AGG_BOOST`
-      interaction in `personas_postflop.py`) so it stops collapsing the action mix toward a single
-      choice, while keeping the maniac clearly the most aggressive persona. **Pass/fail:** maniac
-      action **entropy** in a fixed spot stays above a floor (still mixes — not deterministic), AND its
-      AFq/WTSD land inside the maniac band from RES-D/the modeling doc; other personas' behavior
-      byte-unchanged where their levers didn't move. **Appetite:** ~1 slice. **No-gos:** don't replace
-      the `rng.choices` mix with a threshold; don't retune non-maniac personas. ICE 7·8·6.
+- [x] **F3 — Bounded maniac aggression (fixes saturation → near-argmax).** *(done 2026-07-22:
+      `_AGGRESSION_CAP = 5.6` in code (S4 mechanic — levers stay in packs, maniac.json keeps 15.0
+      as "above the cap"), applied `min(pf.aggression, cap)` at the single site where the lever is
+      read; `_COMMIT_AGG_BOOST` interaction bounded as a consequence (45×→16.8×). Knee chosen by
+      measured sweep: 4.8 dropped maniac AF to lag-level (2.03–2.39 vs lag ~2.1–2.5), violating
+      "clearly most aggressive"; 5.6 = 1.75× lag keeps AF 3.19–3.32. Entropy roughly doubled in
+      the pinned spots (top-pair unopened 0.294→0.551 bits; overpair facing ½-pot 0.484→0.824;
+      floor 0.5 bits ≈ mix no more extreme than 89:11, pre-fix values pinned in-test). Monster-
+      SPR-commit spot deliberately NOT floored (H 0.168 post-fix — commit-boost mechanics, even
+      tag is P≈0.976 there; not maniac saturation). Non-maniac personas byte-unchanged (maker:
+      2,000 decisions × 5 personas × 10 shapes JSON-identical; refuter independently confirmed —
+      all other levers ≤3.2 < knee ⇒ min() is identity; noise param never non-default in codebase).
+      Maniac AF band re-anchored (2.4,999)→(2.4,4.5) — the ∞ top was a saturation artifact;
+      delta-method 3σ CIs at N=399/N=670 + small-n headroom (in-file comment). WTSD 0.56–0.57
+      mid-band, (0.47,0.65) kept. Per-node strict most-aggressive ordering test (maniac BET weight
+      > lag/tag, refuter-verified across 5 spot types). coverage_baseline re-recorded 1275/228→
+      1196/242 (refuter reproduced exactly; graded share ROSE 17.9%→20.2% — maniac betting less ⇒
+      more mappable spots; spot-checked, no double-grading). F1 fold-ordering (fish≈maniac) + F2
+      bluff-ordering (maniac tops) orthogonal and passing. 723 backend tests + ruff + verify.sh
+      green, 5× stable; refuter PASS (2 LOW: brief-citation traceability, pre-existing
+      coverage-baseline docstring scoped to mapper-only changes).)* ICE 7·8·6.
 
 - [ ] **F4 — Multiway calibration correction (direction, not constant).** Ensure the multiway path
       (`_apply_multiway` / `multiway_bluff_damp`) encodes "**bluff less + value-lean** with each added

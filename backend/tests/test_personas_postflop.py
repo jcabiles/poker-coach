@@ -27,6 +27,7 @@ this maker's own re-derivation (documented per-persona below) widens them.
 
 from __future__ import annotations
 
+import math
 import random
 import time
 
@@ -641,6 +642,117 @@ def test_bluff_bet_sizes_tilt_big_but_value_sizes_stay_authored():
 
 
 # =====================================================================
+# F3 — bounded maniac aggression (RES-D §0 saturation fix)
+# =====================================================================
+#
+# The maniac's authored aggression lever (15.0, vs ≤3.2 for every other
+# persona) multiplied one side of the un-normalized merit ratio so hard that
+# rng.choices degenerated to near-argmax; with _COMMIT_AGG_BOOST the
+# effective multiplier hit 45×. F3 caps the lever in code
+# (_AGGRESSION_CAP = 5.6 = 1.75 × lag's 3.2) — identity for every non-maniac
+# persona, still strictly the most aggressive for the maniac, commit
+# interaction bounded at 16.8. Exact weights via the capture rng
+# (deterministic — no sampling noise).
+#
+# Entropy floor derivation: 0.5 bits ⇔ a two-way mix no more extreme than
+# ~89:11 — the maniac still takes the alternative line at least ~1-in-9
+# (genuine mixing), where pre-fix it was ~1-in-19. Pre-fix measured (capture
+# rng, aggression uncapped at 15.0, 2026-07-22):
+#   top-pair unopened   P(bet)=0.9483  H=0.294 bits
+#   overpair facing ½-pot (FOLD/CALL/RAISE)  P(raise)=0.9031  H=0.484 bits
+# Post-fix: 0.8725 / 0.551 and 0.7767 / 0.824.
+
+
+def _entropy_bits(dist: dict) -> float:
+    return -sum(w * math.log2(w) for w in dist.values() if w > 0)
+
+
+def _exact_dist(persona: str, hole, board, legal, pot, stack, current_bet_to=0.0):
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _pack(persona),
+        hole,
+        board,
+        legal,
+        pot,
+        stack,
+        1,
+        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=current_bet_to,
+    )
+    return cap.dist
+
+
+# Pinned representative spot: top pair weak kicker (Ah2d on Ac9s3h, no draw),
+# unopened flop, SPR well above commit — the paradigmatic saturation symptom
+# (a one-pair hand every persona MIXES bet/check with; pre-fix the maniac
+# bet it 19-in-20).
+_F3_SPOT = (("Ah", "2d"), ["Ac", "9s", "3h"], 3.0, 100.0)
+
+
+def test_aggression_cap_binds_maniac_only():
+    """The cap must sit strictly between the highest non-maniac lever
+    (identity mapping ⇒ non-maniac personas byte-unchanged) and the maniac's
+    authored lever (the cap actually binds). Guards future pack retunes from
+    silently entering — or escaping — the compression."""
+    cap = personas_postflop._AGGRESSION_CAP
+    packs = load_persona_packs()
+    for vt, pack in packs.items():
+        if vt.value == "maniac":
+            assert pack.postflop.aggression > cap
+        else:
+            assert pack.postflop.aggression <= cap
+
+
+def test_maniac_entropy_floor_in_pinned_spots():
+    """F3 pass/fail: maniac action entropy stays above 0.5 bits (still mixes,
+    not deterministic). Pre-fix: 0.294 bits unopened / 0.484 facing (see the
+    section comment)."""
+    hole, board, pot, stack = _F3_SPOT
+    unopened = _exact_dist(
+        "maniac",
+        hole,
+        board,
+        [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 20.0)],
+        pot,
+        stack,
+    )
+    assert _entropy_bits(unopened) >= 0.5, unopened
+    # 3-action set: overpair facing a ½-pot bet with RAISE legal (pre-fix the
+    # 15× raise merit crushed call+fold to a combined 0.097 mass).
+    facing = _exact_dist(
+        "maniac",
+        ("Qh", "Qd"),
+        ["9c", "5s", "2h"],
+        [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(3.0),
+            personas_postflop_legal_raise(9.0, 100.0),
+        ],
+        9.0,
+        100.0,
+        current_bet_to=3.0,
+    )
+    assert _entropy_bits(facing) >= 0.5, facing
+
+
+def test_maniac_still_strictly_most_aggressive():
+    """F3 pass/fail: the cap keeps the maniac clearly the most aggressive
+    persona — exact BET weight in the pinned spot strictly above every other
+    persona's (0.8725 vs lag 0.7964 post-fix)."""
+    hole, board, pot, stack = _F3_SPOT
+    legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 20.0)]
+
+    def bet_w(persona):
+        return _exact_dist(persona, hole, board, legal, pot, stack)[ActionType.BET]
+
+    maniac = bet_w("maniac")
+    for persona in ALL_PERSONAS:
+        if persona != "maniac":
+            assert maniac > bet_w(persona), persona
+
+
+# =====================================================================
 # Closed-loop harness: full-hand playouts through the S2 engine
 # =====================================================================
 
@@ -890,7 +1002,9 @@ def budget():
 # floor at this merit table's saturation curve, not a statement that maniac
 # is "15x normal". Only cross-persona ORDERING and the resulting measured
 # stat bands are meaningful; the raw lever magnitudes are calibration
-# artifacts of this specific merit-table implementation.
+# artifacts of this specific merit-table implementation. (Since F3 the
+# engine caps the effective lever at _AGGRESSION_CAP=5.6 — the authored
+# 15.0 now only signals "above the cap"; see the F3 section.)
 
 # F1 RE-ANCHOR (RES-D §4 measure-then-anchor, 2026-07-21): price-aware
 # defense (personas_postflop._price_factor) re-levels fold-to-bet under the
@@ -939,7 +1053,19 @@ BANDS = {
     # be as low as ~40 ⇒ 3σ ≈ ±0.19, so the floor must sit well below center).
     "tag": ((1.4, 3.6), (0.05, 0.55), (0.52, 0.79)),  # AF/ftc/WTSD re-anchored (F1)
     "lag": ((1.5, 3.2), (0.163, 0.637), (0.54, 0.77)),  # AF/WTSD re-anchored (F1)
-    "maniac": ((2.4, 999.0), (0.0, 0.430), (0.47, 0.65)),  # AF/WTSD re-anchored (F1)
+    # maniac AF top re-anchored (F3, RES-D §4 measure-then-anchor): the F1
+    # band's 999 (∞) top was a saturation artifact — with aggression=15
+    # effectively argmaxing bet/raise, AF had no meaningful upper bound to
+    # regress against. With the F3 cap (_AGGRESSION_CAP=5.6) measured AF is
+    # 3.324 (n_call=176, N=399) / 3.187 (n_call=294, N=670); delta-method
+    # 3σ CIs (2.47, 4.18) / (2.55, 3.83), union rounded outward with headroom
+    # for machine-scaled smaller n_call (~100 ⇒ tol ~±1.1) → top 4.5. Floor
+    # keeps F1's 2.4 (both CIs sit above it; also keeps maniac's band floor
+    # above lag's measured ~2.1-2.5 — the ordering claim). WTSD 0.561/0.573
+    # measured — mid-band, (0.47, 0.65) kept (RES-D §4's PRD maniac WTSD
+    # (0.228, 0.402) stays superseded by F1's documented engine-anchored
+    # deviation: honoring the α fold-ceiling keeps more pots alive).
+    "maniac": ((2.4, 4.5), (0.0, 0.430), (0.47, 0.65)),  # AF re-anchored (F3), rest F1
 }
 
 

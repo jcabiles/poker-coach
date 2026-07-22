@@ -255,6 +255,24 @@ _DRAW_CALL_BONUS = {DrawCategory.NONE: 0.0, DrawCategory.WEAK: 0.20, DrawCategor
 # Structural constants (shared mechanics).
 _BLUFF_RAISE_FACTOR = 0.3  # bluff-raising is structurally rarer than bluff-betting
 _COMMIT_AGG_BOOST = 3.0  # SPR-commit shift toward call/jam
+# F3 bounded aggression (RES-D §0 saturation fix): the `aggression` lever is
+# capped before it scales any merit. An uncapped maniac lever (15.0) multiplies
+# one side of the un-normalized merit ratio so hard that rng.choices degenerates
+# to near-argmax (top-pair unopened P(bet)=0.948, entropy 0.29 bits; with the
+# SPR-commit boost the effective multiplier hit 15×3=45, monster-commit
+# P(bet)=0.991, entropy 0.08 bits). The cap is a MECHANIC (shared compression
+# law, lives in code per the S4 split); persona identity stays in the pack's
+# lever. 5.6 = 1.75 × the highest non-maniac lever (lag 3.2), fitted by sweep
+# (4.8/5.6/6.4 against the closed-loop harness): the cap is the identity map
+# for every other authored persona (all ≤ 3.2 — their sampled decisions are
+# byte-unchanged, F3-verified) while the maniac stays strictly the most
+# aggressive persona everywhere the lever applies — per-node (exact-weight
+# ordering test) AND in population AF (~3.2-3.3 vs lag ~2.1-2.5; the tighter
+# 4.8 cap dropped maniac AF into lag's range). The commit interaction is
+# bounded as a consequence (5.6 × 3 = 16.8, was 45). Mixing restored:
+# top-pair unopened P(bet) 0.948 → 0.873 (entropy 0.29 → 0.55 bits) — see
+# the F3 tests.
+_AGGRESSION_CAP = 5.6
 
 # F1 price-aware defense (RES-D §1a/§2 + RES-E buckets). α = B/(P+B) is the
 # fold-CEILING for the bucket's representative size — an anchor the fold merit
@@ -381,7 +399,7 @@ def sample_postflop_decision(
         draw is DrawCategory.NONE
     )
     bluff_mass = pf.bluff_freq * noise * pf.multiway_bluff_damp ** max(opponents - 1, 0)
-    agg_scale = pf.aggression * noise
+    agg_scale = min(pf.aggression, _AGGRESSION_CAP) * noise  # F3: bounded, see _AGGRESSION_CAP
 
     # F2 size-linked bluffing: the joint (action, size) law for a pure-air
     # bluff candidate is  w(s) · bluff_mass · factor(s)  — sampled in two
