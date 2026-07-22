@@ -34,6 +34,7 @@ from app.domain.spot import (
     Spot,
     Street,
     is_multiway,
+    opponent_count,
 )
 from app.domain.texture import Texture, classify, river_card_class, turn_card_class
 
@@ -406,11 +407,17 @@ def _merits(
     return check, small, big
 
 
-# --- S8: multiway merit adjustment (binary bucket — heads-up vs 3+) ---
+# --- S8/M6: multiway merit adjustment (opponent-count-scaled, RES-H §2.3) ---
 # Applied by EVERY grader after its base merits are computed and BEFORE
 # _frequencies(), and ONLY when is_multiway(spot) — heads-up output stays
 # byte-identical. Directions (spec-frozen): fewer acceptable bluffs, slight
-# value-lean, tighter bluff-catching. Values are tuning knobs.
+# value-lean, tighter bluff-catching. M6 made the push GEOMETRIC per added
+# opponent (`base ** max(opp-1, 0)`, the F4 catch-tighten shape): each
+# `_MW_*` below is the BASE, pinned to the pre-M6 flat constant so 3-way
+# (`opp=2` ⇒ `base**1`) stays byte-identical and only 4-way+ diverges.
+# DIRECTION-only law (RES-D §6 / RES-H §2.2): never an MDF, n-th-root defense
+# frequency, or per-opponent pot-odds constant — only scaled existing merits.
+# 5+-way is the same directional bucket, never claimed calibrated (§2.4).
 _MW_BLUFF_DAMPEN = 0.6  # in (0,1): scales DOWN aggressive merit for bluff candidates
 _MW_VALUE_LEAN = 1.15  # >= 1.0: scales UP value-category aggressive merit
 _MW_CATCH_TIGHTEN = 1.3  # >= 1.0: scales UP fold merit for the air bluff-catch
@@ -421,10 +428,20 @@ _MW_CATCH_TIGHTEN = 1.3  # >= 1.0: scales UP fold merit for the air bluff-catch
 _MW_THIN_VALUE_DAMPEN = 0.7
 
 
-def _apply_multiway(merits: dict, *, cat_effective: str, facing_side: bool) -> dict:
+def _apply_multiway(
+    merits: dict, *, cat_effective: str, facing_side: bool, opp: int
+) -> dict:
     """Multiway (3+) merit adjustment — reads NOTHING but the merit dict, the
-    already-computed hand category (post busted-draw demotion on the river) and
-    which side hero is on. Never persona data (graders-never-read-persona).
+    already-computed hand category (post busted-draw demotion on the river),
+    which side hero is on, and the live-opponent count `opp`
+    (`opponent_count(spot)` — villains only, HU ⇒ 1). Never persona data
+    (graders-never-read-persona).
+
+    M6: every scalar is geometric in the added opponents beyond the first —
+    `base ** max(opp - 1, 0)` — so `opp=1` (HU, unreachable through the
+    `is_multiway` gate anyway) yields 1.0 everywhere, `opp=2` (3-way) yields
+    exactly the pre-M6 flat constants, and 4-way pushes strictly harder along
+    the identical axis. Direction-only: no MDF / pot-odds constant.
 
     Aggressor side (keys check/small/big): dampen aggressive merit for
     bluff-candidate categories — "air", and "draw" (semibluffs; river draws
@@ -436,28 +453,33 @@ def _apply_multiway(merits: dict, *, cat_effective: str, facing_side: bool) -> d
     call/raise-bluff merits. Scaling only applies to POSITIVE merits (scaling
     a negative merit toward zero would perversely INCREASE it).
     """
+    n = max(opp - 1, 0)
+    bluff_dampen = _MW_BLUFF_DAMPEN**n
+    value_lean = _MW_VALUE_LEAN**n
+    catch_tighten = _MW_CATCH_TIGHTEN**n
+    thin_value_dampen = _MW_THIN_VALUE_DAMPEN**n
     out = dict(merits)
     if facing_side:
         if cat_effective in ("air", "weak_made"):
-            out["fold"] = out["fold"] * _MW_CATCH_TIGHTEN
+            out["fold"] = out["fold"] * catch_tighten
             for k in ("call", "raise"):
                 if out[k] > 0:
-                    out[k] = out[k] * _MW_BLUFF_DAMPEN
+                    out[k] = out[k] * bluff_dampen
         return out
     if cat_effective in ("air", "draw"):
         for k in ("small", "big"):
             if out[k] > 0:
-                out[k] = out[k] * _MW_BLUFF_DAMPEN
+                out[k] = out[k] * bluff_dampen
     elif cat_effective == "weak_made":
         # N5: thin value stops betting multiway (research: value thresholds
         # rise as equity dilutes — marginal made hands check, they don't bet).
         for k in ("small", "big"):
             if out[k] > 0:
-                out[k] = out[k] * _MW_THIN_VALUE_DAMPEN
+                out[k] = out[k] * thin_value_dampen
     elif cat_effective == "strong":
         for k in ("small", "big"):
             if out[k] > 0:
-                out[k] = out[k] * _MW_VALUE_LEAN
+                out[k] = out[k] * value_lean
     return out
 
 
@@ -500,6 +522,7 @@ def grade_cbet(
             {"check": m_check, "small": m_small, "big": m_big},
             cat_effective=cat,
             facing_side=False,
+            opp=opponent_count(spot),
         )
         m_check, m_small, m_big = mw["check"], mw["small"], mw["big"]
     merits = [m_check, m_small, m_big]
@@ -861,6 +884,7 @@ def grade_vs_cbet(
             {"fold": m_fold, "call": m_call, "raise": m_raise},
             cat_effective=cat,
             facing_side=True,
+            opp=opponent_count(spot),
         )
         m_fold, m_call, m_raise = mw["fold"], mw["call"], mw["raise"]
     specs = [
@@ -1054,6 +1078,7 @@ def grade_vs_check_raise(
             {"fold": m_fold, "call": m_call, "raise": m_raise},
             cat_effective=cat,
             facing_side=True,
+            opp=opponent_count(spot),
         )
         m_fold, m_call, m_raise = mw["fold"], mw["call"], mw["raise"]
     specs = [
@@ -1265,6 +1290,7 @@ def grade_turn_barrel(
             {"check": m_check, "small": m_small, "big": m_big},
             cat_effective=cat,
             facing_side=False,
+            opp=opponent_count(spot),
         )
         m_check, m_small, m_big = mw["check"], mw["small"], mw["big"]
     merits = [m_check, m_small, m_big]
@@ -1389,6 +1415,7 @@ def grade_vs_turn_bet(
             {"fold": m_fold, "call": m_call, "raise": m_raise},
             cat_effective=cat,
             facing_side=True,
+            opp=opponent_count(spot),
         )
         m_fold, m_call, m_raise = mw["fold"], mw["call"], mw["raise"]
     specs = [
@@ -1604,6 +1631,7 @@ def grade_river_barrel(
             {"check": m_check, "small": m_small, "big": m_big},
             cat_effective=cat_effective,
             facing_side=False,
+            opp=opponent_count(spot),
         )
         m_check, m_small, m_big = mw["check"], mw["small"], mw["big"]
     merits = [m_check, m_small, m_big]
@@ -1730,6 +1758,7 @@ def grade_vs_river_bet(
             {"fold": m_fold, "call": m_call, "raise": m_raise},
             cat_effective=cat_effective,
             facing_side=True,
+            opp=opponent_count(spot),
         )
         m_fold, m_call, m_raise = mw["fold"], mw["call"], mw["raise"]
     specs = [
@@ -1793,6 +1822,571 @@ def grade_vs_river_bet(
         why = (
             f"{cat_effective} on a {rclass} river ({adv} edge): best is {best.action.value}; "
             f"you chose {decision.action.value} (-{ev_loss}bb)."
+        )
+
+    result = EvaluationResult(
+        **base_kwargs,
+        chosen_eval=ChosenEval(frequency=chosen.frequency, ev_bb=chosen.ev_bb),
+        ev_loss_bb=ev_loss,
+        correctness=correctness,
+        sizing_correctness=_raise_sizing_verdict(spot, decision, tex.wetness, chosen),
+        rationale_tags=tags,
+        explanation=why,
+    )
+    if rationale:
+        result.authored_rationale = rationale
+    return result
+
+
+# --- M4 (RES-H §3 / H1): facing a cold-caller's raise of the flop c-bet ---
+#
+# Hero opened, c-bet the flop, and a NON-BB preflop cold-caller raised the
+# c-bet. Sibling of the check-raise family above, with the §3.2 range
+# asymmetry baked in: a cold-caller's flat is capped and nut-heavy (premiums
+# were 3-bet out preflop), so his flop raise is "value until proven
+# otherwise" — fold baseline higher than the check-raise node's 1.6, the
+# texture bluff-plausibility credit halved, hero's own re-raise-bluff merit
+# lower. Value hands and strong draws still continue.
+#
+# α (RES-H §3.4, RES-D §5): `_calibrate_catcher_fold` is the flat-CALL
+# indifference clamp and "doesn't work with a raise" — it is deliberately
+# NOT called here. A marginal hand may correctly fold ABOVE the α ceiling
+# for the faced size when the raise comes from a capped nut-heavy range.
+
+
+def _merits_vs_caller_raise(
+    value: float, adv: str, price: float, texture: Texture, cat: str
+) -> tuple[float, float, float]:
+    """Return (fold, call, raise) merit scores (proxy EV, ~bb) for hero — the
+    ORIGINAL flop c-bettor — facing a cold-caller's raise of the c-bet.
+
+    Same shape as `_merits_vs_check_raise`; the deltas ARE the range
+    asymmetry (RES-H §3.2):
+      (a) fold baseline 1.9 (> the check-raise node's 1.6) — a cold-caller
+          raise is more value-weighted than a BB check-raise;
+      (b) bluff-plausibility CREDIT halved (0.5x fold relief; 0.25x
+          weak_made bluff-catch bonus where bluffy > 0, FULL 0.5x penalty
+          kept where bluffy <= 0) — cold-caller raises are rarely bluffs on
+          ANY texture, so bluff-catching never gets MORE credit than the
+          check-raise node on any board;
+      (c) hero's semibluff re-raise bumps halved (draw +0.25, air +0.4 on
+          low/connected/wet vs +0.5/+0.8) — 4-bet-bluffing into a capped
+          nut-heavy range has a lower ceiling.
+    Value re-raises (strong) and draw continues keep the parent's terms.
+    """
+    adv_bonus = {"hero": 0.5, "neutral": 0.0, "villain": -0.5}[adv]
+
+    # texture-conditioned bluff plausibility (same read as the check-raise node)
+    bluffy = 0.0
+    if not texture.high_board:
+        bluffy += 0.3
+    if texture.connectedness == "connected":
+        bluffy += 0.3
+    if texture.wetness == "wet":
+        bluffy += 0.4
+    elif texture.wetness == "dry":
+        bluffy -= 0.4
+    low_connected_wet = (
+        not texture.high_board
+        and texture.connectedness == "connected"
+        and texture.wetness == "wet"
+    )
+
+    # FOLD — baseline above the check-raise node's 1.6 (§3.2a)
+    fold = 1.9
+    if cat == "air":
+        fold += 1.2
+    elif cat == "weak_made":
+        fold += 0.6
+    fold += price * 1.5  # worse price (bigger raise) -> folding better
+    if adv == "villain":
+        fold += 0.3
+    fold -= value * 0.8  # strong made hands / draws fold far less
+    fold -= max(0.0, bluffy) * 0.5  # §3.2b: half the bluffy fold relief
+
+    # CALL — value/draw continue as in the parent; the marginal bluff-catch
+    # credit is halved (§3.2b).
+    call = value
+    if cat in ("strong", "draw"):
+        call += adv_bonus
+    call += (0.4 - price) * 1.5  # cheap raise -> call better
+    if cat == "draw" and texture.wetness == "wet":
+        call += 0.6  # draws still realize equity on wet boards
+    if cat == "air":
+        call -= 1.4
+    elif cat == "weak_made":
+        # Halve the bluff-catch CREDIT on bluffy (wet) boards, but keep the
+        # FULL penalty on dry — a cold-caller raise is more value-weighted, so
+        # bluff-catching is never *better* than vs a check-raise. (Halving a
+        # NEGATIVE bluffy would shrink the dry-board penalty and invert the
+        # §3.2 asymmetry at price >= ~0.4 — refuter-caught HIGH: the call
+        # merit must stay <= the check-raise sibling's pointwise on every
+        # texture.)
+        call += (bluffy * 0.25) if bluffy > 0 else (bluffy * 0.5)
+
+    # RAISE (re-raise over the caller's raise) — value keeps the parent's
+    # terms; semibluff bumps are halved (§3.2c).
+    if cat == "strong":
+        raise_ = value + 0.6 + adv_bonus  # value re-raise
+    elif cat == "draw":
+        raise_ = value - 0.4  # kept below call so call stays best on wet boards
+        if low_connected_wet:
+            raise_ += 0.25
+    elif cat == "weak_made":
+        raise_ = -1.0  # never re-raise a marginal made hand into a capped nut range
+    else:  # air
+        raise_ = -1.4
+        if low_connected_wet:
+            raise_ += 0.4
+    return fold, call, raise_
+
+
+def grade_vs_caller_raise(
+    spot: Spot, hero_range: str | None, villain_range: str | None, decision: Decision | None
+) -> EvaluationResult:
+    if spot.street != Street.FLOP:
+        raise ValueError("grade_vs_caller_raise is flop-only")
+    board = spot.board[:3]
+    tex = classify(board)
+    ctx = spot.node_context[0] if spot.node_context else NodeContext.VS_CALLER_RAISE
+    # CRITICAL: the third arg is the CALLER's position (_villain_pos → the
+    # mapper's `facing` = the raiser), NOT hero's own. Hero is still the
+    # preflop+flop aggressor (same refuter-caught rule as grade_vs_check_raise).
+    adv = range_advantage(ctx, spot.hero.position, _villain_pos(spot), tex)
+    cat = _hand_category(spot.hero.hole_cards, board)
+    value = _HAND_VALUE[cat]
+    faced, pot = _faced_call_and_pot(spot)
+    price = faced / pot if pot > 0 else 0.5
+    rationale = _postflop_rationale(
+        NodeContext.VS_CALLER_RAISE, spot.hero.position, _villain_pos(spot)
+    )
+
+    # N4b: the single action-level RAISE eval keys on the BIG leg — max().
+    raise_size = max(
+        (la.min_bb for la in spot.legal_actions if la.action == ActionType.RAISE and la.min_bb),
+        default=None,
+    )
+    m_fold, m_call, m_raise = _merits_vs_caller_raise(value, adv, price, tex, cat)
+    # NOTE: no `_calibrate_catcher_fold` here — α is the flat-call form and
+    # must not clamp a raise-response (RES-H §3.4).
+    if is_multiway(spot):
+        mw = _apply_multiway(
+            {"fold": m_fold, "call": m_call, "raise": m_raise},
+            cat_effective=cat,
+            facing_side=True,
+            opp=opponent_count(spot),
+        )
+        m_fold, m_call, m_raise = mw["fold"], mw["call"], mw["raise"]
+    specs = [
+        (ActionType.FOLD, None, m_fold),
+        (ActionType.CALL, faced or None, m_call),
+        (ActionType.RAISE, raise_size, m_raise),
+    ]
+    freqs = _frequencies([m for _, _, m in specs])
+    evals = [
+        ActionEval(action=a, size_bb=size, frequency=round(f, 3), ev_bb=round(m, 2))
+        for (a, size, m), f in zip(specs, freqs, strict=True)
+    ]
+    best = max(evals, key=lambda e: e.ev_bb)
+    is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
+    leak = int(LeakCategory.VS_CALLER_RAISE)
+
+    base_kwargs = {
+        "per_action": evals,
+        "best_action": best,
+        "provider": ProviderKind.HEURISTIC,
+        "coverage": Coverage.FULL,
+        "leak_category": leak,
+        "is_mixed": is_mixed,
+    }
+
+    if decision is None:
+        result = EvaluationResult(
+            **base_kwargs,
+            rationale_tags=["vs_caller_raise", adv, cat, tex.wetness],
+            explanation=(
+                f"{cat} facing a cold-caller's raise on a {tex.wetness} board "
+                f"({adv} range advantage): {best.action.value} is the play."
+            ),
+        )
+        if rationale:
+            result.authored_rationale = rationale
+        return result
+
+    # RAISE matches by ActionType alone (one raise option), like grade_vs_check_raise.
+    chosen = next((e for e in evals if e.action == decision.action), None)
+    if chosen is None:
+        chosen = ActionEval(
+            action=decision.action, frequency=0.0, ev_bb=min(e.ev_bb for e in evals) - 1.0
+        )
+    ev_loss = max(0.0, round(best.ev_bb - chosen.ev_bb, 2))
+
+    if chosen.action == best.action:
+        correctness = Correctness.OPTIMAL
+    elif chosen.frequency > POST_MIX:
+        correctness = Correctness.ACCEPTABLE
+    elif ev_loss <= POST_ACCEPTABLE_MAX:
+        correctness = Correctness.ACCEPTABLE
+    elif ev_loss <= POST_MISTAKE_MAX:
+        correctness = Correctness.MISTAKE
+    else:
+        correctness = Correctness.BLUNDER
+
+    if correctness == Correctness.OPTIMAL:
+        why = (
+            f"{cat} vs a cold-caller's raise on a {tex.wetness} board ({adv} edge): "
+            f"{best.action.value} is the play."
+        )
+    else:
+        why = (
+            f"{cat} vs a cold-caller's raise on a {tex.wetness} board ({adv} edge): best is "
+            f"{best.action.value}; you chose {decision.action.value} (-{ev_loss}bb)."
+        )
+
+    result = EvaluationResult(
+        **base_kwargs,
+        chosen_eval=ChosenEval(frequency=chosen.frequency, ev_bb=chosen.ev_bb),
+        ev_loss_bb=ev_loss,
+        correctness=correctness,
+        sizing_correctness=_raise_sizing_verdict(spot, decision, tex.wetness, chosen),
+        rationale_tags=["vs_caller_raise", adv, cat, tex.wetness],
+        explanation=why,
+    )
+    if rationale:
+        result.authored_rationale = rationale
+    return result
+
+
+# --- M5 (Epic 5, RES-G Slice C): HU limped-pot flop graders ------------------
+#
+# The app's FIRST limped-pot postflop node family, HU only. Directions per
+# RES-G §4b (all direction-only, no MDF / no solver, EVs approximate):
+#   1. No preflop aggressor → no range-advantage baseline: the edge read
+#      reuses `range_advantage_defender`'s score=0 no-baseline start and lets
+#      board texture decide (both limped-pot ranges are calling-type ranges,
+#      so the defender-view texture terms — low/connected/wet connects, high/
+#      dry misses — apply to hero's own range; position breaks the tie).
+#   2. Capped ranges both sides: big bets are over-repped by value — reward
+#      small stabs, penalize bloating with medium strength, tighten the
+#      marginal bluff-catch vs a big lead.
+#   3. Whoever bets first should bet SMALL + polar (strong + some air, check
+#      the middle).
+#   4. The OOP player mostly checks.
+#   5. Multiway dampening seam (`_apply_multiway`) is wired but dormant —
+#      these graders only ever see HU spots (the mappers gate 2 preflop
+#      entrants), so `is_multiway` is structurally False today; the seam
+#      exists so a future multiway limped grader (RES-G Slice D) inherits it.
+#
+# Every direction-shaping number lives in content/postflop/limped.json
+# `sizing_rules` (strategy-as-data), not here.
+
+_LIMPED_RULES: dict | None = None
+
+
+def _limped_rules(node: str) -> dict:
+    """The §4b direction knobs for `node` ('limped_lead' | 'limped_vs_lead'),
+    from content/postflop/limped.json `sizing_rules`. Lazily loaded once; a
+    missing pack/key fails loud — the strategy IS the content."""
+    global _LIMPED_RULES
+    if _LIMPED_RULES is None:
+        pack = load_pack_file(_POSTFLOP_CONTENT_DIR / "limped.json")
+        _LIMPED_RULES = pack.sizing_rules
+    return _LIMPED_RULES[node]
+
+
+def _limped_edge(hero_pos: Position, villain_pos: Position, texture: Texture) -> str:
+    """Texture-decided edge in a limped pot: 'hero' | 'villain' | 'neutral'.
+
+    Reuses `range_advantage_defender` (§4b-1: its score=0 start IS the
+    no-preflop-aggressor read) with hero in the defender slot — a limped-pot
+    range is a calling-type range, so the caller-view texture terms transfer —
+    then relabels the verdict to hero/villain."""
+    read = range_advantage_defender(villain_pos, hero_pos, texture)
+    return {"defender": "hero", "aggressor": "villain", "neutral": "neutral"}[read]
+
+
+def _merits_limped_lead(
+    edge: str, texture: Texture, cat: str, in_position: bool
+) -> tuple[float, float, float]:
+    """(check, bet_small, bet_big) merits for hero deciding whether to lead a
+    HU limped flop. Small polar lead + mostly-check-OOP + never-bloat-the-
+    middle, all knob-driven from content (§4b-2/3/4)."""
+    r = _limped_rules("limped_lead")
+    edge_bonus = {"hero": 1.0, "neutral": 0.0, "villain": -1.0}[edge] * r["edge_weight"]
+
+    check = r["check_base"]
+    if cat == "air":
+        check += r["check_air_bonus"]
+    elif cat == "weak_made":
+        check += r["check_middle_bonus"]  # §4b-4: check the medium made hands
+    if not in_position:
+        check += r["check_oop_bonus"]  # §4b-4: the OOP player mostly checks
+    if texture.wetness == "wet":
+        check += r["check_wet_bonus"]
+
+    bet = r["value"][cat] + edge_bonus
+    small = bet + r["small_bonus"]  # §4b-3: small size preferred
+    big = bet - r["big_penalty"]  # §4b-2: big bets over-repped by value
+    if cat == "weak_made":
+        big -= r["big_middle_penalty"]  # never bloat medium strength
+    elif cat == "air":
+        big -= r["big_air_penalty"]
+    return check, small, big
+
+
+def _merits_limped_vs_lead(
+    edge: str, price: float, texture: Texture, cat: str
+) -> tuple[float, float, float]:
+    """(fold, call, raise) merits for hero facing a lead in a HU limped flop.
+    `price` = faced bet / pot (pot already includes the bet). Capped-range
+    discipline: fold air, price the marginal catch, and tighten it further vs
+    a BIG lead (§4b-2: limped-pot big bets are value-heavy)."""
+    r = _limped_rules("limped_vs_lead")
+    value = r["value"][cat]
+    edge_bonus = {"hero": 1.0, "neutral": 0.0, "villain": -1.0}[edge] * r["edge_weight"]
+
+    fold = r["fold_base"]
+    if cat == "air":
+        fold += r["fold_air_bonus"]
+    elif cat == "weak_made":
+        fold += r["fold_middle_bonus"]
+        if price >= r["big_lead_price"]:
+            fold += r["big_lead_middle_fold_bonus"]  # §4b-2: big lead → real strength
+    fold += price * r["fold_price_weight"]
+    if edge == "villain":
+        fold += r["fold_edge_bonus"]
+    fold -= value * r["fold_value_relief"]
+
+    call = value + edge_bonus
+    call += (r["call_price_anchor"] - price) * r["call_price_weight"]
+    if cat == "air":
+        call -= r["call_air_penalty"]
+
+    if cat == "strong":
+        raise_ = value + r["raise_strong_bonus"] + edge_bonus
+    elif cat == "draw":
+        raise_ = value - r["raise_draw_penalty"]
+        if texture.wetness == "wet" and edge == "hero":
+            raise_ += r["raise_semibluff_wet_bonus"]
+        else:
+            # Refuter HIGH (M5): the draw raise merit is otherwise FLAT while
+            # call/fold DECAY with price, so at the big canonical leads
+            # (0.75/1.0/1.5-pot) the flat raise crossed over and RAISE graded
+            # best for a drawing hand — the opposite of §4b-2 (big limped-pot
+            # leads are value-heavy: defend draws at a price, don't raise
+            # into value). Outside the ONE sanctioned semibluff condition
+            # (wet board + hero texture edge) the draw raise can never exceed
+            # the draw call; a tie resolves to CALL (it precedes RAISE in the
+            # graders' eval order).
+            raise_ = min(raise_, call)
+    elif cat == "weak_made":
+        raise_ = r["raise_middle"]
+    else:  # air
+        raise_ = r["raise_air"]
+    return fold, call, raise_
+
+
+def grade_limped_lead(
+    spot: Spot, hero_range: str | None, villain_range: str | None, decision: Decision | None
+) -> EvaluationResult:
+    """HU limped flop, hero can lead (check / bet small / bet big)."""
+    if spot.street != Street.FLOP:
+        raise ValueError("grade_limped_lead is flop-only")
+    board = spot.board[:3]
+    tex = classify(board)
+    villain = _villain_pos(spot)
+    edge = _limped_edge(spot.hero.position, villain, tex)
+    cat = _hand_category(spot.hero.hole_cards, board)
+    small, big = _bet_sizes(spot)
+    rationale = _postflop_rationale(NodeContext.LIMPED_LEAD, spot.hero.position, villain)
+
+    m_check, m_small, m_big = _merits_limped_lead(
+        edge, tex, cat, _in_position(spot.hero.position, villain)
+    )
+    if is_multiway(spot):  # dormant HU (mappers gate 2 entrants); Slice D seam
+        mw = _apply_multiway(
+            {"check": m_check, "small": m_small, "big": m_big},
+            cat_effective=cat,
+            facing_side=False,
+            opp=opponent_count(spot),
+        )
+        m_check, m_small, m_big = mw["check"], mw["small"], mw["big"]
+    freqs = _frequencies([m_check, m_small, m_big])
+
+    specs = [
+        (ActionType.CHECK, None, m_check, freqs[0]),
+        (ActionType.BET, small, m_small, freqs[1]),
+        (ActionType.BET, big, m_big, freqs[2]),
+    ]
+    evals = [
+        ActionEval(action=a, size_bb=size, frequency=round(f, 3), ev_bb=round(m, 2))
+        for a, size, m, f in specs
+    ]
+    best = max(evals, key=lambda e: e.ev_bb)
+    is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
+    tags = ["limped_lead", edge, cat, tex.wetness]
+
+    base_kwargs = {
+        "per_action": evals,
+        "best_action": best,
+        "provider": ProviderKind.HEURISTIC,
+        "coverage": Coverage.FULL,
+        "leak_category": int(LeakCategory.LIMPED_LEAD),
+        "is_mixed": is_mixed,
+    }
+
+    def _size_label(size: float | None) -> str:
+        if size is None:
+            return "check"
+        if big and small and big != small:
+            return "big bet" if size >= big else "small bet"
+        return "bet"
+
+    if decision is None:
+        result = EvaluationResult(
+            **base_kwargs,
+            rationale_tags=tags,
+            explanation=(
+                f"limped pot ({edge} texture edge), hero has {cat}: "
+                f"{_size_label(best.size_bb)} is the play."
+            ),
+        )
+        if rationale:
+            result.authored_rationale = rationale
+        return result
+
+    chosen = _match(evals, decision, small, big)
+    ev_loss = max(0.0, round(best.ev_bb - chosen.ev_bb, 2))
+
+    if chosen.action == best.action and chosen.size_bb == best.size_bb:
+        correctness = Correctness.OPTIMAL
+    elif chosen.frequency > POST_MIX:
+        correctness = Correctness.ACCEPTABLE
+    elif ev_loss <= POST_ACCEPTABLE_MAX:
+        correctness = Correctness.ACCEPTABLE
+    elif ev_loss <= POST_MISTAKE_MAX:
+        correctness = Correctness.MISTAKE
+    else:
+        correctness = Correctness.BLUNDER
+
+    if correctness == Correctness.OPTIMAL:
+        why = (
+            f"{cat} in a limped pot on a {tex.wetness} board ({edge} texture edge): "
+            f"{_size_label(best.size_bb)} is the play."
+        )
+    else:
+        why = (
+            f"{cat} in a limped pot on a {tex.wetness} board ({edge} texture edge): "
+            f"best is {_size_label(best.size_bb)}; you chose "
+            f"{_size_label(chosen.size_bb)} (-{ev_loss}bb)."
+        )
+
+    bet_evals = [e for e in evals if e.action == ActionType.BET]
+    result = EvaluationResult(
+        **base_kwargs,
+        chosen_eval=ChosenEval(frequency=chosen.frequency, ev_bb=chosen.ev_bb),
+        ev_loss_bb=ev_loss,
+        correctness=correctness,
+        sizing_correctness=_bet_sizing_verdict(bet_evals, chosen),
+        rationale_tags=tags,
+        explanation=why,
+    )
+    if rationale:
+        result.authored_rationale = rationale
+    return result
+
+
+def grade_limped_vs_lead(
+    spot: Spot, hero_range: str | None, villain_range: str | None, decision: Decision | None
+) -> EvaluationResult:
+    """HU limped flop, hero faces a lead (fold / call / raise)."""
+    if spot.street != Street.FLOP:
+        raise ValueError("grade_limped_vs_lead is flop-only")
+    board = spot.board[:3]
+    tex = classify(board)
+    villain = spot.facing or _villain_pos(spot)
+    edge = _limped_edge(spot.hero.position, villain, tex)
+    cat = _hand_category(spot.hero.hole_cards, board)
+    faced, pot = _faced_call_and_pot(spot)
+    price = faced / pot if pot > 0 else 0.5
+    rationale = _postflop_rationale(NodeContext.LIMPED_VS_LEAD, spot.hero.position, villain)
+
+    raise_size = max(
+        (la.min_bb for la in spot.legal_actions if la.action == ActionType.RAISE and la.min_bb),
+        default=None,
+    )
+    m_fold, m_call, m_raise = _merits_limped_vs_lead(edge, price, tex, cat)
+    if is_multiway(spot):  # dormant HU (mappers gate 2 entrants); Slice D seam
+        mw = _apply_multiway(
+            {"fold": m_fold, "call": m_call, "raise": m_raise},
+            cat_effective=cat,
+            facing_side=True,
+            opp=opponent_count(spot),
+        )
+        m_fold, m_call, m_raise = mw["fold"], mw["call"], mw["raise"]
+    specs = [
+        (ActionType.FOLD, None, m_fold),
+        (ActionType.CALL, faced or None, m_call),
+        (ActionType.RAISE, raise_size, m_raise),
+    ]
+    freqs = _frequencies([m for _, _, m in specs])
+    evals = [
+        ActionEval(action=a, size_bb=size, frequency=round(f, 3), ev_bb=round(m, 2))
+        for (a, size, m), f in zip(specs, freqs, strict=True)
+    ]
+    best = max(evals, key=lambda e: e.ev_bb)
+    is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
+    tags = ["limped_vs_lead", edge, cat, tex.wetness]
+
+    base_kwargs = {
+        "per_action": evals,
+        "best_action": best,
+        "provider": ProviderKind.HEURISTIC,
+        "coverage": Coverage.FULL,
+        "leak_category": int(LeakCategory.LIMPED_VS_LEAD),
+        "is_mixed": is_mixed,
+    }
+
+    if decision is None:
+        result = EvaluationResult(
+            **base_kwargs,
+            rationale_tags=tags,
+            explanation=(
+                f"{cat} facing a lead in a limped pot on a {tex.wetness} board "
+                f"({edge} texture edge): {best.action.value} is the play."
+            ),
+        )
+        if rationale:
+            result.authored_rationale = rationale
+        return result
+
+    chosen = next((e for e in evals if e.action == decision.action), None)
+    if chosen is None:
+        chosen = ActionEval(
+            action=decision.action, frequency=0.0, ev_bb=min(e.ev_bb for e in evals) - 1.0
+        )
+    ev_loss = max(0.0, round(best.ev_bb - chosen.ev_bb, 2))
+
+    if chosen.action == best.action:
+        correctness = Correctness.OPTIMAL
+    elif chosen.frequency > POST_MIX:
+        correctness = Correctness.ACCEPTABLE
+    elif ev_loss <= POST_ACCEPTABLE_MAX:
+        correctness = Correctness.ACCEPTABLE
+    elif ev_loss <= POST_MISTAKE_MAX:
+        correctness = Correctness.MISTAKE
+    else:
+        correctness = Correctness.BLUNDER
+
+    if correctness == Correctness.OPTIMAL:
+        why = (
+            f"{cat} vs a limped-pot lead on a {tex.wetness} board ({edge} edge): "
+            f"{best.action.value} is the play."
+        )
+    else:
+        why = (
+            f"{cat} vs a limped-pot lead on a {tex.wetness} board ({edge} edge): best is "
+            f"{best.action.value}; you chose {decision.action.value} (-{ev_loss}bb)."
         )
 
     result = EvaluationResult(

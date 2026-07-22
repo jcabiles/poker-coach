@@ -81,6 +81,9 @@ class NodeContext(StrEnum):
     VS_TURN_BET = "vs_turn_bet"  # facing a turn bet after calling flop (S6)
     RIVER_BARREL = "river_barrel"  # aggressor who bet flop+turn deciding the river (S7)
     VS_RIVER_BET = "vs_river_bet"  # caller of flop+turn bets facing a river bet (S7)
+    VS_CALLER_RAISE = "vs_caller_raise"  # facing a cold-caller's raise of the c-bet, as opener (M4)
+    LIMPED_LEAD = "limped_lead"  # HU limped pot: hero can lead the flop (M5, RES-G Slice C)
+    LIMPED_VS_LEAD = "limped_vs_lead"  # HU limped pot: hero faces a flop lead (M5)
 
 
 class Stakes(BaseModel):
@@ -168,6 +171,17 @@ def players_in_pot(spot: Spot) -> int:
     Pure helper on the frozen Spot schema — S8 adds NO field to `Spot`.
     """
     return sum(1 for p in spot.players if p.status in (PlayerStatus.IN, PlayerStatus.ALLIN))
+
+
+def opponent_count(spot: Spot) -> int:
+    """Live OPPONENT count (villains only) — `players_in_pot(spot) - 1`.
+
+    M6 off-by-one pin: `players_in_pot` counts hero + live villains, so
+    HU ⇒ `players_in_pot == 2` ⇒ `opp == 1` (exponent `max(opp-1,0) == 0` ⇒
+    every multiway scalar is 1.0). Passing `players_in_pot(spot)` directly as
+    `opp` would silently break the HU-byte-identical invariant.
+    """
+    return players_in_pot(spot) - 1
 
 
 def is_multiway(spot: Spot) -> bool:
