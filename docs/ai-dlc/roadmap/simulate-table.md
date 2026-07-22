@@ -925,13 +925,27 @@ the serial spine S2→S4→S9→S10, not the agent budget.
       green, 5× stable; refuter PASS (2 LOW: brief-citation traceability, pre-existing
       coverage-baseline docstring scoped to mapper-only changes).)* ICE 7·8·6.
 
-- [ ] **F4 — Multiway calibration correction (direction, not constant).** Ensure the multiway path
+- [x] **F4 — Multiway calibration correction (direction, not constant).** Ensure the multiway path
       (`_apply_multiway` / `multiway_bluff_damp`) encodes "**bluff less + value-lean** with each added
       opponent" as a **direction**, never a per-opponent MDF/defense constant (both reviewers: the
       n-th-root is a symmetric-independent idealization). **Pass/fail:** multiway c-bet/bluff frequency
       is **lower** than the HU baseline for the same spot (test-asserted), no per-opponent MDF number
       is asserted anywhere, and value-hand continuation is at least as tight as HU. **Appetite:** ~1
       slice. **No-gos:** no second multiway model; no n-th-root constant baked as a target. ICE 6·6·5.
+      *(Done 2026-07-22, PR #69. Audit: the bet-side directions were already true — existing
+      `multiway_bluff_damp` monotonically cuts bluff frequency per added opponent and value
+      continuation is never looser than HU (both now test-asserted, opponents 1→2→3). Gap closed:
+      the CALL-side had no multiway response — bluff-catchers defended bets at HU frequency
+      regardless of field size. Added `_MW_CATCH_TIGHTEN = 1.15` applied as
+      `fold_merit *= 1.15 ** max(opponents-1, 0)` on the facing-a-bet path only, scoped to catcher
+      buckets (AIR, ACE_HIGH, MIDDLE_PAIR) — a direction multiplier, not a defense-share constant
+      (guard test greps source for `1/opponents` MDF patterns and bounds the constant). HU behavior
+      byte-identical (refuter: 1920 paired samples, exact; exponent 0 at opponents=1). F1 α-ceiling
+      test HU-scoped by construction, unaffected. coverage_baseline re-recorded 1196/242→1266/231
+      (refuter reproduced exactly, double-grading spot-check clean). Refuter PASS (1 LOW:
+      passive_fish WTSD floor margin thinned 0.084→0.024 — inside band, 5×71/71 stable; noted for
+      RES-D §4 re-anchor if later slices add multiway fold pressure). 742 backend tests + ruff +
+      verify.sh green.)* ICE 6·6·5.
 
 - [ ] **F5 — Theory-calibrated hero grading + re-derived S4 bands (fixes hero grading; bakes the A1
       guardrail).** Route the re-derived RES-D bands through the async `StrategyProvider`/`grade_map`

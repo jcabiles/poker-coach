@@ -324,6 +324,24 @@ _BUCKET_BLUFF_SHARE = {
 _BLUFF_SHARE_REF = _BUCKET_BLUFF_SHARE[SizeBucket.MEDIUM]
 
 
+# F4 multiway calibration correction (RES-D §6, direction only): "bluff less
+# + value-lean" per added opponent. The unopened/aggressor-side half of this
+# is already live via `multiway_bluff_damp ** max(opponents-1, 0)` on
+# `bluff_mass` (S4-era) — confirmed measurably lower 3-way vs HU in the F4
+# audit. This constant closes the facing-side gap: bluff-catching (folding a
+# weak made hand to a bet) was flat across `opponents` on the bot path (S8's
+# `_MW_CATCH_TIGHTEN` only ever touched the GRADER). Mirrors the S8 pattern —
+# a flat multiplicative tighten on the fold merit for bluff-catch-class
+# buckets (AIR/ACE_HIGH/MIDDLE_PAIR facing a bet), exponentiated the same way
+# as `multiway_bluff_damp` (per-added-opponent decay, NOT an n-th-root
+# MDF/defense constant — no per-opponent MDF number is asserted anywhere).
+# 1.15 = the grader's `_MW_VALUE_LEAN` value, reused here as "value-lean"
+# framed as tightening the fold-ceiling side; kept deliberately modest (a
+# direction, not a target level).
+_MW_CATCH_TIGHTEN = 1.15
+_MW_CATCH_BUCKETS = (StrengthBucket.AIR, StrengthBucket.ACE_HIGH, StrengthBucket.MIDDLE_PAIR)
+
+
 def _bluff_size_factor(frac: float) -> float:
     """Multiplier on the bluff mass for a chosen pot-fraction: the bucket's
     polar bluff share relative to the MEDIUM reference. Bucketed on the
@@ -446,6 +464,10 @@ def sample_postflop_decision(
         to_call_bb = by_kind[ActionType.CALL].min_bb or 0.0
         faced_frac = to_call_bb / max(pot_bb - max(current_bet_to, to_call_bb), 0.01)
         fold_merit = _FOLD_BASE[bucket] * _price_factor(faced_frac, pf.stickiness)
+        # F4 (RES-D §6): bluff-catch-class buckets fold MORE per added
+        # opponent — direction only, see _MW_CATCH_TIGHTEN above.
+        if bucket in _MW_CATCH_BUCKETS:
+            fold_merit *= _MW_CATCH_TIGHTEN ** max(opponents - 1, 0)
         entries.append((ActionType.FOLD, fold_merit))
         entries.append(
             (ActionType.CALL, (_CALL_BASE[bucket] + _DRAW_CALL_BONUS[draw]) * pf.stickiness)

@@ -753,6 +753,126 @@ def test_maniac_still_strictly_most_aggressive():
 
 
 # =====================================================================
+# F4 — multiway calibration correction (RES-D §6, direction only)
+# =====================================================================
+#
+# Pass/fail (roadmap): multiway c-bet/bluff frequency is LOWER than the HU
+# baseline for the same spot; no per-opponent MDF number is asserted
+# anywhere; value-hand continuation is at least as tight as HU (never
+# looser). Exact weights via the capture rng — deterministic, no sampling
+# noise (mirrors the F2/F3 technique).
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_multiway_unopened_air_bet_freq_lower_than_hu(persona):
+    """Direction 1: unopened air/bluff bet frequency is strictly lower 3-way
+    than heads-up, for every persona (the multiway_bluff_damp mechanism,
+    S4-era, confirmed still live post-F1/F2)."""
+    hole, board = ("7h", "5d"), ["Kc", "9s", "3h"]
+    legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 20.0)]
+    hu = _exact_dist(persona, hole, board, legal, 4.0, 100.0)[ActionType.BET]
+    three_way = _exact_dist_opp(persona, hole, board, legal, 4.0, 100.0, opponents=3)[
+        ActionType.BET
+    ]
+    assert three_way < hu, f"{persona} 3-way bluff freq {three_way} not below HU {hu}"
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_multiway_facing_bluff_catch_fold_freq_higher_than_hu(persona):
+    """Direction (RES-D §6, 'fold more vs a bet multiway' for bluff-catchers):
+    a weak made hand (middle pair, no draw) facing a bet folds MORE 3-way
+    than heads-up, for every persona — the facing-side gap this slice closes
+    (_MW_CATCH_TIGHTEN, code mechanic, not a persona lever)."""
+    hole, board = ("9h", "2d"), ["Ac", "9s", "3h"]
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(3.0),
+        personas_postflop_legal_raise(9.0, 100.0),
+    ]
+    hu = _exact_dist_opp(
+        persona, hole, board, legal, 9.0, 100.0, opponents=1, current_bet_to=3.0
+    )[ActionType.FOLD]
+    three_way = _exact_dist_opp(
+        persona, hole, board, legal, 9.0, 100.0, opponents=3, current_bet_to=3.0
+    )[ActionType.FOLD]
+    assert three_way > hu, f"{persona} 3-way bluff-catch fold {three_way} not above HU {hu}"
+
+
+@pytest.mark.parametrize("persona", ["tag", "lag", "maniac"])
+def test_multiway_value_hand_continuation_not_looser_than_hu(persona):
+    """Direction 2 (pass/fail): value-hand continuation (call+raise mass with
+    a strong made hand facing a bet) is at least as tight as HU — never
+    looser 3-way. Top pair is outside `_MW_CATCH_BUCKETS`, so this also
+    guards against the tighten mechanism ever leaking onto value hands."""
+    hole, board = ("Ah", "2d"), ["Ac", "9s", "3h"]  # top pair, value
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(3.0),
+        personas_postflop_legal_raise(9.0, 100.0),
+    ]
+    hu = _exact_dist_opp(
+        persona, hole, board, legal, 9.0, 100.0, opponents=1, current_bet_to=3.0
+    )
+    three_way = _exact_dist_opp(
+        persona, hole, board, legal, 9.0, 100.0, opponents=3, current_bet_to=3.0
+    )
+    hu_continue = hu[ActionType.CALL] + hu[ActionType.RAISE]
+    tw_continue = three_way[ActionType.CALL] + three_way[ActionType.RAISE]
+    assert tw_continue <= hu_continue + 1e-9, (
+        f"{persona} value continuation looser 3-way ({tw_continue}) than HU ({hu_continue})"
+    )
+
+
+@pytest.mark.parametrize("persona", ["tag", "lag", "maniac"])
+def test_multiway_value_hand_unopened_bet_not_looser_than_hu(persona):
+    """Direction 2, unopened side: a value hand's bet frequency does not RISE
+    with opponents (value-lean is 'not looser', never a mandate to bet MORE
+    thin value multiway — thin/marginal value getting looser multiway would
+    be the wrong direction per RES-D §6)."""
+    hole, board = ("Ah", "2d"), ["Ac", "9s", "3h"]  # top pair, value
+    legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 20.0)]
+    hu = _exact_dist_opp(persona, hole, board, legal, 4.0, 100.0, opponents=1)[ActionType.BET]
+    three_way = _exact_dist_opp(persona, hole, board, legal, 4.0, 100.0, opponents=3)[
+        ActionType.BET
+    ]
+    assert three_way <= hu + 1e-9, f"{persona} value bet freq rose 3-way: {hu} -> {three_way}"
+
+
+def test_no_per_opponent_mdf_constant_asserted():
+    """No-go check: no test in this module (nor the mechanism itself) asserts
+    a per-opponent MDF/defense number (e.g. an n-th-root of alpha). The F4
+    mechanism (`_MW_CATCH_TIGHTEN`) is a flat multiplicative tighten
+    exponentiated per added opponent — a DIRECTION, not a derived defense
+    frequency — mirroring the S8 grader's `_MW_BLUFF_DAMPEN`/`_MW_VALUE_LEAN`/
+    `_MW_CATCH_TIGHTEN` pattern, not RES-D §6's rejected symmetric-independent
+    n-th-root idealization."""
+    tighten = personas_postflop._MW_CATCH_TIGHTEN
+    assert 1.0 < tighten < 2.0, "tighten constant should be a modest direction, not a target level"
+    # Sanity: this is a flat per-opponent multiplier, not `alpha ** (1/opponents)`.
+    import inspect
+
+    src = inspect.getsource(personas_postflop)
+    assert "1 / opponents" not in src.replace(" ", "")
+    assert "1/opponents" not in src.replace(" ", "")
+
+
+def _exact_dist_opp(persona, hole, board, legal, pot, stack, opponents, current_bet_to=0.0):
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _pack(persona),
+        hole,
+        board,
+        legal,
+        pot,
+        stack,
+        opponents,
+        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=current_bet_to,
+    )
+    return cap.dist
+
+
+# =====================================================================
 # Closed-loop harness: full-hand playouts through the S2 engine
 # =====================================================================
 
