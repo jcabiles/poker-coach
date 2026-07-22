@@ -327,6 +327,68 @@ def test_marginal_hand_folds_more_than_vs_check_raise():
     assert _freq(car2, ActionType.FOLD) > _freq(cr2, ActionType.FOLD)
 
 
+def test_no_asymmetry_inversion_full_grid():
+    """Refuter-HIGH regression (mechanical anti-inversion sweep): halving a
+    NEGATIVE bluffy shrank the dry-board weak_made call penalty, so at price
+    >= ~0.4 the caller-raise grader called MORE than the check-raise sibling
+    — inverting the §3.2 asymmetry. Sweep the whole grid two ways and assert
+    caller-raise FOLD share >= check-raise's in EVERY cell (equality only
+    where both saturate at a pure fold).
+
+    (a) merit level — every adv label x price x texture, exhaustively;
+    (b) grader level — weak_made hand per texture x faced size, through the
+        real `grade_vs_*` path (includes the refuter's exact Kh Qc on
+        Ks7d2c, faced 8.0 into pot 10.0 case)."""
+    from app.domain.postflop import _HAND_VALUE, _merits_vs_check_raise
+    from app.domain.texture import classify
+
+    boards = [
+        ["Ks", "7d", "2c"], ["Ah", "Kd", "2c"], ["Qh", "8d", "3s"],
+        ["8h", "7h", "6c"], ["9h", "8h", "2c"], ["7h", "6d", "5s"],
+        ["Qd", "Jd", "Td"], ["2c", "2d", "9h"], ["Kh", "Jh", "7d"],
+        ["Ah", "7h", "2h"], ["Th", "9c", "8d"],
+    ]
+    prices = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
+
+    def fold_share(merits):
+        pos = [max(0.0, m) for m in merits]
+        total = sum(pos)
+        return pos[0] / total if total > 0 else 1.0  # all-nonpositive: pure fold
+
+    for board in boards:
+        tex = classify(board)
+        for adv in ("hero", "neutral", "villain"):
+            for price in prices:
+                car = fold_share(
+                    _merits_vs_caller_raise(_HAND_VALUE["weak_made"], adv, price, tex, "weak_made")
+                )
+                cr = fold_share(
+                    _merits_vs_check_raise(_HAND_VALUE["weak_made"], adv, price, tex, "weak_made")
+                )
+                assert car >= cr - 1e-12, (board, adv, price, car, cr)
+
+    weak_made_hole = {
+        "Ks7d2c": ("Kh", "Qc"), "AhKd2c": ("As", "Qc"), "Qh8d3s": ("Qd", "Jc"),
+        "8h7h6c": ("As", "8d"), "9h8h2c": ("9s", "Ac"), "7h6d5s": ("7c", "Ad"),
+        "2c2d9h": ("9s", "Ac"), "KhJh7d": ("Ks", "Qc"), "Th9c8d": ("Tc", "5s"),
+    }
+    pot = 10.0
+    for key, hole in weak_made_hole.items():
+        board = [key[i : i + 2] for i in (0, 2, 4)]
+        assert _hand_category(hole, board) == "weak_made", (hole, board)
+        for price in prices:
+            faced = round(price * pot, 2)
+            car = grade_vs_caller_raise(
+                _caller_spot(hole, board, faced=faced, pot=pot), None, None, None
+            )
+            cr = grade_vs_check_raise(
+                _cr_spot(hole, board, faced=faced, pot=pot), None, None, None
+            )
+            assert _freq(car, ActionType.FOLD) >= _freq(cr, ActionType.FOLD), (
+                hole, board, faced, _freq(car, ActionType.FOLD), _freq(cr, ActionType.FOLD),
+            )
+
+
 def test_strong_hand_continues_in_both_graders():
     hole, board = ("6s", "6d"), ["8h", "7h", "6c"]  # set -> strong
     assert _hand_category(hole, board) == "strong"

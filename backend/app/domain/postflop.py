@@ -1835,9 +1835,11 @@ def _merits_vs_caller_raise(
     asymmetry (RES-H §3.2):
       (a) fold baseline 1.9 (> the check-raise node's 1.6) — a cold-caller
           raise is more value-weighted than a BB check-raise;
-      (b) bluff-plausibility credit halved (0.5x fold relief, 0.25x
-          weak_made bluff-catch bonus vs the check-raise node's 1.0x/0.5x)
-          — cold-caller raises are rarely bluffs on ANY texture;
+      (b) bluff-plausibility CREDIT halved (0.5x fold relief; 0.25x
+          weak_made bluff-catch bonus where bluffy > 0, FULL 0.5x penalty
+          kept where bluffy <= 0) — cold-caller raises are rarely bluffs on
+          ANY texture, so bluff-catching never gets MORE credit than the
+          check-raise node on any board;
       (c) hero's semibluff re-raise bumps halved (draw +0.25, air +0.4 on
           low/connected/wet vs +0.5/+0.8) — 4-bet-bluffing into a capped
           nut-heavy range has a lower ceiling.
@@ -1884,7 +1886,14 @@ def _merits_vs_caller_raise(
     if cat == "air":
         call -= 1.4
     elif cat == "weak_made":
-        call += bluffy * 0.25  # halved bluff-catch credit (§3.2b)
+        # Halve the bluff-catch CREDIT on bluffy (wet) boards, but keep the
+        # FULL penalty on dry — a cold-caller raise is more value-weighted, so
+        # bluff-catching is never *better* than vs a check-raise. (Halving a
+        # NEGATIVE bluffy would shrink the dry-board penalty and invert the
+        # §3.2 asymmetry at price >= ~0.4 — refuter-caught HIGH: the call
+        # merit must stay <= the check-raise sibling's pointwise on every
+        # texture.)
+        call += (bluffy * 0.25) if bluffy > 0 else (bluffy * 0.5)
 
     # RAISE (re-raise over the caller's raise) — value keeps the parent's
     # terms; semibluff bumps are halved (§3.2c).
