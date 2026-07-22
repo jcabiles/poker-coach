@@ -1,9 +1,14 @@
+import math
+
+import pytest
+
 from app.domain.action import Decision
 from app.domain.evaluation import ActionEval, Correctness
 from app.domain.leaks import LeakCategory
 from app.domain.postflop import (
     _CAT_VALUE,
     _bet_sizing_verdict,
+    _calibrate_catcher_fold,
     _cbet_fold_equity_value,
     _hand_category,
     _merits,
@@ -15,6 +20,7 @@ from app.domain.postflop import (
     grade_turn_barrel,
     grade_vs_cbet,
     grade_vs_check_raise,
+    grade_vs_turn_bet,
     range_advantage,
     range_advantage_defender,
 )
@@ -847,3 +853,192 @@ def test_raise_sizing_verdict_non_raise_decision_none():
         spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.CALL)
     )
     assert res.sizing_correctness is None
+
+
+# --- F5: theory-calibrated hero grading (price-aware facing-a-bet mixes) ---
+#
+# RES-D §1a/§5 + RES-E §2: with the pot already including the faced bet,
+# price = B/(P+B) is exactly α (the fold ceiling for that exact size). The
+# marginal bluff-catcher's graded FOLD share is clamped into
+# [min(0.25, α), α]; the A1 guardrail (RES-D §1c, Sol+Opus #1 finding)
+# forbids marking a below-MDF fold as wrong on flop/turn.
+
+# Faced sizes into FLOP_POT=6.0 spanning all four RES-E buckets:
+# 2.0=⅓-pot (SMALL, α=.25) · 3.0=½-pot (MEDIUM, α=⅓) · 4.5=¾-pot (LARGE,
+# α≈.43) · 6.0=pot (LARGE, α=.5) · 9.0=1.5×-pot (OVERBET, α=.6).
+_F5_SIZES = (2.0, 3.0, 4.5, 6.0, 9.0)
+_F5_CATCHER = (("Qd", "Jc"), ["Qh", "8d", "3s"])  # top pair -> weak_made
+
+
+def _vsturn_spot(hole, board4, faced, hero=Position.BB, villain=Position.BTN):
+    """Hero = flop caller facing a turn barrel (mirrors _vscbet_spot; the pot
+    includes the faced bet, so price = B/(P+B) = the size-exact α)."""
+    pot = FLOP_POT + faced
+    return Spot(
+        game=GameConfig(stakes=Stakes(sb=0.5, bb=1.0), table_size=9),
+        street=Street.TURN,
+        board=board4,
+        pot_bb=pot,
+        hero=Hero(position=hero, hole_cards=hole, stack_bb=100),
+        players=[
+            PlayerState(position=hero, stack_bb=100, is_hero=True),
+            PlayerState(position=villain, stack_bb=100),
+        ],
+        effective_stack_bb=100,
+        spr=round((100 - faced) / pot, 1),
+        to_act=hero,
+        node_context=[NodeContext.VS_TURN_BET],
+        facing=villain,
+        action_history=[
+            HistoryAction(
+                street=Street.TURN, position=villain, action=ActionType.BET, amount_bb=faced
+            ),
+        ],
+        legal_actions=[
+            LegalAction(action=ActionType.FOLD),
+            LegalAction(action=ActionType.CALL, min_bb=faced),
+            LegalAction(action=ActionType.RAISE, min_bb=round(3 * faced, 1), max_bb=100),
+        ],
+        hero_range="22-99, ATs+, KJs+, QJs, AJo+, KQo",
+        villain_range="22+, A2s+, K9s+, Q9s+, J9s+, T8s+, AJo+, KQo",
+    )
+
+
+def _freq(res, action):
+    return next(e.frequency for e in res.per_action if e.action == action)
+
+
+def test_f5_fold_credit_monotone_in_bet_size_flop_and_turn():
+    """(a) Price-monotonicity: the SAME marginal catcher facing a bigger bet
+    gets non-decreasing FOLD credit and non-increasing CALL credit — the
+    graded mix varies with the price, not hand merit alone (RES-D §1a's
+    monotone α column; F5 pass/fail #1)."""
+    hole, board = _F5_CATCHER
+    assert _hand_category(hole, board) == "weak_made"
+    flop = [grade_vs_cbet(_vscbet_spot(hole, board, f), None, None, None) for f in _F5_SIZES]
+    turn = [
+        grade_vs_turn_bet(_vsturn_spot(hole, [*board, "2s"], f), None, None, None)
+        for f in _F5_SIZES
+    ]
+    for results in (flop, turn):
+        folds = [_freq(r, ActionType.FOLD) for r in results]
+        calls = [_freq(r, ActionType.CALL) for r in results]
+        assert folds == sorted(folds), folds  # non-decreasing in size
+        assert calls == sorted(calls, reverse=True), calls  # non-increasing
+        assert folds[-1] - folds[0] >= 0.10  # a real spread, not a flat line
+
+
+def test_f5_alpha_ceiling_on_catcher_fold_share():
+    """(c) α-ceiling: the graded FOLD share of the marginal bluff-catcher vs a
+    (potentially polar) bet never exceeds the size-exact α = B/(P+B) for the
+    faced size, + rounding tolerance (RES-D §2 invariant 3 / §5.1 as the F5
+    grading rule; α values per RES-D §1a, buckets per RES-E §2)."""
+    hole, board = _F5_CATCHER
+    for faced in _F5_SIZES:
+        alpha = faced / (FLOP_POT + faced)
+        res = grade_vs_cbet(_vscbet_spot(hole, board, faced), None, None, None)
+        assert _freq(res, ActionType.FOLD) <= alpha + 0.02, faced
+        rest = grade_vs_turn_bet(_vsturn_spot(hole, [*board, "2s"], faced), None, None, None)
+        assert _freq(rest, ActionType.FOLD) <= alpha + 0.02, faced
+
+
+def test_f5_a1_below_mdf_fold_not_marked_wrong():
+    """(b) THE A1 REGRESSION (RES-D §1c/§5.2, Sol+Opus #1 finding): a
+    theoretically-defensible below-MDF fold on the flop/turn is NOT marked
+    wrong. Facing a ⅓-pot bet, naive MDF says defend 75% — but solver defense
+    routinely sits below raw MDF pre-river vs range-bets/capped bettors, so
+    folding a marginal bluff-catcher there must keep real graded frequency
+    (never near-zero merely because MDF says defend) and must grade no worse
+    than ACCEPTABLE. Result stays freq + (approximate) EV — never boolean."""
+    hole, board = _F5_CATCHER
+    small = 2.0  # ⅓-pot: the strongest naive-MDF defend mandate (MDF 75%)
+    flop = grade_vs_cbet(
+        _vscbet_spot(hole, board, small), None, None, Decision(action=ActionType.FOLD)
+    )
+    turn = grade_vs_turn_bet(
+        _vsturn_spot(hole, [*board, "2s"], small), None, None, Decision(action=ActionType.FOLD)
+    )
+    for res in (flop, turn):
+        assert _freq(res, ActionType.FOLD) > 0.20  # real part of the graded mix
+        assert res.correctness in (Correctness.OPTIMAL, Correctness.ACCEPTABLE)
+        assert res.chosen_eval is not None and res.chosen_eval.ev_bb is not None
+        for e in res.per_action:  # freq + EV per action, never a boolean verdict
+            assert e.frequency is not None and e.ev_bb is not None
+
+
+def test_f5_calibration_scoped_to_marginal_catcher():
+    """The clamp is per-category, not range-wide: pure air may fold well above
+    α (per-hand folding air is right — α caps the RANGE's fold share, proxied
+    here by the marginal-catcher tier only), and folding a strong hand at a
+    great price stays punished (the price logic never rescues a fold that
+    pot-odds condemns)."""
+    air = grade_vs_cbet(_vscbet_spot(("7d", "2h"), ["As", "Kd", "9c"], 2.0), None, None, None)
+    assert _freq(air, ActionType.FOLD) > 0.25 + 0.02  # ceiling not applied to air
+    strong = grade_vs_cbet(
+        _vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], 2.0),
+        None, None, Decision(action=ActionType.FOLD),
+    )
+    assert strong.correctness in (Correctness.MISTAKE, Correctness.BLUNDER)
+
+
+def test_f5_tiny_bet_fold_graded_by_ev_ladder_not_a1():
+    """TINY-BET scoping (intentional, refuter-adjudicated): for sub-⅓-pot
+    bets (α < _A1_FOLD_CREDIT=0.25) the A1 ACCEPTABLE-floor guarantee does
+    NOT apply — floor_q collapses to α (the α-ceiling is the binding A1/RES-D
+    contract; an unconditional 0.25 floor would break it for α < ~0.23), and
+    folding a bluff-catcher getting ~12:1 vs a min-bet is a genuine mistake
+    that correctly grades by the EV-loss ladder. A1's scope is α ≥ 0.25
+    (RES-D §1a row 1: meaningful sizes where naive MDF over-demands defense),
+    never a promise that folding to a tiny bet is fine."""
+    hole, board = _F5_CATCHER
+    for faced in (0.5, 1.0):
+        alpha = faced / (FLOP_POT + faced)
+        flop = grade_vs_cbet(
+            _vscbet_spot(hole, board, faced), None, None, Decision(action=ActionType.FOLD)
+        )
+        turn = grade_vs_turn_bet(
+            _vsturn_spot(hole, [*board, "2s"], faced),
+            None, None, Decision(action=ActionType.FOLD),
+        )
+        for res in (flop, turn):
+            assert _freq(res, ActionType.FOLD) == pytest.approx(alpha, abs=0.02), faced
+            assert res.correctness in (Correctness.MISTAKE, Correctness.BLUNDER), faced
+
+
+def test_f5_a1_floor_boundary_continuity_around_post_mix():
+    """Knife-edge at POST_MIX=0.20 (pre-existing global `chosen.frequency >
+    POST_MIX` convention, not an F5 regression): a catcher fold at α just
+    ABOVE 0.20 (faced 1.7 into 6.0 → α≈0.221) escapes to ACCEPTABLE via the
+    frequency rule; at α exactly 0.20 (faced 1.5 → fold share rounds to
+    0.200, not > POST_MIX) it falls to the EV ladder and grades a mistake."""
+    hole, board = _F5_CATCHER
+    above = grade_vs_cbet(
+        _vscbet_spot(hole, board, 1.7), None, None, Decision(action=ActionType.FOLD)
+    )
+    assert _freq(above, ActionType.FOLD) == pytest.approx(1.7 / 7.7, abs=0.02)
+    assert above.correctness == Correctness.ACCEPTABLE
+    at_edge = grade_vs_cbet(
+        _vscbet_spot(hole, board, 1.5), None, None, Decision(action=ActionType.FOLD)
+    )
+    assert _freq(at_edge, ActionType.FOLD) == pytest.approx(0.20, abs=0.001)
+    assert at_edge.correctness in (Correctness.MISTAKE, Correctness.BLUNDER)
+
+
+def test_f5_degenerate_huge_overbet_ceiling_capped():
+    """Degenerate guard: α ≥ 0.9 must not overflow the q/(1−q) odds
+    transform. Unit level (the only path where the 0.95 cap can bind —
+    positive continue mass at extreme α): `_calibrate_catcher_fold` at
+    α=0.96 caps ceil_q at 0.95, so the returned fold share is ≤ 0.95 and
+    finite. Grader level: at faced 150 into 6.0 the catcher's call merit
+    goes non-positive (priced out), the clamp correctly bypasses
+    (`cont <= 0` — nothing continues, folding outright is right), and the
+    output stays finite and normalized."""
+    capped = _calibrate_catcher_fold(50.0, 1.0, -1.0, alpha=0.96, cat="weak_made")
+    assert math.isfinite(capped)
+    assert capped / (capped + 1.0) <= 0.95 + 1e-9  # fold share ≤ the 0.95 cap
+    hole, board = _F5_CATCHER
+    res = grade_vs_cbet(_vscbet_spot(hole, board, 150.0), None, None, None)
+    freqs = [e.frequency for e in res.per_action]
+    assert all(math.isfinite(f) for f in freqs)
+    assert sum(freqs) == pytest.approx(1.0, abs=1e-6)
+    assert _freq(res, ActionType.FOLD) == pytest.approx(1.0)  # clamp bypassed
