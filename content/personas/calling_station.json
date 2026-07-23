@@ -18,7 +18,7 @@
       "facing": "unopened",
       "positions": ["UTG"],
       "mixes": [
-        { "combos": "AA, KK, AKs", "weights": { "raise": 0.6, "fold": 0.4 } },
+        { "combos": "AA, KK, AKs", "weights": { "raise": 0.5, "limp": 0.5 } },
         {
           "combos": "22+, A2s+, K5s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, A5o+, K9o+, Q9o+, J9o+, T9o",
           "weights": { "limp": 1.0 }
@@ -29,7 +29,7 @@
       "facing": "unopened",
       "positions": null,
       "mixes": [
-        { "combos": "AA, KK, AKs", "weights": { "raise": 0.6, "fold": 0.4 } },
+        { "combos": "AA, KK, AKs", "weights": { "raise": 0.5, "limp": 0.5 } },
         {
           "combos": "22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 53s, 43s, A2o+, K7o+, Q8o+, J8o+, T8o+, 98o",
           "weights": { "limp": 1.0 }

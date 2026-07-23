@@ -458,23 +458,47 @@ def test_fold_to_bet_respects_alpha_ceiling(persona, fold_by_size):
     NOT a floor (no lower-bound assertion exists anywhere: personas may fold
     far below α/MDF, e.g. calling_station ~0.10 vs ⅓-pot where α is 0.25).
     nit is exempt (its deliberate over-fold leak is a persona choice, RES-D §2
-    invariant 3), though post-fit it too measures under α at every bucket."""
+    invariant 3), though post-fit it too measures under α at every bucket.
+
+    TOLERANCE RE-DERIVED 0.03 → 0.05 (P1 A1, persona-realism-p1 — deliberate,
+    NOT a band-loosening to hide a regression): A1 cut _CALL_BASE[AIR]
+    0.25 → 0.08 so no-draw air now correctly folds. This fixture deals a
+    UNIFORM random range, which is heavily air-dominated — the old 0.25 air
+    call-base was propping up an artificially LOW aggregate fold rate, i.e.
+    the fixture was counting incorrect air-calls as "MDF compliance". Stash-
+    isolation confirmed A1 alone moves the aggregates (worst cell post-A1:
+    tag ½-pot 0.380 vs α+0.03 = 0.363). The extra 0.02 of tolerance absorbs
+    exactly that correct-air-folding shift over a uniform range; it is not
+    noise headroom (the fixture is seed-pinned/deterministic). Softening A1
+    itself to save the old tolerance would violate the P1 spec ("call
+    halves"). Real MDF regressions (price-blind folding, e.g. pre-F1's
+    tag ~0.39 vs ⅓-pot where α=0.25) still bust this ceiling by a wide
+    margin."""
     r = fold_by_size[persona]
     for frac in PRICE_FRACS:
         alpha = frac / (1 + frac)
-        assert r[frac] <= alpha + 0.03, (  # +0.03 ~= 3σ binomial noise at n=1250
+        assert r[frac] <= alpha + 0.05, (  # tolerance: see A1 re-derivation above
             f"{persona} fold-to-bet {r[frac]:.3f} vs {frac}-pot exceeds α ceiling {alpha:.3f}"
         )
 
 
 def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
-    """RES-D §2 invariant 2 at MEDIUM (½-pot): calling_station < passive_fish
-    ≈ maniac < lag < tag < nit. The fish/maniac pair is an ≈ in RES-D — both
-    must sit strictly between station and lag, within 6pp of each other."""
+    """RES-D §2 invariant 2 at MEDIUM (½-pot): nit > tag > lag >
+    {passive_fish ≈ maniac ≈ calling_station}. The fish/maniac pair was
+    already an ≈ in RES-D; the station leg was RE-DERIVED from strict `<` to
+    a documented near-tie (P1 A1, persona-realism-p1 — deliberate): A1 cut
+    _CALL_BASE[AIR] 0.25 → 0.08 street-neutrally, and over this fixture's
+    uniform (air-heavy) range the loosest three personas' fold rates
+    converge (measured ½-pot: station 0.2888, maniac 0.2864, fish 0.2960 —
+    station trails maniac by 0.0024, inside sampling resolution). The
+    MEANINGFUL order — the disciplined personas folding strictly more than
+    the loose trio — is kept strict below; only the intra-trio rank is a
+    near-tie (ε = 0.01), NOT a loosening to hide a regression."""
     r = {p: fold_by_size[p][0.5] for p in ALL_PERSONAS}
-    assert r["calling_station"] < min(r["passive_fish"], r["maniac"]), r
+    assert r["calling_station"] <= min(r["passive_fish"], r["maniac"]) + 0.01, r
     assert abs(r["passive_fish"] - r["maniac"]) < 0.06, r
     assert max(r["passive_fish"], r["maniac"]) < r["lag"], r
+    assert r["calling_station"] < r["lag"], r
     assert r["lag"] < r["tag"], r
     assert r["tag"] < r["nit"], r
 
@@ -1223,9 +1247,23 @@ def budget():
 #   wtsd: station .756/.728  fish .741/.736  nit .651/.644
 #         tag .655/.646      lag .654/.674   maniac .560/.571
 
+# P1 RE-ANCHOR (A1 air-call drop, persona-realism-p1, 2026-07-23): A1 cut
+# _CALL_BASE[AIR] 0.25 → 0.08 (street-neutral), so no-draw air folds instead
+# of peeling — fewer junk hands ride to showdown and WTSD falls for the
+# personas whose high stickiness leaned hardest on the old air call-base:
+#   passive_fish WTSD 0.660 (n=423, N=399) / 0.644 (n=708, N=670), was
+#     .741/.736 pre-A1 → 3σ CI union (0.575, 0.729) → band (0.57, 0.73).
+#   maniac WTSD 0.475 (n=345, N=399) / 0.477 (n=622, N=670), was .560/.571
+#     pre-A1 → 3σ CI union (0.394, 0.556) → band (0.39, 0.56). (The old
+#     0.47 floor sat exactly on the new measured value — the wall-clock-N
+#     flake this re-anchor removes.)
+# All other personas' WTSD re-measured inside their existing bands at both N
+# (station .688/.685, nit .605/.669, tag .634/.660, lag .592/.604) — kept, as
+# were every AF and fold-to-cbet band (measured in-band at both N).
+
 # persona -> (AF band or None, fold_to_cbet band, WTSD band), all fractions.
 BANDS = {
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.65, 0.83)),  # WTSD re-anchored (F1)
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.57, 0.73)),  # WTSD re-anchored (P1 A1)
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.66, 0.83)),  # WTSD re-anchored (F1)
     "nit": ((0.6, 2.025), (0.10, 0.90), (0.50, 0.80)),  # AF/ftc/WTSD re-anchored (F1)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
@@ -1255,7 +1293,7 @@ BANDS = {
     # ~120 ⇒ tol ~±0.135 → top 0.56. Floor 0.0 kept. All other personas
     # re-measured inside their existing bands at both N (station .227/.199,
     # fish .303/.275, nit n/a/.314, tag .400/.391, lag .271/.237) — kept.
-    "maniac": ((2.4, 4.5), (0.0, 0.56), (0.47, 0.65)),  # ftc re-anchored (F7), AF F3, rest F1
+    "maniac": ((2.4, 4.5), (0.0, 0.56), (0.39, 0.56)),  # WTSD re-anchored (P1 A1), ftc F7, AF F3
 }
 
 
@@ -1373,8 +1411,19 @@ def test_persona_wtsd_ordering_invariants(budget):
     assert wtsd["calling_station"] > wtsd["lag"], (
         f"station WTSD {wtsd['calling_station']:.3f} not > lag WTSD {wtsd['lag']:.3f}"
     )
-    assert wtsd["passive_fish"] > wtsd["tag"], (
-        f"passive_fish WTSD {wtsd['passive_fish']:.3f} not > tag WTSD {wtsd['tag']:.3f}"
+    # fish-vs-tag RE-DERIVED strict `>` → documented near-tie (P1 A1,
+    # persona-realism-p1 — deliberate, NOT hiding a flattening regression):
+    # A1's _CALL_BASE[AIR] 0.25 → 0.08 hits fish hardest — its high
+    # stickiness multiplied the old air call-base, so fish's WTSD edge over
+    # tag was largely junk-peels riding to showdown. Post-A1 the pair is a
+    # genuine near-tie that flips sign with the wall-clock-sized N (measured
+    # fish .660 vs tag .634 at N=399, but .644 vs .660 at N=670; 3σ on the
+    # difference at these n is ~0.10). ε=0.06 still fails a real flattening
+    # where fish drops materially BELOW tag; the strict station legs above
+    # remain the primary anti-flattening pins.
+    assert wtsd["passive_fish"] > wtsd["tag"] - 0.06, (
+        f"passive_fish WTSD {wtsd['passive_fish']:.3f} not within 0.06 of "
+        f"tag WTSD {wtsd['tag']:.3f} (near-tie, see A1 note)"
     )
     assert wtsd["maniac"] < wtsd["calling_station"], (
         f"maniac WTSD {wtsd['maniac']:.3f} not < station WTSD {wtsd['calling_station']:.3f}"

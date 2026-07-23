@@ -11,6 +11,13 @@ recorded baseline while `total` stays fixed.
 Baseline recorded in tests/data/coverage_baseline.json (pre-N5 movers, i.e.
 main @ N4b). Re-record deliberately (see `_measure` docstring) only when the
 slice notes say so — never to make a regression pass.
+
+RE-RECORDED for P1 (persona-realism-p1, 2026-07-23 — slice-authorized): the
+villain seats play real persona packs, so P1's pack fixes (B1/M3/N3, threebet
+3.3) and A1's air-call drop deliberately change bot behavior → the played
+hand stream drifts → total 1233 → 1246, graded 349 → 366. Graded coverage
+HELD (ratio 28.3% → 29.4%) vs the immutable
+coverage_baseline.persona-realism-start.json snapshot.
 """
 
 from __future__ import annotations

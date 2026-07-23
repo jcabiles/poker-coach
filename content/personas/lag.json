@@ -27,8 +27,7 @@
       "positions": ["UTG"],
       "mixes": [
         { "combos": "77+, ATs+, KJs+, AJo+, KQo", "weights": { "raise": 1.0 } },
-        { "combos": "55, 66, A9s, QJs, ATo", "weights": { "raise": 0.4, "fold": 0.6 } },
-        { "combos": "44, T9s, 98s, 87s, 76s", "weights": { "limp": 0.7, "fold": 0.3 } }
+        { "combos": "55, 66, A9s, QJs, ATo", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
@@ -36,8 +35,7 @@
       "positions": ["UTG1"],
       "mixes": [
         { "combos": "66+, A9s+, KTs+, QJs, ATo+, KQo", "weights": { "raise": 1.0 } },
-        { "combos": "44, 55, A8s, K9s, JTs, A9o", "weights": { "raise": 0.4, "fold": 0.6 } },
-        { "combos": "33, 98s, 87s, 76s, 65s", "weights": { "limp": 0.7, "fold": 0.3 } }
+        { "combos": "44, 55, A8s, K9s, JTs, A9o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
@@ -45,8 +43,7 @@
       "positions": ["UTG2"],
       "mixes": [
         { "combos": "55+, A8s+, K9s+, QTs+, JTs, A9o+, KJo+", "weights": { "raise": 1.0 } },
-        { "combos": "33, 44, A7s, T9s, QJo", "weights": { "raise": 0.4, "fold": 0.6 } },
-        { "combos": "22, 87s, 76s, 65s, 54s", "weights": { "limp": 0.7, "fold": 0.3 } }
+        { "combos": "33, 44, A7s, T9s, QJo", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
@@ -54,8 +51,7 @@
       "positions": ["LJ"],
       "mixes": [
         { "combos": "44+, A6s+, K8s+, QTs+, J9s+, T9s, A8o+, KTo+, QJo", "weights": { "raise": 1.0 } },
-        { "combos": "22, 33, A5s, K7s, 98s, KTo", "weights": { "raise": 0.4, "fold": 0.6 } },
-        { "combos": "76s, 65s, 54s, 43s, J9o, T9o", "weights": { "limp": 0.7, "fold": 0.3 } }
+        { "combos": "22, 33, A5s, K7s, 98s, KTo", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
@@ -66,8 +62,7 @@
           "combos": "33+, A4s+, K7s+, Q9s+, J8s+, T8s+, 98s, A7o+, KTo+, QTo+, JTo",
           "weights": { "raise": 1.0 }
         },
-        { "combos": "22, A3s, K6s, Q8s, J7s, 87s, A6o, K9o", "weights": { "raise": 0.4, "fold": 0.6 } },
-        { "combos": "65s, 54s, 43s, T9o, J9o, Q9o", "weights": { "limp": 0.7, "fold": 0.3 } }
+        { "combos": "22, A3s, K6s, Q8s, J7s, 87s, A6o, K9o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
@@ -81,8 +76,7 @@
         {
           "combos": "A2s, K5s, Q7s, J6s, T6s, 65s, A5o, K9o, Q9o, J9o",
           "weights": { "raise": 0.4, "fold": 0.6 }
-        },
-        { "combos": "54s, 43s, 32s, 98o, T9o, J9o", "weights": { "limp": 0.7, "fold": 0.3 } }
+        }
       ]
     },
     {
@@ -96,8 +90,7 @@
         {
           "combos": "K2s, Q5s, J6s, T6s, 86s, 54s, A3o, K7o, Q8o, J8o, T8o",
           "weights": { "raise": 0.4, "fold": 0.6 }
-        },
-        { "combos": "43s, 32s, 87o, 76o, T9o, 98o", "weights": { "limp": 0.7, "fold": 0.3 } }
+        }
       ]
     },
     {
@@ -120,8 +113,7 @@
       "positions": ["BB"],
       "mixes": [
         { "combos": "33+, A5s+, K9s+, QTs+, JTs, T9s, A9o+, KJo+, QJo", "weights": { "raise": 1.0 } },
-        { "combos": "22, A4s, K8s, Q9s, J9s, A8o, KTo, QTo", "weights": { "raise": 0.4, "fold": 0.6 } },
-        { "combos": "T9o, J9o, Q9o, 98o", "weights": { "limp": 0.7, "fold": 0.3 } }
+        { "combos": "22, A4s, K8s, Q9s, J9s, A8o, KTo, QTo", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
