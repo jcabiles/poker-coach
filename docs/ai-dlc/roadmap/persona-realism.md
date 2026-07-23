@@ -81,8 +81,14 @@ W5 pass does the ONE authoritative combined population-band re-anchor after P4 +
 
 ---
 
-- [ ] **P1 — Correctness patch: fold-aces, open-limps, oversized 3bet, air-calls, overlap guard.**
+- [x] **P1 — Correctness patch: fold-aces, open-limps, oversized 3bet, air-calls, overlap guard.** ✅ DONE 2026-07-23
       ICE 8·9·8. *(bundled quick wins — ships in days; one deliberate re-baseline)*
+      **Shipped** (branch `feat/persona-realism-p1`, 3 waves, dual-verified): B1 station raise/limp · M3
+      maniac+lag non-SB open-limps deleted · N4/N5 threebet 3.3 · N3 maniac vs_4bet jams lighter than LAG ·
+      A1 `_CALL_BASE[AIR]` 0.25→0.08 · N2 **dead-mix** validator (redefined from "reject overlaps" — 17 benign
+      catch-all overlaps found; only unreachable mixes are the real bug) + N3 CI guard. **M1 DROPPED → NEXT**
+      (breaks the aggression-cap guard, zero behavior change). Suite green (852), coverage 28.3%→29.4%, all pins
+      intact. Follow-up noted: `test_persona_postflop_bands[lag]` AF is a pre-existing wall-clock-N flake.
       **Problem:** several outright bugs make bots visibly "unhinged" independent of the deep engine
       flaws — the station folds AA/KK/AKs 40% unopened (B1), maniac & LAG open-limp every seat (M3),
       maniac 3-bets 24.75bb (**N4/N5** — doc 12 §9.3; NOT §5's unrelated bucket-collapse "N4", which is
