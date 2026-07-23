@@ -231,7 +231,11 @@ _CHECK_BASE = {
 # Facing chips: fold / call / raise merit. Calibration (refuter round 2):
 # tuned so a stickiness ~1.0 persona folds to a flop c-bet ~0.45-0.55 and
 # stickiness 1.8 lands ~0.25-0.35; call floors keep low-stickiness personas
-# (nit, 0.6) calling with real pairs so AF isn't call-starved.
+# (nit, 0.6) calling with real pairs so AF isn't call-starved. AIR call base
+# dropped 0.25->0.08 (A1) so no-draw air stops floating; drawing air is
+# unaffected since _DRAW_CALL_BONUS (WEAK 0.20 / STRONG 0.55) still adds on
+# top. Street-aware river "air-call ~0" gate is deferred to a later slice
+# (P2a) — this change is street-neutral, no street/river logic added here.
 _FOLD_BASE = {
     StrengthBucket.MONSTER: 0.0,
     StrengthBucket.TWO_PAIR_PLUS: 0.05,
@@ -248,7 +252,7 @@ _CALL_BASE = {
     StrengthBucket.TOP_PAIR: 0.78,
     StrengthBucket.MIDDLE_PAIR: 0.60,
     StrengthBucket.ACE_HIGH: 0.40,
-    StrengthBucket.AIR: 0.25,
+    StrengthBucket.AIR: 0.08,
 }
 _RAISE_BASE = {
     StrengthBucket.MONSTER: 0.65,
