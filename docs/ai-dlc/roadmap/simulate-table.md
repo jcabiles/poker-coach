@@ -1292,9 +1292,28 @@ the serial spine S2→S4→S9→S10, not the agent budget.
 - **SRS integration for Simulate spots.** *Evidence:* sim blunders are exactly the reps worth
   scheduling; held out of v1 to protect the queue from off-depth/multiway noise.
   *Open questions:* which sim spots are signature-clean enough to seed; depth filter.
-- **Hand replayer.** *Evidence:* per-hand persisted seeds make exact replay nearly free;
-  recap covers only the freshest hand. *Candidate slices:* session hand list → step-through
-  replay with verdicts.
+- [x] **Hand replayer.** **DONE 2026-07-23** *(feat/sim-hand-replayer, /ai-dlc→/parallel-waves).
+  Browse every completed Simulate hand grouped by UTC day with a per-day "Hand N" ordinal;
+  step-replay any hand action-by-action with graded verdicts, staged card reveals, and a
+  "mistakes only" filter. **Backend:** migration 0013 persists `sim_decision.verdict_tier_text`
+  + `reasoning_text` (graded-gated, matching the live `graded = result is not None and coverage
+  != NOT_FOUND` suppression) + `ix_sim_hand_created_at`; new read services `list_history` +
+  `get_hand_replay` (+ `(session_id, hand_no)` resolver for "replay last hand") behind 3 new GET
+  routes; wire privacy STRUCTURAL (field-by-field views, no `state_json`/`full_board`/raw
+  HandState); **NO-PEEK** = villain cards only at the terminal showdown step for
+  `settle().showdown_seats` (refuter walked 120 hands/2595 steps → 0 leaks; design-review
+  confirmed 0 villain faces in DOM pre-terminal). **FE:** History nav view + `#/history` route +
+  HandReplay stepper (Next/Prev + ←/→) in the "Midnight Club ledger" aesthetic (tokens-only, AA
+  both themes, visible focus). 850 backend tests (13 new) + verify.sh + ruff + FE typecheck/build
+  green. **Dual review pre-build** (refuter + Codex Sol `gpt-5.6-sol`): 8 spec findings folded
+  (legacy-hand assertion softened, `inaccuracy`→`{mistake,blunder}`, index-drop on downgrade,
+  all-in terminal board, UTC tz-normalize, id-tiebreak). **Post-build gates:** Wave-A refuter
+  PASS, Wave-B refuter + design-reviewer PASS; 4 non-blocking findings fixed (type/wire
+  nullability, Enter/Space deal-under-replay, light-theme gold AA 3.2→4.6:1, `.closest`
+  non-Element guard). **Deferred (documented, out of scope):** 375px mobile masthead/nav overflow
+  is PRE-EXISTING shell chrome (already a NEXT item @ S9 line 212 — the new views reflow clean);
+  reveal-list "Seat N" vs position vocabulary polish. What-if/re-sim, hand import/export, SRS
+  seeding remain out.)*
 - **Hidden-persona mode + read tagging.** *Evidence:* gate decision — visible badges v1,
   read-development later. *Open questions:* does tagging need showdown-history support.
   *(Epic-2 **R1**'s reveal buttons are a training wheel this mode would eventually gate —

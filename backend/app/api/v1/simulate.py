@@ -6,6 +6,13 @@ POST /simulate/session/{id}/action   -> hero acts; bots advance to the next
                                          hero decision (or hand end).
 POST /simulate/session/{id}/hand     -> deal the next hand (carry-over stacks).
 POST /simulate/session/{id}/leave    -> end the session (no longer restorable).
+GET  /simulate/history               -> all completed hands, newest-first,
+                                         day-bucketed with per-day ordinals.
+GET  /simulate/hand/{id}/replay      -> step-by-step replay of one completed hand
+                                         with graded hero verdicts (staged reveal).
+GET  /simulate/replay?session_id=&hand_no= -> replay resolution by the
+                                         (session_id, hand_no) pair (no sim_hand_id
+                                         on the live wire).
 GET  /simulate/report/streets        -> all-time per-street grading report (S10).
 GET  /simulate/report/leaks          -> worst-first Simulate spot families by
                                          Good-Decision-Rate (N7); links to Practice.
@@ -36,6 +43,8 @@ from app.domain.action import Decision
 from app.schemas.simulate import (
     CoachExplainRequest,
     CoachExplainView,
+    HandReplayView,
+    HistoryListView,
     LeakReportView,
     PostflopChartView,
     PreflopChartView,
@@ -104,6 +113,40 @@ async def leak_report(db: Session = Depends(get_session)) -> LeakReportView:
     # session-independent (like /report/streets). Reads sim_decision only —
     # Practice reps never enter these numbers (Simulate-only metric lock).
     return sim_session.leak_by_spot(db, owner_id=_OWNER_ID)
+
+
+@router.get("/history", response_model=HistoryListView)
+async def history(db: Session = Depends(get_session)) -> HistoryListView:
+    # All completed hands for the local owner, newest-first, day-bucketed with a
+    # per-day ordinal computed server-side. Never emits state_json.
+    return sim_session.list_history(db, owner_id=_OWNER_ID)
+
+
+@router.get("/hand/{sim_hand_id}/replay", response_model=HandReplayView)
+async def hand_replay(
+    sim_hand_id: int, db: Session = Depends(get_session)
+) -> HandReplayView:
+    # Step-by-step replay of one completed hand with graded hero verdicts
+    # attached. 404 (SessionNotFound) on missing/not-owned/not-complete.
+    try:
+        return sim_session.get_hand_replay(db, sim_hand_id, owner_id=_OWNER_ID)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail="hand not found") from exc
+
+
+@router.get("/replay", response_model=HandReplayView)
+async def hand_replay_by_key(
+    session_id: str, hand_no: int, db: Session = Depends(get_session)
+) -> HandReplayView:
+    # (session_id, hand_no) resolution path — the live wire exposes no
+    # sim_hand_id, so Wave B's "replay last hand" fetches by the pair it holds.
+    # Same build+correlate as /hand/{id}/replay. 404 on missing/not-owned/not-complete.
+    try:
+        return sim_session.get_hand_replay_by_hand_no(
+            db, session_id, hand_no, owner_id=_OWNER_ID
+        )
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail="hand not found") from exc
 
 
 @router.get("/{session_id}/preflop-chart", response_model=PreflopChartView)

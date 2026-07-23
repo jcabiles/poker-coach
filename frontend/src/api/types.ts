@@ -354,6 +354,75 @@ export interface SessionView {
   hand: SimulateHandView;
 }
 
+// Simulate Hand-History + Replay — hand-authored mirror of the two new backend
+// responses (backend/app/schemas/simulate.py). Both are read-only, owner-scoped,
+// and field-by-field (no state_json / full_board / raw HandState on the wire).
+// `correctness`/`worst_tier` share the grading enum — optimal | acceptable |
+// mistake | blunder (no "inaccuracy"); null = "no baseline yet".
+
+// One row in the day-grouped history list. Items arrive newest-first with the
+// per-day ordinal precomputed server-side (Nth COMPLETED hand that UTC calendar
+// day, across sessions); the client groups by `day`. `worst_tier` is the worst
+// graded verdict present in the hand (null if nothing was graded); `has_mistake`
+// is the {mistake, blunder} membership the "mistakes only" filter keys on.
+export interface HistoryListItemView {
+  sim_hand_id: number;
+  session_id: string;
+  day: string; // "YYYY-MM-DD" (UTC calendar day)
+  day_ordinal: number; // 1..N within the day, by created_at ASC
+  hand_no: number; // 1-based within its session
+  created_at: string; // ISO timestamp
+  hero_seat: number;
+  hero_position: string; // UTG..BB
+  worst_tier: "optimal" | "acceptable" | "mistake" | "blunder" | null;
+  has_mistake: boolean; // any {mistake, blunder} decision this hand
+  n_decisions: number; // graded + ungraded hero decisions
+}
+
+export interface HistoryListView {
+  items: HistoryListItemView[]; // newest-first
+}
+
+// One replay step — a single action in the reconstructed hand, in
+// action_history order. `board` is the street-derived board for intermediate
+// steps and the FINAL board at the terminal showdown step (so an all-in
+// auto-runout still reveals the complete board). `revealed_seats` is EMPTY on
+// every non-terminal step and only populated at the terminal step (NO-PEEK
+// enforced server-side): a villain's cards are structurally absent until then.
+// Hero-decision fields (correctness … reasoning) carry the persisted verdict on
+// the hero's own non-POST steps; `reasoning` is null on pre-migration / ungraded
+// (NOT_FOUND) decisions — then the panel shows tier + EV-loss + coverage only.
+export interface ReplayStepView {
+  index: number; // 0-based position in the step list
+  street: string; // "preflop" | "flop" | "turn" | "river"
+  seat: number; // acting seat index
+  position: string; // acting seat's position
+  action: ActionType;
+  amount_bb: number;
+  board: string[]; // revealed community cards at this step (final board at terminal)
+  is_hero: boolean;
+  is_post: boolean; // blind/ante post (generates no decision row)
+  is_terminal: boolean; // the showdown step — the only step with revealed_seats
+  revealed_seats: ShowdownSeatView[]; // [] until terminal; settle().showdown_seats only
+  correctness: "optimal" | "acceptable" | "mistake" | "blunder" | null;
+  sizing_correctness: "optimal" | "acceptable" | "mistake" | "blunder" | null;
+  ev_loss_bb: number | null; // ≈ approximate; null on ungraded/villain/post/terminal steps
+  coverage: string | null; // "full"|"partial"|"not_found"|"unmappable"; null on ungraded steps
+  verdict: string | null; // tiered verdict line; null when unpersisted / ungraded
+  reasoning: string | null; // the "why"; null → tier + EV only, never fabricated
+}
+
+export interface HandReplayView {
+  sim_hand_id: number;
+  session_id: string;
+  hand_no: number;
+  button_seat: number;
+  hero_seat: number;
+  hero_position: string;
+  hero_cards: [string, string];
+  steps: ReplayStepView[];
+}
+
 // Simulate preflop chart (C1/C2) — point-of-need baseline range chart for the
 // hero's CURRENT preflop decision. Mirror of backend/app/schemas/simulate.py.
 // `available` is a 200-body concern (never a fetch error): false — with a null

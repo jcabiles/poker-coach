@@ -12,10 +12,12 @@ import {
 import type {
   ActionType,
   GradeView,
+  HandReplayView,
   RevealedSeatView,
   SessionView,
   VillainRangeView,
 } from "../api/types";
+import HandReplay from "./simulate/HandReplay";
 import SimActionBar from "./simulate/SimActionBar";
 import SimEventLog from "./simulate/SimEventLog";
 import SimGradingToggle from "./simulate/SimGradingToggle";
@@ -237,6 +239,14 @@ export default function SimulateView() {
   // transition (in adopt) so a reveal never bleeds onto the next hand.
   const [revealScope, setRevealScope] = useState<"last-in" | "all" | null>(null);
   const [revealedSeats, setRevealedSeats] = useState<RevealedSeatView[]>([]);
+
+  // "Replay last hand" (T7): the just-completed hand opened in the stepped
+  // replayer. The live wire carries no sim_hand_id — only session_id + hand_no —
+  // so we resolve the replay through the (session_id, hand_no) endpoint. Null =
+  // the live table is showing; a resolved view swaps the replayer in over it.
+  const [replay, setReplay] = useState<HandReplayView | null>(null);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState<string | null>(null);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current != null) {
@@ -510,6 +520,32 @@ export default function SimulateView() {
     void run((id) => postNextHand(id));
   }, [run, clearTimer]);
 
+  // Open the just-completed hand in the stepped replayer. The live wire has no
+  // sim_hand_id, so resolve by the unique (session_id, hand_no) pair the FE holds
+  // (SessionView.session_id + hand.hand_no) via the replay alias endpoint. This is
+  // purely additive — it never touches the live session state, so play is unchanged.
+  const openLastReplay = useCallback(async (sessionId: string, handNo: number) => {
+    setReplayLoading(true);
+    setReplayError(null);
+    setReplay(null);
+    try {
+      const r = await fetch(
+        `/api/v1/simulate/replay?session_id=${encodeURIComponent(sessionId)}&hand_no=${handNo}`,
+      );
+      if (!r.ok) throw new Error(`${r.url} -> ${r.status}`);
+      setReplay((await r.json()) as HandReplayView);
+    } catch (e) {
+      setReplayError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReplayLoading(false);
+    }
+  }, []);
+
+  const closeReplay = useCallback(() => {
+    setReplay(null);
+    setReplayError(null);
+  }, []);
+
   // Leave the table: end it server-side, clear storage, deal a fresh session so
   // the tab keeps working. A lost session (already 404) is treated as success.
   const leaveTable = useCallback(async () => {
@@ -577,7 +613,9 @@ export default function SimulateView() {
   // stray double-fire (global handler + a focused button's own key) can't deal
   // twice.
   useEffect(() => {
-    if (!hand?.hand_over || !revealHandEnd) return;
+    // Also suppressed while the stepped replayer is open — a background Enter/Space
+    // must never deal a new live hand under the replay overlay (additive promise).
+    if (!hand?.hand_over || !revealHandEnd || replay) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== "Enter" && e.key !== " ") || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -594,7 +632,7 @@ export default function SimulateView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hand?.hand_over, revealHandEnd, nextHand]);
+  }, [hand?.hand_over, revealHandEnd, nextHand, replay]);
 
   // ── R1 reveal-after-fold ────────────────────────────────────────────────────
   // Did the hero fold this hand? Only then are the villains withheld (face-down)
@@ -713,7 +751,7 @@ export default function SimulateView() {
                 fold — the old home in SimShowdown sat below the tall felt and
                 needed a scroll every hand. Present only once the hand has
                 settled (same gate the result panel uses); Enter/Space deal too. */}
-            {hand?.hand_over && revealHandEnd && (
+            {hand?.hand_over && revealHandEnd && !replay && (
               <button
                 type="button"
                 className="btn btn-primary sim-next-btn"
@@ -721,6 +759,19 @@ export default function SimulateView() {
                 disabled={busy}
               >
                 {busy ? "Dealing…" : "Next hand →"}
+              </button>
+            )}
+            {/* Replay last hand (T7) — shown once the hand has settled. Resolves
+                the just-played hand by (session_id, hand_no) and opens it in the
+                stepped replayer. Additive: it never touches live session state. */}
+            {hand?.hand_over && revealHandEnd && view && !replay && (
+              <button
+                type="button"
+                className="btn sim-replay-btn"
+                onClick={() => void openLastReplay(view.session_id, hand.hand_no)}
+                disabled={busy || replayLoading}
+              >
+                {replayLoading ? "Opening…" : "Replay last hand"}
               </button>
             )}
             <SimWatchToggle watch={watch} onChange={changeWatch} />
@@ -744,7 +795,18 @@ export default function SimulateView() {
         </div>
       )}
 
-      {hand ? (
+      {replayError && (
+        <div className="panel bad-bg" role="alert">
+          Couldn’t open the replay: {replayError}.{" "}
+          <button type="button" className="sim-replay-dismiss" onClick={closeReplay}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {replay ? (
+        <HandReplay key={replay.sim_hand_id} replay={replay} onClose={closeReplay} />
+      ) : hand ? (
         <div className="sim-layout">
           <div className="sim-main">
             <SimTable
