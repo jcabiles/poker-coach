@@ -191,8 +191,15 @@ BANDS = {
     "calling_station": ((40, 60), (0, 8), (0, 1), (50, 70)),
     "nit": ((7, 14), (2, 9), (1, 2), (5, 15)),
     "tag": ((15, 20), (12, 17), (6, 7), (15, 28)),
-    "lag": ((24, 36), (18, 24), (8, 12), (25, 42)),
-    "maniac": ((45, 60), (30, 40), (12, 20), (45, 70)),
+    # lag/maniac open-freq re-anchored (P1 M3, persona-realism-p1): M3 deleted
+    # the non-SB unopened open-limps from both packs, so open-freq collapsed
+    # onto first-in-raise (+~0-1pp of retained SB limps). Measured at the
+    # pinned seed: lag 23.55 (raise 23.29), maniac 35.64 (raise 34.62). The
+    # old floors (24 / 45) counted open-limps that no longer exist — intended
+    # M3 behavior, not a range regression (first-in-raise, 3-bet and
+    # vs_rfi-continue all stayed inside their existing bands).
+    "lag": ((20, 30), (18, 24), (8, 12), (25, 42)),
+    "maniac": ((30, 45), (30, 40), (12, 20), (45, 70)),
 }
 
 DEALS = 1112  # pinned: 1,112 deals x 9 seats ~= 10k samples per facing

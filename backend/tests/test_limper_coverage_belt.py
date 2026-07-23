@@ -39,13 +39,21 @@ _WANT_2 = {"CO", "SB"}
 # M3 (RES-G Slice B): the BB check-or-iso option node fires organically too.
 _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # M3 regression pin: fire counts for every pair that mapped BEFORE M3, at this
-# exact seed. M3 is content + a BB-only builder/grader path — it must not move
-# the engine's hand stream or any non-BB pair's mapping (measured identical on
-# the pre-M3 tree). A drift here means a non-BB limped shape changed.
+# exact seed. Originally pinned to prove M3's BB-only builder/grader path
+# moved no non-BB pair. RE-PINNED for P1 (persona-realism-p1, 2026-07-23):
+# P1's own preflop content fixes — B1 (station premiums stop folding
+# unopened), M3 (maniac/lag non-SB open-limps deleted) and N3 (maniac
+# vs_4bet rebuild), plus A1's air-call drop — deliberately change bot
+# preflop mixes, which shifts the shared-rng hand stream and therefore every
+# organic fire count at this seed (old counts: UTG2¹ 99, LJ¹ 128, HJ¹ 142,
+# CO¹ 139, CO² 39, SB¹ 102, SB² 54, BTN¹ 111, BTN² 56). Counts below are
+# the re-measured post-P1 values; every coverage pair still fires (the
+# _WANT_* assertions are the real belt). A future drift here again means a
+# limped-shape-producing behavior changed — investigate, don't retune.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 99, ("LJ", 1): 128, ("HJ", 1): 142, ("CO", 1): 139,
-    ("CO", 2): 39, ("SB", 1): 102, ("SB", 2): 54, ("BTN", 1): 111,
-    ("BTN", 2): 56,
+    ("UTG2", 1): 94, ("LJ", 1): 127, ("HJ", 1): 140, ("CO", 1): 133,
+    ("CO", 2): 29, ("SB", 1): 101, ("SB", 2): 43, ("BTN", 1): 125,
+    ("BTN", 2): 48,
 }
 
 

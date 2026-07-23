@@ -66,6 +66,14 @@ def _count_mw_fires(proxy: str, seed: int, hands: int) -> int:
 def test_mw_mappers_fire_on_organic_play():
     fires = _count_mw_fires("calling_station", SEED, HANDS)
     # Band, not exact: measured 9 at this exact seed post-M1 vs 1 pre-M1
-    # (deterministic). Floor 3 fails the pre-M1 gates; ceiling 40 (=20/1000,
-    # far above any measured rate) catches a gate accidentally going vacuous.
-    assert 3 <= fires <= 40, f"MW fires out of band: {fires} in {HANDS} hands"
+    # (deterministic). Floor RE-ANCHORED 3 → 2 for P1 (persona-realism-p1,
+    # 2026-07-23): A1's air-call drop (_CALL_BASE[AIR] 0.25 → 0.08) makes
+    # bots fold no-draw air instead of peeling, so fewer 3-way pots survive
+    # to a bet-facing hero — an INTERACTION with the pack-driven preflop
+    # shifts (B1/M3/N3) that also move the shared-rng hand stream. Measured
+    # 2 at this exact seed post-P1 (and 10 at 4000 hands ⇒ rate ~2.5/1000,
+    # inside RES-I §3's 1.5-7.5/1000 station band — the funnel is open, not
+    # narrowing toward closed). Floor 2 pins the measured value and still
+    # fails both the pre-M1 gates (1) and a closed funnel (0). Ceiling 40
+    # (=20/1000) still catches a gate accidentally going vacuous.
+    assert 2 <= fires <= 40, f"MW fires out of band: {fires} in {HANDS} hands"
