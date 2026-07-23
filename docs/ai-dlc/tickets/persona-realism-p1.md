@@ -48,14 +48,38 @@ file. (Expect `test_personas_postflop.py` + population-band deltas — those are
 Add `test_no_overlapping_combos_within_node`: for every pack × preflop node, expand each mix's combos and
 assert the sets are pairwise-disjoint; include a synthetic overlapping pack the validator **rejects**. Fix
 any residual real overlaps surfaced in the packs (sole owner of packs at this wave).
-**Done:** validator passes on all six real packs; rejects the synthetic overlap; `verify.sh` green for
-`test_content.py`. **If it edits any pack to remove a residual overlap, list the exact combos removed** — those
-are baseline-moving (refuter F5) and must feed T6's re-anchor justification.
+Also add a **N3 behavioral-guard test** (fan-in refuter — the guard is true-by-inspection today but unenforced
+in CI): assert maniac `vs_4bet` has **≥3 `5bet_shove` combos with zero LAG shove weight** AND **nonzero
+`call` weight on AA and/or KK** (expand via `parse_range`). Home it in `test_content.py` (or a sibling content
+test) — it's a content-structure assertion, not a sampling one.
+**Done:** overlap validator passes on all six real packs + rejects the synthetic overlap; N3-guard test green;
+`test_content.py` green. **If it edits any pack to remove a residual overlap, list the exact combos removed** —
+those are baseline-moving (refuter F5) and must feed T6's re-anchor justification.
 
-### T6 — re-anchor bands + baselines *(test_personas_postflop.py, test_coverage_baseline.py, test_personas.py, test_limper_coverage_belt.py, backend/tests/data/coverage_baseline.json)*
-Re-run the population/statistical harness; re-anchor any bands moved by **A1 (air-call drop)**, the
-**content-driven preflop-range shifts (B1/M3/N3 AND T5's residual-overlap pack fixes — refuter F5)**,
-**levers-first, with in-file justification comments**. Specifically:
+### T6 — re-anchor bands + baselines *(test_personas_postflop.py, test_personas.py, test_coverage_baseline.py, test_limper_coverage_belt.py, test_mw_funnel_belt.py, backend/tests/data/coverage_baseline.json)*
+**Re-verify the failing set EMPIRICALLY — do NOT trust a handed-down list (fan-in refuter):** the reported
+"9 failures" is unstable. `test_persona_postflop_bands[maniac]` is **wall-clock-flaky** (its N is sized from
+`time.perf_counter()` throughput, WTSD sits on the 0.47 floor — may pass or fail on machine load; do not
+"fix" it by moving the band to chase a flaky sample — investigate only if it fails deterministically).
+`test_persona_wtsd_ordering_invariants` actually **passes** — don't touch it. Run the full suite 2–3× and
+re-anchor only what fails deterministically.
+Re-anchor any bands moved by **A1 (air-call drop)**, the **content-driven preflop-range shifts (B1/M3/N3 AND
+T5's residual-overlap pack fixes — refuter F5)**, **levers-first, with in-file justification comments**.
+Specifically:
+- **α-ceiling + ordering (INVARIANT tests, not plain bands — deliberate re-derivation w/ heavy justification):**
+  `test_fold_to_bet_respects_alpha_ceiling[tag]` (tag ½-pot fold 0.380 > α+tol) and
+  `test_fold_to_bet_persona_ordering_at_fixed_size` (station 0.2888 vs maniac 0.2864 — no longer strictly
+  least) fail **entirely because of A1** (stash-isolation confirmed). The `fold_by_size` fixture deals uniform
+  air-heavy hands, so old `_CALL_BASE[AIR]=0.25` was propping up an artificially low aggregate fold under the
+  ceiling — A1 correctly folding no-draw air necessarily raises it. **Re-derive**: scope the α-ceiling
+  assertion to non-air-dominated spots OR widen its tolerance with an in-file comment explaining it is NOT a
+  band-loosening to hide a regression but a correction of a fixture that counted correct air-folding as MDF
+  over-folding; relax the ordering strict `<` between station and maniac/fish to a documented near-tie
+  (`≤`+epsilon, or fold into the existing fish≈maniac tolerance) — keep the meaningful order nit>tag>lag>
+  {fish≈maniac≈station}. Do NOT soften A1 to save these (0.15 would violate the spec's "call halves").
+- **`test_mw_funnel_belt.py` (refuter — a 9th deterministic failure MISSED from the first inventory):** fires
+  `2 < floor 3` in 2000 hands, needs A1+JSON together (interaction). Re-anchor its fire-count floor at the
+  pinned seed with an in-file justification, same class as the limper belt.
 - `test_coverage_baseline.py`: the villain seats are real packs, so preflop+A1 changes drift the hand stream →
   `total` changes → **re-record `coverage_baseline.json`** (deliberate; per its `_record()` path).
 - `test_limper_coverage_belt.py` (**refuter F2 — was omitted**): `_PRE_M3_FIRES` pins EXACT organic fire counts
