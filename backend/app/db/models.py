@@ -122,6 +122,13 @@ class SimDecision(SQLModel, table=True):
     facing_position: str | None = Field(default=None)
     players_in_pot: int | None = Field(default=None)
     node_context: str | None = Field(default=None)
+    # Replay verdict text (migration 0013): the grader's tier verdict + reasoning
+    # prose persisted at play time, ONLY when the decision was graded
+    # (result is not None and coverage != NOT_FOUND) — mirrors the live
+    # suppression so replay never shows prose the live UI withheld. NULL for
+    # ungraded/legacy rows; replay then shows tier+EV+coverage only.
+    verdict_tier_text: str | None = Field(default=None)
+    reasoning_text: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=_utcnow)
 
 

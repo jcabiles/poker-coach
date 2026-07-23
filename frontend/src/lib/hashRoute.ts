@@ -7,9 +7,17 @@
 // "Learn" in the nav — only the unrecognized-VIEW fallback moved to "simulate".)
 import type { Mode } from "../api/types";
 
-export type View = "home" | "drill" | "texture" | "equity" | "simulate" | "dashboard";
+export type View = "home" | "drill" | "texture" | "equity" | "simulate" | "dashboard" | "history";
 
-const VIEW_IDS: readonly View[] = ["home", "drill", "texture", "equity", "simulate", "dashboard"];
+const VIEW_IDS: readonly View[] = [
+  "home",
+  "drill",
+  "texture",
+  "equity",
+  "simulate",
+  "dashboard",
+  "history",
+];
 
 const MODE_IDS: readonly Mode[] = [
   "random",

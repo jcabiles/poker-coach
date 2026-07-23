@@ -13,6 +13,7 @@ import type {
 } from "./api/types";
 import DecisionBar from "./components/DecisionBar";
 import FeedbackPanel from "./components/FeedbackPanel";
+import HistoryView from "./components/HistoryView";
 import Home from "./components/Home";
 import ModeGroup from "./components/ModeGroup";
 import PokerTable from "./components/PokerTable";
@@ -30,6 +31,7 @@ import { formatHash, parseHash, type View } from "./lib/hashRoute";
 // then the dashboard that measures it, then Practice + quizzes + Learn.
 const VIEWS: { id: View; label: string }[] = [
   { id: "simulate", label: "Simulate" },
+  { id: "history", label: "History" },
   { id: "dashboard", label: "Dashboard" },
   { id: "drill", label: "Practice" },
   { id: "texture", label: "Texture quiz" },
@@ -393,6 +395,8 @@ export default function App() {
         </>
       ) : view === "simulate" ? (
         <SimulateView />
+      ) : view === "history" ? (
+        <HistoryView />
       ) : view === "dashboard" ? (
         <SimDashboard />
       ) : (

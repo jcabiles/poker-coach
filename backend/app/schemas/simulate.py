@@ -241,6 +241,84 @@ class RevealView(BaseModel):
     seats: list[RevealedSeatView] = []
 
 
+class HistoryListItemView(BaseModel):
+    """One completed hand in the day-grouped history list (hand replayer).
+
+    `day` is the UTC calendar day (ISO date). `day_ordinal` = the Nth COMPLETED
+    hand created that UTC day across all sessions (1..N by created_at ASC, id ASC
+    tiebreak) — NOT `hand_no` (per-session), NOT a stored column. `worst_tier` is
+    the losing-est correctness present across the hand's decisions (None when no
+    decision carries a baseline verdict). No `state_json` on the wire."""
+
+    sim_hand_id: int
+    session_id: str
+    day: str  # UTC calendar day, ISO (YYYY-MM-DD)
+    day_ordinal: int  # Nth completed hand that UTC day, 1-based
+    hand_no: int  # per-session monotonic hand number
+    created_at: str  # ISO timestamp
+    hero_seat: int
+    hero_position: str
+    worst_tier: str | None  # worst correctness present, or None (no baseline)
+    has_mistake: bool  # any decision with correctness in {mistake, blunder}
+    n_decisions: int
+
+
+class HistoryListView(BaseModel):
+    """All completed hands for the owner, newest-first, with per-day ordinals
+    already computed server-side (client groups by `day`)."""
+
+    items: list[HistoryListItemView]
+
+
+class ReplayStepView(BaseModel):
+    """One step of a hand replay — one action from `action_history`, scrubbed.
+
+    Villain hole cards are STRUCTURALLY absent until the terminal showdown step
+    (NO-PEEK): `revealed_seats` is populated ONLY on the final step and ONLY for
+    `settle().showdown_seats`. Hero cards ship on the parent HandReplayView (always
+    visible). Verdict fields are populated only for a graded hero step; an ungraded
+    hero step (NOT_FOUND coverage, or a legacy hand with no decision row) carries
+    tier/EV/reasoning None — same as the live 'no baseline yet' display."""
+
+    index: int  # 0-based step index in chronological order
+    street: str
+    seat: int  # acting seat (resolved from position via the seat map)
+    position: str
+    action: str
+    amount_bb: float
+    board: list[str]  # community cards visible at this step (terminal = full board)
+    is_hero: bool
+    is_post: bool  # blind/straddle post (never a graded decision)
+    is_terminal: bool  # the final showdown step
+    # Villain hole cards revealed ONLY at the terminal showdown step, ONLY for
+    # settle().showdown_seats (folded seats never). Absent structurally otherwise.
+    revealed_seats: list[ShowdownSeatView] = []
+    # Hero-decision verdict, attached to the hero's own non-POST steps when a
+    # matching graded SimDecision exists. None for ungraded/villain/post steps.
+    correctness: str | None = None
+    sizing_correctness: str | None = None
+    ev_loss_bb: float | None = None  # ≈ approximate (heuristic provider)
+    coverage: str | None = None
+    verdict: str | None = None  # persisted tier verdict text; None if not persisted
+    reasoning: str | None = None  # persisted reasoning text; None if not persisted
+
+
+class HandReplayView(BaseModel):
+    """A completed hand reconstructed step-by-step for the replayer (hand
+    replayer). Built field-by-field from `state_json` — never the raw HandState,
+    never `full_board`. Hero cards are always visible; villain cards appear only
+    in the terminal step's `revealed_seats` (staged reveal, server-enforced)."""
+
+    sim_hand_id: int
+    session_id: str
+    hand_no: int
+    button_seat: int
+    hero_seat: int
+    hero_position: str
+    hero_cards: tuple[str, str]
+    steps: list[ReplayStepView]
+
+
 class VillainRangeView(BaseModel):
     """Live per-villain range estimate (villain-range V2). available=false
     (no weights) for the hero's own seat, a folded seat (staged-fold gating

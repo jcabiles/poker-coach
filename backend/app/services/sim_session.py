@@ -23,6 +23,7 @@ from __future__ import annotations
 import random
 import secrets
 import uuid
+from datetime import UTC, datetime
 from functools import cache
 
 from sqlmodel import Session, select
@@ -92,11 +93,15 @@ from app.schemas.simulate import (
     EventView,
     ExploitNoteView,
     GradeView,
+    HandReplayView,
+    HistoryListItemView,
+    HistoryListView,
     LeakReportView,
     LeakSpotRow,
     PostflopChartAction,
     PostflopChartView,
     PreflopChartView,
+    ReplayStepView,
     RevealedSeatView,
     RevealView,
     SeatView,
@@ -795,8 +800,15 @@ async def apply_hero_action(
         session, hand, state.street.value, len(prior), decision, result,
         spot=spot, hero_position=state.seats[HERO_SEAT].position.value,
     )
-    db.add(sim_row)
     graded = result is not None and result.coverage != Coverage.NOT_FOUND
+    if graded and result.tiers is not None:
+        # Persist the grader's tier prose so replay re-shows exactly what the
+        # hero saw — ONLY when graded (mirrors the live suppression at :830 that
+        # withholds tiers for NOT_FOUND coverage). NULL otherwise → replay shows
+        # tier+EV+coverage only, never fabricated prose.
+        sim_row.verdict_tier_text = result.tiers.verdict
+        sim_row.reasoning_text = result.tiers.reasoning
+    db.add(sim_row)
     if graded:
         # Tagged attempt so sim leaks flow into by-source stats. NEVER via
         # record_attempt()/spot_signature() (no SRS writes; frozen hash).
@@ -1310,3 +1322,236 @@ def leave_session(db: Session, session_id: str, owner_id: str = "") -> None:
     session.status = "ended"
     db.add(session)
     db.commit()
+
+
+# --------------------------------------------------- hand history + replay
+
+# Losing correctness tiers, worst-first (blunder is worse than mistake). Drives
+# the "mistakes only" filter and the per-hand worst-tier chip. The enum is
+# optimal/acceptable/mistake/blunder (domain/evaluation.py) — there is NO
+# "inaccuracy" tier.
+_MISTAKE_TIERS = frozenset({"mistake", "blunder"})
+_TIER_SEVERITY = {"optimal": 0, "acceptable": 1, "mistake": 2, "blunder": 3}
+
+
+def _utc_day(dt: datetime) -> str:
+    """The UTC calendar day (ISO date string) for a created_at timestamp.
+
+    SQLite round-trips can drop tzinfo (see tests/test_stats.py:80-88); treat a
+    naive value as UTC, convert an aware value to UTC, then take .date()."""
+    aware = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+    return aware.date().isoformat()
+
+
+def _to_utc_iso(dt: datetime) -> str:
+    aware = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+    return aware.isoformat()
+
+
+def list_history(db: Session, owner_id: str = "") -> HistoryListView:
+    """Every COMPLETED hand for the owner, day-bucketed with a per-day ordinal.
+
+    Join sim_hand -> sim_session by owner, keep status=="complete" only, order by
+    created_at ASC, id ASC (id tiebreaks stable per-day ordinals under created_at
+    ties). Assign each hand its day (UTC) and day_ordinal = the Nth completed hand
+    that UTC day. The wire list is returned newest-first (created order reversed).
+    Never emits state_json — worst-tier / has_mistake derive from sim_decision.
+    """
+    rows = db.exec(
+        select(SimHand)
+        .join(SimSession, SimSession.id == SimHand.session_id)
+        .where(SimSession.owner_id == owner_id)
+        .where(SimHand.status == "complete")
+    ).all()
+    # created_at ASC, id ASC — stable per-day ordinal assignment.
+    rows = sorted(rows, key=lambda h: (h.created_at, h.id))
+    per_day: dict[str, int] = {}
+    items: list[HistoryListItemView] = []
+    for hand in rows:
+        day = _utc_day(hand.created_at)
+        per_day[day] = per_day.get(day, 0) + 1
+        decisions = _hand_decisions(db, hand.id)
+        tiers = [d.correctness for d in decisions if d.correctness is not None]
+        worst = (
+            max(tiers, key=lambda t: _TIER_SEVERITY.get(t, 0)) if tiers else None
+        )
+        # Hero seat/position from the reconstructed state (HERO_SEAT is fixed 0,
+        # but read position from state so it survives a future seating change).
+        state = HandState.model_validate_json(hand.state_json)
+        hero = state.seats[HERO_SEAT]
+        items.append(
+            HistoryListItemView(
+                sim_hand_id=hand.id,
+                session_id=hand.session_id,
+                day=day,
+                day_ordinal=per_day[day],
+                hand_no=hand.hand_no,
+                created_at=_to_utc_iso(hand.created_at),
+                hero_seat=HERO_SEAT,
+                hero_position=hero.position.value,
+                worst_tier=worst,
+                has_mistake=any(t in _MISTAKE_TIERS for t in tiers),
+                n_decisions=len(decisions),
+            )
+        )
+    items.reverse()  # newest-first on the wire
+    return HistoryListView(items=items)
+
+
+def _load_owned_complete_hand(
+    db: Session, sim_hand_id: int, owner_id: str
+) -> SimHand:
+    """Load a completed, owner-scoped SimHand or raise SessionNotFound (→404)."""
+    hand = db.get(SimHand, sim_hand_id)
+    if hand is None or hand.state_json is None or hand.status != "complete":
+        raise SessionNotFound(str(sim_hand_id))
+    session = db.get(SimSession, hand.session_id)
+    if session is None or session.owner_id != owner_id:
+        raise SessionNotFound(str(sim_hand_id))
+    return hand
+
+
+def _resolve_hand_by_session_hand_no(
+    db: Session, session_id: str, hand_no: int, owner_id: str
+) -> SimHand:
+    """Resolve a completed hand by its unique (session_id, hand_no) pair — the
+    only identity the live wire exposes (no sim_hand_id). Owner-scoped; raises
+    SessionNotFound (→404) when missing/not-owned/not-complete."""
+    session = db.get(SimSession, session_id)
+    if session is None or session.owner_id != owner_id:
+        raise SessionNotFound(session_id)
+    hand = db.exec(
+        select(SimHand)
+        .where(SimHand.session_id == session_id)
+        .where(SimHand.hand_no == hand_no)
+    ).first()
+    if hand is None or hand.state_json is None or hand.status != "complete":
+        raise SessionNotFound(session_id)
+    return hand
+
+
+# Community cards visible while a given street is being acted (pre-terminal).
+_STREET_BOARD_N = {
+    Street.PREFLOP: 0,
+    Street.FLOP: 3,
+    Street.TURN: 4,
+    Street.RIVER: 5,
+}
+
+
+def _build_replay(hand: SimHand) -> HandReplayView:
+    """Pure reconstruction of a completed hand into a scrubbed step list.
+
+    Takes the persisted SimHand (state_json only) + no DB — the DB-bound verdict
+    correlation happens in get_hand_replay. Seat derivation: HistoryAction carries
+    `position` only, so build a position->seat map once from state.seats[]. Staged
+    reveal: villain cards appear ONLY in the terminal showdown step (settle's
+    showdown_seats). Terminal-step board = final state.board (all-in auto-runouts
+    show the full runout)."""
+    state = HandState.model_validate_json(hand.state_json)
+    pos2seat = {s.position: s.seat for s in state.seats}
+    hero = state.seats[HERO_SEAT]
+    settlement = settle(state) if state.hand_over else None
+    showdown_seats = settlement.showdown_seats if settlement is not None else []
+    n = len(state.action_history)
+    steps: list[ReplayStepView] = []
+    for i, h in enumerate(state.action_history):
+        is_terminal = (
+            i == n - 1
+            and state.hand_over
+            and bool(showdown_seats)
+        )
+        if is_terminal:
+            board = list(state.board)  # full runout at showdown
+            revealed = [
+                ShowdownSeatView(
+                    seat_index=s,
+                    hole_cards=state.seats[s].hole_cards,
+                    delta_bb=settlement.deltas[s].delta_bb,
+                )
+                for s in showdown_seats
+            ]
+        else:
+            board = list(state.full_board[: _STREET_BOARD_N[h.street]])
+            revealed = []
+        seat = pos2seat[h.position]
+        steps.append(
+            ReplayStepView(
+                index=i,
+                street=h.street.value,
+                seat=seat,
+                position=h.position.value,
+                action=h.action.value,
+                amount_bb=h.amount_bb,
+                board=board,
+                is_hero=seat == HERO_SEAT,
+                is_post=h.action is ActionType.POST,
+                is_terminal=is_terminal,
+                revealed_seats=revealed,
+            )
+        )
+    return HandReplayView(
+        sim_hand_id=hand.id,
+        session_id=hand.session_id,
+        hand_no=hand.hand_no,
+        button_seat=hand.button_seat,
+        hero_seat=HERO_SEAT,
+        hero_position=hero.position.value,
+        hero_cards=hero.hole_cards,
+        steps=steps,
+    )
+
+
+def _attach_verdicts(replay: HandReplayView, decisions: list[SimDecision]) -> None:
+    """Zip hero non-POST steps (chronological) against the hand's SimDecisions
+    (sorted by ordinal), attaching each verdict to its hero step.
+
+    Post-0010 hands: every accepted hero action writes exactly one decision same
+    commit → len(hero_non_post) == len(decisions). Legacy 0009-era hands can have
+    hero actions with ZERO decision rows, so correlate up to min(len) and leave
+    surplus hero steps ungraded; raise only on an impossible surplus (more
+    decisions than hero non-POST steps) or an ordinal/action-street mismatch on
+    the overlapping prefix."""
+    hero_steps = [
+        s for s in replay.steps if s.is_hero and not s.is_post
+    ]
+    if len(decisions) > len(hero_steps):
+        raise ValueError(
+            f"more decisions ({len(decisions)}) than hero non-POST actions "
+            f"({len(hero_steps)}) for hand {replay.sim_hand_id}"
+        )
+    for step, dec in zip(hero_steps, decisions, strict=False):
+        if dec.street != step.street:
+            raise ValueError(
+                f"decision ordinal {dec.ordinal} street {dec.street!r} does not "
+                f"match hero step {step.index} street {step.street!r}"
+            )
+        step.correctness = dec.correctness
+        step.sizing_correctness = dec.sizing_correctness
+        step.ev_loss_bb = dec.ev_loss_bb
+        step.coverage = dec.coverage
+        step.verdict = dec.verdict_tier_text
+        step.reasoning = dec.reasoning_text
+
+
+def get_hand_replay(
+    db: Session, sim_hand_id: int, owner_id: str = ""
+) -> HandReplayView:
+    """A completed, owner-scoped hand reconstructed step-by-step with graded hero
+    verdicts attached. 404 (SessionNotFound) if missing/not-owned/not-complete."""
+    hand = _load_owned_complete_hand(db, sim_hand_id, owner_id)
+    replay = _build_replay(hand)
+    _attach_verdicts(replay, _hand_decisions(db, hand.id))
+    return replay
+
+
+def get_hand_replay_by_hand_no(
+    db: Session, session_id: str, hand_no: int, owner_id: str = ""
+) -> HandReplayView:
+    """Replay resolution for Wave B's 'replay last hand' — the live wire exposes
+    only (session_id, hand_no), never sim_hand_id. Resolves the pair, then reuses
+    the same build+correlate path."""
+    hand = _resolve_hand_by_session_hand_no(db, session_id, hand_no, owner_id)
+    replay = _build_replay(hand)
+    _attach_verdicts(replay, _hand_decisions(db, hand.id))
+    return replay
