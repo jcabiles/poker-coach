@@ -1066,10 +1066,12 @@ def test_river_one_pair_never_raises_facing_a_bet(persona):
 
 
 def test_river_check_raise_branch_floored_bet_untouched():
-    """Matched-with-option branch: the CHECK+RAISE agg merit is floored for
-    the one-pair class (maniac pre-P2a: MP .706 / TP .873 / OVERPAIR .929 →
-    all 0.0), but the unopened CHECK+BET branch is NOT touched — thin river
-    value bets stay legal (river weights == streetless weights)."""
+    """Matched-with-option branch: the CHECK+RAISE agg merit is floored for the
+    whole one-pair class on the river (maniac pre-P2a: MP .706 / TP .873 /
+    OVERPAIR .929 → all 0.0). The unopened CHECK+BET branch is now floored for
+    MIDDLE_PAIR ONLY (W1-a) — TOP_PAIR/OVERPAIR keep the thin river value bet
+    (river BET weights == streetless). This is the sanctioned W1-a unit-assertion
+    split (theory-contract §7), NOT a band re-anchor."""
     matched = [personas_postflop_legal_check(), personas_postflop_legal_raise(6.0, 97.0)]
     unopened = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 97.0)]
     for bucket in _ONE_PAIR_FLOOR:
@@ -1077,10 +1079,34 @@ def test_river_check_raise_branch_floored_bet_untouched():
         river = _dist_street("maniac", hole, _RIVER_BOARD, matched, Street.RIVER)
         assert river[ActionType.RAISE] == 0.0, bucket
         assert _dist_street("maniac", hole, _RIVER_BOARD, matched, None)[ActionType.RAISE] > 0.0
-        # BET branch byte-identical river vs streetless.
-        assert _dist_street(
+        river_bet = _dist_street(
             "maniac", hole, _RIVER_BOARD, unopened, Street.RIVER, current_bet_to=0.0
-        ) == _dist_street("maniac", hole, _RIVER_BOARD, unopened, None, current_bet_to=0.0)
+        )
+        streetless_bet = _dist_street(
+            "maniac", hole, _RIVER_BOARD, unopened, None, current_bet_to=0.0
+        )
+        if bucket is StrengthBucket.MIDDLE_PAIR:
+            # W1-a: middle-pair unopened river BET floored to 0 (bluff-catcher);
+            # the floor is river-only, so the streetless BET stays positive.
+            assert river_bet[ActionType.BET] == 0.0, bucket
+            assert streetless_bet[ActionType.BET] > 0.0, bucket
+        else:
+            # TOP_PAIR / OVERPAIR: thin river value bet untouched (byte-identical).
+            assert river_bet == streetless_bet, bucket
+
+
+def test_river_bet_floor_middle_pair_river_gated():
+    """W1-a: MIDDLE_PAIR unopened BET floored to 0 on the RIVER; the SAME hole on
+    the TURN board is byte-identical to street=None (unchanged) — the floor is
+    river-only and MIDDLE_PAIR-only."""
+    unopened = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 97.0)]
+    mp = _RIVER_HOLES[StrengthBucket.MIDDLE_PAIR]
+    river = _dist_street("maniac", mp, _RIVER_BOARD, unopened, Street.RIVER, current_bet_to=0.0)
+    assert river[ActionType.BET] == 0.0
+    # Turn control: same middle-pair hole on the turn board — BET untouched.
+    turn = _dist_street("maniac", mp, _TURN_BOARD, unopened, Street.TURN, current_bet_to=0.0)
+    assert turn == _dist_street("maniac", mp, _TURN_BOARD, unopened, None, current_bet_to=0.0)
+    assert turn[ActionType.BET] > 0.0
 
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
@@ -1817,22 +1843,32 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
     return stats
 
 
-# Golden AF/FtC/WTSD captured on the PRE-refactor code at a fixed (persona, n)
-# with the harness's own deterministic seed (20260710). The log->HandResult
-# refactor for W0-b must reproduce these EXACTLY — band membership is too wide
-# to prove byte-identity (Sol #4 / refuter #3). None = below the >=30 floor.
+# Golden AF/FtC/WTSD at a fixed (persona, n) with the harness's own deterministic
+# seed (20260710). Originally captured on the PRE-refactor code to prove the
+# W0-b log->HandResult refactor was byte-identical (band membership is too wide
+# to prove it — Sol #4 / refuter #3). Now doubles as an intended-behavior-change
+# tripwire. None = below the >=30 floor.
+#
+# RE-RECORDED for W1-a (persona-realism-w1, 2026-07-24 — slice-authorized): the
+# harness runs villains through the SAME postflop sampler, so the middle-pair
+# river BET floor (F6) deliberately changes river play -> AF/FtC/WTSD shift.
+# These are the re-measured post-W1-a exact goldens. This is a seeded-fixture
+# re-record (the exact tripwire MUST track intended behavior), NOT the population
+# WTSD/AF tolerance-band re-anchor, which stays frozen to W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.4069400631, 0.2258064516, 0.5491525424),
-    "lag": (2.775, None, 0.5222222222),
-    "maniac": (3.5362318841, 0.3953488372, 0.4364640884),
-    "nit": (None, None, 0.5227272727),
-    "passive_fish": (0.5845410628, 0.3225806452, 0.5776699029),
-    "tag": (2.0, None, 0.5306122449),
+    "calling_station": (0.4314381271, 0.262295082, 0.6054421769),
+    "lag": (3.3181818182, None, 0.5779816514),
+    "maniac": (3.5909090909, 0.5, 0.4381443299),
+    "nit": (1.0909090909, None, 0.5090909091),
+    "passive_fish": (0.5388127854, 0.2448979592, 0.6376146789),
+    "tag": (2.3777777778, None, 0.5294117647),
 }
 
 
 def test_persona_stats_byte_identical_after_log_refactor():
-    """W0-b guard: the log->HandResult refactor must NOT shift AF/FtC/WTSD."""
+    """W0-b guard (re-recorded W1-a): AF/FtC/WTSD must match the pinned goldens
+    exactly — any UNINTENDED shift breaks byte-identity. Re-record only under
+    explicit slice authorization when a slice intentionally changes bot play."""
     packs = load_persona_packs()
     for persona, (g_af, g_ftc, g_wtsd) in _GOLDEN_STATS_N200.items():
         af, ftc, wtsd, *_ = _persona_stats(packs, persona, 200)

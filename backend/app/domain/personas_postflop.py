@@ -279,6 +279,13 @@ _RIVER_RAISE_FLOOR = (
     StrengthBucket.TOP_PAIR,
     StrengthBucket.OVERPAIR_TPTK,
 )
+# W1-a (F6): the unopened river BET floor — strictly NARROWER than the raise
+# floor. A middle pair on the river is a bluff-catcher, never a value bet, under
+# a conservative HU/balanced-villain DEFAULT (it CAN value-bet vs capped/station
+# ranges — a rank approximation, not a theorem). TOP_PAIR/OVERPAIR keep the thin
+# river value bet (they are floored on the RAISE only). P2a floored the river
+# raise + air-call; this closes the residual unopened-BET leak for MIDDLE_PAIR.
+_RIVER_BET_FLOOR = (StrengthBucket.MIDDLE_PAIR,)
 _BLUFF_RAISE_FACTOR = 0.3  # bluff-raising is structurally rarer than bluff-betting
 _COMMIT_AGG_BOOST = 3.0  # SPR-commit shift toward call/jam
 # F3 bounded aggression (RES-D §0 saturation fix): the `aggression` lever is
@@ -520,14 +527,21 @@ def sample_postflop_decision(
             agg_merit = (_AGG_BASE[bucket] + _DRAW_AGG_BONUS[draw]) * agg_scale
             check_merit = _CHECK_BASE[bucket]
             # River polarization: the matched-with-option RAISE (check-raise
-            # line) is floored like the facing raise; the unopened BET is NOT
-            # touched — thin river value bets stay legal.
+            # line) is floored for the whole one-pair class; the unopened BET is
+            # floored for MIDDLE_PAIR ONLY (W1-a) — top-pair/overpair keep the
+            # thin river value bet.
             if (
                 agg_action is ActionType.RAISE
                 and street is Street.RIVER
                 and bucket in _RIVER_RAISE_FLOOR
             ):
                 agg_merit = 0.0
+            elif (
+                agg_action is ActionType.BET
+                and street is Street.RIVER
+                and bucket in _RIVER_BET_FLOOR
+            ):
+                agg_merit = 0.0  # middle pair never value-bets the river
         entries.append((ActionType.CHECK, check_merit))
         entries.append((agg_action, agg_merit))
 

@@ -58,9 +58,15 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # UTG2¹ 94, LJ¹ 127, HJ¹ 140, CO¹ 133, CO² 29, SB¹ 101, SB² 43, BTN¹ 125,
 # BTN² 48). No preflop content changed in P2a; the drift is stream
 # displacement only.
+# RE-PINNED for W1-a (persona-realism-w1, 2026-07-24 — slice-authorized): the
+# middle-pair river BET floor (F6) changes bot RIVER decisions, again shifting
+# the shared-rng organic stream at this seed (old post-P2a counts: UTG2¹ 84,
+# LJ¹ 123, HJ¹ 142, CO¹ 131, CO² 31, SB¹ 95, SB² 42, BTN¹ 122, BTN² 49). No
+# preflop content changed; every _WANT_* coverage shape still fires (verified) —
+# stream displacement only, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 84, ("LJ", 1): 123, ("HJ", 1): 142, ("CO", 1): 131,
-    ("CO", 2): 31, ("SB", 1): 95, ("SB", 2): 42, ("BTN", 1): 122,
+    ("UTG2", 1): 97, ("LJ", 1): 129, ("HJ", 1): 154, ("CO", 1): 140,
+    ("CO", 2): 32, ("SB", 1): 107, ("SB", 2): 50, ("BTN", 1): 122,
     ("BTN", 2): 49,
 }
 
