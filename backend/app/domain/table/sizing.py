@@ -12,8 +12,11 @@ hand strength.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import NamedTuple
+
 from app.domain.action import ActionType
-from app.domain.spot import HistoryAction, LegalAction, Position
+from app.domain.spot import HistoryAction, LegalAction, Position, Street
 from app.domain.texture import classify
 
 # Hero's SINGLE predetermined postflop size per node, as a pot-fraction
@@ -76,6 +79,56 @@ def last_aggressor_position(action_history: list[HistoryAction]) -> Position | N
         if h.action in (ActionType.BET, ActionType.RAISE):
             return h.position
     return None
+
+
+class PreAggressionPot(NamedTuple):
+    """The pot as it stood BEFORE the current street's most recent bet/raise,
+    plus the chips that most recent aggression added.
+
+    `latest_aggressor_contribution_bb` is the theory contract's "latest
+    aggressor increment" (docs/ai-dlc/contracts/persona-realism-theory-contract
+    §7 denominator unification): the chips the last BET/RAISE on the street
+    actually put in — NOT the raise-TO, and NOT the min-raise ladder step. On a
+    self-re-raise (a player raising over their own earlier same-street bet) it
+    is the full amount that action added (raise-TO minus that player's prior
+    street investment).
+    """
+
+    pot_before_bb: float
+    latest_aggressor_contribution_bb: float
+
+
+def pot_before_current_aggression(
+    action_history: Sequence[HistoryAction], street: Street
+) -> PreAggressionPot:
+    """Reconstruct "the pot before the current aggression" from the action
+    history — the shared denominator the commit gate (P3), the faced_frac fix
+    (P7/F9), and the semi-bluff EV math need (theory contract §7). Pure domain.
+
+    `HistoryAction.amount_bb` is ALREADY the per-action chip contribution for
+    every type (verified `engine.apply` — BET/RAISE store
+    `min(size - invested_street, stack)`, CALL the call increment, POST the
+    blind, CHECK/FOLD 0.0), so the total pot is just their sum and no chip
+    replay is needed. The latest aggressor's contribution is the `amount_bb` of
+    the most recent BET/RAISE on `street` (0.0 if the street is unraised /
+    checked-through). Do NOT subtract prior street investment — that would
+    double-count, since the stored value is already the increment.
+
+    Returns `pot_before_bb = total_pot - latest_contribution` and that
+    contribution. `total_pot` reconstructed here equals the live
+    `sum(seat.invested_total_bb)`; a consumer holding the live pot should
+    compute `pot_before = live_pot - latest_aggressor_contribution_bb`.
+    """
+    total = sum(h.amount_bb for h in action_history)
+    contribution = 0.0
+    for h in reversed(action_history):
+        if h.street == street and h.action in (ActionType.BET, ActionType.RAISE):
+            contribution = h.amount_bb
+            break
+    return PreAggressionPot(
+        pot_before_bb=round(total - contribution, 2),
+        latest_aggressor_contribution_bb=round(contribution, 2),
+    )
 
 
 def postflop_node_key(
