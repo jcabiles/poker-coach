@@ -45,3 +45,8 @@ RUN-THESE-COMMANDS.md
 .env
 .env.*
 !.env.example
+
+# Local, uncommitted persona-realism research + bot-review artifacts (never push)
+docs/ai-dlc/research/persona-realism-artifacts/
+docs/ai-dlc/research/persona-realism-FULL-BUILDOUT.md
+docs/ai-dlc/research/persona-realism-audit-2026-07-24.md
