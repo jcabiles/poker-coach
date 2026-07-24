@@ -121,7 +121,8 @@ combined population-band re-anchor after the whole spine converges (don't chase 
 ### Wave plan (dependency order from the build-out §4)
 **W0 foundation** (denominator + measurement + anti-degeneracy infra — unblocks honest gating for all of NOW)
 → **W1 low-risk wins** → **W2 identity + EV** → **W3 context** (plumbing → position/street/texture)
-→ **W3.5 human-realism checkpoint** → **W4 commitment brake LAST + single band re-anchor + seam batch**.
+→ **W3R bot-review remediation** (2026-07-24 hand-history review — full 14-fix program; harness-first)
+→ **W3.5 human-realism checkpoint** (blinded, on remediated bots) → **W4 commitment brake LAST + single band re-anchor + seam batch**.
 All postflop-mechanic slices own `personas_postflop.py` ⇒ they run **serially** on that spine. The commitment
 brake is sequenced LAST (highest regression risk; it must layer on the stabilized price/fold equation, not force
 re-tuning). Every slice: default-off byte-identity for un-opted-in direct callers until the live loop opts in.
@@ -294,11 +295,100 @@ re-tuning). Every slice: default-off byte-identity for un-opted-in direct caller
       **Pass/fail:** made-pair bet-rate falls by overcard count for TAG/nit (by-overcard metric); one-pair bet-rate falls
       with wetness (ordering test); OVERPAIR_TPTK untouched. **No-gos:** gate strictly to the named buckets. **Appetite:** ~1 large slice.
 
+### W3R — bot-review remediation (from the 2026-07-24 hand-history review — FULL 14-fix program)
+
+> Source: `docs/ai-dlc/research/persona-realism-artifacts/bot-review-2026-07-24/` (findings digest, lever_matrix,
+> lever_adjustment_plan, engine_sufficiency_verdict — all LOCAL/git-ignored). Owner played 123 hands (session
+> 46f2884); 7 opus reviewers (1 theory/math + 6 per-persona) scrutinized every bot vs its archetype + the grounded
+> research. **Engine-sufficiency verdict: PROCEED — zero must-add-now lever gaps; the 3 new-mechanic slices each
+> build their own primitive inside their own ticket.** Owner scope decisions (2026-07-24): **full 14-fix program ·
+> measurement harness FIRST / hard-prove every dial · blinded human playtest RETAINED** before the final re-anchor.
+> All slices own `personas_postflop.py` / persona JSON ⇒ **SERIAL**; default-off byte-identity where a direct caller
+> isn't opted in. Every slice: fresh `refuter` + `persona-realism-theory-reviewer` at fan-in; files a coaching
+> seam-row (F1). Softmax law: every magnitude is a FIT SEED re-measured to its target stat, not a drop-in.
+>
+> **Concurrency:** most slices own `personas_postflop.py` and run **SERIAL** on that spine. Exceptions: **W3R-0**
+> (measurement/test code only) and **W3R-1** (maniac.json config only) touch disjoint files and MAY run parallel
+> with the spine and each other. All 14 adjustment-plan fixes are covered (14/14): W3R-1 #1/#13 · W3R-2 #2/#3/#6 ·
+> W3R-3 #4/#5/#12 · W3R-4 #7/#11/#14 · W3R-5 #8 · W3R-6 #9 · W3R-7 #10.
+>
+> **Root causes fixed (owner's two flags):** (hyp-1 maniac junk) = the `vs_rfi "*"` any-two cold-call catch-all +
+> ungated offsuit-ace opens (CONFIG, W3R-1) — NOT the opening raises, which are already suited>offsuit + position
+> gated. (hyp-2 fish/station over-call) = station `size_elasticity 0.0` (size-blind by construction) + fish
+> `call_looseness` never authored (inherits stickiness 1.4) (DIALS, W3R-2). Cross-cutting: defense is board-blind
+> (texture damps are BET-only, W3R-5); marginal one-pair over-raises (W3R-6).
+
+- [ ] **W3R-0 — Arrival-range Fold-to-Cbet population harness (measurement-first; D4-keystone bands).** The
+      reviewer confirmed only a UNIFORM-range slope fixture exists (`fold_by_size`, test_personas_postflop.py:455);
+      the §5 ABSOLUTE bands (station overbet 18–40%, fish 60–80%) are NOT gated anywhere. Build a per-persona
+      realistic-ARRIVAL-range FtC-by-size metric + wire the target bands as assertions consumed by W3R-2.
+      **Pass/fail:** the metric computes per persona over arrival ranges and emits the size-bucket fold curve; the
+      documented bands exist as assertions (xfail until W3R-2 fits the dials). **No-gos:** measurement only, no
+      behavior change, no band re-anchor here. **Prereq for W3R-2 (owner chose hard-prove-first).** Appetite: ~1 large slice.
+
+- [ ] **W3R-1 — Maniac preflop range cleanup (#1, #13) — CONFIG-ONLY, harness-independent.** Delete the `vs_rfi "*"`
+      any-two catch-all → explicit 3bet-or-fold flat range; delete maniac/LAG SB open-limps; trim HJ+ offsuit aces
+      `A2o+`→`A5o+/A7o+`. **The root of hyp-1** (junk cold-calls H119/H84/H30/H74 feed the barrels). **Pass/fail:**
+      no any-two cold-calls; J2o/Q7o-class fold vs an RFI; maniac VPIP stays in the 43–55 band. **No-gos:** don't
+      touch the correctly-gated EP opens; content-only (no postflop lever). Appetite: ~1 small slice.
+
+- [ ] **W3R-2 — Fish + station elasticity dials (#2, #3, #6) + station test re-pin — GATED on W3R-0.** Author fish
+      `call_looseness`≈0.95 (currently unset→stickiness 1.4); station `size_elasticity` 0.0→≈0.55 + `call_looseness`
+      ≈1.6; **flip `test_fold_to_bet_monotone_in_faced_size:514` from station-must-be-flat(<0.05) → shallow-rise**
+      (deliberate spec re-pin — the test currently codifies the very size-blindness the owner wants fixed).
+      **Fixes hyp-2.** FIT SEEDS re-measured on W3R-0. **Pass/fail:** station FtC slope small 3–15% → overbet
+      18–40%; fish overbet FtC 60–80% (both on the W3R-0 harness); `call_looseness↑` never lowers call freq.
+      **No-gos:** no population WTSD/AF band re-anchor (deferred to W4-b). Appetite: ~1 large slice.
+
+- [ ] **W3R-3 — spr_commit ladder + ace-high call base + finish the call_looseness split (#4, #5, #12).** fish
+      `spr_commit` 2.0→1.4 (it currently commits EARLIER than the station — backwards for a "scared" fish), maniac
+      4.0→3.3; `_CALL_BASE[ACE_HIGH]` 0.40→≈0.22 (mirror the A1 AIR 0.25→0.08 precedent); **(#12, low-value tidy)**
+      author explicit `call_looseness` on tag≈0.55 / nit / lag (currently unset→inherit `stickiness`) so the W2-a
+      split is adopted roster-wide. **Pass/fail:** fish no longer commits earlier than station (H11/H76); naked
+      ace-high stops floating raise-wars (H117); per-persona AF stays in band; the three added `call_looseness` packs
+      re-record byte-clean. **No-gos:** softmax fit-seed — re-measure AF; #12 is a tidy, not a behavior target.
+      Appetite: ~1 slice.
+
+- [ ] **W3R-4 — Shared-code fixes (#7, #11, #14).** Scale `_BUSTED_RIVER_BLUFF` by `multiway_bluff_damp**(opp-1)`
+      (currently added AFTER the damp → multiway busted-flush bluffs over-fire, TAG H41 into 3 callers);
+      `_CALL_BASE[MIDDLE_PAIR]` 0.60→≈0.52 (mild); fix the shared-board-pair→`TWO_PAIR_PLUS` commit inflation so an
+      underpair over a paired board (99-on-7887-8, nit H61) stops force-committing. **Pass/fail:** multiway
+      busted-bluff rate drops; shared-board "two pair" no longer auto-commits at low SPR. **No-gos:** don't demote
+      genuine (unshared) two pair. **Scope-check at `/ai-dlc`:** #14 (commit-inflation edge in `_made_bucket`) carries
+      its own blast radius — split it out from the two trivial base-table tweaks (#7/#11) if planning finds it heavy.
+      Appetite: ~1 slice.
+
+- [ ] **W3R-5 — Defense-side texture/scare fold brake (#8) — NEW MECHANIC.** The W3-d texture damps are BET-only;
+      the FOLD side gets no board signal → scary-board call-downs (station H54 monotone / H100 four-flush, nit H41,
+      raise-wars H61/H103/H117). Add a MULTIPLICATIVE fold-merit boost for one-pair-class buckets on
+      monotone/paired/overcard boards + vs multiple aggressors. **MUST thread `range_estimate.py` the same context
+      + a parity test** (the live bot now diverges from the streetless policy — estimator-parity law). **Pass/fail:**
+      station/nit/fish fold more to bets on scary boards; estimator parity holds; it stays a boost, NEVER an asserted
+      floor (A1 guardrail). **No-gos:** fold-side only (don't touch the W3-d bet-side scoping). Appetite: ~1 large slice.
+
+- [ ] **W3R-6 — One-pair RAISE damp facing action, pre-river (#9) — NEW SCOPING (fixes M7).** `_RAISE_BASE` + the
+      river-only raise-floor let made one-pair (MIDDLE/TOP) jam on flop/turn (TAG H117 99 on J-J-7, H32 88, H107
+      TPTK; maniac too). Damp the one-pair RAISE merit when FACING a bet/raise on flop/turn; **spare semi-bluff
+      (draw) raises.** **Pass/fail:** TAG/maniac stop re-raising bare one pair into heavy action; a flopped-draw
+      semi-bluff raise still fires. **No-gos:** two-pair+ value raises untouched. Appetite: ~1 large slice.
+
+- [ ] **W3R-7 — OVERPAIR_TPTK bucket split (#10) — NEW GRANULARITY (heaviest).** Split the bucket so genuine
+      top-pair-top-kicker (AK-on-K) gets the W3-d texture brake while true overpairs (AA-on-K) keep betting. Touches
+      `_made_bucket` + all `_*_BASE` tables + `_VULNERABLE_ONE_PAIR` + the river floors. **Do NOT** just add
+      OVERPAIR_TPTK to `_VULNERABLE_ONE_PAIR` (would damp real overpairs — §9 #7); split the taxonomy. **Pass/fail:**
+      AK-on-monotone-K slows down (H54); AA overpair still bets; `spot_signature()`/grader untouched (frozen); the
+      bluff-ordering pin re-anchored deliberately. **No-gos:** grader frozen; blast radius = bot side only.
+      **Scope-check at `/ai-dlc`:** likely TWO slices — (a) split the taxonomy/`_made_bucket`, then (b) re-fit the
+      `_*_BASE` tables + re-anchor the bluff-ordering pin. Appetite: ~1–2 large slices.
+
 ### W3.5 — checkpoint (gates before the final re-anchor)
 
-- [ ] **W3.5 — Human-realism playtest (D9).** Blinded seeded replays + short free-play, 2–3 poker-literate reviewers.
+- [ ] **W3.5 — Human-realism playtest (D9) — RETAINED as a formal blinded gate (owner 2026-07-24).** Blinded seeded
+      replays + short free-play, 2–3 poker-literate reviewers, **run on the W3R-REMEDIATED bots.** (The 2026-07-24
+      agent-review + owner playthrough INFORMED the W3R fixes but the owner chose to keep a formal blinded human
+      check before the final re-anchor — reviewers here don't know the persona labels.)
       **Pass/fail:** reviewers distinguish archetypes above chance AND flag no recurring persona-breaking lines; any
-      flagged line feeds a fix before W4. Runs after W3, before the W4 re-anchor.
+      flagged line feeds a fix before W4. Runs after W3R, before the W4 re-anchor.
 
 ### W4 — highest regression risk, LAST
 
@@ -318,8 +408,10 @@ re-tuning). Every slice: default-off byte-identity for un-opted-in direct caller
 - [ ] **W4-b — Single combined band re-anchor (D11) + coaching seam batch handoff (F1).** *ICE 8·8·6 — the ONE authoritative re-anchor.*
       **Problem:** mid-spine re-anchors aren't final (population coupling); coaching seams must be handed off coherently.
       **Solution:** the ONE authoritative combined WTSD/AF population-band re-anchor + coverage re-record after the whole
-      spine converges; report the cumulative graded-coverage delta vs the immutable start snapshot; batch-file all
-      accumulated seam-rows into `professional-teacher-rework` Next.
+      spine converges — **now absorbing all W3R lever moves too**, and using the **W3R-0 arrival-range FtC harness** so
+      the fish/station absolute-band re-anchor is measured, not seeded; report the cumulative graded-coverage delta vs
+      the immutable start snapshot; batch-file all accumulated seam-rows (incl. the 8 W3R slices) into
+      `professional-teacher-rework` Next.
       **Pass/fail:** all six personas' bands hold with in-file justification; cumulative coverage delta adjudicated (not
       silently accepted); every mechanic slice has a filed seam-row. **No-gos:** no NEW behavior here — calibration +
       handoff only. **Appetite:** ~1 slice.
