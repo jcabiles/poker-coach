@@ -64,10 +64,15 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # LJ¹ 123, HJ¹ 142, CO¹ 131, CO² 31, SB¹ 95, SB² 42, BTN¹ 122, BTN² 49). No
 # preflop content changed; every _WANT_* coverage shape still fires (verified) —
 # stream displacement only, not a coverage regression.
+# RE-PINNED for W1-b (persona-realism-w1, 2026-07-24 — slice-authorized): the
+# faced_frac increment fix (F9) changes bot fold/call/raise on self-re-raise &
+# back-raise postflop spots via play.py's production path, again displacing the
+# shared-rng stream (old post-W1-a counts: UTG2¹ 97, LJ¹ 129, HJ¹ 154, CO¹ 140,
+# CO² 32, SB¹ 107, SB² 50, BTN¹ 122, BTN² 49). Every _WANT_* shape still fires.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 97, ("LJ", 1): 129, ("HJ", 1): 154, ("CO", 1): 140,
-    ("CO", 2): 32, ("SB", 1): 107, ("SB", 2): 50, ("BTN", 1): 122,
-    ("BTN", 2): 49,
+    ("UTG2", 1): 96, ("LJ", 1): 132, ("HJ", 1): 154, ("CO", 1): 145,
+    ("CO", 2): 33, ("SB", 1): 101, ("SB", 2): 53, ("BTN", 1): 124,
+    ("BTN", 2): 50,
 }
 
 

@@ -537,9 +537,11 @@ class _CaptureWeights:
         return [population[0]]
 
 
-def _faced_fold_weight(pot_bb, to_call, current_bet_to):
+def _faced_fold_weight(pot_bb, to_call, current_bet_to, contribution=None):
     """Normalized FOLD weight in a FOLD/CALL/RAISE spot (fixed tag + middle
-    pair, no draw, SPR well above commit) — only the price factor varies."""
+    pair, no draw, SPR well above commit) — only the price factor varies.
+    `contribution` (None = legacy denominator) opts into the W1-b exact
+    pre-aggression denominator."""
     pack = _pack("tag")
     legal = [
         personas_postflop_legal_fold(),
@@ -557,6 +559,7 @@ def _faced_fold_weight(pot_bb, to_call, current_bet_to):
         1,
         cap,  # type: ignore[arg-type] — duck-typed capture rng
         current_bet_to=current_bet_to,
+        latest_aggressor_contribution_bb=contribution,
     )
     return cap.dist[ActionType.FOLD]
 
@@ -592,6 +595,50 @@ def test_faced_frac_check_raise_lands_large():
     flipped = _faced_fold_weight(pot_bb=28.0, to_call=10.0, current_bet_to=16.0)
     medium = _faced_fold_weight(pot_bb=28.0, to_call=10.0, current_bet_to=10.0)
     assert flipped > medium  # LARGE α 0.47 > MEDIUM α 0.375 → more fold mass
+
+
+# W1-b (F9) — faced_frac increment fix. The live loop supplies the W0-a
+# latest-aggressor increment as the EXACT pre-aggression denominator; the legacy
+# `max(current_bet_to, to_call)` branch (no increment supplied) OVER-subtracts
+# when the aggressor already had street chips → over-fold. These pin the fix at
+# the sampler via exact captured FOLD weights (never sampled counts).
+
+
+def test_faced_frac_selfreraise_folds_less():
+    """Self-re-raise (SB bets 2, BB raises 6, SB re-raises to 13; BB faces
+    to_call 7, live pot 21, current_bet_to 13). SB's true increment is 11 (13−2),
+    so faced_frac = 7/(21−11) = 0.700 (MEDIUM). The legacy denominator subtracts
+    the whole 13 → 7/(21−13) = 0.875 (LARGE, α 0.47), OVER-stating the price and
+    over-folding. The fix (contribution=11) folds strictly LESS."""
+    legacy = _faced_fold_weight(pot_bb=21.0, to_call=7.0, current_bet_to=13.0)
+    fixed = _faced_fold_weight(pot_bb=21.0, to_call=7.0, current_bet_to=13.0, contribution=11.0)
+    assert fixed < legacy  # MEDIUM α 0.375 < LARGE α 0.47 → less fold mass
+    # The fixed value matches a genuine simple MEDIUM bet at the same 0.700 frac.
+    genuine_medium = _faced_fold_weight(pot_bb=17.0, to_call=7.0, current_bet_to=7.0)
+    assert fixed == pytest.approx(genuine_medium)
+
+
+def test_faced_frac_backraise_after_call_corrected():
+    """Back-raise after calling (Codex #2 — divergence is NOT limited to
+    self-re-raises): a prior caller re-raises, so its increment (25) is less than
+    its bet-TO (30). Facing to_call 15, live pot 65 → true frac 15/(65−25) = 0.375
+    (SMALL); legacy gives 15/(65−30) = 0.4286 (MEDIUM), over-folding. Fixed folds
+    less and matches a genuine simple SMALL bet at the same frac."""
+    legacy = _faced_fold_weight(pot_bb=65.0, to_call=15.0, current_bet_to=30.0)
+    fixed = _faced_fold_weight(pot_bb=65.0, to_call=15.0, current_bet_to=30.0, contribution=25.0)
+    assert fixed < legacy  # SMALL α 0.25 < MEDIUM α 0.375 → less fold mass
+    genuine_small = _faced_fold_weight(pot_bb=55.0, to_call=15.0, current_bet_to=15.0)
+    assert fixed == pytest.approx(genuine_small)
+
+
+def test_faced_frac_fresh_raise_byte_identical():
+    """Fresh aggression (a raiser with zero prior street chips) has increment ==
+    bet-TO, so supplying the contribution reproduces the legacy denominator
+    EXACTLY — the fix touches only prior-investment lines (bet 3 into 9, raised to
+    8 by a fresh raiser → to_call 5, contribution 8 == current_bet_to 8)."""
+    legacy = _faced_fold_weight(pot_bb=20.0, to_call=5.0, current_bet_to=8.0)
+    fixed = _faced_fold_weight(pot_bb=20.0, to_call=5.0, current_bet_to=8.0, contribution=8.0)
+    assert fixed == legacy
 
 
 # =====================================================================

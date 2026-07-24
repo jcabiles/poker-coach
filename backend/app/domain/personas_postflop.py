@@ -413,6 +413,7 @@ def sample_postflop_decision(
     current_bet_to: float = 0.0,
     is_aggressor: bool = False,
     street: Street | None = None,
+    latest_aggressor_contribution_bb: float | None = None,
 ) -> Decision:
     """Draw a frequency-mixed postflop decision from the pack's levers.
 
@@ -478,25 +479,31 @@ def sample_postflop_decision(
         # reference, damped by stickiness. Call/raise merits are untouched —
         # they absorb the complement through normalization.
         #
-        # Pre-aggression pot = pot_bb − current_bet_to (the aggressor's full
-        # bet-TO this street), NOT pot_bb − to_call: facing a raise or
-        # check-raise, to_call is only the increment over our own street
-        # chips, and those chips belong in the denominator (e.g. bet 3 into 9,
-        # raised to 8 → to_call 5, live pot 20; frac is 5/12 ≈ 0.42 MEDIUM,
-        # not 5/15 = 0.33 SMALL). The inner max() covers callers that leave
-        # current_bet_to at its 0.0 default (harness/estimator simple-bet
-        # spots where the facing seat has zero street chips, so
-        # current_bet_to == to_call).
+        # Pre-aggression pot = the pot the aggressor's bet/raise was made INTO
+        # = live pot − the aggressor's own contribution (the chips their bet/raise
+        # added). NUMERATOR is to_call (the facing seat's call increment — the
+        # right pot-fraction numerator; only the denominator was ever wrong).
         #
-        # Known limitation: when the aggressor re-raises their OWN earlier
-        # bet this street (same-street 3-bet+), current_bet_to includes
-        # their pre-raise street chips, so this over-subtracts and
-        # understates faced_frac by up to one bucket. Exact recovery needs
-        # per-action pot history the engine doesn't keep; the error is
-        # conservative (under-folding vs re-raises) and confined to
-        # same-street 3-bet+ lines. Tracked as an Epic-4 follow-up.
+        # W1-b (F9): when the live loop supplies `latest_aggressor_contribution_bb`
+        # (the W0-a `pot_before_current_aggression` increment), use it — the EXACT
+        # pre-aggression pot. Do NOT subtract `current_bet_to`: that is the
+        # aggressor's full bet-TO, which OVER-subtracts (denominator too small →
+        # faced_frac OVERSTATED → over-fold) whenever the aggressor already had
+        # street chips before this action — a self-re-raise (bet→raise) OR a
+        # back-raise after calling (call→raise). Fresh aggression (0 prior street
+        # chips) has contribution == current_bet_to, so the two agree.
+        #
+        # The legacy `max(current_bet_to, to_call)` branch remains ONLY for
+        # un-opted-in direct callers (harness, estimator, unit tests) that pass no
+        # contribution — byte-identical to pre-W1-b. Its over-subtraction is the
+        # documented approximation THERE; the estimator additionally never
+        # reconstructs to_call (it builds CALL with min_bb=None → numerator 0), so
+        # its faced_frac is 0 regardless — a separate, pre-existing approximation.
         to_call_bb = by_kind[ActionType.CALL].min_bb or 0.0
-        faced_frac = to_call_bb / max(pot_bb - max(current_bet_to, to_call_bb), 0.01)
+        if latest_aggressor_contribution_bb is None:
+            faced_frac = to_call_bb / max(pot_bb - max(current_bet_to, to_call_bb), 0.01)
+        else:
+            faced_frac = to_call_bb / max(pot_bb - latest_aggressor_contribution_bb, 0.01)
         fold_merit = _FOLD_BASE[bucket] * _price_factor(faced_frac, pf.stickiness)
         # F4 (RES-D §6): bluff-catch-class buckets fold MORE per added
         # opponent — direction only, see _MW_CATCH_TIGHTEN above.
