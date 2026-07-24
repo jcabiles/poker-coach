@@ -30,6 +30,7 @@ from __future__ import annotations
 import math
 import random
 import time
+from typing import NamedTuple
 
 import pytest
 
@@ -1225,6 +1226,47 @@ def _live_opponents(state, seat: int) -> int:
     )
 
 
+class PostflopDecision(NamedTuple):
+    """Richer per-postflop-decision context for the W0-b metrics (parallel to
+    the existing `log` 3-tuple, which stays untouched so AF/FtC/WTSD are
+    byte-identical). `in_position` is snapshotted at decision time; NO
+    whole-hand is_aggressor flag — c-bet/barrel lineage is derived from the
+    per-street bet/raise events themselves."""
+
+    seat: int
+    street: str
+    in_position: bool
+    action: str
+    bet_fraction: float | None  # size_bb / pot_bb for a BET/RAISE, else None
+
+
+class HandResult(NamedTuple):
+    """`_play_hand` return. `log`/`saw_flop`/`settlement` drive the existing
+    (byte-identical) AF/FtC/WTSD path; `decisions`/`preflop_log` feed the new
+    W0-b metrics."""
+
+    state: object
+    settlement: object
+    log: list  # postflop (seat, street, action) tuples — UNCHANGED shape
+    saw_flop: set
+    had_limper: bool
+    had_3bet_plus: bool
+    decisions: list  # list[PostflopDecision]
+    preflop_log: list  # (seat, action) for the APPLIED preflop decision only
+
+
+def _in_position(state, seat: int) -> bool:
+    """True iff no still-IN opponent acts after `seat` this street. Postflop
+    order runs SB-most -> button; FOLDED and ALL-IN seats are excluded (they
+    do not act after me). BB is IP vs SB; 3+-handed = the button-most live
+    seat. Snapshot at decision time (pre-apply). Harness-side derivation of the
+    same rule W3-a (A2) will later plumb into the domain — an accepted,
+    documented duplication to reconcile then."""
+    order = [(state.button_seat + 1 + k) % 9 for k in range(9)]
+    idx = order.index(seat)
+    return not any(state.seats[j].status is PlayerStatus.IN for j in order[idx + 1 :])
+
+
 def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
     """One full-hand playout; every seat runs its persona's sampler.
 
@@ -1235,6 +1277,8 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
     dealt = deal_hand(random.Random(hand_seed))
     state = start_hand(dealt, button_seat=button_seat, stacks_bb=[100.0] * 9)
     log: list[tuple[int, str, str]] = []
+    decisions: list[PostflopDecision] = []
+    preflop_log: list[tuple[int, str]] = []
     saw_flop: set[int] = set()
     had_limper = False
     had_3bet_plus = False
@@ -1267,6 +1311,9 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
             decision = _preflop_decision(
                 pack, seat_state.position, facing, seat_state.hole_cards, legal, rng
             )
+            # Log the APPLIED preflop decision only — no new rng draw, no
+            # "cleanup" of the existing double-sample (would shift the stream).
+            preflop_log.append((seat, decision.action.value))
         else:
             pot_bb = sum(s.invested_total_bb for s in state.seats)
             opponents = _live_opponents(state, seat)
@@ -1282,6 +1329,22 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
                 state.current_bet_bb,
             )
             log.append((seat, state.street.value, decision.action.value))
+            bet_fraction = (
+                round(decision.size_bb / pot_bb, 6)
+                if decision.action in (ActionType.BET, ActionType.RAISE)
+                and decision.size_bb is not None
+                and pot_bb > 0
+                else None
+            )
+            decisions.append(
+                PostflopDecision(
+                    seat=seat,
+                    street=state.street.value,
+                    in_position=_in_position(state, seat),
+                    action=decision.action.value,
+                    bet_fraction=bet_fraction,
+                )
+            )
         state = apply(state, decision)
     # Auto-runout (all-in before the flop closes) can flip hand_over=True on
     # the SAME apply() that first reveals >=3 board cards, skipping the
@@ -1291,7 +1354,16 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
             s.seat for s in state.seats if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
         }
     settlement = settle(state)
-    return state, settlement, log, saw_flop, had_limper, had_3bet_plus
+    return HandResult(
+        state=state,
+        settlement=settlement,
+        log=log,
+        saw_flop=saw_flop,
+        had_limper=had_limper,
+        had_3bet_plus=had_3bet_plus,
+        decisions=decisions,
+        preflop_log=preflop_log,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -1550,9 +1622,8 @@ def _persona_stats(packs, persona: str, n: int):
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
         button_seat = i % 9
-        state, settlement, log, saw_flop, _had_limper, _had_3bet = _play_hand(
-            rng, hand_seed, button_seat, persona_by_seat, packs
-        )
+        res = _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs)
+        settlement, log, saw_flop = res.settlement, res.log, res.saw_flop
         for seat in tested_seats:
             if seat in saw_flop:
                 saw_flop_hands += 1
@@ -1591,6 +1662,213 @@ def _persona_stats(packs, persona: str, n: int):
     result = (af, ftc, wtsd, call_count, cbet_opportunities, saw_flop_hands)
     _STATS_CACHE[key] = result
     return result
+
+
+# =====================================================================
+# W0-b — the six new harness metrics (theory contract §6) + metric-DoD.
+# Computed from the richer per-decision context ALONGSIDE the byte-identical
+# AF/FtC/WTSD path above. These are SMOKE / DIRECTIONAL: they prove the metric
+# computes + emits a value on today's engine. #5 (IP/OOP c-bet) and #6
+# (turn-barrel) read ~flat until the W3 context mechanics land — that flatness
+# is the correct pre-state, not a failure.
+#
+# Metric-DoD (roadmap D7): a downstream slice may NOT close on a HARD gate
+# until the metric it needs is live AND showing the expected direction. W0-b
+# only makes the metrics live; the direction is each later slice's exit gate.
+# =====================================================================
+
+_BUCKETS = [b.value for b in personas_postflop.SizeBucket]
+
+
+class ExtStats(NamedTuple):
+    cbet_flop: float | None  # P(bet | first-in flop decision)
+    wsd: float | None  # won >=1 pot / went to showdown
+    vpip: float | None
+    pfr: float | None
+    gap: float | None  # vpip - pfr
+    ftc_by_bucket: dict  # size bucket -> fold-to-cbet rate | None
+    cbet_ip: float | None  # #5 — reads ~flat until W3-b
+    cbet_oop: float | None
+    turn_barrel: float | None  # #6 — reads ~flat until W3-c
+
+
+_STATS_EXT_CACHE: dict[tuple[str, int], ExtStats] = {}
+
+
+def _rate(num: int, den: int) -> float | None:
+    """Rate with the harness's shared >=30-occurrence floor -> None."""
+    return (num / den) if den >= 30 else None
+
+
+def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
+    """The six W0-b metrics for `persona`, measured over the SAME seeded lineup
+    as `_persona_stats` (so the hands coincide) but from `decisions` /
+    `preflop_log`. Memoized per (persona, n). Metrics are harness-observed on
+    today's engine — no domain plumbing needed (the harness holds full state)."""
+    key = (persona, n)
+    if key in _STATS_EXT_CACHE:
+        return _STATS_EXT_CACHE[key]
+    rng = random.Random(20260710)
+    fillers = [p for p in ALL_PERSONAS if p != persona]
+    lineup = ([persona] * 3 + [fillers[i % len(fillers)] for i in range(6)])[:9]
+    persona_by_seat = {i: lineup[i] for i in range(9)}
+    tested_seats = {i for i, p in persona_by_seat.items() if p == persona}
+
+    cbet_bets = cbet_opps = 0
+    cbet_ip_bets = cbet_ip_opps = 0
+    cbet_oop_bets = cbet_oop_opps = 0
+    barrel_bets = barrel_opps = 0
+    wsd_win = wsd_show = 0
+    vpip_hands = pfr_hands = seat_hands = 0
+    ftc_folds = dict.fromkeys(_BUCKETS, 0)
+    ftc_opps = dict.fromkeys(_BUCKETS, 0)
+
+    for i in range(n):
+        hand_seed = rng.randrange(1_000_000_000)
+        res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
+
+        # --- VPIP / PFR / gap (once per tested seat-hand, applied actions) ---
+        seat_hands += len(tested_seats)
+        pf_acts: dict[int, set[str]] = {}
+        for seat, action in res.preflop_log:
+            if seat in tested_seats:
+                pf_acts.setdefault(seat, set()).add(action)
+        for seat in tested_seats:
+            acts = pf_acts.get(seat, set())
+            if acts & {"call", "bet", "raise"}:
+                vpip_hands += 1
+            if acts & {"bet", "raise"}:
+                pfr_hands += 1
+
+        # --- W$SD (won >=1 pot / went to showdown) ---
+        for seat in tested_seats:
+            if seat in res.settlement.showdown_seats:
+                wsd_show += 1
+                if any(seat in w for w in res.settlement.winners_by_pot):
+                    wsd_win += 1
+
+        # --- flop c-bet (first-in) + IP/OOP split; capture first flop bettor ---
+        flop = [d for d in res.decisions if d.street == "flop"]
+        bet_seen = False
+        first_bettor = None  # (seat, bet_fraction)
+        for d in flop:
+            if not bet_seen and d.seat in tested_seats:
+                cbet_opps += 1
+                if d.in_position:
+                    cbet_ip_opps += 1
+                else:
+                    cbet_oop_opps += 1
+                if d.action == "bet":
+                    cbet_bets += 1
+                    if d.in_position:
+                        cbet_ip_bets += 1
+                    else:
+                        cbet_oop_bets += 1
+            if d.action in ("bet", "raise"):
+                if first_bettor is None and d.action == "bet":
+                    first_bettor = (d.seat, d.bet_fraction)
+                bet_seen = True
+
+        # --- size-bucketed fold-to-cbet (first responder to the first bet) ---
+        if first_bettor is not None and first_bettor[1] is not None:
+            fb_seat, frac = first_bettor
+            bucket = personas_postflop.size_bucket(frac).value
+            seen = False
+            for d in flop:
+                if not seen:
+                    if d.seat == fb_seat and d.action == "bet":
+                        seen = True
+                    continue
+                if d.seat != fb_seat:  # the first responder
+                    if d.seat in tested_seats:
+                        ftc_opps[bucket] += 1
+                        if d.action == "fold":
+                            ftc_folds[bucket] += 1
+                    break
+
+        # --- turn barrel: the flop aggressor's first (unobstructed) turn bet ---
+        if first_bettor is not None and first_bettor[0] in tested_seats:
+            fa = first_bettor[0]
+            t_bet_seen = False
+            for d in (d for d in res.decisions if d.street == "turn"):
+                if d.seat == fa:
+                    if not t_bet_seen:  # clean barrel opportunity
+                        barrel_opps += 1
+                        if d.action in ("bet", "raise"):
+                            barrel_bets += 1
+                    break  # a lead before fa acted -> not a clean barrel spot
+                if d.action in ("bet", "raise"):
+                    t_bet_seen = True
+
+    vpip = _rate(vpip_hands, seat_hands)
+    pfr = _rate(pfr_hands, seat_hands)
+    stats = ExtStats(
+        cbet_flop=_rate(cbet_bets, cbet_opps),
+        wsd=_rate(wsd_win, wsd_show),
+        vpip=vpip,
+        pfr=pfr,
+        gap=(vpip - pfr) if vpip is not None and pfr is not None else None,
+        ftc_by_bucket={b: _rate(ftc_folds[b], ftc_opps[b]) for b in _BUCKETS},
+        cbet_ip=_rate(cbet_ip_bets, cbet_ip_opps),
+        cbet_oop=_rate(cbet_oop_bets, cbet_oop_opps),
+        turn_barrel=_rate(barrel_bets, barrel_opps),
+    )
+    _STATS_EXT_CACHE[key] = stats
+    return stats
+
+
+# Golden AF/FtC/WTSD captured on the PRE-refactor code at a fixed (persona, n)
+# with the harness's own deterministic seed (20260710). The log->HandResult
+# refactor for W0-b must reproduce these EXACTLY — band membership is too wide
+# to prove byte-identity (Sol #4 / refuter #3). None = below the >=30 floor.
+_GOLDEN_STATS_N200 = {
+    "calling_station": (0.4069400631, 0.2258064516, 0.5491525424),
+    "lag": (2.775, None, 0.5222222222),
+    "maniac": (3.5362318841, 0.3953488372, 0.4364640884),
+    "nit": (None, None, 0.5227272727),
+    "passive_fish": (0.5845410628, 0.3225806452, 0.5776699029),
+    "tag": (2.0, None, 0.5306122449),
+}
+
+
+def test_persona_stats_byte_identical_after_log_refactor():
+    """W0-b guard: the log->HandResult refactor must NOT shift AF/FtC/WTSD."""
+    packs = load_persona_packs()
+    for persona, (g_af, g_ftc, g_wtsd) in _GOLDEN_STATS_N200.items():
+        af, ftc, wtsd, *_ = _persona_stats(packs, persona, 200)
+        for got, want, name in ((af, g_af, "AF"), (ftc, g_ftc, "FtC"), (wtsd, g_wtsd, "WTSD")):
+            if want is None:
+                assert got is None, f"{persona} {name}: expected None, got {got}"
+            else:
+                assert got == pytest.approx(want, abs=1e-9), (
+                    f"{persona} {name}: {got} != golden {want} (byte-identity broken)"
+                )
+
+
+def test_persona_stats_ext_all_metrics_compute():
+    """W0-b DoD: each of the six metrics computes + emits a numeric value (or a
+    documented None below the >=30 floor) for every persona on today's engine —
+    no NaN, no exception. Direction is NOT asserted here (bots are unchanged;
+    #5/#6 read ~flat until W3). Fixed n=200 keeps this bounded + deterministic."""
+    packs = load_persona_packs()
+
+    def _ok(v) -> bool:
+        return v is None or (isinstance(v, float) and math.isfinite(v))
+
+    for persona in ALL_PERSONAS:
+        ext = _persona_stats_ext(packs, persona, 200)
+        scalars = ("cbet_flop", "wsd", "vpip", "pfr", "gap", "cbet_ip", "cbet_oop", "turn_barrel")
+        for name in scalars:
+            assert _ok(getattr(ext, name)), f"{persona} {name}={getattr(ext, name)!r}"
+        assert set(ext.ftc_by_bucket) == set(_BUCKETS)
+        for b, v in ext.ftc_by_bucket.items():
+            assert _ok(v), f"{persona} ftc[{b}]={v!r}"
+        # Sanity relations that must hold regardless of persona:
+        if ext.vpip is not None and ext.pfr is not None:
+            assert 0.0 <= ext.pfr <= ext.vpip <= 1.0, f"{persona} pfr={ext.pfr} vpip={ext.vpip}"
+        for r in (ext.cbet_flop, ext.wsd, ext.cbet_ip, ext.cbet_oop, ext.turn_barrel):
+            if r is not None:
+                assert 0.0 <= r <= 1.0, f"{persona} rate out of [0,1]: {r}"
 
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
@@ -1683,9 +1961,8 @@ def test_table_texture_9max_live_lineup(budget):
     for i in range(texture_n):
         hand_seed = rng.randrange(1_000_000_000)
         button_seat = i % 9
-        _state, _settlement, _log, saw_flop, had_limper, had_3bet = _play_hand(
-            rng, hand_seed, button_seat, persona_by_seat, packs
-        )
+        res = _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs)
+        saw_flop, had_limper, had_3bet = res.saw_flop, res.had_limper, res.had_3bet_plus
         players_to_flop_total += len(saw_flop) if saw_flop else 0
         # If no postflop street was reached (fold-out preflop), saw_flop is
         # empty; treat as 0 players-to-flop for the average (consistent with
