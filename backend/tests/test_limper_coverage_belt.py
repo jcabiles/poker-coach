@@ -69,10 +69,14 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # back-raise postflop spots via play.py's production path, again displacing the
 # shared-rng stream (old post-W1-a counts: UTG2¹ 97, LJ¹ 129, HJ¹ 154, CO¹ 140,
 # CO² 32, SB¹ 107, SB² 50, BTN¹ 122, BTN² 49). Every _WANT_* shape still fires.
+# RE-PINNED for W1-c (persona-realism-w1, 2026-07-24 — slice-authorized): the
+# multiway made-value BET damp (F13) changes bot postflop betting, displacing the
+# stream again (old post-W1-b counts: UTG2¹ 96, LJ¹ 132, HJ¹ 154, CO¹ 145, CO²
+# 33, SB¹ 101, SB² 53, BTN¹ 124, BTN² 50). Every _WANT_* shape still fires.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 96, ("LJ", 1): 132, ("HJ", 1): 154, ("CO", 1): 145,
-    ("CO", 2): 33, ("SB", 1): 101, ("SB", 2): 53, ("BTN", 1): 124,
-    ("BTN", 2): 50,
+    ("UTG2", 1): 86, ("LJ", 1): 117, ("HJ", 1): 139, ("CO", 1): 128,
+    ("CO", 2): 45, ("SB", 1): 119, ("SB", 2): 51, ("BTN", 1): 127,
+    ("BTN", 2): 43,
 }
 
 

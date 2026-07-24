@@ -374,6 +374,21 @@ _BLUFF_SHARE_REF = _BUCKET_BLUFF_SHARE[SizeBucket.MEDIUM]
 _MW_CATCH_TIGHTEN = 1.15
 _MW_CATCH_BUCKETS = (StrengthBucket.AIR, StrengthBucket.ACE_HIGH, StrengthBucket.MIDDLE_PAIR)
 
+# W1-c (F13, RES-D §6 direction-only): the VALUE-BET side of the multiway
+# correction. `multiway_bluff_damp` already tightens bluffs and `_MW_CATCH_TIGHTEN`
+# the bluff-catch folds per added opponent; made-value BETTING was flat across
+# `opponents`. Damp the unopened made-value BET merit geometrically as the field
+# grows — HU (opponents==1) is byte-identical (exponent 0). Scoped to the
+# THIN-value buckets (top pair / middle pair — the opponent-count-sensitive ones);
+# NOT monsters/two-pair+/overpairs (strong value you bet multiway regardless).
+# `0.8` is an UNFIT directional SEED (no multiway made-value metric is live — a
+# merit multiplier under softmax, so the observed bet-rate change is far smaller
+# than 0.8**k); capped at a labeled 4-way tier (`_MW_VALUE_CAP` added opponents —
+# 5+way magnitudes are unresearched → Later).
+_MW_VALUE_DAMP = 0.8
+_MW_VALUE_CAP = 3
+_MW_VALUE_BUCKETS = (StrengthBucket.TOP_PAIR, StrengthBucket.MIDDLE_PAIR)
+
 
 def _bluff_size_factor(frac: float) -> float:
     """Multiplier on the bluff mass for a chosen pot-fraction: the bucket's
@@ -533,6 +548,11 @@ def sample_postflop_decision(
         else:
             agg_merit = (_AGG_BASE[bucket] + _DRAW_AGG_BONUS[draw]) * agg_scale
             check_merit = _CHECK_BASE[bucket]
+            # W1-c (F13): tighten thin made-value BETTING as the field grows —
+            # the value-side mirror of the multiway bluff damp. BET only (the
+            # matched-with-option check-RAISE is out of scope); HU byte-identical.
+            if agg_action is ActionType.BET and bucket in _MW_VALUE_BUCKETS:
+                agg_merit *= _MW_VALUE_DAMP ** min(max(opponents - 1, 0), _MW_VALUE_CAP)
             # River polarization: the matched-with-option RAISE (check-raise
             # line) is floored for the whole one-pair class; the unopened BET is
             # floored for MIDDLE_PAIR ONLY (W1-a) — top-pair/overpair keep the

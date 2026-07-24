@@ -34,6 +34,13 @@ stream drifts (shorter checked-down rivers + rng displacement) → total
 (29.3% → 30.4%) — the invariant is the ratio, not the raw total, across an
 authorized bot-behavior change. This is a seeded-fixture re-record, NOT the
 population WTSD/AF tolerance-band re-anchor (frozen to W4-b).
+
+RE-RECORDED for W1-c (persona-realism-w1, 2026-07-24 — slice-authorized): the
+multiway made-value BET damp (F13) changes villain postflop betting → the
+stream drifts again → total 1196 → 1259, graded 363 → 371 (ratio 30.4% → 29.5%,
+still well above the immutable persona-realism-start floor of 28.3% — held).
+W1-b required no coverage re-record (its faced_frac fix hit no divergent spot in
+this deterministic sweep).
 """
 
 from __future__ import annotations

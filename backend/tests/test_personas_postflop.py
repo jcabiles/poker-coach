@@ -910,6 +910,28 @@ def test_multiway_unopened_air_bet_freq_lower_than_hu(persona):
     assert three_way < hu, f"{persona} 3-way bluff freq {three_way} not below HU {hu}"
 
 
+def test_multiway_made_value_bet_damped_monotone_and_scoped():
+    """W1-c (F13): thin made-value (top pair) unopened BET frequency is strictly
+    non-increasing as opponents rise 1→4 and PLATEAUS past the labeled 4-way cap
+    (exact captured weights, never sampled counts). Strong value (an overpair) is
+    NOT in the damped set → flat across opponents. HU (opponents==1) is
+    byte-identical (exponent 0), also enforced by the untouched HU suite."""
+    board = ["Kc", "7s", "2h"]  # dry flop, no draw
+    legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(2.0, 100.0)]
+
+    def pbet(hole, opp):
+        return _exact_dist_opp("tag", hole, board, legal, 6.0, 100.0, opponents=opp)[
+            ActionType.BET
+        ]
+
+    tp = [pbet(("Kh", "Qd"), o) for o in (1, 2, 3, 4, 5)]  # top pair
+    assert tp[0] > tp[1] > tp[2] > tp[3]  # thin value tightens as the field grows
+    assert tp[4] == pytest.approx(tp[3])  # capped at the 4-way tier (3 added opp)
+    # Scoping: an overpair is strong value (not in _MW_VALUE_BUCKETS) → flat.
+    op = [pbet(("Ah", "Ad"), o) for o in (1, 2, 3)]
+    assert op[0] == pytest.approx(op[1]) and op[1] == pytest.approx(op[2])
+
+
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
 def test_multiway_facing_bluff_catch_fold_freq_higher_than_hu(persona):
     """Direction (RES-D §6, 'fold more vs a bet multiway' for bluff-catchers):
@@ -1899,16 +1921,20 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
 # RE-RECORDED for W1-a (persona-realism-w1, 2026-07-24 — slice-authorized): the
 # harness runs villains through the SAME postflop sampler, so the middle-pair
 # river BET floor (F6) deliberately changes river play -> AF/FtC/WTSD shift.
-# These are the re-measured post-W1-a exact goldens. This is a seeded-fixture
-# re-record (the exact tripwire MUST track intended behavior), NOT the population
-# WTSD/AF tolerance-band re-anchor, which stays frozen to W4-b.
+# Re-record of the exact tripwire (MUST track intended behavior), NOT the
+# population WTSD/AF tolerance-band re-anchor, which stays frozen to W4-b.
+# RE-RECORDED for W1-c (persona-realism-w1, 2026-07-24 — slice-authorized): the
+# multiway made-value BET damp (F13) tightens top/middle-pair betting as the
+# field grows -> multiway spots in the harness shift AF/FtC/WTSD again. These are
+# the post-W1-c exact goldens (post-W1-b golden was byte-identical to W1-a — the
+# faced_frac fix is inert in this harness wrapper).
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.4314381271, 0.262295082, 0.6054421769),
-    "lag": (3.3181818182, None, 0.5779816514),
-    "maniac": (3.5909090909, 0.5, 0.4381443299),
-    "nit": (1.0909090909, None, 0.5090909091),
-    "passive_fish": (0.5388127854, 0.2448979592, 0.6376146789),
-    "tag": (2.3777777778, None, 0.5294117647),
+    "calling_station": (0.4411764706, 0.1641791045, 0.6172413793),
+    "lag": (3.3404255319, None, 0.6330275229),
+    "maniac": (3.4915254237, 0.5217391304, 0.4719101124),
+    "nit": (None, None, 0.5882352941),
+    "passive_fish": (0.5156950673, 0.3414634146, 0.6396396396),
+    "tag": (2.4210526316, None, 0.5974025974),
 }
 
 
