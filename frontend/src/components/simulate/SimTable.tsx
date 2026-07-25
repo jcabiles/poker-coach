@@ -49,6 +49,16 @@ function personaLabel(persona: string): string {
     .join(" ");
 }
 
+// The archetype's HEAD noun — the word that actually names the type ("Calling
+// Station" ⇒ "Station", "Passive Fish" ⇒ "Fish"). The villain meta now sits on a
+// SINGLE row (position · persona · stack · range) so the pod clears its
+// neighbour's on the ellipse flanks; a two-word badge is what blows that row's
+// width. The full label stays in the `title` attribute, so nothing is lost.
+function personaShort(persona: string): string {
+  const full = personaLabel(persona);
+  return full.slice(full.lastIndexOf(" ") + 1);
+}
+
 export default function SimTable({
   hand,
   board,
@@ -238,13 +248,24 @@ export default function SimTable({
                 className={
                   "tseat sim-seat" +
                   (folded ? " tseat-folded" : "") +
-                  (isToAct ? " sim-seat-act" : "")
+                  (isToAct ? " sim-seat-act" : "") +
+                  // Stacking lift: a pod carrying a verb paints ABOVE its
+                  // neighbours, so the label can never be buried by an adjacent
+                  // pod's meta row (the flank-collision defect).
+                  (lastAction ? " sim-seat-labeled" : "")
                 }
                 key={seat.seat_index}
                 style={style}
               >
-                {lastAction}
-                {chips}
+                {(lastAction || chips) && (
+                  // Verb + chips share ONE row above the cards. Stacked they
+                  // cost two lines, which is what pushed flank pods past the
+                  // 98px gap between neighbouring seats on the ellipse.
+                  <span className="sim-actrow">
+                    {lastAction}
+                    {chips}
+                  </span>
+                )}
                 {revealedCards ? (
                   <span className="cards sim-reveal" aria-label={`${seat.position} shows`}>
                     {revealedCards.map((c, j) => (
@@ -259,45 +280,53 @@ export default function SimTable({
                     </span>
                   )
                 )}
-                <span className="pos">
-                  {seat.position}
-                  {isButton && (
-                    <span className="dealer" aria-label="dealer button">
-                      D
+                {/* Position · persona · stack · range on ONE row. Stacked as
+                    four separate lines the pod ran 127-140px tall, while
+                    neighbouring seats on the ellipse flanks are only 98px
+                    apart — so every flank pod's top row (the verb) landed
+                    inside the pod above it. One row keeps all four pieces of
+                    information and fits the gap. */}
+                <span className="sim-meta">
+                  <span className="pos">
+                    {seat.position}
+                    {isButton && (
+                      <span className="dealer" aria-label="dealer button">
+                        D
+                      </span>
+                    )}
+                  </span>
+                  {seat.persona_type && (
+                    <span className="sim-persona" title={personaLabel(seat.persona_type)}>
+                      {personaShort(seat.persona_type)}
                     </span>
                   )}
-                </span>
-                {seat.persona_type && (
-                  <span className="sim-persona" title={personaLabel(seat.persona_type)}>
-                    {personaLabel(seat.persona_type)}
+                  <span className="stack num">
+                    {fmtBb(seat.stack_bb)}bb
+                    {allin && <span className="sim-allin"> all-in</span>}
                   </span>
-                )}
-                <span className="stack num">
-                  {fmtBb(seat.stack_bb)}bb
-                  {allin && <span className="sim-allin"> all-in</span>}
+                  {/* Range reveal (V2): live villain pods only. Gated on the
+                      STAGED fold state (`folded` above) — same value the pod
+                      display uses — so the button stays until the fold narrates
+                      (spec low-2), not the instant server-truth flips. Also
+                      requires a persona (no estimate without a pack). Hidden at
+                      hand_over: the felt reveals real cards, an estimate is noise. */}
+                  {seat.persona_type && !folded && !hand.hand_over && (
+                    <button
+                      type="button"
+                      className={
+                        "sim-vrange-btn" +
+                        (openRangeSeat === seat.seat_index ? " sim-vrange-btn-on" : "")
+                      }
+                      onClick={() => onToggleRange(seat.seat_index)}
+                      aria-pressed={openRangeSeat === seat.seat_index}
+                      aria-label={`${
+                        openRangeSeat === seat.seat_index ? "Hide" : "Show"
+                      } estimated range for ${seat.position}`}
+                    >
+                      range
+                    </button>
+                  )}
                 </span>
-                {/* Range reveal (V2): live villain pods only. Gated on the
-                    STAGED fold state (`folded` above) — same value the pod
-                    display uses — so the button stays until the fold narrates
-                    (spec low-2), not the instant server-truth flips. Also
-                    requires a persona (no estimate without a pack). Hidden at
-                    hand_over: the felt reveals real cards, an estimate is noise. */}
-                {seat.persona_type && !folded && !hand.hand_over && (
-                  <button
-                    type="button"
-                    className={
-                      "sim-vrange-btn" +
-                      (openRangeSeat === seat.seat_index ? " sim-vrange-btn-on" : "")
-                    }
-                    onClick={() => onToggleRange(seat.seat_index)}
-                    aria-pressed={openRangeSeat === seat.seat_index}
-                    aria-label={`${
-                      openRangeSeat === seat.seat_index ? "Hide" : "Show"
-                    } estimated range for ${seat.position}`}
-                  >
-                    range
-                  </button>
-                )}
               </div>
             );
           })}
