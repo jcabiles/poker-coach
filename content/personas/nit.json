@@ -28,16 +28,16 @@
       "facing": "unopened",
       "positions": ["UTG"],
       "mixes": [
-        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
-        { "combos": "22-66", "weights": { "limp": 0.4, "fold": 0.6 } }
+        { "combos": "22-66", "weights": { "limp": 0.4, "fold": 0.6 } },
+        { "combos": "77+, A7s+, K8s+, QTs+, JTs, ATo+, KJo+", "weights": { "raise": 1.0 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": null,
       "mixes": [
-        { "combos": "88+, AJs+, KQs, AJo+, KQo", "weights": { "raise": 1.0 } },
-        { "combos": "22-77", "weights": { "limp": 0.4, "fold": 0.6 } }
+        { "combos": "22-77", "weights": { "limp": 0.4, "fold": 0.6 } },
+        { "combos": "88+, A2s+, K4s+, Q6s+, J8s+, T8s+, A6o+, K7o+, Q9o+, JTo", "weights": { "raise": 1.0 } }
       ]
     },
     {
