@@ -263,7 +263,11 @@ _CALL_BASE = {
     StrengthBucket.TWO_PAIR_PLUS: 0.55,
     StrengthBucket.OVERPAIR_TPTK: 0.70,
     StrengthBucket.TOP_PAIR: 0.78,
-    StrengthBucket.MIDDLE_PAIR: 0.60,
+    # W3R-4 (#11): 0.60 -> 0.52. Naked middle pair was mildly over-calling; this
+    # is a FIT SEED, measured (not dropped in) — every persona's AF/fold-to-cbet/
+    # WTSD band was re-measured across 0.48/0.52/0.56/0.60 and stays IN its frozen
+    # band at 0.52 (no re-anchor). Mirrors the A1-style base trims.
+    StrengthBucket.MIDDLE_PAIR: 0.52,
     StrengthBucket.ACE_HIGH: 0.40,
     StrengthBucket.AIR: 0.08,
 }
@@ -670,9 +674,17 @@ def sample_postflop_decision(
     # byte-identical), then add the busted-draw story bluff on the river — a hand
     # that bet the prior street and missed keeps a coherent barrel (survives the
     # decay; STRAIGHT > FLUSH). Value merit is never touched here.
+    #
+    # W3R-4 (#7): the busted add-on is still added AFTER the street decay (that
+    # survival is its whole point) but now carries the SAME multiway factor the
+    # generic bluff mass gets at the line above — a busted flush must not fire the
+    # same story bluff into 3 callers as heads-up (TAG H41). Heads-up is
+    # byte-identical (`** 0` = 1.0).
     bluff_mass *= _STREET_AGG_MULT.get(street, 1.0)
     if street is Street.RIVER and context is not None and context.bet_prev_street:
-        bluff_mass += _BUSTED_RIVER_BLUFF.get(context.busted_draw, 0.0)
+        bluff_mass += _BUSTED_RIVER_BLUFF.get(
+            context.busted_draw, 0.0
+        ) * pf.multiway_bluff_damp ** max(opponents - 1, 0)
 
     entries: list[tuple[ActionType, float]] = []
     if ActionType.FOLD in by_kind:  # facing chips

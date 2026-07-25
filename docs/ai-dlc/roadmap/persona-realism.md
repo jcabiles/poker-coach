@@ -366,14 +366,22 @@ re-tuning). Every slice: default-off byte-identity for un-opted-in direct caller
         fold damp — folded into W3R-6** (which already scopes one-pair raise-damp facing action). Do NOT re-attempt
         the global `_CALL_BASE[ACE_HIGH]` cut.
 
-- [ ] **W3R-4 — Shared-code fixes (#7, #11, #14).** Scale `_BUSTED_RIVER_BLUFF` by `multiway_bluff_damp**(opp-1)`
-      (currently added AFTER the damp → multiway busted-flush bluffs over-fire, TAG H41 into 3 callers);
-      `_CALL_BASE[MIDDLE_PAIR]` 0.60→≈0.52 (mild); fix the shared-board-pair→`TWO_PAIR_PLUS` commit inflation so an
-      underpair over a paired board (99-on-7887-8, nit H61) stops force-committing. **Pass/fail:** multiway
-      busted-bluff rate drops; shared-board "two pair" no longer auto-commits at low SPR. **No-gos:** don't demote
-      genuine (unshared) two pair. **Scope-check at `/ai-dlc`:** #14 (commit-inflation edge in `_made_bucket`) carries
-      its own blast radius — split it out from the two trivial base-table tweaks (#7/#11) if planning finds it heavy.
-      Appetite: ~1 slice.
+- [ ] **W3R-4 — Shared-code base/ordering fixes (#7, #11).** ⚠️ **#14 SPLIT OUT (owner 2026-07-24, planning found
+      it heavy) → its own slice below.** Scale `_BUSTED_RIVER_BLUFF` by `multiway_bluff_damp**(opp-1)` (currently
+      added AFTER the damp at `personas_postflop.py:675` → multiway busted-flush bluffs over-fire, TAG H41 into 3
+      callers); `_CALL_BASE[MIDDLE_PAIR]` 0.60→≈0.52 (mild, `:266`). **Pass/fail:** multiway busted-bluff mass
+      strictly decays 1→3 opponents (heads-up byte-identical); middle-pair trim keeps every persona in band.
+      **No-gos:** no `_made_bucket`/taxonomy edit (that's #14); no band re-anchor (in-band or STOP). Appetite: ~1
+      small slice.
+
+- [ ] **W3R-4b — Shared-board false "two pair" commit-inflation (#14) — TAXONOMY EDGE (split from W3R-4).** Fix the
+      shared-board-pair→`TWO_PAIR_PLUS` commit inflation so an underpair over a paired board (99-on-7887-8, nit H61)
+      stops force-committing. Edits `_made_bucket` (the strength-taxonomy hotspot — already carries the delicate "F7
+      bug 1" pocket-underpair logic at ~`:125-137`). **Pass/fail:** shared-board "two pair" no longer auto-commits at
+      low SPR; genuine (unshared, both-hole-cards-play) two pair UNTOUCHED. **No-gos:** don't demote genuine two pair
+      (§9-adjacent); grader/`spot_signature()` frozen; blast radius = bot side only. **Sequencing note:** taxonomy-
+      adjacent to W3R-7 (OVERPAIR_TPTK bucket split, same `_made_bucket`) — consider ordering them back-to-back or
+      folding together to touch the taxonomy once. Appetite: ~1 slice.
 
 - [ ] **W3R-5 — Defense-side texture/scare fold brake (#8) — NEW MECHANIC.** The W3-d texture damps are BET-only;
       the FOLD side gets no board signal → scary-board call-downs (station H54 monotone / H100 four-flush, nit H41,
