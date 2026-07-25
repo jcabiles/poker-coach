@@ -1314,6 +1314,27 @@ the serial spine S2→S4→S9→S10, not the agent budget.
   is PRE-EXISTING shell chrome (already a NEXT item @ S9 line 212 — the new views reflow clean);
   reveal-list "Seat N" vs position vocabulary polish. What-if/re-sim, hand import/export, SRS
   seeding remain out.)*
+  - [x] **Hand replayer — two-pane redesign.** **DONE 2026-07-25** *(feat/sim-history-replayer-twopane,
+    PR #114, /ai-dlc-ux-ui). History-route replayer went from one-move-at-a-time filmstrip → two-pane:
+    full 9-seat felt LEFT reusing the live-Simulate objects verbatim (unified identity), street-grouped
+    moves RIGHT with click-to-jump, dedicated verdict panel below. NEW pure `replaySeats.ts` deriver
+    (reconstructs seat state from the flat action log; 13 vitest) + `HandReplayTable.tsx`; felt opts into
+    the live wide-shell + ring-height and stacks ≤1100px. Shared `HandReplay` (Simulate quick-replay) +
+    `PokerTable` untouched; no backend/type change. Dual review (refuter + Codex Sol) + design-reviewer
+    PASS both themes @ 1440/1024/375.)*
+  - **FOLLOW-UP (unspec'd, LOW) — unify the hand-number label across the History list → replayer.**
+    *Evidence:* the History list labels each row **"Hand {day_ordinal}"** (`frontend/src/components/HistoryView.tsx`
+    ~L202-203, `it.day_ordinal` = Nth-completed that UTC day) but the opened replayer header shows the
+    **session `hand_no`** (`frontend/src/components/simulate/HandReplayTable.tsx` ~L119-121, `replay.hand_no`
+    = 1-based within its session) — two unrelated numbering schemes across the click boundary, so a user
+    can't correlate the row they clicked (e.g. "Hand 5") with the hand they land on (e.g. "Hand 148").
+    **PRE-EXISTING** (the old single-column `HandReplay` showed `hand_no` too — not introduced by the
+    two-pane redesign), which is why it was left out of PR #114. *Fix options:* (a) show the same number on
+    both surfaces, or (b) disambiguate the header (e.g. "Hand #148 · 5th today"). *Constraint to know:*
+    `HandReplayView` (the replay wire, `api/types.ts`) carries `hand_no` but **NOT** `day_ordinal`, so matching
+    the list means threading `day_ordinal` from the clicked `HistoryListItemView` into the component — whose
+    props were deliberately kept identical to `HandReplay` (`{ replay, onClose }`) for a clean host swap, so
+    (b) is the smaller change. Design-reviewer flagged this MED on the PR #114 review.
 - **Persona realism — ALL 6 personas (nit / fish / station + maniac / LAG / TAG) decision-making.**
   *(user-reported 2026-07-23; TWO dual adversarial reviews — non-aggressive + aggressive — each
   Codex Sol **FAIL** + Claude Opus **PASS-WITH-ISSUES/leaning-FAIL**; full findings + math + code
