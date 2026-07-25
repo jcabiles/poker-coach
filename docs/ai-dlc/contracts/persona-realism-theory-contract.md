@@ -82,6 +82,7 @@ The idealized-distinct stat signatures. **HARD-vs-directional is critical — a 
 
 **Preflop (VPIP / PFR / gap) — HARD-pending #3 (maniac `MED*` gate-with-headroom; 3-bet & fold-to-3bet extremes DIRECTIONAL):**
 
+<!-- provenance-gate: keystone -->
 | | nit | TAG | LAG | maniac | station | fish |
 |---|---|---|---|---|---|---|
 | VPIP | 10–14 ‡ | 15–20 ‡ | 21–27 ‡ | 45–58 | 42–55 | 40–55 ‡ |
@@ -102,6 +103,7 @@ The idealized-distinct stat signatures. **HARD-vs-directional is critical — a 
 
 **Postflop:**
 
+<!-- provenance-gate: keystone -->
 | Stat [tag] | nit | TAG | LAG | maniac | station | fish |
 |---|---|---|---|---|---|---|
 | C-bet flop overall [HARD-pending #1] | 40–55 | 55–70 | 60–75 | 80–95 | 25–40 | 35–50 |
@@ -127,6 +129,35 @@ Also: **C-bet IP/OOP** [DIR, needs #5] · **WWSF** [DIR] · **Check-raise%** [DI
 | maniac | 30–40 | (0.34, 0.50) | tighten (mostly overlaps) |
 
 The population is inflated vs RP6 (price-blind defense keeps too many pots to showdown); WTSD should FALL once P3/P8 land. AF and Fold-to-C-bet bands mostly already overlap RP6; only WTSD needs the explicit downward re-anchor. **No RP6 number is written into a test as a gate until this reconcile happens** at the single Wave-4 re-measure.
+
+## 5a. Target provenance registry (W5-a1 — the citing gate)
+
+**Why this exists.** No gate validated a *target*. D7 (§6) validates the *instrument*; §7's anti-laundering rule gives the *measured comparator* immutability and an audit trail. The keystone table had neither — and the softmax law (§2) **consumes** a target, so against a wrong one the engine converges confidently onto wrong behavior and reports success. The project's strictest gate was also its most efficient error-propagator. Ledger #14 is the proof: a 6-max band sat in §5 for the whole preflop program, and the harm channel was never CI (metric #3 is never compared to §5 at all — its only assertion is `0.0 <= pfr <= vpip <= 1.0`) but **human and agent judgement**. So the gate sits where a target is *cited into a ticket*.
+
+**Every row of a `<!-- provenance-gate: keystone -->` table in §5 must appear below**, carrying either a `(format, pool/stakes, source)` triple or the literal `[UNVERIFIED]`. Enforced mechanically by `backend/tests/test_contract_provenance.py`.
+
+**Format-SENSITIVE stats** (a 6-max number may NOT be transferred to 9-max, or vice versa, without restating it): VPIP, PFR, 3-bet%, RFI-by-seat, c-bet, fold-to-c-bet, WTSD, turn barrel, multiway incidence.
+**Format-INVARIANT stats** (transfer is safe, state that you relied on it): the VPIP−PFR **gap**, **AF**, and any ordering or monotonicity claim.
+
+| Row | Format | Pool / stakes | Source | Status |
+|---|---|---|---|---|
+| VPIP | 9-max full ring | online micro–low NL cash | full-ring specialist publishing both formats side by side + 2 lower-tier corroborators (ledger #14) | VERIFIED · conf MEDIUM · band edges DIRECTIONAL |
+| PFR | 9-max full ring | online micro–low NL cash | as VPIP (ledger #14) | VERIFIED for nit/TAG/LAG/fish · ⚠ **station & fish cells are LOW-conf and DIRECTIONAL-only** (§5) |
+| gap | format-INVARIANT | both formats | RP6 + ledger #14 (~3pts either format) | VERIFIED · transfer explicitly relied upon |
+| C-bet flop overall | `[UNVERIFIED]` | — | never checked for table size — W5-a2 owns the audit | `[UNVERIFIED]` |
+| Fold-to-C-bet aggregate | `[UNVERIFIED]` | — | never checked for table size — W5-a2 owns the audit | `[UNVERIFIED]` · **currently HARD-today; demotion to no-regression is W5-a2's deliverable** |
+| Turn barrel | `[UNVERIFIED]` | — | never checked for table size — W5-a2 owns the audit | `[UNVERIFIED]` |
+| WTSD | `[UNVERIFIED]` | — | never checked for table size — W5-a2 owns the audit | `[UNVERIFIED]` · **currently HARD-today; demotion is W5-a2's deliverable** |
+| W$SD | `[UNVERIFIED]` | — | never checked for table size — W5-a2 owns the audit | `[UNVERIFIED]` |
+| AF | `[UNVERIFIED]` | — | format-INVARIANT by §5a's own list, but the *level* was never sourced for this pool — W5-a2 rules | `[UNVERIFIED]` · **currently HARD-today; demotion is W5-a2's deliverable** |
+
+**The postflop half is `[UNVERIFIED]` wholesale on purpose.** §10's transfer caveat already said the postflop bands are not table-size verified; this registry makes that machine-readable instead of prose. It is a statement about *provenance*, not a claim the numbers are wrong — W5-a2 confirms or restates each one.
+
+### The two obligations
+
+**(1) The citing gate.** A ticket, spec, or slice that cites a §5 target MUST quote its provenance triple. **A bare number FAILs review.** Citing an `[UNVERIFIED]` row is allowed only as DIRECTIONAL evidence — such a row may **never** be made a HARD gate while unverified. (Rows that are HARD *today* and newly marked `[UNVERIFIED]` are grandfathered pending W5-a2's demotion; no slice may add a new one.)
+
+**(2) The W3R-1 rule — infeasibility is evidence about the TARGET.** When a fit cannot reach a target using a legitimate range or lever, the slice **STOPS and re-opens that target's provenance**. It does **not** widen the lever, widen the band, or re-scope the test to dodge the number. Three separate slices hit the α wall and each escaped by node-scoping instead of resolving it; that pattern is what this rule exists to stop.
 
 ---
 
@@ -241,6 +272,7 @@ The most important section. For a persona-realism slice under review:
 12. **[Stacked-multiplier order — §7]** If the slice adds a multiplier, is it applied to the whole aggressive candidate in the §10.2 order, and is the *combined* product calibrated (not each factor independently)? If not → **FAIL**.
 13. **[Domain purity + scope]** Does the slice keep `personas*.py` pure (no web/DB), leave the grader / `spot_signature()` untouched, and stay inside the files its ticket names? Any breach → **FAIL**.
 14. **[Coverage delta]** Did the slice report the cumulative graded-coverage delta vs the immutable snapshot, and is any loss adjudicated? Silent loss → **FAIL**.
+15. **[Target provenance — §5a]** Does the slice cite a §5 target as a **bare number**, with no `(format, pool/stakes, source)` triple? → **FAIL**. Does it transfer a format-SENSITIVE stat across table sizes without restating it, or gate HARD on an `[UNVERIFIED]` row? → **FAIL**. And the W3R-1 rule: did the slice fail to reach a target and respond by widening a lever, widening a band, or re-scoping the test — instead of stopping and re-opening that target's provenance? → **FAIL**. **This contract is not immune:** a format/pool mismatch found here is a **CONTRACT-DEFECT at HIGH**, and the slice may not pass on the contract's authority alone.
 
 ---
 
