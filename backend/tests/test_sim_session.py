@@ -32,7 +32,7 @@ from app.domain.table.engine import (
 )
 from app.domain.table.engine import legal_actions as engine_legal_actions
 from app.domain.table.grade_map import map_decision_point
-from app.domain.table.postflop_context import derive_postflop_context
+from app.domain.table.postflop_context import derive_postflop_context, street_aggression_count
 from app.domain.table.postflop_context import facing_raise as ctx_facing_raise
 from app.domain.table.sizing import (
     last_aggressor_position,
@@ -288,7 +288,18 @@ def test_bot_decision_parity_with_harness():
                     state.action_history, state.street
                 ).latest_aggressor_contribution_bb
                 context = derive_postflop_context(state, seat)
-                faced_raise = ctx_facing_raise(state.action_history, state.street)
+                # W5-a3-iii (C30): thread `street_aggressions` (the raw count)
+                # rather than the boolean directly -- the harness derives
+                # `facing_raise` FROM the count (`>= 2`), so this also proves
+                # that derivation agrees with production's own
+                # `facing_raise()` call in `play.bot_decision` (a mismatch
+                # would break this parity assertion).
+                street_aggressions = street_aggression_count(
+                    state.action_history, state.street
+                )
+                assert (street_aggressions >= 2) == ctx_facing_raise(
+                    state.action_history, state.street
+                )
                 expected = harness._postflop_decision(
                     pack, seat_state.hole_cards, state.board, legal, pot_bb,
                     seat_state.stack_bb, opponents, random.Random(decision_seed),
@@ -296,7 +307,7 @@ def test_bot_decision_parity_with_harness():
                     is_aggressor=is_aggressor,
                     latest_aggressor_contribution_bb=contribution,
                     context=context,
-                    facing_raise=faced_raise,
+                    street_aggressions=street_aggressions,
                 )
             # R2: play.bot_decision now sizes bets from the persona levers /
             # node-aware distribution, while the harness mirror stays on the

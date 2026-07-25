@@ -1647,18 +1647,38 @@ def _preflop_decision(pack, position, facing, hole, legal, rng) -> Decision:
 # polarization instead of running the streetless default.
 _STREET_BY_BOARD_LEN = {3: Street.FLOP, 4: Street.TURN, 5: Street.RIVER}
 
+# W5-a3-iii (C30): the reference derivation for the band sampler's/parity
+# mirror's context kwargs — the SAME helpers `play.bot_decision` uses.
+from app.domain.table.postflop_context import (  # noqa: E402
+    derive_postflop_context,
+    street_aggression_count,
+)
+from app.domain.table.sizing import (  # noqa: E402
+    last_aggressor_position,
+    pot_before_current_aggression,
+)
+
 
 def _postflop_decision(
     pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to,
     *, is_aggressor=_OMIT, latest_aggressor_contribution_bb=_OMIT, context=_OMIT,
-    facing_raise=_OMIT,
+    facing_raise=_OMIT, street_aggressions=_OMIT,
 ) -> Decision:
     # The context kwargs default to _OMIT so `_play_hand` (the band/stat sim,
     # below) calls this EXACTLY as before -> its WTSD/texture/VPIP stats stay
-    # byte-identical (the band sampler remains context-blind; tracked as the
-    # W3R-1 deeper follow-up). Only the sim_session action-parity test threads
-    # the same context production's `play.bot_decision` derives, so the mirror
-    # matches the real (W3-a/b/c/d context-aware) bot's ACTION exactly.
+    # byte-identical UNLESS `_play_hand`'s own `context_aware=True` opt-in is
+    # set (W5-a3-iii; see there). Only the sim_session action-parity test
+    # threads the same context production's `play.bot_decision` derives, so
+    # the mirror matches the real (W3-a/b/c/d context-aware) bot's ACTION
+    # exactly.
+    #
+    # `street_aggressions` (the raw BET/RAISE-on-this-street count, C30) is
+    # NOT a `sample_postflop_decision` parameter — production only consumes
+    # the boolean `facing_raise` (= count >= 2). Threading the count here
+    # lets a caller supply it directly (matching how a future W3R-5 leg would
+    # gate on the count, e.g. `== 1`) without duplicating the >= 2 rule at
+    # every call site; it derives `facing_raise` when the caller didn't
+    # already supply one.
     kinds = {la.action for la in legal}
     _kw = {
         "current_bet_to": current_bet_to,
@@ -1672,6 +1692,8 @@ def _postflop_decision(
         _kw["context"] = context
     if facing_raise is not _OMIT:
         _kw["facing_raise"] = facing_raise
+    elif street_aggressions is not _OMIT:
+        _kw["facing_raise"] = street_aggressions >= 2
     d = sample_postflop_decision(
         pack,
         hole,
@@ -1741,12 +1763,22 @@ def _in_position(state, seat: int) -> bool:
     return not any(state.seats[j].status is PlayerStatus.IN for j in order[idx + 1 :])
 
 
-def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
+def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_aware=False):
     """One full-hand playout; every seat runs its persona's sampler.
 
     Returns (final HandState, Settlement, per-seat postflop action log for
     stats: list of (seat, street, action) tuples) and per-hand facts used by
     the table-texture assertions (limper flag, 3bet-pot flag, saw-flop seats).
+
+    `context_aware=False` (default) calls `_postflop_decision` with NO
+    context kwargs -- byte-identical to the pre-W5-a3-iii sampler, so every
+    existing AF/FtC/WTSD band and golden stays untouched (measurement-only;
+    no band re-anchor). `context_aware=True` (W5-a3-iii, C30) derives
+    `is_aggressor` / `latest_aggressor_contribution_bb` / `context` /
+    `facing_raise` / `street_aggressions` EXACTLY as `play.bot_decision`
+    does, making the band sampler's postflop decisions match the live,
+    context-aware bot -- opt-in only, so a caller must deliberately ask for
+    the (currently unbanded) context-aware measurement.
     """
     dealt = deal_hand(random.Random(hand_seed))
     state = start_hand(dealt, button_seat=button_seat, stacks_bb=[100.0] * 9)
@@ -1791,17 +1823,46 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs):
         else:
             pot_bb = sum(s.invested_total_bb for s in state.seats)
             opponents = _live_opponents(state, seat)
-            decision = _postflop_decision(
-                pack,
-                seat_state.hole_cards,
-                state.board,
-                legal,
-                pot_bb,
-                seat_state.stack_bb,
-                opponents,
-                rng,
-                state.current_bet_bb,
-            )
+            if context_aware:
+                # W5-a3-iii: the SAME derivation `play.bot_decision` uses —
+                # see `backend/app/domain/table/play.py:bot_decision`.
+                is_aggressor = (
+                    last_aggressor_position(state.action_history) == seat_state.position
+                )
+                contribution = pot_before_current_aggression(
+                    state.action_history, state.street
+                ).latest_aggressor_contribution_bb
+                context = derive_postflop_context(state, seat)
+                street_aggressions = street_aggression_count(
+                    state.action_history, state.street
+                )
+                decision = _postflop_decision(
+                    pack,
+                    seat_state.hole_cards,
+                    state.board,
+                    legal,
+                    pot_bb,
+                    seat_state.stack_bb,
+                    opponents,
+                    rng,
+                    state.current_bet_bb,
+                    is_aggressor=is_aggressor,
+                    latest_aggressor_contribution_bb=contribution,
+                    context=context,
+                    street_aggressions=street_aggressions,
+                )
+            else:
+                decision = _postflop_decision(
+                    pack,
+                    seat_state.hole_cards,
+                    state.board,
+                    legal,
+                    pot_bb,
+                    seat_state.stack_bb,
+                    opponents,
+                    rng,
+                    state.current_bet_bb,
+                )
             log.append((seat, state.street.value, decision.action.value))
             bet_fraction = (
                 round(decision.size_bb / pot_bb, 6)
@@ -2088,20 +2149,27 @@ BANDS = {
 }
 
 
-_STATS_CACHE: dict[tuple[str, int], tuple] = {}
+_STATS_CACHE: dict[tuple[str, int, bool], tuple] = {}
 
 
-def _persona_stats(packs, persona: str, n: int):
+def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
     """Run N hands with a 9-seat lineup of ALL personas (round-robin fill,
     tested persona repeated to guarantee representation), collect AF /
     fold-to-cbet / WTSD for the tested persona's seats only.
 
-    Memoized per (persona, n) within the process: the band test and the
-    ordering-invariant test both need every persona's stats at the same N
-    (from the shared `budget` fixture) -- caching avoids re-simulating the
-    same N hands twice and keeps the whole file inside its runtime budget.
+    Memoized per (persona, n, context_aware) within the process: the band
+    test and the ordering-invariant test both need every persona's stats at
+    the same N (from the shared `budget` fixture) -- caching avoids
+    re-simulating the same N hands twice and keeps the whole file inside its
+    runtime budget.
+
+    `context_aware` (W5-a3-iii, default False) forwards to `_play_hand` --
+    False keeps every existing CI band/golden byte-identical (no band
+    re-anchor); True is the opt-in demonstration path proving the band
+    sampler is no longer context-blind (see
+    `test_street_aggressions_effect_visible_to_af_gate` below).
     """
-    key = (persona, n)
+    key = (persona, n, context_aware)
     if key in _STATS_CACHE:
         return _STATS_CACHE[key]
     rng = random.Random(20260710)
@@ -2117,7 +2185,9 @@ def _persona_stats(packs, persona: str, n: int):
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
         button_seat = i % 9
-        res = _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs)
+        res = _play_hand(
+            rng, hand_seed, button_seat, persona_by_seat, packs, context_aware=context_aware
+        )
         settlement, log, saw_flop = res.settlement, res.log, res.saw_flop
         for seat in tested_seats:
             if seat in saw_flop:
@@ -2537,6 +2607,50 @@ def test_persona_stats_byte_identical_after_log_refactor():
                 assert got == pytest.approx(want, abs=1e-9), (
                     f"{persona} {name}: {got} != golden {want} (byte-identity broken)"
                 )
+
+
+# ---------------------------------------------------------------------------
+# W5-a3-iii (C30) — the band sampler / parity mirror were context-BLIND: the
+# W3-b/c/d position/street/texture mechanics and W3R-6's facing-raise damps
+# (`_ONE_PAIR_RAISE_DAMP`, `_ACE_HIGH_FLOAT_RAISE_DAMP`) all gate on inputs
+# (`context`, `facing_raise`/`street_aggressions`) the AF/WTSD/fold-to-cbet
+# gate never received, so a slice could change real bot behavior on those
+# nodes and the gate would never see it. `_play_hand`'s new opt-in
+# `context_aware=True` (threaded through `_persona_stats`) fixes the
+# plumbing; this test is the demonstration the pass/fail requires. It is
+# DELIBERATELY separate from the CI-frozen `context_aware=False` (default)
+# bands/goldens above — no band re-anchor here (that stays W4-b).
+# ---------------------------------------------------------------------------
+
+
+def test_street_aggressions_effect_visible_to_af_gate():
+    """A `street_aggressions`-dependent effect (facing_raise = street_
+    aggressions >= 2 gates `_ONE_PAIR_RAISE_DAMP`/`_ACE_HIGH_FLOAT_RAISE_
+    DAMP`, cutting one-pair RAISE / ace-high CALL merit when tag faces a
+    flop/turn raise) is now VISIBLE to the AF gate once the sampler threads
+    real context — it was invisible before this slice (the sampler never
+    passed `facing_raise` at all, so these damps never fired in `_persona_
+    stats`). `tag` at n=300 clears the >=30 occurrence floor on BOTH sides
+    and shows a large, consistently-directioned (measured stable across
+    n=250..500) AF drop when context-aware. This does NOT move any CI-
+    frozen band: both calls are a NEW cache entry (`context_aware=True`),
+    never read by `test_persona_postflop_bands` or the golden test above.
+    """
+    packs = load_persona_packs()
+    n = 300
+    af_off, _, _, call_off, *_ = _persona_stats(packs, "tag", n, context_aware=False)
+    af_on, _, _, call_on, *_ = _persona_stats(packs, "tag", n, context_aware=True)
+    assert call_off >= 30 and call_on >= 30, (
+        f"occurrence floor not cleared (call_off={call_off}, call_on={call_on}) "
+        "-- not a valid demonstration"
+    )
+    # Measured: AF 2.769 (off) -> 1.667 (on) at n=300, seed 20260710 (this
+    # file's fixed harness seed). Direction (on < off) held at n=250/350/400/
+    # 500 too -- not a lucky single-N artifact.
+    assert af_on < af_off - 0.5, (
+        f"street_aggressions effect not visible: AF off={af_off:.3f} on={af_on:.3f} "
+        "(expected a large drop once facing-raise damps can fire)"
+    )
 
 
 def test_persona_stats_ext_all_metrics_compute():
