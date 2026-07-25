@@ -3251,18 +3251,24 @@ kbd {
    masthead/nav/stats rows are flex and reflow with it); Practice/Quiz keep
    --content-width. All rules here are NEW sim-scoped overrides — the shared
    .stage/.felt/.tablering base classes are untouched. */
-.app:has(.simulate) {
+/* The History two-pane replayer (.history-replay) opts into the SAME wide shell
+   and ring sizing as the live table, so its felt is pixel-identical (unified
+   app identity) rather than the shallow, starved base ring. */
+.app:has(.simulate),
+.app:has(.history-replay) {
   max-width: var(--content-width-wide);
 }
 /* A ring worthy of the wider felt. The bare 5× cap only rules on tall
    viewports: the 920px height-density gate below re-caps it, mirroring the
    base .tablering's 3.9→3.4 step so short rooms (1440×900, 1024×768) keep
    the felt + hero console in view without scroll. */
-.simulate .tablering {
+.simulate .tablering,
+.history-replay .tablering {
   max-height: calc(var(--card-h) * 6.5);
 }
 @media (max-height: 920px) {
-  .simulate .tablering {
+  .simulate .tablering,
+  .history-replay .tablering {
     max-height: calc(var(--card-h) * 5);
   }
 }
@@ -5315,4 +5321,242 @@ kbd {
       opacity: 1;
     }
   }
+}
+
+/* ── History Replayer — two-pane felt (HRT-3) ───────────────────────────────
+   The History-route replayer: the LIVE Simulate felt on the left (reusing the
+   .stage/.felt/.tablering/.tseat sim classes verbatim — no felt colours are
+   re-declared here), the moves grouped by street on the right, a dedicated
+   verdict panel below. The felt inherits the wide shell + ring height via the
+   .history-replay opt-in (see the .app:has() + .tablering rules above). Tokens
+   only; both themes come free from the semantic tokens. */
+.hrt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.hrt-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.hrt-back {
+  font-size: var(--text-md);
+}
+.hrt-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+.hrt-title-no {
+  color: var(--primary);
+}
+.hrt-hero-note {
+  font-size: var(--text-md);
+  color: var(--muted);
+}
+.hrt-hero-pos {
+  color: var(--text);
+  font-weight: 600;
+}
+.hrt-hero-cards {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-1);
+}
+.hrt-hero-cards .card {
+  width: calc(var(--card-w) * 0.62);
+  height: calc(var(--card-h) * 0.62);
+}
+
+/* Two-pane body: felt left, moves right. Collapses to STACKED below 1100px —
+   the live table's own threshold (the ~536-700px starved-felt zone is where the
+   pod/board collision lives; never render side-by-side into it). */
+.hrt-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--sidebar-w);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .hrt-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.hrt-stage-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Acting-seat cue — the live `sim-seat-act` class has NO rule and the only real
+   glow is hero-only, so this is the one new felt rule: a --sim-live ring on the
+   acting pod (hero OR villain), scoped to .hrt so the live table is untouched. */
+.hrt .tseat.sim-seat-act {
+  box-shadow:
+    0 0 0 2px var(--sim-live),
+    0 0 12px 1px color-mix(in srgb, var(--sim-live) 45%, transparent);
+  border-radius: var(--radius-md);
+}
+/* Hero seat marker — brass position chip, mirroring the live table's hero cue. */
+.hrt-hero-pod .pos {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+}
+/* Showdown delta under a revealed pod. */
+.hrt-pod-delta {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.3px;
+}
+
+/* Controls bar. */
+.hrt-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+.hrt-step-btn {
+  min-height: 32px;
+}
+.hrt-step-count {
+  font-size: var(--text-md);
+  color: var(--muted);
+  min-width: 4.5em;
+  text-align: center;
+}
+
+/* Moves panel — a street-grouped register with click-to-jump rows. */
+.hrt-moves {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(var(--card-h) * 8.5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+}
+@media (max-width: 1100px) {
+  .hrt-moves {
+    max-height: none;
+  }
+}
+.hrt-moves-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.hrt-moves-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+.hrt-moves-count {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.hrt-moves-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+.hrt-street {
+  padding-bottom: var(--space-2);
+}
+.hrt-street-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.hrt-street-lbl {
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.hrt-street-mini {
+  display: flex;
+  gap: 2px;
+}
+.hrt-street-mini .card {
+  width: calc(var(--card-w) * 0.4);
+  height: calc(var(--card-h) * 0.4);
+}
+.hrt-street-mini .card .r {
+  font-size: var(--text-2xs);
+}
+.hrt-street-mini .card .s {
+  font-size: var(--text-2xs);
+}
+.hrt-street-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+.hrt-move {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-md);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.hrt-move:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.hrt-move:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.hrt-move-who {
+  width: 3.4em;
+  flex: none;
+  font-weight: 600;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.hrt-move-what {
+  flex: 1;
+}
+.hrt-move-hero .hrt-move-who {
+  color: var(--primary);
+}
+.hrt-move-current {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--sim-live) 18%, transparent),
+    transparent
+  );
+  border-left-color: var(--sim-live);
+}
+.hrt-move-current .hrt-move-who {
+  color: var(--text);
+}
+
+/* Reuse the shared .hr-verdict* panel styles for the "Your decision" block — the
+   verdict reads identically to the live table + the old replayer. */
+.hrt-stage-col .hr-verdict {
+  margin-top: 0;
 }
