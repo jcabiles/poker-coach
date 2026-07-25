@@ -116,13 +116,30 @@ def _keystone_rows(section5: str) -> list[str]:
 
 
 def _registry(section5a: str) -> dict[str, list[str]]:
-    """§5a registry -> {normalised row key: [format, pool, source, status]}."""
+    """§5a registry -> {normalised row key: [format, pool, source, status]}.
+
+    Reads the FIRST table in §5a and stops there (W5-a2-g). The original version
+    tracked `seen_header` once for the whole section and consumed every pipe-row
+    in it, so a *second* §5a table — a source list, say — had its rows AND its
+    header parsed as registry entries (`s1`, `s2`, `source`), which then tripped
+    `test_registry_has_no_orphan_rows` and blocked a legitimate edit. W5-a2 hit
+    exactly that and had to work around it with a bulleted list. A tripwire that
+    fires on correct edits trains people to route around it, so the fix is worth
+    more than the bug it prevented.
+    """
     out: dict[str, list[str]] = {}
     seen_header = False
+    in_table = False
     for line in section5a.splitlines():
         stripped = line.strip()
         if not stripped.startswith("|"):
+            # A non-pipe line ends the table. Once the first table has been
+            # read, everything after it in §5a is prose or another table --
+            # neither is the registry.
+            if in_table:
+                break
             continue
+        in_table = True
         if _is_separator(stripped):
             continue
         cells = _cells(stripped)
@@ -133,6 +150,32 @@ def _registry(section5a: str) -> dict[str, list[str]]:
             continue
         out[_normalise(cells[0])] = cells[1:5]
     return out
+
+
+def test_registry_reads_only_the_first_table():
+    """W5-a2-g regression pin. §5a may carry a second table (a source list, a
+    confidence key) below the registry; those rows are NOT registry entries.
+
+    Before the fix, every pipe-row in §5a was consumed and the second table's
+    header leaked in as a row named `source`, so adding a source table made the
+    orphan check fail. Guard the parser, not just the current document, because
+    the document is exactly what a future slice will edit.
+    """
+    section = (
+        "## 5a. Registry\n"
+        "| Row | Format | Pool | Source | Status |\n"
+        "|---|---|---|---|---|\n"
+        "| VPIP | 9-max | micro NL | specialist | VERIFIED |\n"
+        "\n"
+        "Prose, then a second table that is NOT the registry:\n"
+        "\n"
+        "| Source | Author | Formats | Stats | Tier |\n"
+        "|---|---|---|---|---|\n"
+        "| S1 | some author | both | 15 | strong |\n"
+        "| S2 | another | both | WTSD | independent |\n"
+    )
+    reg = _registry(section)
+    assert set(reg) == {"vpip"}, f"second table leaked into the registry: {sorted(reg)}"
 
 
 def test_contract_sections_exist():
