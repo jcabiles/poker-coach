@@ -326,11 +326,22 @@ re-tuning). Every slice: default-off byte-identity for un-opted-in direct caller
       documented bands exist as assertions (xfail until W3R-2 fits the dials). **No-gos:** measurement only, no
       behavior change, no band re-anchor here. **Prereq for W3R-2 (owner chose hard-prove-first).** Appetite: ~1 large slice.
 
-- [ ] **W3R-1 — Maniac preflop range cleanup (#1, #13) — CONFIG-ONLY, harness-independent.** Delete the `vs_rfi "*"`
-      any-two catch-all → explicit 3bet-or-fold flat range; delete maniac/LAG SB open-limps; trim HJ+ offsuit aces
-      `A2o+`→`A5o+/A7o+`. **The root of hyp-1** (junk cold-calls H119/H84/H30/H74 feed the barrels). **Pass/fail:**
-      no any-two cold-calls; J2o/Q7o-class fold vs an RFI; maniac VPIP stays in the 43–55 band. **No-gos:** don't
-      touch the correctly-gated EP opens; content-only (no postflop lever). Appetite: ~1 small slice.
+- [x] **W3R-1 — Maniac (+lag) preflop range cleanup (#1, #13) — DONE (PR pending).** Replaced the `vs_rfi "*"`
+      any-two catch-all with a real loose 3-tier flat range (3bet premiums / 3bet-or-flat playable / wide-marginal
+      flat / fold trash); deleted maniac + lag SB open-limps; trimmed offsuit aces HJ `A7o+`, CO/BTN `A5o+`. **The
+      root of hyp-1.** **Landed reality-corrected gates:** the "43–55 VPIP" target was WRONG — pre-edit maniac was
+      ~36% (that 36% was LITERALLY the any-two junk); a legit range structurally caps ~33% in a 9-max lineup (the
+      flat range barely fires; only widening OPENS could raise it, declined). Owner accepted ~33% legit maniac
+      (VPIP 32.8%, 3bet% 12.59% back in band via tier-2 `3bet:0.45` restore, `vs_rfi-continue` re-anchored 46%).
+      **No-gos honored:** EP opens byte-identical; no postflop lever. 974 pass/4 skip.
+- [ ] **FOLLOW-UP (W3R-1 finding, owner-tracked) — band sampler + parity mirror are context-BLIND.** W3-b/c/d made
+      production (`play.bot_decision`) context-aware (position/street/texture via `PostflopContext`), but the S4
+      harness `_play_hand`/`_persona_stats` band sampler AND the sim_session parity mirror still call
+      `sample_postflop_decision` WITHOUT `context=`/`is_aggressor=`. So the statistical bands (WTSD/AF/FtC that gate
+      the whole persona system) measure a SIMPLER context-blind bot, not the real one. W3R-1 exposed this via a
+      parity break and applied the MINIMAL fix (threaded context into the parity mirror ONLY — bands untouched, my
+      VPIP fit preserved). **Deeper fix deferred:** decide whether the band sampler should become context-aware
+      (→ re-record all bands) — likely fold into W4-b's single re-measure. This is an estimator-parity-law gap.
 
 - [ ] **W3R-2 — Fish + station elasticity dials (#2, #3, #6) + station test re-pin — GATED on W3R-0.** Author fish
       `call_looseness`≈0.95 (currently unset→stickiness 1.4); station `size_elasticity` 0.0→≈0.55 + `call_looseness`

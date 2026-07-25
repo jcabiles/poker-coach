@@ -32,6 +32,11 @@ from app.domain.table.engine import (
 )
 from app.domain.table.engine import legal_actions as engine_legal_actions
 from app.domain.table.grade_map import map_decision_point
+from app.domain.table.postflop_context import derive_postflop_context
+from app.domain.table.sizing import (
+    last_aggressor_position,
+    pot_before_current_aggression,
+)
 from app.services import sim_session
 from app.services.sim_session import (
     SessionNotFound,
@@ -268,10 +273,27 @@ def test_bot_decision_parity_with_harness():
             else:
                 pot_bb = sum(s.invested_total_bb for s in state.seats)
                 opponents = harness._live_opponents(state, seat)
+                # Thread the SAME situational context production's
+                # `play.bot_decision` derives (is_aggressor / latest-aggressor
+                # contribution / W3-a PostflopContext), so the mirror matches the
+                # real context-aware (W3-a/b/c/d) bot's ACTION. Without this the
+                # mirror is context-blind and diverges wherever position/street/
+                # texture flips the action (the W3R-1 stream shift exposed one).
+                is_aggressor = (
+                    last_aggressor_position(state.action_history)
+                    == seat_state.position
+                )
+                contribution = pot_before_current_aggression(
+                    state.action_history, state.street
+                ).latest_aggressor_contribution_bb
+                context = derive_postflop_context(state, seat)
                 expected = harness._postflop_decision(
                     pack, seat_state.hole_cards, state.board, legal, pot_bb,
                     seat_state.stack_bb, opponents, random.Random(decision_seed),
                     state.current_bet_bb,
+                    is_aggressor=is_aggressor,
+                    latest_aggressor_contribution_bb=contribution,
+                    context=context,
                 )
             # R2: play.bot_decision now sizes bets from the persona levers /
             # node-aware distribution, while the harness mirror stays on the

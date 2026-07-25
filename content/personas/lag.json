@@ -105,8 +105,7 @@
         {
           "combos": "A2s, K5s, Q8s, J7s, T7s, 87s, 76s, A5o, K9o, Q9o",
           "weights": { "raise": 0.4, "fold": 0.6 }
-        },
-        { "combos": "54s, 43s, 32s, 98o, J9o, T9o", "weights": { "limp": 0.7, "fold": 0.3 } }
+        }
       ]
     },
     {
