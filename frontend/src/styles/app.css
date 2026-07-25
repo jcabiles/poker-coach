@@ -2774,18 +2774,106 @@ kbd {
   order: -2;
   /* --text-xs (11px), not the 9px grid-cell floor — a call-sheet label read at
      felt distance across a 9-max ring; the taller ring gives it the room. */
-  font-size: var(--text-xs);
+  /* One step up the scale from the meta row's --text-sm (12px) figures. The verb
+     is the pod's CHANGING signal and the meta row is static furniture, so the
+     hierarchy has to be carried by the type, not by the pill ground alone — at
+     --text-xs the verb was the SMALLEST text in its own pod. One step, not two:
+     --text-base (15px) would shout across a 9-max ring. */
+  font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: var(--felt-text);
   white-space: nowrap;
+  /* Scrim pill. The verb is the pod element that MUST survive a collision with a
+     neighbouring pod, so it carries its own OPAQUE ground rather than reading
+     straight off the felt — --felt-chip-bg is translucent (alpha .28) and would
+     let a neighbour's stack figure show through. Mixed from the felt itself, so
+     it reads as the same room and stays dark in both themes (the felt is a dark
+     object in Day and Night alike) — --felt-text clears AA on it by a wide
+     margin, as it does on bare felt. */
+  background: color-mix(in srgb, var(--felt) 78%, var(--stage-bg));
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
 }
 /* Folded steps back but stays clear of AA: 80% felt-text mix ⇒ ~5.1:1 on the
    lighter Night felt (the 72% .sim-persona value sat at 4.73:1 — lifted here so
-   the smallest+dimmest state isn't hugging the floor). */
+   the smallest+dimmest state isn't hugging the floor). The scrim pill drops away
+   with it: on a typical street six seats have folded and one is betting, so an
+   opaque FOLD pill on every one of them made the dead seats the loudest objects
+   on the felt and buried the single live action the student is meant to read.
+   The pill exists to survive a COLLISION — folded pods are the short ones that
+   don't collide, so they don't need it. Type size steps back too. */
 .tseat-folded .sim-last-action {
   color: color-mix(in srgb, var(--felt-text) 80%, var(--felt));
+  background: none;
+  font-size: var(--text-xs);
+  padding: 0;
+}
+
+/* ── Flank-collision repair ────────────────────────────────────────────────
+   Seat pods are absolutely positioned on the ellipse and centred on their
+   anchor. On the LEFT and RIGHT flanks the ellipse compresses vertically:
+   neighbouring seats sit only ~98px apart, while a live villain pod stacked as
+   six separate rows (chips / cards / position / persona / stack / range) ran
+   127-140px tall. The overflow landed on the pod's TOP row — the action verb —
+   inside the pod above it, so the verb jumbled into that seat's meta text and
+   read as missing. Two rules fix it: collapse the pod to three rows (≤98px),
+   and give the verb an opaque ground + a stacking lift so a future content
+   change can never re-bury it. Villain pods only; the hero pod sits
+   bottom-centre with room to spare and keeps its column layout. */
+
+/* Row 1 — verb + chips puck, side by side above the cards. */
+.sim-actrow {
+  order: -2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+/* Inside the row the two are siblings on one line, so their column-flow order
+   and the chips puck's column-flow nudge no longer apply. */
+.sim-actrow .sim-last-action,
+.sim-actrow .sim-chips {
+  order: 0;
+  margin-bottom: 0;
+}
+
+/* Row 3 — position · persona · stack · range, one line under the cards. */
+.sim-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+  /* Safety net. The slot-relative anchor (slotStyle) already keeps a pod inside
+     the ring at any width, so this is not what prevents clipping — it bounds how
+     far a flank pod may reach toward the board before the one flexible piece
+     (the persona badge, which already ellipsises) gives way instead. Sized off
+     the card so it tracks the felt's own scale. */
+  max-width: calc(var(--card-w) * 4.4);
+}
+/* The archetype is now a single head noun on a shared row, so it no longer
+   needs (or has room for) the two-card-wide ellipsis budget it had as its own
+   line. */
+.sim-meta .sim-persona {
+  max-width: calc(var(--card-w) * 1.5);
+  /* The only piece allowed to give way when the row hits its max-width — the
+     position, the stack figure and the range control must never truncate. */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* The button's own top margin spaced it as a row; on the shared line the flex
+   gap does that job. */
+.sim-meta .sim-vrange-btn {
+  margin-top: 0;
+}
+
+/* A pod carrying a verb paints above its neighbours. Belt to the de-crowding's
+   braces: even if pod content grows again, the verb stays on top and legible
+   rather than being interleaved with an adjacent seat's text. */
+.sim-seat-labeled {
+  z-index: 1;
 }
 
 /* Live seat cue — the seat whose turn it is gets a soft gold outline ring, so

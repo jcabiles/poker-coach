@@ -25,12 +25,26 @@ const RING = ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"];
 // the five-card board on the wave-4.5 taller sim ring, while the bottom half
 // keeps 38 (the hero pod hangs below the rail by design; 41 pushed it past
 // .stage's overflow:hidden). Verified by bounding-box sweep at 1440/1280/1024.
+// The four EXTREME flank slots anchor slot-relatively (`translateX(-x%)`)
+// instead of the shared felt's flat `-50%`; every other slot keeps `-50%`.
+// Those four sit closest to the rim AND carry the widest content (position ·
+// persona · stack · range on one row), so centred on their anchor the widest of
+// them overflowed .stage's overflow:hidden by up to 12px, clipping the `range`
+// button and part of its focus ring. `-x%` makes them grow inward from the rail:
+// pod left = (x% of ring) − (x% of pod), which stays ≥ 0 for any pod narrower
+// than the ring, so the geometry self-corrects instead of being tuned to today's
+// longest label. Applied ONLY at the extremes on purpose — biasing every slot
+// pulls the two TOP pods toward each other and they start colliding, trading one
+// defect for another (measured: BTN×SB overlap in a 45-state walk at 1024).
+const FLANK_BIAS_X = 30; // |x − 50| beyond which a slot anchors slot-relatively
+
 function slotStyle(i: number, n: number): CSSProperties {
   const theta = Math.PI / 2 + (i * 2 * Math.PI) / n;
   const sin = Math.sin(theta);
   const x = 50 + 43 * Math.cos(theta);
   const y = 50 + (sin < 0 ? 41 : 38) * sin;
-  return { left: `${x}%`, top: `${y}%` };
+  const tx = Math.abs(x - 50) > FLANK_BIAS_X ? x : 50;
+  return { left: `${x}%`, top: `${y}%`, transform: `translate(-${tx}%, -50%)` };
 }
 
 // Last action verbs arrive lowercase on the wire (fold/check/call/bet/raise);
@@ -47,6 +61,16 @@ function personaLabel(persona: string): string {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+// The archetype's HEAD noun — the word that actually names the type ("Calling
+// Station" ⇒ "Station", "Passive Fish" ⇒ "Fish"). The villain meta now sits on a
+// SINGLE row (position · persona · stack · range) so the pod clears its
+// neighbour's on the ellipse flanks; a two-word badge is what blows that row's
+// width. The full label stays in the `title` attribute, so nothing is lost.
+function personaShort(persona: string): string {
+  const full = personaLabel(persona);
+  return full.slice(full.lastIndexOf(" ") + 1);
 }
 
 export default function SimTable({
@@ -238,13 +262,24 @@ export default function SimTable({
                 className={
                   "tseat sim-seat" +
                   (folded ? " tseat-folded" : "") +
-                  (isToAct ? " sim-seat-act" : "")
+                  (isToAct ? " sim-seat-act" : "") +
+                  // Stacking lift: a pod carrying a verb paints ABOVE its
+                  // neighbours, so the label can never be buried by an adjacent
+                  // pod's meta row (the flank-collision defect).
+                  (lastAction ? " sim-seat-labeled" : "")
                 }
                 key={seat.seat_index}
                 style={style}
               >
-                {lastAction}
-                {chips}
+                {(lastAction || chips) && (
+                  // Verb + chips share ONE row above the cards. Stacked they
+                  // cost two lines, which is what pushed flank pods past the
+                  // 98px gap between neighbouring seats on the ellipse.
+                  <span className="sim-actrow">
+                    {lastAction}
+                    {chips}
+                  </span>
+                )}
                 {revealedCards ? (
                   <span className="cards sim-reveal" aria-label={`${seat.position} shows`}>
                     {revealedCards.map((c, j) => (
@@ -259,45 +294,53 @@ export default function SimTable({
                     </span>
                   )
                 )}
-                <span className="pos">
-                  {seat.position}
-                  {isButton && (
-                    <span className="dealer" aria-label="dealer button">
-                      D
+                {/* Position · persona · stack · range on ONE row. Stacked as
+                    four separate lines the pod ran 127-140px tall, while
+                    neighbouring seats on the ellipse flanks are only 98px
+                    apart — so every flank pod's top row (the verb) landed
+                    inside the pod above it. One row keeps all four pieces of
+                    information and fits the gap. */}
+                <span className="sim-meta">
+                  <span className="pos">
+                    {seat.position}
+                    {isButton && (
+                      <span className="dealer" aria-label="dealer button">
+                        D
+                      </span>
+                    )}
+                  </span>
+                  {seat.persona_type && (
+                    <span className="sim-persona" title={personaLabel(seat.persona_type)}>
+                      {personaShort(seat.persona_type)}
                     </span>
                   )}
-                </span>
-                {seat.persona_type && (
-                  <span className="sim-persona" title={personaLabel(seat.persona_type)}>
-                    {personaLabel(seat.persona_type)}
+                  <span className="stack num">
+                    {fmtBb(seat.stack_bb)}bb
+                    {allin && <span className="sim-allin"> all-in</span>}
                   </span>
-                )}
-                <span className="stack num">
-                  {fmtBb(seat.stack_bb)}bb
-                  {allin && <span className="sim-allin"> all-in</span>}
+                  {/* Range reveal (V2): live villain pods only. Gated on the
+                      STAGED fold state (`folded` above) — same value the pod
+                      display uses — so the button stays until the fold narrates
+                      (spec low-2), not the instant server-truth flips. Also
+                      requires a persona (no estimate without a pack). Hidden at
+                      hand_over: the felt reveals real cards, an estimate is noise. */}
+                  {seat.persona_type && !folded && !hand.hand_over && (
+                    <button
+                      type="button"
+                      className={
+                        "sim-vrange-btn" +
+                        (openRangeSeat === seat.seat_index ? " sim-vrange-btn-on" : "")
+                      }
+                      onClick={() => onToggleRange(seat.seat_index)}
+                      aria-pressed={openRangeSeat === seat.seat_index}
+                      aria-label={`${
+                        openRangeSeat === seat.seat_index ? "Hide" : "Show"
+                      } estimated range for ${seat.position}`}
+                    >
+                      range
+                    </button>
+                  )}
                 </span>
-                {/* Range reveal (V2): live villain pods only. Gated on the
-                    STAGED fold state (`folded` above) — same value the pod
-                    display uses — so the button stays until the fold narrates
-                    (spec low-2), not the instant server-truth flips. Also
-                    requires a persona (no estimate without a pack). Hidden at
-                    hand_over: the felt reveals real cards, an estimate is noise. */}
-                {seat.persona_type && !folded && !hand.hand_over && (
-                  <button
-                    type="button"
-                    className={
-                      "sim-vrange-btn" +
-                      (openRangeSeat === seat.seat_index ? " sim-vrange-btn-on" : "")
-                    }
-                    onClick={() => onToggleRange(seat.seat_index)}
-                    aria-pressed={openRangeSeat === seat.seat_index}
-                    aria-label={`${
-                      openRangeSeat === seat.seat_index ? "Hide" : "Show"
-                    } estimated range for ${seat.position}`}
-                  >
-                    range
-                  </button>
-                )}
               </div>
             );
           })}
