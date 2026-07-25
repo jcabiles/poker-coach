@@ -430,6 +430,84 @@ def _wetness_bet_mult(board: list[Card]) -> float:
     return 1.0  # dry: rainbow + disconnected
 
 
+# W3R-5 (#8): the DEFENSE-side mirror of the two W3-d bet damps, plus an
+# aggression-heat leg. A bounded multiplicative BOOST on the FOLD merit for the
+# one-pair-class buckets (`_VULNERABLE_ONE_PAIR` + ACE_HIGH) — it enters
+# normalization like every other merit and is NEVER a fold floor (A1 guardrail:
+# no code path clamps or lower-bounds a fold merit or a fold frequency).
+# Deliberately GENTLER than the bet-side damps: the fold side is α-ceilinged
+# (RES-D §1c), so the combined product is capped at `_SCARE_FOLD_CAP`.
+# All four magnitudes are FIT SEEDS (see the fitted-values note below).
+_SCARE_FOLD_BUCKETS = (*_VULNERABLE_ONE_PAIR, StrengthBucket.ACE_HIGH)
+
+
+#
+# ⚠ W3R-5 HARD-STOP — these four magnitudes are UNFITTED SEEDS, not a shipped
+# fit. The slice's fit stopped on a MEASURED bust that no in-range magnitude set
+# can clear (owner decision required — see the slice report):
+#  1. α-ceiling. `test_fold_to_bet_respects_alpha_ceiling` is already at/over its
+#     ceiling IN EXPECTATION at ½-pot with this mechanic OFF: tag's E[fold] over
+#     the uniform fixture is 0.3791 vs the 0.3833 ceiling (0.42pp of true
+#     headroom), and the fish's E[fold] over its arrival range is 0.3987 — ALREADY
+#     0.015 ABOVE the ceiling, passing today only because the sampled realization
+#     (0.3626) lands ~3.6pp under its own expectation. ANY positive fold-merit
+#     boost therefore busts it; at the RANGE-MINIMUM set (1.08/1.15 · 1.15/1.08/
+#     1.05 · 1.10) tag measures 0.3896 > 0.3833.
+#  2. Pass/fail (iv) is composition-confounded and unreachable: on the arrival
+#     ranges the SCARY partition intrinsically folds LESS than the dry one
+#     (monotone boards carry made flushes, paired boards carry trips/boats) —
+#     mechanic OFF, E[fold] scary−dry is nit −0.031 and fish −0.017, and the whole
+#     in-range boost moves it only ~+0.011.
+_OVERCARD_FOLD_1 = 1.12
+_OVERCARD_FOLD_2 = 1.22
+_SCARE_MONOTONE = 1.22
+_SCARE_PAIRED = 1.14
+_SCARE_CONNECTED = 1.10
+
+
+def _overcard_fold_boost(count: int) -> float:
+    """Board cards above the pair make calling down worse: 0 → 1.00, 1 → 1.12,
+    2+ → 1.22 (the inverse-direction mirror of `_overcard_bet_damp`)."""
+    return 1.0 if count == 0 else _OVERCARD_FOLD_1 if count == 1 else _OVERCARD_FOLD_2
+
+
+def _scare_texture_fold_boost(board: list[Card]) -> float:
+    """First-match chain mirroring `_wetness_bet_mult`'s shape, reusing the ONE
+    texture classifier: monotone (the flush is already there) > paired/trips
+    (boats/trips beat one pair) > connected (draw-heavy) > dry."""
+    if len(board) < 3:
+        return 1.0
+    tex = classify(board)  # classifies the flop (first 3 cards)
+    if tex.suitedness == "monotone":
+        return _SCARE_MONOTONE
+    if tex.pairing in ("paired", "trips"):
+        return _SCARE_PAIRED
+    if tex.connectedness == "connected":
+        return _SCARE_CONNECTED
+    return 1.0  # dry: rainbow + unpaired + unconnected
+
+
+_AGGRESSION_FOLD_TIGHTEN = 1.18  # per EXTRA bet/raise on the street
+_AGGRESSION_FOLD_CAP = 2  # tiers beyond the first extra aggression
+_SCARE_FOLD_CAP = 2.0  # the combined product's ceiling (stacked-multiplier §7)
+
+
+def _scare_fold_boost(
+    hole: tuple[Card, Card], board: list[Card], street_aggressions: int
+) -> float:
+    """The combined, capped fold-merit boost: overcards × scare texture ×
+    aggression heat. Always in [1.0, `_SCARE_FOLD_CAP`]; `street_aggressions
+    <= 1` on a dry rainbow unpaired board with no overcard is exactly 1.0
+    (default-off byte-identity)."""
+    heat = _AGGRESSION_FOLD_TIGHTEN ** min(
+        max(street_aggressions - 1, 0), _AGGRESSION_FOLD_CAP
+    )
+    boost = _overcard_fold_boost(_overcard_count(hole, board))
+    boost *= _scare_texture_fold_boost(board)
+    boost *= heat
+    return min(boost, _SCARE_FOLD_CAP)
+
+
 # F3 bounded aggression (RES-D §0 saturation fix): the `aggression` lever is
 # capped before it scales any merit. An uncapped maniac lever (15.0) multiplies
 # one side of the un-normalized merit ratio so hard that rng.choices degenerates
@@ -655,6 +733,7 @@ def sample_postflop_decision(
     latest_aggressor_contribution_bb: float | None = None,
     context: PostflopContext | None = None,
     facing_raise: bool = False,
+    street_aggressions: int = 1,
 ) -> Decision:
     """Draw a frequency-mixed postflop decision from the pack's levers.
 
@@ -674,6 +753,11 @@ def sample_postflop_decision(
     FLAT kwarg, not a `PostflopContext` field — the range estimator opts into
     this signal alone, and building a context there would newly activate W3-b's
     `in_position=False` position damp. Default `False` is byte-identical.
+
+    W3R-5: `street_aggressions` (derived by
+    `table.postflop_context.street_aggression_count` — the counter `facing_raise`
+    itself delegates to) is a SCALAR kwarg for the same reason. Default `1` (a
+    lone faced bet) is byte-identical.
 
     Facing state is derived from the `legal` shapes (unopened: CHECK+BET;
     matched-with-option: CHECK+RAISE; facing chips: FOLD+CALL[+RAISE]).
@@ -779,6 +863,13 @@ def sample_postflop_decision(
         # opponent — direction only, see _MW_CATCH_TIGHTEN above.
         if bucket in _MW_CATCH_BUCKETS:
             fold_merit *= _MW_CATCH_TIGHTEN ** max(opponents - 1, 0)
+        # W3R-5 (#8): the defense-side texture/scare brake — the board+heat
+        # signal the BET side already has. A bounded BOOST on the fold merit for
+        # the one-pair class, composing with (never replacing) `_MW_CATCH_TIGHTEN`.
+        # Call/raise absorb the complement through normalization; nothing here is
+        # a floor. See `_scare_fold_boost`.
+        if bucket in _SCARE_FOLD_BUCKETS:
+            fold_merit *= _scare_fold_boost(hole, board, street_aggressions)
         entries.append((ActionType.FOLD, fold_merit))
         # River polarization (see _RIVER_RAISE_FLOOR): air never bluff-CALLS
         # the river — it folds or bluff-raises. Flooring happens BEFORE the

@@ -96,11 +96,13 @@ class _Ctx(NamedTuple):
     opponents: int
     current_bet_to: float
     observed: ActionType
-    # W3R-6: is the outstanding wager a RAISE (>= 2 postflop BET/RAISE actions on
-    # this street)? Threaded so the estimator's reveal matches the live sampler —
-    # the flag ALONE, never a PostflopContext (whose in_position=False default
-    # would newly activate W3-b's position damp here).
+    # W3R-5/W3R-6: aggression heat — the BET/RAISE count on this street, of which
+    # `facing_raise` is exactly `>= 2` (both set from the ONE `street_aggr` walk
+    # counter below, so they cannot drift). Threaded so the estimator's reveal
+    # matches the live sampler — the scalars ALONE, never a PostflopContext (whose
+    # in_position=False default would newly activate W3-b's position damp here).
     facing_raise: bool = False
+    street_aggressions: int = 1
 
 
 class RangeEstimate(NamedTuple):
@@ -123,7 +125,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     acted: set[int] = set()  # seats acted since last reopen this street
     pf_raises = 0
     pf_limped = False
-    street_aggr = 0  # BET/RAISE count on the CURRENT street (W3R-6 facing_raise)
+    street_aggr = 0  # BET/RAISE count on the CURRENT street (W3R-5/W3R-6)
     out: list[_Ctx] = []
 
     def pay(s: int, amt: float) -> None:
@@ -183,6 +185,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     current_bet_to=cur,
                     observed=a.action,
                     facing_raise=street_aggr >= 2,
+                    street_aggressions=street_aggr,
                 )
             )
 
@@ -296,6 +299,7 @@ def _postflop_action_dist(
         current_bet_to=ctx.current_bet_to,
         street=ctx.street,
         facing_raise=ctx.facing_raise,
+        street_aggressions=ctx.street_aggressions,
     )
     if cap.population is None:  # zero-total-merit fallback path: deterministic
         return {decision.action: 1.0}
