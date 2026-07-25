@@ -2176,13 +2176,16 @@ _BUCKETS = [b.value for b in personas_postflop.SizeBucket]
 
 
 class ExtStats(NamedTuple):
-    cbet_flop: float | None  # P(bet | first-in flop decision)
+    cbet_flop: float | None  # #1 — aggressor-side: P(bet | preflop aggressor's
+    # first-in flop decision), theory contract §6. FIXED W5-a3-i: previously
+    # P(bet | first-in flop decision) over ANY tested seat, including cold-
+    # callers/blind-defenders who mostly check — the wrong denominator.
     wsd: float | None  # won >=1 pot / went to showdown
     vpip: float | None
     pfr: float | None
     gap: float | None  # vpip - pfr
     ftc_by_bucket: dict  # size bucket -> fold-to-cbet rate | None
-    cbet_ip: float | None  # #5 — reads ~flat until W3-b
+    cbet_ip: float | None  # #5 — inherits #1's aggressor-side denominator
     cbet_oop: float | None
     turn_barrel: float | None  # #6 — reads ~flat until W3-c
 
@@ -2193,6 +2196,125 @@ _STATS_EXT_CACHE: dict[tuple[str, int], ExtStats] = {}
 def _rate(num: int, den: int) -> float | None:
     """Rate with the harness's shared >=30-occurrence floor -> None."""
     return (num / den) if den >= 30 else None
+
+
+def _preflop_aggressor(preflop_log: list[tuple[int, str]]) -> int | None:
+    """The seat of the LAST applied preflop 'raise' (theory contract §6's
+    aggressor for the flop c-bet metric). None on an all-limped/checked
+    (no-raise) pot -- there is no aggressor-side c-bet opportunity there."""
+    aggressor = None
+    for seat, action in preflop_log:
+        if action == "raise":
+            aggressor = seat
+    return aggressor
+
+
+def _hand_cbet_stats(
+    preflop_log: list[tuple[int, str]], decisions: list, tested_seats: set[int]
+):
+    """Aggressor-side flop c-bet (#1) + its IP/OOP split (#5) for one hand
+    (theory contract §6: P(bet | preflop aggressor's first-in flop decision)).
+    Only counts a tested seat's first-in flop decision when that seat IS the
+    hand's preflop aggressor -- cold-callers/blind-defenders (who mostly
+    check) are excluded, fixing the wrong-denominator bug. Also returns the
+    hand's actual first flop bettor (any seat), used unchanged by the
+    downstream fold-to-cbet/turn-barrel metrics, which are not aggressor-
+    gated by §6."""
+    aggressor = _preflop_aggressor(preflop_log)
+    flop = [d for d in decisions if d.street == "flop"]
+    cbet_bets = cbet_opps = 0
+    cbet_ip_bets = cbet_ip_opps = 0
+    cbet_oop_bets = cbet_oop_opps = 0
+    bet_seen = False
+    first_bettor = None  # (seat, bet_fraction)
+    for d in flop:
+        if not bet_seen and d.seat in tested_seats and d.seat == aggressor:
+            cbet_opps += 1
+            if d.in_position:
+                cbet_ip_opps += 1
+            else:
+                cbet_oop_opps += 1
+            if d.action == "bet":
+                cbet_bets += 1
+                if d.in_position:
+                    cbet_ip_bets += 1
+                else:
+                    cbet_oop_bets += 1
+        if d.action in ("bet", "raise"):
+            if first_bettor is None and d.action == "bet":
+                first_bettor = (d.seat, d.bet_fraction)
+            bet_seen = True
+    return (
+        cbet_bets,
+        cbet_opps,
+        cbet_ip_bets,
+        cbet_ip_opps,
+        cbet_oop_bets,
+        cbet_oop_opps,
+        first_bettor,
+    )
+
+
+# ---------------------------------------------------------------------------
+# W5-a3-i audit trail (persona-realism roadmap, 2026-07-25): metric #1's
+# denominator was P(bet | first-in flop decision) over ANY tested seat —
+# including cold-callers/blind-defenders who mostly check, not just the
+# preflop aggressor. §6 defines it aggressor-side. Fixed via `_preflop_
+# aggressor` + `_hand_cbet_stats` above (gates cbet_opps/cbet_bets, and the
+# #5 IP/OOP split that inherits it, to `d.seat == aggressor`). No production
+# code touched — measurement only.
+#
+# Re-measured on this branch's HEAD, same seeded lineup/rng stream as
+# `_persona_stats_ext`, OLD (any first-in tested seat) vs NEW (aggressor-only)
+# denominator, side by side on the identical hands:
+#
+#   n=200 (the harness's own smoke-test N; many NEW cells sit below the >=30
+#   floor because aggressor-only opportunities are ~1/hand vs ~3/hand under
+#   the old denominator — expected, not a regression):
+#     persona          OLD cbet/ip/oop                  NEW cbet/ip/oop
+#     calling_station   0.148 / 0.161 / 0.144             None  / None  / None
+#     lag               0.477 / None  / 0.487             0.533 / None  / 0.553
+#     maniac            0.598 / None  / 0.605             0.581 / None  / 0.587
+#     nit               0.261 / None  / 0.257             None  / None  / None
+#     passive_fish      0.193 / 0.161 / 0.200              None  / None  / None
+#     tag                0.483 / None  / 0.480             None  / None  / None
+#
+#   n=4000 (higher power, run standalone — NOT part of the CI suite, which
+#   stays bounded on the existing n=200 smoke test):
+#     persona          OLD cbet/ip/oop (n)                NEW cbet/ip/oop (n)
+#     calling_station   0.139 (569/4093) / 0.158 (163/1031) / 0.133 (406/3062)
+#                       0.576 (19/33)    / None (8/11)       / None (11/22)
+#     lag               0.485 (756/1558) / 0.530 (141/266)  / 0.476 (615/1292)
+#                       0.543 (418/770)  / 0.552 (107/194)  / 0.540 (311/576)
+#     maniac            0.638 (1540/2412)/ 0.638 (298/467)  / 0.639 (1242/1945)
+#                       0.649 (909/1401) / 0.650 (215/331)  / 0.649 (694/1070)
+#     nit               0.197 (181/919)  / 0.236 (29/123)   / 0.191 (152/796)
+#                       0.277 (86/311)   / 0.254 (18/71)    / 0.283 (68/240)
+#     passive_fish      0.173 (539/3124) / 0.162 (108/667)  / 0.175 (431/2457)
+#                       0.415 (71/171)   / 0.364 (12/33)    / 0.428 (59/138)
+#     tag               0.421 (519/1234) / 0.486 (105/216)  / 0.407 (414/1018)
+#                       0.497 (298/599)  / 0.528 (85/161)   / 0.486 (213/438)
+#   (each persona's second row above is NEW; first row is OLD.)
+#
+# Findings:
+#   - The denominator fix moves cbet_flop UP for every persona (as the
+#     roadmap predicted: dropping cold-caller/blind-defender first-in checks
+#     from the numerator's population raises the aggressor-only rate).
+#   - Direction check for lag (the roadmap's cited symptom, "IP 0.487 <
+#     OOP 0.515"): on THIS branch's HEAD (post-W3R-1..6), lag's IP already
+#     reads > OOP under BOTH the OLD and NEW denominator at n=4000 (OLD
+#     0.530>0.476; NEW 0.552>0.540) — the exact inverted numbers quoted in
+#     the roadmap do not reproduce here, most likely because the six W3R
+#     preflop/dial slices (merged after that note was written) shifted the
+#     shared-rng-stream population (documented drift pattern throughout this
+#     file). The denominator bug is real and independently worth fixing per
+#     §6's definition regardless; empirically, on today's tree, cbet_ip/
+#     cbet_oop no longer read inverted for lag either way — acceptance
+#     criterion 2 holds, but the reviewer should not read this as proof the
+#     OLD code was the (sole) cause of the originally observed inversion.
+#   - No persona's measured NEW cbet_ip vs cbet_oop ordering flips a HARD
+#     gate (#5/P1 is DIRECTIONAL, not HARD, per §6) — nothing to re-anchor.
+# ---------------------------------------------------------------------------
 
 
 def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
@@ -2242,27 +2364,24 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
                 if any(seat in w for w in res.settlement.winners_by_pot):
                     wsd_win += 1
 
-        # --- flop c-bet (first-in) + IP/OOP split; capture first flop bettor ---
+        # --- flop c-bet (aggressor-side, first-in) + IP/OOP split (§6 #1/#5);
+        # capture first flop bettor (any seat) for fold-to-cbet/turn-barrel ---
         flop = [d for d in res.decisions if d.street == "flop"]
-        bet_seen = False
-        first_bettor = None  # (seat, bet_fraction)
-        for d in flop:
-            if not bet_seen and d.seat in tested_seats:
-                cbet_opps += 1
-                if d.in_position:
-                    cbet_ip_opps += 1
-                else:
-                    cbet_oop_opps += 1
-                if d.action == "bet":
-                    cbet_bets += 1
-                    if d.in_position:
-                        cbet_ip_bets += 1
-                    else:
-                        cbet_oop_bets += 1
-            if d.action in ("bet", "raise"):
-                if first_bettor is None and d.action == "bet":
-                    first_bettor = (d.seat, d.bet_fraction)
-                bet_seen = True
+        (
+            hand_cbet_bets,
+            hand_cbet_opps,
+            hand_cbet_ip_bets,
+            hand_cbet_ip_opps,
+            hand_cbet_oop_bets,
+            hand_cbet_oop_opps,
+            first_bettor,
+        ) = _hand_cbet_stats(res.preflop_log, res.decisions, tested_seats)
+        cbet_bets += hand_cbet_bets
+        cbet_opps += hand_cbet_opps
+        cbet_ip_bets += hand_cbet_ip_bets
+        cbet_ip_opps += hand_cbet_ip_opps
+        cbet_oop_bets += hand_cbet_oop_bets
+        cbet_oop_opps += hand_cbet_oop_opps
 
         # --- size-bucketed fold-to-cbet (first responder to the first bet) ---
         if first_bettor is not None and first_bettor[1] is not None:
@@ -2444,6 +2563,62 @@ def test_persona_stats_ext_all_metrics_compute():
         for r in (ext.cbet_flop, ext.wsd, ext.cbet_ip, ext.cbet_oop, ext.turn_barrel):
             if r is not None:
                 assert 0.0 <= r <= 1.0, f"{persona} rate out of [0,1]: {r}"
+
+
+# ============================ W5-a3-i — metric #1 aggressor-side denominator ===
+
+
+def test_preflop_aggressor_returns_last_raise_seat_or_none():
+    # An all-limped/checked pot has no preflop raise -> no aggressor.
+    assert _preflop_aggressor([(0, "call"), (1, "call"), (2, "check")]) is None
+    # A single open-raise with two callers: the opener is the aggressor.
+    assert _preflop_aggressor([(3, "raise"), (5, "call"), (7, "call")]) == 3
+    # A 3-bet flips the aggressor to the later raiser.
+    assert _preflop_aggressor([(2, "raise"), (5, "raise"), (2, "call")]) == 5
+
+
+def test_metric1_cbet_is_aggressor_side_not_any_first_in_seat():
+    """Theory contract §6 #1: aggressor-side flop c-bet = P(bet | preflop
+    aggressor's first-in flop decision). Fixture with a KNOWN aggressor: seat
+    2 raises preflop, seats 0 and 5 call. Pre-fix, seat 0's (a cold-caller,
+    NOT the aggressor) first-in flop CHECK would also count as a c-bet
+    opportunity -- the wrong-denominator bug. Post-fix, only the aggressor's
+    (seat 2) flop decision counts."""
+    preflop_log = [(0, "call"), (2, "raise"), (5, "call")]
+    decisions = [
+        PostflopDecision(
+            seat=0, street="flop", in_position=False, action="check", bet_fraction=None
+        ),
+        PostflopDecision(
+            seat=2, street="flop", in_position=True, action="bet", bet_fraction=0.6
+        ),
+        PostflopDecision(
+            seat=5, street="flop", in_position=True, action="fold", bet_fraction=None
+        ),
+    ]
+    tested_seats = {0, 2, 5}
+    bets, opps, ip_bets, ip_opps, oop_bets, oop_opps, first_bettor = _hand_cbet_stats(
+        preflop_log, decisions, tested_seats
+    )
+    assert (opps, bets) == (1, 1), "only the aggressor's flop decision is a c-bet opportunity"
+    assert (ip_opps, ip_bets) == (1, 1)
+    assert (oop_opps, oop_bets) == (0, 0)
+    assert first_bettor == (2, 0.6)
+
+
+def test_metric1_no_preflop_raise_means_no_cbet_opportunity():
+    """An all-limped/checked pot has no aggressor: no tested seat's flop
+    decision counts as a c-bet opportunity, even if one of them leads out
+    (a donk-bet/lead into an unraised pot is not a c-bet)."""
+    preflop_log = [(0, "call"), (1, "call"), (2, "check")]
+    decisions = [
+        PostflopDecision(
+            seat=0, street="flop", in_position=False, action="bet", bet_fraction=0.5
+        ),
+    ]
+    tested_seats = {0, 1, 2}
+    bets, opps, *_rest = _hand_cbet_stats(preflop_log, decisions, tested_seats)
+    assert (bets, opps) == (0, 0)
 
 
 # Fixed, machine-independent sample for every WTSD assertion (bands + ordering).
