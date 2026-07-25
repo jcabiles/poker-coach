@@ -608,7 +608,13 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
 
 #### W5-A — foundation (docs + tests; NO bot-behavior change)
 
-- [ ] **W5-a1 — Target-provenance gate.** *ICE 9·8·3.*
+- [x] **W5-a1 — Target-provenance gate.** ✅ 2026-07-25 (PR #111). Contract **§5a** registry + **§11 item 15** +
+      a number-free clause in the theory-reviewer agent, with `backend/tests/test_contract_provenance.py` as the
+      runnable tripwire (verified to bite: dropped row, emptied source cell, em-dash placeholder and orphaned
+      registry entry all rejected; italic observational rows exempt). **The postflop half of §5 is now
+      `[UNVERIFIED]` wholesale** — a provenance claim, not a correctness one — which makes **W5-a2** the gate on
+      every band that rests on those rows. fold-to-c-bet / AF / WTSD stay HARD as *grandfathered*; their demotion
+      is W5-a2's deliverable and no slice may add a NEW HARD gate on an `[UNVERIFIED]` row. *ICE 9·8·3.*
       **Problem:** no gate validates a **target**. D7 validates the *instrument*; the softmax law *consumes* a
       target, and against a wrong one it converges confidently onto wrong behavior and reports success — the
       project's strictest gate is also its most efficient error-propagator. The anti-laundering rule gives the
@@ -670,12 +676,27 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
 > metrics compute (`ExtStats`, `backend/tests/test_personas_postflop.py:2147-2156`) but only **smoke-assert**
 > (`:2392-2413`), while §6 still lists them "to BUILD".
 
-- [ ] **W5-a3-i — Metric #1 aggressor-side denominator.** *ICE 8·8·3.*
+- [x] **W5-a3-i — Metric #1 aggressor-side denominator.** ✅ 2026-07-25 (PR #112). *ICE 8·8·3.*
       **Solution:** fix metric #1's denominator to **aggressor-side** c-bet as §6 defines it, and **re-read**
       `cbet_ip` / `cbet_oop` (metric #5), which inherit it.
       **Pass/fail:** metric #1 matches its §6 definition on a fixture with a known aggressor; re-measured
       `cbet_ip`/`cbet_oop` **no longer read inverted for lag**; the re-read values for all six personas are
       recorded in-file (they are the input W3-b/W3-d closed against, so the record is the audit trail).
+      > ⚠️ **STALE PREMISE — this entry's cited symptom did not reproduce (2026-07-25, W5-a1's W3R-1 rule).** The
+      > "lag IP 0.487 < OOP 0.515" inversion quoted above is **not present on today's tree**: at n=4000 lag reads
+      > IP **0.530** > OOP **0.476** under the *OLD* denominator and IP 0.552 > OOP 0.540 under the new one. So
+      > pass/fail clause 2 was satisfied **vacuously** — the denominator fix is justified on §6's *definition*
+      > alone, not on repairing an observed inversion. Most likely the six W3R preflop/dial slices merged after
+      > that note was written shifted the shared-rng population. Per §5a's **W3R-1 rule** (infeasibility /
+      > non-reproduction is evidence about the TARGET), this is recorded against the premise rather than ticked
+      > as a fix. **Do not cite the 0.487/0.515 figures again.**
+      > ⚠️ **COVERAGE DELTA (§11 item 14) — adjudicated, cost deferred to W5-a3-iii.** Aggressor-only c-bet
+      > opportunities are ~1/hand vs ~3/hand under the old denominator, so at **n=200** (the CI smoke-test N)
+      > metric #1 now falls under the harness's `>=30` floor and reads `None` for **4 of 6 personas** (station,
+      > nit, fish, tag); previously all six carried a value. Accepted here — #1 only smoke-asserts today — but it
+      > means **metric #1 cannot be promoted to a HARD gate at the current N**. W5-a3-iii's §6 refresh records the
+      > constraint and the N a promotion would need; CI N is deliberately NOT bumped (the suite already runs ~117s
+      > and n=4000 costs ~50s/side).
       **No-gos:** **measurement only** — no behavior change, no band re-anchor, no §5 edit.
       **Consumer:** the D7 gate for P1 (W3-b) / P2 (W3-d), retroactively. **Appetite:** ~1 slice.
 
