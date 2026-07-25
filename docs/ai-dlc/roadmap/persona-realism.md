@@ -351,14 +351,20 @@ re-tuning). Every slice: default-off byte-identity for un-opted-in direct caller
       18–40%; fish overbet FtC 60–80% (both on the W3R-0 harness); `call_looseness↑` never lowers call freq.
       **No-gos:** no population WTSD/AF band re-anchor (deferred to W4-b). Appetite: ~1 large slice.
 
-- [ ] **W3R-3 — spr_commit ladder + ace-high call base + finish the call_looseness split (#4, #5, #12).** fish
-      `spr_commit` 2.0→1.4 (it currently commits EARLIER than the station — backwards for a "scared" fish), maniac
-      4.0→3.3; `_CALL_BASE[ACE_HIGH]` 0.40→≈0.22 (mirror the A1 AIR 0.25→0.08 precedent); **(#12, low-value tidy)**
-      author explicit `call_looseness` on tag≈0.55 / nit / lag (currently unset→inherit `stickiness`) so the W2-a
-      split is adopted roster-wide. **Pass/fail:** fish no longer commits earlier than station (H11/H76); naked
-      ace-high stops floating raise-wars (H117); per-persona AF stays in band; the three added `call_looseness` packs
-      re-record byte-clean. **No-gos:** softmax fit-seed — re-measure AF; #12 is a tidy, not a behavior target.
-      Appetite: ~1 slice.
+- [~] **W3R-3 — spr_commit ladder + finish the call_looseness split (#4, #12).** ⚠️ **#5 RE-ROUTED (owner
+      2026-07-24) — see below.** fish `spr_commit` 2.0→1.4 (it currently commits EARLIER than the station —
+      backwards for a "scared" fish), maniac 4.0→3.3; **(#12, low-value tidy)** author explicit `call_looseness` on
+      tag=0.6 / nit=0.6 / lag=0.55 (= current `stickiness`, byte-identical; roadmap's "tag≈0.55" was a slip) so the
+      W2-a split is adopted roster-wide. **Pass/fail:** fish no longer commits earlier than station (H11/H76);
+      per-persona AF stays in band; the three added `call_looseness` packs re-record byte-clean. **No-gos:** softmax
+      fit-seed — re-measure AF; #12 is a tidy, not a behavior target. Appetite: ~1 slice.
+      - **#5 ace-high call base — RE-ROUTED, NOT a global constant cut.** Building it as `_CALL_BASE[ACE_HIGH]
+        0.40→~0.22` HARD-STOPPED: naked ace-high is ~34.6% of the fish's flop range, and W3R-2 already parked the
+        fish ON its α fold-ceiling, so ANY meaningful global cut folds the fish PAST the exploitability ceiling
+        (un-fishlike over-folding). The collision proves the global constant is the wrong tool — the real bug (H117)
+        is naked ace-high FLOATING A RAISE, a facing-action spot. **Re-routed to a facing-a-raise-scoped ace-high
+        fold damp — folded into W3R-6** (which already scopes one-pair raise-damp facing action). Do NOT re-attempt
+        the global `_CALL_BASE[ACE_HIGH]` cut.
 
 - [ ] **W3R-4 — Shared-code fixes (#7, #11, #14).** Scale `_BUSTED_RIVER_BLUFF` by `multiway_bluff_damp**(opp-1)`
       (currently added AFTER the damp → multiway busted-flush bluffs over-fire, TAG H41 into 3 callers);
@@ -377,11 +383,17 @@ re-tuning). Every slice: default-off byte-identity for un-opted-in direct caller
       station/nit/fish fold more to bets on scary boards; estimator parity holds; it stays a boost, NEVER an asserted
       floor (A1 guardrail). **No-gos:** fold-side only (don't touch the W3-d bet-side scoping). Appetite: ~1 large slice.
 
-- [ ] **W3R-6 — One-pair RAISE damp facing action, pre-river (#9) — NEW SCOPING (fixes M7).** `_RAISE_BASE` + the
-      river-only raise-floor let made one-pair (MIDDLE/TOP) jam on flop/turn (TAG H117 99 on J-J-7, H32 88, H107
-      TPTK; maniac too). Damp the one-pair RAISE merit when FACING a bet/raise on flop/turn; **spare semi-bluff
-      (draw) raises.** **Pass/fail:** TAG/maniac stop re-raising bare one pair into heavy action; a flopped-draw
-      semi-bluff raise still fires. **No-gos:** two-pair+ value raises untouched. Appetite: ~1 large slice.
+- [ ] **W3R-6 — One-pair RAISE damp facing action, pre-river (#9) + ace-high float damp (#5, re-routed) — NEW
+      SCOPING (fixes M7).** `_RAISE_BASE` + the river-only raise-floor let made one-pair (MIDDLE/TOP) jam on
+      flop/turn (TAG H117 99 on J-J-7, H32 88, H107 TPTK; maniac too). Damp the one-pair RAISE merit when FACING a
+      bet/raise on flop/turn; **spare semi-bluff (draw) raises.** **ABSORBS #5 (re-routed from W3R-3):** also damp
+      naked ACE_HIGH (no pair/draw) CALL/float merit when FACING A RAISE on flop/turn — the scoped version of the
+      ace-high float fix that the global `_CALL_BASE[ACE_HIGH]` cut couldn't do without over-folding the fish (its
+      range is ~⅓ ace-high, already on the α ceiling from W3R-2). Scoping to facing-a-raise avoids the global
+      over-fold. **Pass/fail:** TAG/maniac stop re-raising bare one pair into heavy action; a flopped-draw
+      semi-bluff raise still fires; naked ace-high folds to a raise (H117) WITHOUT busting any persona's α ceiling on
+      its arrival range. **No-gos:** two-pair+ value raises untouched; don't cut the global ace-high base (that was
+      the refuted W3R-3 approach). Appetite: ~1 large slice.
 
 - [ ] **W3R-7 — OVERPAIR_TPTK bucket split (#10) — NEW GRANULARITY (heaviest).** Split the bucket so genuine
       top-pair-top-kicker (AK-on-K) gets the W3-d texture brake while true overpairs (AA-on-K) keep betting. Touches
