@@ -145,7 +145,7 @@ export default function SimTable({
           <span className="sim-ctx-no">{hand.hand_no}</span> · {street}
         </div>
         <div
-          className={"tablering" + (hand.hand_over ? " sim-ring-over" : "")}
+          className={"tablering sim-tablering" + (hand.hand_over ? " sim-ring-over" : "")}
           role="group"
           aria-label="table seats"
         >

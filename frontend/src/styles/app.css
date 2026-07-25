@@ -303,6 +303,14 @@
   align-items: center;
   width: 60%;
 }
+/* Simulate pods carry two extra rows (persona plate + stack), so a LIVE
+   top-of-ring pod hangs ~23px lower than PokerTable's — its stack row reached
+   the community cards, worst on the wider turn/river board. Drop the board +
+   pot slightly toward the hero, Simulate-only; PokerTable's shorter pods keep
+   the shared 44%. */
+.sim-tablering .table-center {
+  top: 49%;
+}
 /* Seat pods — engraved chips on the rim (same scrim-puck idiom as the old
    .seat row). Absolute-centered on their slot coordinate. */
 .tseat {
