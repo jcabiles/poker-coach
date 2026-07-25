@@ -458,6 +458,79 @@ def test_estimator_river_dist_equals_live_polarized_policy(packs):
         assert estimator != streetless.dist, hole  # polarization visible in the reveal
 
 
+def test_estimator_facing_raise_parity_with_live_sampler(packs):
+    """W3R-6 estimator parity: on a replayed FLOP facing-a-RAISE node the
+    estimator's recovered distribution equals the live sampler with
+    `facing_raise=True`, and the replay-derived flag equals
+    `postflop_context.facing_raise(...)` on the equivalent HandState. The
+    ">= 2 postflop BET/RAISE actions on this street" rule is implemented TWICE
+    (replay walk + pure helper) — this test is what pins them equal."""
+    from app.domain.table.postflop_context import facing_raise as ctx_facing_raise
+
+    tag = packs[VillainType.TAG]
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _CALL)]
+    moves += [(2, _CHECK), (3, _bet(3.0)), (2, _raise_to(12.0))]  # flop bet-raise war
+    state = _script(state, moves)
+
+    # The live seat-3 decision point: it is facing a RAISE on the flop.
+    assert state.to_act_seat == 3 and state.street is Street.FLOP
+    assert ctx_facing_raise(state.action_history, state.street) is True
+    # ...and a bare bet on the same street is NOT a raise (the discriminating half).
+    assert ctx_facing_raise(
+        [h for h in state.action_history if h.action is not ActionType.RAISE
+         or h.street is not Street.FLOP],
+        Street.FLOP,
+    ) is False
+
+    state = _script(state, [(3, _CALL)])
+    hist = _project(state)
+    ctx = _replay_contexts(hist, seat=3, n=len(hist.actions))[-1]
+    assert ctx.street is Street.FLOP
+    assert ActionType.RAISE in ctx.kinds
+    # the replay-derived flag equals the pure helper's verdict on the live state
+    assert ctx.facing_raise is True
+
+    # Probe holes where the two damps bite: naked ace-high (#5) and a made
+    # middle pair (#9) on Kh7d2c.
+    for hole in (("Ah", "5c"), ("7s", "5s")):
+        estimator = _postflop_action_dist(tag, hole, ctx)
+        legal = [LegalAction(action=k) for k in sorted(ctx.kinds)]
+        live = _CaptureFirstChoices()
+        sample_postflop_decision(
+            tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+            live,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=True,
+        )
+        assert estimator == live.dist, hole
+        blind = _CaptureFirstChoices()
+        sample_postflop_decision(
+            tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+            blind,  # type: ignore[arg-type]
+            current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=False,
+        )
+        assert estimator != blind.dist, hole  # the damp is visible in the reveal
+
+
+def test_estimator_facing_raise_false_on_a_bare_flop_bet(packs):
+    """The estimator's replay must not confuse a PREFLOP raise war with a
+    postflop raise: 3-bet preflop then a single flop bet is facing_raise False."""
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _raise_to(9.0)), (3, _CALL)]  # preflop 3-bet war
+    moves += [(2, _bet(6.0)), (3, _CALL)]  # flop: a BARE bet
+    state = _script(state, moves)
+    hist = _project(state)
+    ctx = _replay_contexts(hist, seat=3, n=len(hist.actions))[-1]
+    assert ctx.street is Street.FLOP
+    assert ctx.facing_raise is False
+
+
 # ---------------------------------------------------------------- perf
 
 

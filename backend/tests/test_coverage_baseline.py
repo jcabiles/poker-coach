@@ -101,6 +101,20 @@ initiative-start snapshot: 30.1% (373/1241) vs 28.3% (349/1233) — HELD, and up
 slice-over-slice from W3R-3's 28.6%. The #7 multiway busted-bluff damp contributes
 nothing to this fixture (its river add-on needs a `PostflopContext`, which this
 harness never passes). Seeded-fixture re-record; bands stay frozen to W4-b.
+
+RE-RECORDED for W3R-6 (persona-realism-w3r-6, 2026-07-24 — slice-authorized): the two
+facing-a-RAISE merit damps (#9 `_ONE_PAIR_RAISE_DAMP` — made MIDDLE/TOP pair stops
+re-raising into flop/turn action; #5 `_ACE_HIGH_FLOAT_RAISE_DAMP` — naked ace-high
+stops floating a raise) change villain play at every facing-a-raise node, so the seeded
+stream drifts → total 1241 → 1290, graded 373 → 354. Isolated: with both damps set to
+1.0 the sweep reproduces the pre-slice 1241/373 EXACTLY (default-off byte-identity), and
+each damp alone moves it (#9 only: 1232/372; #5 only: 1268/362) — the drift is these two
+mechanics, nothing else. Cumulative graded ratio vs the IMMUTABLE persona-realism-start
+snapshot: 27.4% (354/1290) vs 28.3% (349/1233) — a DIP, the same class as (and no worse
+than) the W3-b/c/d 27.5% dip: MAPPER coverage is orthogonal to persona realism (more
+realistic villains visit a different mix of hero spots, and the unchanged mapper grades
+that mix slightly less). Flagged for the mapper-coverage track, not a persona-realism
+regression. Seeded-fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

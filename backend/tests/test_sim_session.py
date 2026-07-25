@@ -33,6 +33,7 @@ from app.domain.table.engine import (
 from app.domain.table.engine import legal_actions as engine_legal_actions
 from app.domain.table.grade_map import map_decision_point
 from app.domain.table.postflop_context import derive_postflop_context
+from app.domain.table.postflop_context import facing_raise as ctx_facing_raise
 from app.domain.table.sizing import (
     last_aggressor_position,
     pot_before_current_aggression,
@@ -287,6 +288,7 @@ def test_bot_decision_parity_with_harness():
                     state.action_history, state.street
                 ).latest_aggressor_contribution_bb
                 context = derive_postflop_context(state, seat)
+                faced_raise = ctx_facing_raise(state.action_history, state.street)
                 expected = harness._postflop_decision(
                     pack, seat_state.hole_cards, state.board, legal, pot_bb,
                     seat_state.stack_bb, opponents, random.Random(decision_seed),
@@ -294,6 +296,7 @@ def test_bot_decision_parity_with_harness():
                     is_aggressor=is_aggressor,
                     latest_aggressor_contribution_bb=contribution,
                     context=context,
+                    facing_raise=faced_raise,
                 )
             # R2: play.bot_decision now sizes bets from the persona levers /
             # node-aware distribution, while the harness mirror stays on the

@@ -96,6 +96,11 @@ class _Ctx(NamedTuple):
     opponents: int
     current_bet_to: float
     observed: ActionType
+    # W3R-6: is the outstanding wager a RAISE (>= 2 postflop BET/RAISE actions on
+    # this street)? Threaded so the estimator's reveal matches the live sampler —
+    # the flag ALONE, never a PostflopContext (whose in_position=False default
+    # would newly activate W3-b's position damp here).
+    facing_raise: bool = False
 
 
 class RangeEstimate(NamedTuple):
@@ -118,6 +123,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     acted: set[int] = set()  # seats acted since last reopen this street
     pf_raises = 0
     pf_limped = False
+    street_aggr = 0  # BET/RAISE count on the CURRENT street (W3R-6 facing_raise)
     out: list[_Ctx] = []
 
     def pay(s: int, amt: float) -> None:
@@ -134,6 +140,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
             cur = 0.0
             last_full = _BB
             acted = set()
+            street_aggr = 0
         s = a.seat
         if a.action is ActionType.POST:
             pay(s, a.amount_bb)
@@ -175,6 +182,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     opponents=sum(1 for j in range(_SEATS) if j != s and j not in folded),
                     current_bet_to=cur,
                     observed=a.action,
+                    facing_raise=street_aggr >= 2,
                 )
             )
 
@@ -189,6 +197,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
             if street is Street.PREFLOP:
                 pf_limped = True
         else:  # BET / RAISE — amount is the increment; new bet-TO = invested
+            street_aggr += 1
             prev = cur
             pay(s, a.amount_bb)
             new_bet = inv_street[s]
@@ -286,6 +295,7 @@ def _postflop_action_dist(
         cap,  # type: ignore[arg-type] — duck-typed capture rng
         current_bet_to=ctx.current_bet_to,
         street=ctx.street,
+        facing_raise=ctx.facing_raise,
     )
     if cap.population is None:  # zero-total-merit fallback path: deterministic
         return {decision.action: 1.0}
