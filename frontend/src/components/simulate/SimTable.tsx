@@ -294,29 +294,37 @@ export default function SimTable({
                     </span>
                   )
                 )}
-                {/* Position · persona · stack · range on ONE row. Stacked as
-                    four separate lines the pod ran 127-140px tall, while
-                    neighbouring seats on the ellipse flanks are only 98px
-                    apart — so every flank pod's top row (the verb) landed
-                    inside the pod above it. One row keeps all four pieces of
-                    information and fits the gap. */}
+                {/* Identity | stack on a two-tone NAMEPLATE, with the range
+                    control hanging below as its own tab. Grouping borrowed from
+                    real poker clients (PokerStars/GG): a compact horizontal
+                    plate that reads as one object on the felt, position over a
+                    persona eyebrow in the darker half, stack figure in the
+                    lighter half. Stacked as four loose lines the pod ran
+                    127-140px tall while neighbouring flank seats are only 98px
+                    apart, so each pod's top row (the verb) landed inside the pod
+                    above it; the plate keeps every piece and fits the gap. */}
                 <span className="sim-meta">
-                  <span className="pos">
-                    {seat.position}
-                    {isButton && (
-                      <span className="dealer" aria-label="dealer button">
-                        D
+                  <span className="sim-plate">
+                    <span className="sim-plate-id">
+                      <span className="pos">
+                        {seat.position}
+                        {isButton && (
+                          <span className="dealer" aria-label="dealer button">
+                            D
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  {seat.persona_type && (
-                    <span className="sim-persona" title={personaLabel(seat.persona_type)}>
-                      {personaShort(seat.persona_type)}
+                      {seat.persona_type && (
+                        <span className="sim-persona" title={personaLabel(seat.persona_type)}>
+                          {personaShort(seat.persona_type)}
+                        </span>
+                      )}
                     </span>
-                  )}
-                  <span className="stack num">
-                    {fmtBb(seat.stack_bb)}bb
-                    {allin && <span className="sim-allin"> all-in</span>}
+                    <span className="sim-plate-stack">
+                      <span className="stack num">{fmtBb(seat.stack_bb)}</span>
+                      <span className="sim-bb">bb</span>
+                      {allin && <span className="sim-allin"> all-in</span>}
+                    </span>
                   </span>
                   {/* Range reveal (V2): live villain pods only. Gated on the
                       STAGED fold state (`folded` above) — same value the pod

@@ -2839,31 +2839,81 @@ kbd {
   margin-bottom: 0;
 }
 
-/* Row 3 — position · persona · stack · range, one line under the cards. */
+/* Row 3 — a two-tone NAMEPLATE (identity | stack) with the range control
+   hanging below it as a tab. Grouping borrowed from real poker clients: a
+   compact horizontal plate that reads as one object on the felt rather than
+   four loose pills strung across a line. The column keeps the plate and its
+   range tab centred under the cards. */
 .sim-meta {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: var(--space-1);
-  white-space: nowrap;
   /* Safety net. The slot-relative anchor (slotStyle) already keeps a pod inside
-     the ring at any width, so this is not what prevents clipping — it bounds how
-     far a flank pod may reach toward the board before the one flexible piece
-     (the persona badge, which already ellipsises) gives way instead. Sized off
-     the card so it tracks the felt's own scale. */
+     the ring at any width; this bounds how far the plate may reach toward the
+     board before the one flexible piece (the persona eyebrow) gives way. */
   max-width: calc(var(--card-w) * 4.4);
 }
-/* The archetype is now a single head noun on a shared row, so it no longer
-   needs (or has room for) the two-card-wide ellipsis budget it had as its own
-   line. */
-.sim-meta .sim-persona {
-  max-width: calc(var(--card-w) * 1.5);
-  /* The only piece allowed to give way when the row hits its max-width — the
-     position, the stack figure and the range control must never truncate. */
+/* The plate: two tinted cells fused into one rounded bar with a hairline rim. */
+.sim-plate {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--felt-text) 14%, transparent);
+}
+/* Identity half — position over a persona eyebrow. Darker of the two tints so
+   it reads as the primary cell; text stays ≥4.5:1 (felt-text on a felt/stage
+   mix that is darker than plain felt, where felt-text already clears 7:1). */
+.sim-plate-id {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  padding: 1px var(--space-2);
+  background: color-mix(in srgb, var(--felt) 58%, var(--stage-bg));
+}
+/* Inside the cell the position no longer carries its own pill ground — the cell
+   IS the ground. Sim-plate-scoped, so PokerTable's shared .pos pill is untouched. */
+.sim-plate-id .pos {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  letter-spacing: 0.6px;
+  line-height: 1.15;
+}
+/* Persona drops to an eyebrow beneath the position — the only piece allowed to
+   give way (ellipsis) when the plate hits its max-width. */
+.sim-plate-id .sim-persona {
+  max-width: calc(var(--card-w) * 2.2);
   flex: 0 1 auto;
   min-width: 0;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.6px;
+  line-height: 1.1;
+  color: color-mix(in srgb, var(--felt-text) 74%, var(--felt));
 }
-/* The button's own top margin spaced it as a row; on the shared line the flex
+/* Stack half — lighter tint, figure over its unit, baseline-aligned. */
+.sim-plate-stack {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 1px var(--space-2);
+  background: color-mix(in srgb, var(--felt) 82%, var(--stage-bg));
+  white-space: nowrap;
+}
+.sim-plate-stack .stack {
+  color: var(--felt-text);
+  font-weight: 700;
+}
+.sim-bb {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: color-mix(in srgb, var(--felt-text) 70%, var(--felt));
+}
+/* The button's own top margin spaced it as a row; as a hanging tab the column
    gap does that job. */
 .sim-meta .sim-vrange-btn {
   margin-top: 0;
