@@ -29,18 +29,19 @@ WHAT IT DOES (measurement only — ZERO bot behavior change)
    river CALL-continuing range, then measures fold-to-bet at the same buckets.
    Turn/river are MEASUREMENT-ONLY (no grounded absolute band yet).
 4. Flop target bands (T4): grounded §5/F10 magnitudes as module constants +
-   parametrized assertions, `pytest.mark.skip`-ed until W3R-2 fits the dials.
+   parametrized assertions — LIVE since W3R-2 fitted the fish/station dials
+   (they shipped `pytest.mark.skip`-ed at W3R-0).
 
 Everything is a PURE ADD: `sample_preflop_action` / `sample_postflop_decision`
 are replayed READ-ONLY, no engine/JSON/conftest edits, no fixture re-records.
 
-MANUAL PRE-FIX-SHAPE CHECK (proves the harness captures the leak W3R-2 fixes)
-----------------------------------------------------------------------------
+MANUAL INSPECTION
+-----------------
 Run:  cd backend && python -m tests.test_arrival_range_ftc
-(or, inside a REPL, `print_curves()`). Eyeball the flop row: the calling
-station is ~FLAT across sizes (size-blind leak) and the passive fish
-UNDER-FOLDS at the overbet (well below the 60–80% target) — the two leaks the
-skipped T4 bands will gate once W3R-2 fits `size_elasticity` / `call_looseness`.
+(or, inside a REPL, `print_curves()`) to dump the per-persona × street × size
+fold curves. Pre-W3R-2 this showed the two leaks the T4 bands gate: the calling
+station ~FLAT across sizes (size-blind) and the passive fish UNDER-folding the
+overbet. Post-W3R-2 both rows rise across sizes inside the T4 bands.
 """
 
 from __future__ import annotations
@@ -330,20 +331,24 @@ def test_t3_continuation_curve_produced_for_all_personas(fold_curves, arrival, s
 
 
 # =====================================================================
-# T4 — grounded FLOP target bands (SKIP until W3R-2 fits the dials)
+# T4 — grounded FLOP target bands (LIVE since W3R-2)
 # =====================================================================
 #
 # Absolute fold-to-bet bands grounded in the persona-realism audit §5 / F10
-# (docs/ai-dlc/research/persona-realism-audit-2026-07-24.md). They FAIL today
-# by design — the current bot leaks (station is size-blind/flat, the fish
-# under-folds), which is the whole reason W3R-2 exists. Landed as
-# `pytest.mark.skip` (NOT xfail): a coincidental in-band value under a future
-# `xfail_strict` conftest would XPASS-redden the suite; `skip` is immune.
+# (docs/ai-dlc/research/persona-realism-audit-2026-07-24.md). W3R-0 landed
+# them `pytest.mark.skip`-ed because the bot leaked (station size-blind/flat,
+# fish under-folding the overbet) — the whole reason W3R-2 existed.
 #
-# UN-SKIP TRIGGER: W3R-2 (station `size_elasticity` 0→~0.55, fish
-# `call_looseness` ~0.95). Only personas the audit grounds get a hard band;
-# the rest stay measurement-only (curves emitted, no assertion). Turn/river:
-# no hard band (magnitudes not grounded).
+# UN-SKIPPED at W3R-2 (persona-realism-w3r-2, 2026-07-24): the fitted dials are
+# station `size_elasticity` 0.0→0.55 + `call_looseness` 4.0, fish
+# `call_looseness` 0.42 (`size_elasticity` 1.3 owner-locked). Measured on this
+# harness at the fitted dials (n_arrival station 1370 / fish 1037):
+#   calling_station  0.33:0.095  0.5:0.134  1.0:0.177  1.5:0.220
+#   passive_fish     0.33:0.206  0.5:0.361  1.0:0.511  1.5:0.638
+# Owner INCLUDED the fish SMALL band (20–38%) as a live gate so the pair of
+# fish bands gates the SLOPE, not just the ceiling. Only personas the audit
+# grounds get a hard band; the rest stay measurement-only (curves emitted, no
+# assertion). Turn/river: no hard band (magnitudes not grounded).
 #
 # (persona, frac, lo, hi, audit-source)
 FLOP_BANDS = [
@@ -351,12 +356,14 @@ FLOP_BANDS = [
     ("calling_station", 0.33, 0.03, 0.15, "audit §5 station SMALL"),
     # ... rising to OVERBET fold 18–40% (a price response, not the flat leak).
     ("calling_station", 1.5, 0.18, 0.40, "audit §5 station OVERBET"),
-    # passive_fish — audit §5/F10: steep fit-or-fold, OVERBET fold 60–80%.
+    # passive_fish — audit §5/F10: steep fit-or-fold. SMALL fold 20–38%
+    # (owner-INCLUDED at W3R-2 — the two-point curve gates the slope) ...
+    ("passive_fish", 0.33, 0.20, 0.38, "audit §5/F10 fish SMALL"),
+    # ... rising to OVERBET fold 60–80%.
     ("passive_fish", 1.5, 0.60, 0.80, "audit §5/F10 fish OVERBET"),
 ]
 
 
-@pytest.mark.skip(reason="unskip at W3R-2 (station size_elasticity / fish call_looseness fit)")
 @pytest.mark.parametrize("persona,frac,lo,hi,src", FLOP_BANDS)
 def test_t4_flop_absolute_band(fold_curves, persona, frac, lo, hi, src):
     rate = fold_curves[persona]["flop"][frac]

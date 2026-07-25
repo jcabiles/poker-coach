@@ -70,6 +70,15 @@ cold-call; maniac + lag SB open-limps deleted; maniac HJ/CO/BTN offsuit-ace open
 trimmed) shifts which hands reach hero, so the seeded stream drifts → total 1255 →
 1250, graded 345 → 378 (graded coverage rose). No engine/postflop code changed.
 Seeded-fixture re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for W3R-2 (persona-realism-w3r2, 2026-07-24 — slice-authorized): a PURE
+persona-JSON postflop dial change (passive_fish `call_looseness` 0.42 authored;
+calling_station `size_elasticity` 0.0 → 0.55 + `call_looseness` 4.0 authored) makes
+those two villains respond to BET SIZE, so hands end differently and the seeded stream
+drifts → total 1250 → 1222, graded 378 → 366 (ratio 30.2% → 30.0% — held, and still
+well above the immutable persona-realism-start floor of 28.3%). No engine code changed.
+Seeded-fixture re-record; population bands stay frozen to W4-b (except the
+owner-authorized fish/station WTSD re-anchor in test_personas_postflop.py).
 """
 
 from __future__ import annotations

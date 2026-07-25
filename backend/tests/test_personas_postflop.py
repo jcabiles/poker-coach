@@ -225,9 +225,16 @@ def test_monotonicity_call_looseness_never_lowers_call_freq():
 
 
 def test_station_size_blind_fish_size_scared_content():
-    # W2-a T4 pass/fail on the AUTHORED packs: the station (size_elasticity 0.0)
-    # folds at a FLAT rate across SMALL→OVERBET (calls any size); the fish
-    # (size_elasticity 1.3) folds much more to a big size (fit-or-fold). Exact
+    # (Function name kept for cross-slice traceability — the spec/tickets refer to
+    # it by name; the assertion below is the W3R-2 shallow-rise re-pin.)
+    # W3R-2 RE-PIN (persona-realism-w3r-2, 2026-07-24 — owner-authorized, P5
+    # precedent): this test used to assert the station was size-BLIND
+    # (`abs(st_over - st_small) < 1e-9`, size_elasticity 0.0) — it codified the
+    # very price-blind leak hyp-2 removes. The station now has an authored
+    # `size_elasticity` 0.55, so it gains a SHALLOW but strictly POSITIVE price
+    # response: it still calls big bets far more than anyone else, it is just no
+    # longer indifferent to the price. The fish (size_elasticity 1.3) keeps its
+    # STEEP fit-or-fold rise, and the station's rise stays well under it. Exact
     # normalized fold probability; middle pair facing a bet, SPR well above commit.
     hole, board = ("9h", "2d"), ["Ac", "9s", "3h"]
 
@@ -242,7 +249,9 @@ def test_station_size_blind_fish_size_scared_content():
     # SMALL: faced_frac 3/9 = 0.33; OVERBET: 9/6 = 1.5.
     st_small, st_over = fold_at(station, 3.0, 12.0, 3.0), fold_at(station, 9.0, 15.0, 9.0)
     fi_small, fi_over = fold_at(fish, 3.0, 12.0, 3.0), fold_at(fish, 9.0, 15.0, 9.0)
-    assert abs(st_over - st_small) < 1e-9  # station: flat (size-blind)
+    # station: a shallow price rise, no longer size-blind (W3R-2).
+    assert 0 < st_over - st_small
+    assert st_over - st_small < fi_over - fi_small  # ... and shallower than the fish's
     assert fi_over - fi_small > 0.15  # fish: steep fold-rise with size
 
 
@@ -503,16 +512,15 @@ def test_fold_to_bet_monotone_in_faced_size(persona, fold_by_size):
     r = fold_by_size[persona]
     seq = [r[f] for f in PRICE_FRACS]
     if persona == "calling_station":
-        # W2-a: the station is size-blind BY DESIGN (size_elasticity 0.0) — its
-        # per-spot fold probability is FLAT across sizes (see the exact-weight unit
-        # test test_station_size_blind_*). Here the rate is sampled over 500 random
-        # spots with per-cell seeds, so it wiggles within NOISE (~±0.03) and is not
-        # strictly monotone — the invariant is "no PRICE RESPONSE", i.e. the
-        # SMALL→OVERBET swing stays well under the 0.10 measurable-rise bar the
-        # other personas must clear. The flat curve IS the price-blind leak this
-        # persona intentionally keeps (calls any size).
-        assert abs(r[1.0] - r[0.33]) < 0.05, (
-            f"station should be size-blind (flat within noise), got "
+        # W3R-2 RE-PIN (persona-realism-w3r-2, 2026-07-24 — owner-authorized, P5
+        # precedent): was `abs(r[1.0] - r[0.33]) < 0.05` ("size-blind BY DESIGN,
+        # flat within noise"), which codified the price-blind leak hyp-2 removes.
+        # With `size_elasticity` 0.0 → 0.55 the station now HAS a price response,
+        # just a shallow one: it must rise strictly, but stay under the 0.10
+        # measurable-rise bar the other personas clear (measured ⅓-pot 0.140 →
+        # pot 0.222, a 0.082 rise). Sticky, no longer indifferent to the price.
+        assert 0 < r[1.0] - r[0.33] < 0.10, (
+            f"station should show a shallow (0, 0.10) price rise, got "
             f"{r[1.0]:.3f} vs {r[0.33]:.3f}"
         )
     else:
@@ -523,8 +531,30 @@ def test_fold_to_bet_monotone_in_faced_size(persona, fold_by_size):
         )
 
 
+@pytest.fixture(scope="module")
+def fish_arrival_fold_by_size():
+    """The passive fish's fold-to-bet curve measured over its REAL arrival range
+    (the W3R-0 harness, `tests/test_arrival_range_ftc.py`) instead of this file's
+    uniform any-two `fold_by_size` fixture — see the α-ceiling test below for why
+    the fish (and only the fish, alongside nit) is measured this way (W3R-2,
+    owner decision 2). Same fracs as PRICE_FRACS, same seeds as the W3R-0
+    harness, so the numbers are literally that harness's flop row."""
+    from tests import test_arrival_range_ftc as arrival_harness
+
+    packs = load_persona_packs()
+    if set(VillainType) - set(packs):
+        pytest.skip("not all persona packs authored yet")
+    pack = packs[VillainType("passive_fish")]
+    spots = arrival_harness._deal_spots(arrival_harness._ARRIVAL_N)
+    flop, _ = arrival_harness._build_flop_arrival(pack, spots)
+    return arrival_harness._fold_curve(
+        pack, flop, 3, arrival_harness._POT_FLOP, arrival_harness._STACK_START,
+        Street.FLOP, 20260721,
+    )
+
+
 @pytest.mark.parametrize("persona", [p for p in ALL_PERSONAS if p != "nit"])
-def test_fold_to_bet_respects_alpha_ceiling(persona, fold_by_size):
+def test_fold_to_bet_respects_alpha_ceiling(persona, fold_by_size, fish_arrival_fold_by_size):
     """RES-D §1c/§2 invariant 3 (A1 guardrail): α = f/(1+f) is a fold CEILING
     vs a balanced bettor — never exceeded because of the price logic — and is
     NOT a floor (no lower-bound assertion exists anywhere: personas may fold
@@ -545,8 +575,24 @@ def test_fold_to_bet_respects_alpha_ceiling(persona, fold_by_size):
     itself to save the old tolerance would violate the P1 spec ("call
     halves"). Real MDF regressions (price-blind folding, e.g. pre-F1's
     tag ~0.39 vs ⅓-pot where α=0.25) still bust this ceiling by a wide
-    margin."""
-    r = fold_by_size[persona]
+    margin.
+
+    RANGE RE-SCOPE for passive_fish (W3R-2, owner decision 2, 2026-07-24 —
+    a SECOND arrival-range-measured exemption alongside nit's, NOT a tolerance
+    loosening; α + 0.05 is untouched): the fish leg is measured over the fish's
+    REAL arrival range (the W3R-0 harness) rather than this fixture's uniform
+    any-two range. The arithmetic forces it — at a 1.5× overbet α = f/(1+f) =
+    0.60, while the audit's grounded fish OVERBET band is 60–80%, so on a uniform
+    any-two range the grounded band sits AT/ABOVE the ceiling by construction:
+    the two contracts are unsatisfiable together on a range the fish never
+    actually holds. On the fish's real arrival range (the hands it flat-calls
+    preflop and so genuinely defends) the band-hitting fit `call_looseness 0.42`
+    IS α-compliant at every bucket — measured 0.206 / 0.361 / 0.511 / 0.638 vs
+    α + 0.05 = 0.298 / 0.383 / 0.550 / 0.650. The uniform fixture is simply
+    mis-specified FOR THE FISH (its air-heavy composition × the fish's steep
+    `size_elasticity` 1.3 inflates the aggregate); every OTHER persona keeps the
+    uniform fixture unchanged."""
+    r = fish_arrival_fold_by_size if persona == "passive_fish" else fold_by_size[persona]
     for frac in PRICE_FRACS:
         alpha = frac / (1 + frac)
         assert r[frac] <= alpha + 0.05, (  # tolerance: see A1 re-derivation above
@@ -555,21 +601,38 @@ def test_fold_to_bet_respects_alpha_ceiling(persona, fold_by_size):
 
 
 def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
-    """RES-D §2 invariant 2 at MEDIUM (½-pot): nit > tag > lag >
-    {passive_fish ≈ maniac ≈ calling_station}. The fish/maniac pair was
-    already an ≈ in RES-D; the station leg was RE-DERIVED from strict `<` to
-    a documented near-tie (P1 A1, persona-realism-p1 — deliberate): A1 cut
-    _CALL_BASE[AIR] 0.25 → 0.08 street-neutrally, and over this fixture's
-    uniform (air-heavy) range the loosest three personas' fold rates
-    converge (measured ½-pot: station 0.2888, maniac 0.2864, fish 0.2960 —
-    station trails maniac by 0.0024, inside sampling resolution). The
-    MEANINGFUL order — the disciplined personas folding strictly more than
-    the loose trio — is kept strict below; only the intra-trio rank is a
-    near-tie (ε = 0.01), NOT a loosening to hide a regression."""
+    """RES-D §2 invariant 2 at MEDIUM (½-pot), RE-DERIVED at W3R-2.
+
+    The pre-W3R-2 order was nit > tag > lag > {fish ≈ maniac ≈ station}, with
+    the intra-trio ranks a documented near-tie (P1 A1 collapsed the loose trio
+    over this fixture's uniform, air-heavy range). W3R-2 (persona-realism-w3r-2,
+    2026-07-24 — owner decision 2) splits that trio apart on purpose, so the
+    fish and station legs are re-derived to the INTENDED new order (this is the
+    hyp-2 fix landing, NOT a flattening regression):
+
+    - **passive_fish CLIMBS to the top.** Its `call_looseness` is now authored at
+      0.42 (was inheriting `stickiness` 1.4), so the fish stops over-calling; ×
+      its steep `size_elasticity` 1.3 it is the most price-sensitive persona in
+      the file, and on this uniform air-heavy range it folds MORE at ½-pot than
+      the disciplined personas (measured 0.4728 — above tag 0.3800 and just
+      above nit 0.4480). The old `abs(fish − maniac) < 0.06` near-tie and
+      `max(fish, maniac) < lag` legs pinned the fish to the loose trio and are
+      replaced by `fish > tag` (its climb) plus a bound keeping it from running
+      away past the nit. NOTE this is the uniform-range aggregate; on the fish's
+      REAL arrival range it folds 0.361 at ½-pot (see the α-ceiling test's range
+      re-scope).
+    - **calling_station drops to STRICTLY loosest.** Its `call_looseness` is now
+      authored at 4.0 (was inheriting `stickiness` 1.8), so the near-tie
+      `station <= min(fish, maniac) + 0.01` is re-derived back to a strict `<`
+      (measured 0.1752, a clear 0.11 below maniac's 0.2864).
+
+    The disciplined-vs-loose legs (maniac < lag < tag < nit) stay strict and
+    untouched."""
     r = {p: fold_by_size[p][0.5] for p in ALL_PERSONAS}
-    assert r["calling_station"] <= min(r["passive_fish"], r["maniac"]) + 0.01, r
-    assert abs(r["passive_fish"] - r["maniac"]) < 0.06, r
-    assert max(r["passive_fish"], r["maniac"]) < r["lag"], r
+    assert r["calling_station"] < min(r["passive_fish"], r["maniac"]), r
+    assert r["passive_fish"] > r["tag"], r  # W3R-2: fish climbs above the loose trio
+    assert r["passive_fish"] - r["nit"] < 0.10, r  # ... but not past the nit
+    assert r["maniac"] < r["lag"], r
     assert r["calling_station"] < r["lag"], r
     assert r["lag"] < r["tag"], r
     assert r["tag"] < r["nit"], r
@@ -1881,10 +1944,31 @@ def budget():
 # exact-weight pins (test_maniac_still_strictly_most_aggressive and the
 # fold/bluff ordering tests), which are deterministic and unaffected.
 #
+# W3R-2 RE-ANCHOR (persona-realism-w3r-2, 2026-07-24 — owner-authorized
+# post-fit collision; FISH + STATION WTSD ONLY, every other row byte-identical
+# and still frozen to W4-b). The hyp-2 dial fit (fish `call_looseness` 0.42;
+# station `size_elasticity` 0.0 → 0.55 + `call_looseness` 4.0) changes exactly
+# what these two personas do with a bet, so their showdown rates move in the
+# theory-consistent direction:
+#   - passive_fish WTSD FALLS (it stops over-calling, so fewer of its hands ride
+#     to showdown): 0.5378 (n=2657, N=2500) / 0.5344 (n=4289, N=4000), was the
+#     P2a-measured .609/.601 → 3σ CI union (0.5088, 0.5572) ∪ (0.5115, 0.5668)
+#     = (0.5088, 0.5668) → band (0.50, 0.57).
+#   - calling_station WTSD RISES (its authored `call_looseness` 4.0 exceeds the
+#     `stickiness` 1.8 it used to inherit, so it calls even more): 0.6923
+#     (n=3594, N=2500) / 0.6912 (n=5768, N=4000), was .575/.581 → 3σ CI union
+#     (0.6692, 0.7154) → band (0.66, 0.72).
+# Same P2a methodology as the blocks above: re-measure at the FINAL fitted dials
+# at both representative N, band = the 3σ binomial CI union rounded outward.
+# fish/station AF + fold_to_cbet re-measured INSIDE their existing tuples at both
+# N (fish AF .940/.951, ftc .411/.431; station AF .341/.337, ftc .158/.160) —
+# those tuples are KEPT unmoved.
+#
 # persona -> (AF band or None, fold_to_cbet band, WTSD band), all fractions.
 BANDS = {
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.53, 0.68)),  # WTSD re-anchored (P2a)
-    "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.51, 0.64)),  # WTSD re-anchored (P2a)
+    # (both W3R-2 lines: owner-authorized post-fit collision — see block above)
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.50, 0.57)),  # WTSD re-anchor W3R-2
+    "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.66, 0.72)),  # WTSD re-anchor W3R-2
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
     "nit": ((0.6, 2.4), (0.10, 0.90), (0.37, 0.80)),  # AF/WTSD re-anchored (P2a)
@@ -2197,13 +2281,21 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
 # postflop street shifts, so the shared-rng stream drifts and every persona's
 # AF/FtC/WTSD moves (nit's AF now falls below the >=30 CALL floor → None). Covered
 # by the W3R-1 preflop assertion tests (test_w3r1_preflop_cleanup.py).
+# RE-RECORDED for W3R-2 (persona-realism-w3r-2, 2026-07-24 — slice-authorized):
+# a PURE persona-JSON dial change (fish `call_looseness` 0.42 authored; station
+# `size_elasticity` 0.0 → 0.55 + `call_looseness` 4.0 authored) — no engine code
+# touched. Both personas' fold/call decisions vs a faced bet change BY DESIGN
+# (that IS hyp-2), and this is a SHARED-TABLE sim on one rng stream, so every
+# persona's aggregates move via environment + rng-stream displacement (nit's AF
+# re-crosses the >=30 CALL floor → numeric again). Covered by the W3R-2 arrival
+# bands (test_arrival_range_ftc.py) + the flipped exact-weight price tests above.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.45695364238410596, 0.3013698630136986, 0.6402640264026402),
-    "lag": (2.549019607843137, None, 0.55),
-    "maniac": (3.217391304347826, 0.3235294117647059, 0.569060773480663),
-    "nit": (None, None, 0.54),
-    "passive_fish": (0.5817307692307693, 0.2682926829268293, 0.6347826086956522),
-    "tag": (2.163265306122449, None, 0.5869565217391305),
+    "calling_station": (0.3567073170731707, 0.1746031746031746, 0.7407407407407407),
+    "lag": (3.1621621621621623, None, 0.5851063829787234),
+    "maniac": (3.357142857142857, 0.3235294117647059, 0.5704697986577181),
+    "nit": (0.9444444444444444, None, 0.5490196078431373),
+    "passive_fish": (0.9338235294117647, 0.44, 0.5650224215246636),
+    "tag": (2.787878787878788, None, 0.6666666666666666),
 }
 
 
@@ -2337,19 +2429,25 @@ def test_persona_wtsd_ordering_invariants(budget):
     assert wtsd["calling_station"] > wtsd["lag"], (
         f"station WTSD {wtsd['calling_station']:.3f} not > lag WTSD {wtsd['lag']:.3f}"
     )
-    # fish-vs-tag RE-DERIVED strict `>` → documented near-tie (P1 A1,
-    # persona-realism-p1 — deliberate, NOT hiding a flattening regression):
-    # A1's _CALL_BASE[AIR] 0.25 → 0.08 hits fish hardest — its high
-    # stickiness multiplied the old air call-base, so fish's WTSD edge over
-    # tag was largely junk-peels riding to showdown. Post-A1 the pair is a
-    # genuine near-tie that flips sign with the wall-clock-sized N (measured
-    # fish .660 vs tag .634 at N=399, but .644 vs .660 at N=670; 3σ on the
-    # difference at these n is ~0.10). ε=0.06 still fails a real flattening
-    # where fish drops materially BELOW tag; the strict station legs above
-    # remain the primary anti-flattening pins.
-    assert wtsd["passive_fish"] > wtsd["tag"] - 0.06, (
-        f"passive_fish WTSD {wtsd['passive_fish']:.3f} not within 0.06 of "
-        f"tag WTSD {wtsd['tag']:.3f} (near-tie, see A1 note)"
+    # fish-vs-tag RE-DERIVED AGAIN at W3R-2 (persona-realism-w3r-2, 2026-07-24 —
+    # owner-authorized): the leg was `fish > tag − 0.06` (a P1/A1 near-tie).
+    # W3R-2 authors the fish's `call_looseness` at 0.42 (it had been inheriting
+    # `stickiness` 1.4 and over-calling), so the fish now genuinely FOLDS MORE
+    # and its WTSD drops BELOW tag's — INTENTIONAL, the hyp-2 fix landing, NOT a
+    # persona-flattening regression. The direction is therefore re-pinned as a
+    # strict `<` (measured at _WTSD_ORDER_N: fish 0.538 vs tag 0.610, a 0.072
+    # gap vs 3σ ≈ 0.056 on the difference), and the anti-flattening guarantee
+    # moves to the station-vs-fish separation below: the two passive personas
+    # must stay clearly distinguishable — the fish is now a fold-to-big-bet
+    # persona, the station the one that still calls everything.
+    assert wtsd["passive_fish"] < wtsd["tag"], (
+        f"passive_fish WTSD {wtsd['passive_fish']:.3f} not < tag WTSD "
+        f"{wtsd['tag']:.3f} (W3R-2: the fish now folds more than the tag)"
+    )
+    assert wtsd["calling_station"] - wtsd["passive_fish"] > 0.10, (
+        f"station WTSD {wtsd['calling_station']:.3f} and fish WTSD "
+        f"{wtsd['passive_fish']:.3f} have converged (<0.10 apart) — the two "
+        f"passive personas must stay distinguishable (W3R-2)"
     )
     assert wtsd["maniac"] < wtsd["calling_station"], (
         f"maniac WTSD {wtsd['maniac']:.3f} not < station WTSD {wtsd['calling_station']:.3f}"

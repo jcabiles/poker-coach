@@ -97,9 +97,16 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # this seed (old post-W3-b/c/d counts: UTG2¹ 99, LJ¹ 107, HJ¹ 132, CO¹ 118, CO² 43,
 # SB¹ 102, SB² 50, BTN¹ 130, BTN² 41). Every _WANT_* coverage shape still fires
 # (verified) — stream displacement, not a coverage regression.
+# RE-PINNED for W3R-2 (persona-realism-w3r2, 2026-07-24 — slice-authorized): a PURE
+# persona-JSON postflop dial change (fish `call_looseness` 0.42; station
+# `size_elasticity` 0.0 → 0.55 + `call_looseness` 4.0) changes how those two bots
+# respond to a faced bet, so hands end differently and the shared-rng stream drifts at
+# this seed (old post-W3R-1 counts: UTG2¹ 84, LJ¹ 124, HJ¹ 151, CO¹ 125, CO² 35,
+# SB¹ 111, SB² 63, BTN¹ 122, BTN² 44). No preflop content changed; every _WANT_*
+# coverage shape still fires (verified) — stream displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 84, ("LJ", 1): 124, ("HJ", 1): 151, ("CO", 1): 125,
-    ("CO", 2): 35, ("SB", 1): 111, ("SB", 2): 63, ("BTN", 1): 122,
+    ("UTG2", 1): 84, ("LJ", 1): 121, ("HJ", 1): 140, ("CO", 1): 138,
+    ("CO", 2): 30, ("SB", 1): 98, ("SB", 2): 55, ("BTN", 1): 129,
     ("BTN", 2): 44,
 }
 
