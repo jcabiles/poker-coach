@@ -2774,7 +2774,12 @@ kbd {
   order: -2;
   /* --text-xs (11px), not the 9px grid-cell floor — a call-sheet label read at
      felt distance across a 9-max ring; the taller ring gives it the room. */
-  font-size: var(--text-xs);
+  /* One step up the scale from the meta row's --text-sm (12px) figures. The verb
+     is the pod's CHANGING signal and the meta row is static furniture, so the
+     hierarchy has to be carried by the type, not by the pill ground alone — at
+     --text-xs the verb was the SMALLEST text in its own pod. One step, not two:
+     --text-base (15px) would shout across a 9-max ring. */
+  font-size: var(--text-md);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2793,9 +2798,17 @@ kbd {
 }
 /* Folded steps back but stays clear of AA: 80% felt-text mix ⇒ ~5.1:1 on the
    lighter Night felt (the 72% .sim-persona value sat at 4.73:1 — lifted here so
-   the smallest+dimmest state isn't hugging the floor). */
+   the smallest+dimmest state isn't hugging the floor). The scrim pill drops away
+   with it: on a typical street six seats have folded and one is betting, so an
+   opaque FOLD pill on every one of them made the dead seats the loudest objects
+   on the felt and buried the single live action the student is meant to read.
+   The pill exists to survive a COLLISION — folded pods are the short ones that
+   don't collide, so they don't need it. Type size steps back too. */
 .tseat-folded .sim-last-action {
   color: color-mix(in srgb, var(--felt-text) 80%, var(--felt));
+  background: none;
+  font-size: var(--text-xs);
+  padding: 0;
 }
 
 /* ── Flank-collision repair ────────────────────────────────────────────────
@@ -2833,12 +2846,22 @@ kbd {
   justify-content: center;
   gap: var(--space-1);
   white-space: nowrap;
+  /* Safety net. The slot-relative anchor (slotStyle) already keeps a pod inside
+     the ring at any width, so this is not what prevents clipping — it bounds how
+     far a flank pod may reach toward the board before the one flexible piece
+     (the persona badge, which already ellipsises) gives way instead. Sized off
+     the card so it tracks the felt's own scale. */
+  max-width: calc(var(--card-w) * 4.4);
 }
 /* The archetype is now a single head noun on a shared row, so it no longer
    needs (or has room for) the two-card-wide ellipsis budget it had as its own
    line. */
 .sim-meta .sim-persona {
   max-width: calc(var(--card-w) * 1.5);
+  /* The only piece allowed to give way when the row hits its max-width — the
+     position, the stack figure and the range control must never truncate. */
+  flex: 0 1 auto;
+  min-width: 0;
 }
 /* The button's own top margin spaced it as a row; on the shared line the flex
    gap does that job. */

@@ -25,12 +25,26 @@ const RING = ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"];
 // the five-card board on the wave-4.5 taller sim ring, while the bottom half
 // keeps 38 (the hero pod hangs below the rail by design; 41 pushed it past
 // .stage's overflow:hidden). Verified by bounding-box sweep at 1440/1280/1024.
+// The four EXTREME flank slots anchor slot-relatively (`translateX(-x%)`)
+// instead of the shared felt's flat `-50%`; every other slot keeps `-50%`.
+// Those four sit closest to the rim AND carry the widest content (position ·
+// persona · stack · range on one row), so centred on their anchor the widest of
+// them overflowed .stage's overflow:hidden by up to 12px, clipping the `range`
+// button and part of its focus ring. `-x%` makes them grow inward from the rail:
+// pod left = (x% of ring) − (x% of pod), which stays ≥ 0 for any pod narrower
+// than the ring, so the geometry self-corrects instead of being tuned to today's
+// longest label. Applied ONLY at the extremes on purpose — biasing every slot
+// pulls the two TOP pods toward each other and they start colliding, trading one
+// defect for another (measured: BTN×SB overlap in a 45-state walk at 1024).
+const FLANK_BIAS_X = 30; // |x − 50| beyond which a slot anchors slot-relatively
+
 function slotStyle(i: number, n: number): CSSProperties {
   const theta = Math.PI / 2 + (i * 2 * Math.PI) / n;
   const sin = Math.sin(theta);
   const x = 50 + 43 * Math.cos(theta);
   const y = 50 + (sin < 0 ? 41 : 38) * sin;
-  return { left: `${x}%`, top: `${y}%` };
+  const tx = Math.abs(x - 50) > FLANK_BIAS_X ? x : 50;
+  return { left: `${x}%`, top: `${y}%`, transform: `translate(-${tx}%, -50%)` };
 }
 
 // Last action verbs arrive lowercase on the wire (fold/check/call/bet/raise);
