@@ -111,10 +111,18 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # SB¹ 98, SB² 55, BTN¹ 129, BTN² 44). #12's `call_looseness` authoring is
 # byte-identical; #5 was dropped by owner decision. No preflop content changed; every
 # _WANT_* coverage shape still fires — stream displacement, not a coverage regression.
+# RE-PINNED for W3R-4 (persona-realism-w3r-4, 2026-07-24 — slice-authorized): the #11
+# `_CALL_BASE[MIDDLE_PAIR]` 0.60 → 0.52 trim changes every bot's naked-middle-pair
+# response to a faced bet, so hands end differently and the shared-rng stream drifts at
+# this seed (old post-W3R-3 counts: UTG2¹ 80, LJ¹ 117, HJ¹ 150, CO¹ 152, CO² 31,
+# SB¹ 102, SB² 60, BTN¹ 126, BTN² 45). The #7 multiway busted-bluff damp contributes
+# nothing here (preflop mapping, and the add-on is river-only). No preflop content
+# changed; every _WANT_* coverage shape still fires — stream displacement, not a
+# coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 80, ("LJ", 1): 117, ("HJ", 1): 150, ("CO", 1): 152,
-    ("CO", 2): 31, ("SB", 1): 102, ("SB", 2): 60, ("BTN", 1): 126,
-    ("BTN", 2): 45,
+    ("UTG2", 1): 90, ("LJ", 1): 132, ("HJ", 1): 151, ("CO", 1): 126,
+    ("CO", 2): 40, ("SB", 1): 113, ("SB", 2): 53, ("BTN", 1): 130,
+    ("BTN", 2): 37,
 }
 
 

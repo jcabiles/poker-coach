@@ -92,6 +92,15 @@ drifts → total 1250 → 1222, graded 378 → 366 (ratio 30.2% → 30.0% — he
 well above the immutable persona-realism-start floor of 28.3%). No engine code changed.
 Seeded-fixture re-record; population bands stay frozen to W4-b (except the
 owner-authorized fish/station WTSD re-anchor in test_personas_postflop.py).
+
+RE-RECORDED for W3R-4 (persona-realism-w3r-4, 2026-07-24 — slice-authorized): the #11
+`_CALL_BASE[MIDDLE_PAIR]` 0.60 → 0.52 trim makes every villain call marginally less
+with a naked middle pair, so hands end differently and the seeded stream drifts →
+total 1264 → 1241, graded 362 → 373. Graded-coverage ratio vs the IMMUTABLE
+initiative-start snapshot: 30.1% (373/1241) vs 28.3% (349/1233) — HELD, and up
+slice-over-slice from W3R-3's 28.6%. The #7 multiway busted-bluff damp contributes
+nothing to this fixture (its river add-on needs a `PostflopContext`, which this
+harness never passes). Seeded-fixture re-record; bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

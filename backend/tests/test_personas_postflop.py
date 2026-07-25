@@ -2349,13 +2349,24 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
 # comment in personas_postflop.py — so no ace-high behavior is in this re-record.
 # Covered by the exact-weight `test_spr_commit_ladder_*` tests above; population
 # bands stay frozen to W4-b.
+# RE-RECORDED for W3R-4 (persona-realism-w3r-4, 2026-07-24 — slice-authorized):
+# the #11 `_CALL_BASE[MIDDLE_PAIR]` 0.60 -> 0.52 trim. Naked middle pair calls a
+# faced bet marginally less BY DESIGN (that IS #11), and this is a SHARED-TABLE
+# sim on one rng stream, so every persona's aggregates move via the policy change
+# + rng-stream displacement (nit/tag/lag FtC re-cross the >=30 floor -> None).
+# The #7 multiway busted-bluff damp contributes ZERO drift here — verified: with
+# only the line-675 change applied this fixture was byte-identical, because this
+# harness passes no `PostflopContext`, so the busted add-on never fires in it
+# (#7 is covered by the exact-weight `test_busted_river_bluff_decays_with_
+# opponents`). Exact tripwire re-record; population bands stay frozen to W4-b and
+# every persona was re-measured IN its existing band (no re-anchor).
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.36085626911314983, 0.1746031746031746, 0.7407407407407407),
-    "lag": (3.1621621621621623, None, 0.5851063829787234),
-    "maniac": (3.357142857142857, 0.3235294117647059, 0.5771812080536913),
-    "nit": (0.9444444444444444, None, 0.5490196078431373),
+    "calling_station": (0.3788300835654596, 0.09375, 0.7466666666666667),
+    "lag": (2.5098039215686274, None, 0.5963302752293578),
+    "maniac": (3.3962264150943398, 0.3548387096774194, 0.5608108108108109),
+    "nit": (1.1935483870967742, None, 0.6923076923076923),
     "passive_fish": (0.9264705882352942, 0.44, 0.5695067264573991),
-    "tag": (2.875, None, 0.6538461538461539),
+    "tag": (2.3076923076923075, None, 0.5945945945945946),
 }
 
 
@@ -2745,6 +2756,76 @@ def test_busted_draw_river_bluff_needs_bet_prev_street():
 def test_busted_straight_bluffs_more_than_busted_flush():
     b = personas_postflop._BUSTED_RIVER_BLUFF
     assert b[BustedDraw.STRAIGHT] > b[BustedDraw.FLUSH]
+
+
+# ============================ W3R-4 — shared-mechanics fixes (#7, #11) ==========
+
+
+def _busted_addon(pack, opponents: int) -> float:
+    """The river busted-draw bluff add-on ALONE, at `opponents` opponents.
+
+    Isolated by differencing the exact BET weight of the same busted-OESD air
+    hand with and only with `bet_prev_street` flipped: in a bluff-cell unopened
+    spot the entries are CHECK = 1 - bluff_mass and BET = bluff_mass (the packs
+    here are position-blind, so the W3-b multiplier is 1.0), so the normalized
+    BET weight IS bluff_mass and the difference is exactly the add-on.
+    """
+    busted, board = ("8c", "9d"), ["6h", "7s", "Kc", "2d", "Qs"]
+
+    def bet(bet_prev: bool) -> float:
+        ctx = PostflopContext(
+            in_position=True, bet_prev_street=bet_prev, busted_draw=BustedDraw.STRAIGHT
+        )
+        return _bet(
+            _dist_pack_ctx(
+                pack, busted, board, _CBET_LEGAL, street=Street.RIVER,
+                context=ctx, opponents=opponents,
+            )
+        )
+
+    return bet(True) - bet(False)
+
+
+def test_busted_river_bluff_decays_with_opponents():
+    """W3R-4 (#7): the busted-draw river bluff add-on carries the SAME multiway
+    damp as the generic bluff mass — a busted flush must not fire the same story
+    bluff into 3 callers as heads-up. Heads-up (opponents=1) is byte-identical
+    (`** 0` = 1.0)."""
+    pack = _pack_with("tag", position_sensitivity=0.0)
+    damp = pack.postflop.multiway_bluff_damp
+    assert damp < 1.0  # the decay is only observable for a damping persona
+    hu, three = _busted_addon(pack, 1), _busted_addon(pack, 3)
+    assert _busted_addon(pack, 2) < hu
+    assert three < _busted_addon(pack, 2)
+    # Exact law: add-on == _BUSTED_RIVER_BLUFF[kind] * damp ** (opponents - 1).
+    base = personas_postflop._BUSTED_RIVER_BLUFF[BustedDraw.STRAIGHT]
+    assert hu == pytest.approx(base, abs=1e-12)  # heads-up byte-identical
+    assert three == pytest.approx(base * damp**2, abs=1e-12)
+
+
+def test_middle_pair_call_base_trim_calls_less():
+    """W3R-4 (#11): the `_CALL_BASE[MIDDLE_PAIR]` 0.60 -> 0.52 trim makes a naked
+    middle pair facing a flop bet CALL strictly less often (exact weights)."""
+    hole, board = ("7h", "6d"), ["9c", "7s", "2d"]  # naked middle pair, no draw
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(3.0),
+        personas_postflop_legal_raise(9.0, 100.0),
+    ]
+
+    def call_weight() -> float:
+        return _dist_pack_ctx(
+            _pack("tag"), hole, board, legal, street=Street.FLOP, current_bet_to=3.0
+        )[ActionType.CALL]
+
+    trimmed = call_weight()
+    pre = personas_postflop._CALL_BASE[StrengthBucket.MIDDLE_PAIR]
+    assert pre == 0.52  # the fitted seed (see the engine comment)
+    personas_postflop._CALL_BASE[StrengthBucket.MIDDLE_PAIR] = 0.60
+    try:
+        assert trimmed < call_weight()
+    finally:
+        personas_postflop._CALL_BASE[StrengthBucket.MIDDLE_PAIR] = pre
 
 
 # ============================ W3-d — texture brakes (B2/B3, F3/F20) =============
