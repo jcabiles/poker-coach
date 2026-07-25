@@ -63,16 +63,6 @@ function personaLabel(persona: string): string {
     .join(" ");
 }
 
-// The archetype's HEAD noun — the word that actually names the type ("Calling
-// Station" ⇒ "Station", "Passive Fish" ⇒ "Fish"). The villain meta now sits on a
-// SINGLE row (position · persona · stack · range) so the pod clears its
-// neighbour's on the ellipse flanks; a two-word badge is what blows that row's
-// width. The full label stays in the `title` attribute, so nothing is lost.
-function personaShort(persona: string): string {
-  const full = personaLabel(persona);
-  return full.slice(full.lastIndexOf(" ") + 1);
-}
-
 export default function SimTable({
   hand,
   board,
@@ -294,12 +284,16 @@ export default function SimTable({
                     </span>
                   )
                 )}
-                {/* Position · persona · stack · range on ONE row. Stacked as
-                    four separate lines the pod ran 127-140px tall, while
-                    neighbouring seats on the ellipse flanks are only 98px
-                    apart — so every flank pod's top row (the verb) landed
-                    inside the pod above it. One row keeps all four pieces of
-                    information and fits the gap. */}
+                {/* Persona type on its OWN row — a plate above the position line.
+                    Splitting it out of the meta row keeps that row (position ·
+                    stack · range) from cramming four items across the narrow
+                    flank pods; the full archetype now has room to read. */}
+                {seat.persona_type && (
+                  <span className="sim-persona-plate" title={personaLabel(seat.persona_type)}>
+                    {personaLabel(seat.persona_type)}
+                  </span>
+                )}
+                {/* Position · stack · range on one row under the persona plate. */}
                 <span className="sim-meta">
                   <span className="pos">
                     {seat.position}
@@ -309,11 +303,6 @@ export default function SimTable({
                       </span>
                     )}
                   </span>
-                  {seat.persona_type && (
-                    <span className="sim-persona" title={personaLabel(seat.persona_type)}>
-                      {personaShort(seat.persona_type)}
-                    </span>
-                  )}
                   <span className="stack num">
                     {fmtBb(seat.stack_bb)}bb
                     {allin && <span className="sim-allin"> all-in</span>}
