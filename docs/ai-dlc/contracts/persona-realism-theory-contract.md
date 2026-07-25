@@ -84,9 +84,21 @@ The idealized-distinct stat signatures. **HARD-vs-directional is critical — a 
 
 | | nit | TAG | LAG | maniac | station | fish |
 |---|---|---|---|---|---|---|
-| VPIP | 13–16 | 19–23 | 26–31 | 45–58 | 42–55 | 36–48 |
-| PFR | 10–13 | 16–19 | 21–26 | 38–48 | 8–14 | 10–16 |
+| VPIP | 10–14 ‡ | 15–20 ‡ | 21–27 ‡ | 45–58 | 42–55 | 40–55 ‡ |
+| PFR | 8–12 ‡ | 12–17 ‡ | 17–23 ‡ | 38–48 | 8–14 ⚠ | 10–16 ⚠ |
 | gap | 1–4 | 2–5 | 3–6 | ≤10 | ≥30 | ≥24 |
+| *live 9-max (VPIP/PFR, 150 hands, indicative only)* | 8.1 / 4.1 | 10.5 / 8.8 | 19.3 / 11.3 | 32.7 / 25.9 | 48.0 / 0.7 | 33.1 / 3.4 |
+
+**‡ 9-max full-ring correction (2026-07-25 — see §9 ledger #14).** The nit/TAG/LAG rows previously carried **6-max** values transferred to 9-max unlabelled (§10); they are corrected down by ~0.7–0.8× VPIP (≈ −5pts), and fish is corrected UP. Confidence `MEDIUM` — practitioner consensus (one strong full-ring specialist source publishing both formats side by side, plus two lower-tier corroborators), not peer-reviewed or solver-derived. **Direction is HIGH-conf; the exact band edges are DIRECTIONAL.**
+
+**Deliberately UNCHANGED:**
+- **gap row** — the VPIP−PFR gap is **format-invariant** (~3pts for winners in both 6-max and full ring). It is the strongest cross-format diagnostic in the table; do NOT "correct" it alongside VPIP/PFR.
+- **maniac / station VPIP** — the researched 9-max bands (maniac 45–60, station 40–55) already agree with what is written; no edit needed.
+- **⚠ station / fish PFR** — sourced 9-max values (station 3–10, fish 5–12) are `LOW`-conf: real recreational examples scatter from 40/2 to 40/30. Flagged UNRESOLVED, not changed. Treat as DIRECTIONAL-only until metric #3 measures it.
+
+**Why only three rows moved (the mechanism confirming itself):** the transfer error lands on **nit / TAG / LAG** — the three *position-aware* archetypes, whose ranges respond to seats-left-to-act and blind frequency (blinds arrive 2/6 ≈ 33% of hands at 6-max vs 2/9 ≈ 22% full ring). It does **not** land on **maniac / station / fish**, because a player who does not adjust to table size has no mechanism by which a 6-max→9-max transfer could bias their stat. The corrections and the non-corrections fall exactly where the mechanism predicts.
+
+3-bet%, still DIRECTIONAL, for the same pool: full ring **4–7%**, 6-max 6–10% — quote the full-ring figure in this contract.
 
 **Postflop:**
 
@@ -187,12 +199,27 @@ Pulled from RECONCILE + the §10 capstone corrections. Any worker or reviewer re
 11. **`is_aggressor` ≠ `in_position`** — `is_aggressor` is the WHOLE-HAND last aggressor; P1's `in_position` is a per-street boolean. Do not conflate. **BB is IP vs SB** (postflop SB acts first — the audit's "BB OOP to SB" was backwards). Exclude ALL-IN/FOLDED seats from "acts after me." (RECONCILE RP1-S3.)
 12. **The commit gate's P is pot-BEFORE-bet, not live `pot_bb`** — using live pot silently lowers the threshold. `c = to_call/stack` is an SPR-INTERACTION term (`c = faced_frac · P/stack`), NOT orthogonal to pot price. (RECONCILE RP3.)
 13. **The "never semi-bluff-jam a station / value-jam only" line is a HERO exploit, NOT a bot mechanic** — it requires villain-range knowledge the sampler does not have (F16, range-blind). Deferred to the coaching layer. (RECONCILE RP3; audit §10.5.)
+14. **The §5 preflop VPIP/PFR keystone was 6-max, mislabelled 9-max** — corrected 2026-07-25.
+    - **Defect:** §5 declares its pool "online low-mid **9-max** ~100bb", but §10 already admitted anchors were "derived from 6-max solver outputs and transferred to 9-max." That admission was scoped only to the IP/OOP gap; it also silently governed the VPIP/PFR keystone, which was therefore carrying 6-max numbers under a 9-max label.
+    - **Evidence:** a full-ring specialist source publishing BOTH formats side by side (6-max optimal 21/18 vs full ring 15/12), corroborated in direction and magnitude by two lower-tier sources (6max 18–25 → FR 14–20; 6max 22–28 → FR 15–20). Consistent shift ≈ **−5 to −7 VPIP points (×0.7–0.8)**. Mechanism: blinds arrive 2/6 ≈ 33% of hands at 6-max vs 2/9 ≈ 22% full ring, and fewer players left to act per seat widens 6-max opens. Live 9-max play over 150 recent hands (row in §5) sits at or below the corrected bands — consistent with the direction of the correction, indicative only at that n.
+    - **Sourcing quality:** practitioner consensus. **Not peer-reviewed, not solver-derived.** Confidence `MEDIUM` on the split's existence and size, `HIGH` on its direction, DIRECTIONAL on exact band edges.
+    - **CHANGED:** nit VPIP/PFR 13–16 / 10–13 → **10–14 / 8–12**; TAG 19–23 / 16–19 → **15–20 / 12–17**; LAG 26–31 / 21–26 → **21–27 / 17–23**; fish VPIP 36–48 → **40–55**. 3-bet% quoted at the full-ring **4–7%**.
+    - **Deliberately NOT changed:** (a) the **gap row** — the VPIP−PFR gap does not shift between formats (~3pts for winners in either), making it a format-invariant diagnostic that needs no correction; (b) **maniac/station VPIP** — the researched 9-max bands already agree with what was written (concordance, not a miss); (c) **station/fish PFR** — sources scatter far too widely (recreational examples run 40/2 to 40/30) to justify a move; flagged UNRESOLVED and left in place.
+    - **Confirming pattern:** exactly the three *position-aware* archetypes (nit/TAG/LAG) carried the error and the three *recreational* ones (maniac/station/fish) did not — because players who don't adjust to table size cannot be biased by a table-size transfer. The distribution of the error matches its proposed mechanism.
+    - **Scope:** documentation only. **No test, no band in `backend/tests/`, no content pack was touched** — per §5/§7, no RP6 number becomes a test gate until the single Wave-4 re-measure, and these corrected numbers inherit that rule.
 
 ---
 
 ## 10. Reference pool
 
-Everything is calibrated to **online low-mid 9-max ~100bb** (audit §9.2 / RECONCILE line 7). The whole §5 stat table is pool-specific. If the target audience/pool differs, the entire keystone needs recalibration (FULL-BUILDOUT §6 #7). Anchors were mostly derived from 6-max solver outputs and transferred to 9-max — so the exact IP/OOP *gap* magnitude is `LOW`-conf (9-max changes opening ranges / caller composition / multiway incidence), while the *direction* (IP>OOP) is `HIGH`-conf (RECONCILE RP1-S6).
+Everything is calibrated to **online low-mid 9-max ~100bb** (audit §9.2 / RECONCILE line 7). The whole §5 stat table is pool-specific. If the target audience/pool differs, the entire keystone needs recalibration (FULL-BUILDOUT §6 #7).
+
+**The 6-max→9-max transfer caveat applies to the WHOLE keystone, not just IP/OOP.** Anchors were mostly derived from 6-max solver outputs and transferred to 9-max. Two consequences, both live:
+
+1. **IP/OOP gap (RECONCILE RP1-S6):** the exact *gap* magnitude is `LOW`-conf (9-max changes opening ranges / caller composition / multiway incidence); the *direction* (IP>OOP) is `HIGH`-conf.
+2. **VPIP/PFR keystone (§5, corrected 2026-07-25 — ledger #14):** the same transfer left the nit/TAG/LAG preflop rows carrying **6-max** values under a 9-max label. Corrected down ~0.7–0.8× VPIP (fish corrected up). The correction rests on **practitioner consensus, not peer-reviewed or solver data** — one strong full-ring specialist source publishing both formats side by side (6-max 21/18 vs full ring 15/12), corroborated in direction and magnitude by two lower-tier sources. Confidence `MEDIUM`; band **edges** stay DIRECTIONAL.
+
+**Standing rule:** any *other* magnitude in this contract that traces to a 6-max solver output and is quoted at 9-max is suspect by default and must be re-checked against a full-ring source before it is written into a test as a gate. Recreational-archetype anchors are the exception — they are table-size-insensitive, so the transfer is harmless there (§5).
 
 ---
 

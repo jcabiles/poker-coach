@@ -454,8 +454,16 @@ harness and `range_estimate` stay byte-identical until the live loop (`sim_sessi
 ---
 
 ## 7. Research anchors (reputable)
+
+**⚠️ Table size.** The Simulate table is **9-max (full ring)**; the VPIP/PFR figures in the anchors
+below and in §9.5 come from sources that are 6-max or unlabeled. Full-ring VPIP/PFR runs ~5–7 points
+below 6-max for the position-aware types (nit/TAG/LAG); recreationals and the maniac barely shift;
+the **VPIP−PFR gap is format-invariant**. Corrected values are inline below. **Authoritative bands:**
+`docs/ai-dlc/contracts/persona-realism-theory-contract.md` §5 — use it, not these anchors, when
+setting or gating a target. Background + sourcing caveat: `docs/research/player-types-and-exploits.md` §2.
+
 - **Calling station = "inelastic calling range … call or fold regardless of the bet size"**; WTSD
-  ≥ 36, W$SD < 45, VPIP−PFR gap ≥ 15 —
+  ≥ 36, W$SD < 45, VPIP−PFR gap ≥ 15 (gap is format-invariant — no 9-max correction) —
   [Upswing](https://upswingpoker.com/calling-stations-poker-strategy/),
   [PokerCoaching VPIP](https://pokercoaching.com/blog/vpip-poker-stat/),
   [ThePokerBank elastic/inelastic](https://www.thepokerbank.com/strategy/concepts/elastic-inelastic/).
@@ -463,8 +471,9 @@ harness and `range_estimate` stay byte-identical until the live loop (`sim_sessi
   vs. treats-big-as-normal) —
   [BlackRain79](https://www.blackrain79.com/2015/08/flop-strategies-versus-bad-poker.html),
   [Upswing bad players](https://upswingpoker.com/snowball-winnings-bad-poker-players/).
-- **Nit = VPIP < 15 / PFR < 12, near-nut raises only, "runs scared when an overcard hits the
-  turn"** — [Upswing nits](https://upswingpoker.com/nits-tight-player-poker-strategy/),
+- **Nit = VPIP < 15 / PFR < 12** (source table size unlabeled → read as 6-max; **9-max full ring:
+  VPIP 10–14 / PFR 8–12**), near-nut raises only, "runs scared when an overcard hits the
+  turn" — [Upswing nits](https://upswingpoker.com/nits-tight-player-poker-strategy/),
   [PokerCoaching nits](https://pokercoaching.com/blog/poker-nits/).
 - **Opponent-modeling literature** uses board-texture-conditioned reaction trees / equity-aware
   nodes as the standard primitive — [Bayes' Bluff](https://arxiv.org/pdf/1207.1411),
@@ -615,10 +624,15 @@ three must re-anchor it deliberately. Changing maniac/LAG/TAG **will** move the 
 (VPIP/PFR/AF/WTSD) and the coverage baseline — re-record per §6.3.
 
 ### 9.5 Research anchors (aggressive)
-- Maniac VPIP ~55 / PFR ~37 / **AF ≈ 5**, raises-or-folds (no open-limp) —
+*Table-size caveat from §7 applies to every VPIP/PFR figure here.*
+- Maniac VPIP ~55 / PFR ~37 / **AF ≈ 5**, raises-or-folds (no open-limp). Source table size
+  unlabeled; the maniac **barely shifts** by format — **9-max full ring: VPIP 45–60 / PFR 35–50** —
   [ThePokerBank styles](https://www.thepokerbank.com/strategy/general/playing-styles/),
   [BlackRain79](https://www.blackrain79.com/2015/11/what-to-do-when-fish-fight-back.html).
-- TAG ~15-20% / LAG ~25-40%; LAG same-or-greater postflop aggression on a wider range, near-TAG from
+- TAG ~15-20% / LAG ~25-40% (source table size unlabeled; both are position-aware types that
+  compress at full ring — **9-max: TAG VPIP 15–20 / PFR 12–17, LAG VPIP 21–27 / PFR 17–23**. Note
+  the quoted TAG band happens to coincide with the 9-max figure); LAG same-or-greater postflop
+  aggression on a wider range, near-TAG from
   EP — [SplitSuit LAG](https://www.splitsuit.com/playing-lag-loose-aggressive-poker),
   [Upswing TAG](https://upswingpoker.com/tight-aggressive-tag-strategy-passive/).
 - Rivers polarized (omit medium-strength); bluff freq declines by street —
