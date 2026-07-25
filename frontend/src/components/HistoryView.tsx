@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { HandReplayView, HistoryListItemView, HistoryListView } from "../api/types";
-import HandReplay from "./simulate/HandReplay";
+import HandReplayTable from "./simulate/HandReplayTable";
 import { tierOf } from "./simulate/simGrade";
 
 // Simulate Hand-History + Replay (T5) — the hand register. A day-ruled ledger of
@@ -118,7 +118,7 @@ export default function HistoryView() {
   if (replay) {
     return (
       <section className="history">
-        <HandReplay key={replay.sim_hand_id} replay={replay} onClose={closeReplay} />
+        <HandReplayTable key={replay.sim_hand_id} replay={replay} onClose={closeReplay} />
       </section>
     );
   }
