@@ -303,6 +303,14 @@
   align-items: center;
   width: 60%;
 }
+/* Simulate pods carry two extra rows (persona plate + stack), so a LIVE
+   top-of-ring pod hangs ~23px lower than PokerTable's — its stack row reached
+   the community cards, worst on the wider turn/river board. Drop the board +
+   pot slightly toward the hero, Simulate-only; PokerTable's shorter pods keep
+   the shared 44%. */
+.sim-tablering .table-center {
+  top: 49%;
+}
 /* Seat pods — engraved chips on the rim (same scrim-puck idiom as the old
    .seat row). Absolute-centered on their slot coordinate. */
 .tseat {
@@ -361,6 +369,23 @@
     inset 0 0 0 calc(var(--radius-sm) + 1px) color-mix(in srgb, var(--card-bg) 35%, transparent),
     var(--shadow-card);
 }
+/* Simulate villains' face-down hole cards read as warm burgundy card-stock,
+   rimmed in ivory — the shared felt-green blank was too easily mistaken for a
+   face-up card. Scoped to the Simulate felt (`.sim-seat`); PokerTable's backs
+   keep the base treatment. Tokens only (suit-red over stage-bg). */
+.sim-seat .card.back {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--suit-red) 62%, var(--stage-bg)),
+    color-mix(in srgb, var(--suit-red) 34%, var(--stage-bg))
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--card-bg) 60%, transparent),
+    inset 0 0 0 var(--radius-sm) color-mix(in srgb, var(--suit-red) 44%, var(--stage-bg)),
+    inset 0 0 0 calc(var(--radius-sm) + 1px) color-mix(in srgb, var(--card-bg) 30%, transparent),
+    var(--shadow-card);
+}
+
 /* Per-seat action chip: scrim puck + a small action-colored inlay dot; the
    text itself carries the action (color is redundant, not load-bearing). */
 .actchip {
@@ -2840,28 +2865,42 @@ kbd {
 }
 
 /* Row 3 — position · persona · stack · range, one line under the cards. */
+/* Simulate pods carry an extra row (persona plate), so tighten the row gap to
+   claw the height back — keeps the bottom row off the blind puck of the flank
+   pod below. Sim-scoped; PokerTable pods keep the shared --space-1 gap. */
+.tseat.sim-seat {
+  gap: 3px;
+}
+/* Persona type on its own row — a badge above the position line (same scrim-
+   chip idiom as .pos). Carrying it here instead of on the meta row keeps
+   position · stack · range from cramming, and gives the full archetype room. */
+.sim-persona-plate {
+  max-width: calc(var(--card-w) * 2.4);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--felt-text) 82%, var(--felt));
+  background: var(--felt-chip-bg);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Folded persona steps back but stays ≥4.5:1 on the lighter NIGHT felt. */
+.tseat-folded .sim-persona-plate {
+  color: color-mix(in srgb, var(--felt-text) 72%, var(--felt));
+}
+/* Position · stack · range on one row under the persona plate. */
 .sim-meta {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
   white-space: nowrap;
-  /* Safety net. The slot-relative anchor (slotStyle) already keeps a pod inside
-     the ring at any width, so this is not what prevents clipping — it bounds how
-     far a flank pod may reach toward the board before the one flexible piece
-     (the persona badge, which already ellipsises) gives way instead. Sized off
-     the card so it tracks the felt's own scale. */
+  /* Safety net — bounds how far a flank pod may reach toward the board. */
   max-width: calc(var(--card-w) * 4.4);
-}
-/* The archetype is now a single head noun on a shared row, so it no longer
-   needs (or has room for) the two-card-wide ellipsis budget it had as its own
-   line. */
-.sim-meta .sim-persona {
-  max-width: calc(var(--card-w) * 1.5);
-  /* The only piece allowed to give way when the row hits its max-width — the
-     position, the stack figure and the range control must never truncate. */
-  flex: 0 1 auto;
-  min-width: 0;
 }
 /* The button's own top margin spaced it as a row; on the shared line the flex
    gap does that job. */
