@@ -71,6 +71,19 @@ trimmed) shifts which hands reach hero, so the seeded stream drifts → total 12
 1250, graded 345 → 378 (graded coverage rose). No engine/postflop code changed.
 Seeded-fixture re-record; population bands stay frozen to W4-b.
 
+RE-RECORDED for W3R-3 (persona-realism-w3r-3, 2026-07-24 — slice-authorized): the #4
+spr_commit ladder (fish 2.0 → 1.4 so it commits LATER than the station's 1.5, maniac
+4.0 → 3.3) moves both bots' low-SPR stack-off points, so the played hand stream
+drifts (total 1222 → 1264, graded 366 → 362). #12 (tag/nit/lag explicit
+`call_looseness` == prior inherited `stickiness`) is byte-identical and contributes
+nothing; #5 (the global ACE_HIGH call-base cut) was DROPPED by owner decision, so no
+ace-high behavior is in this re-record. Cumulative graded-coverage ratio vs the
+IMMUTABLE initiative-start snapshot: 28.6% (362/1264) vs 28.3% (349/1233) — HELD, no
+cumulative loss. (Slice-over-slice this dips from W3R-2's 30.0%: the longer stream
+(+42 hero decision points) is dominated by MORE ungraded points, an artifact of which
+spots the mapper covers, orthogonal to persona realism — same class as the W3-b/c/d
+dip.) Seeded-fixture re-record; population bands stay frozen to W4-b.
+
 RE-RECORDED for W3R-2 (persona-realism-w3r2, 2026-07-24 — slice-authorized): a PURE
 persona-JSON postflop dial change (passive_fish `call_looseness` 0.42 authored;
 calling_station `size_elasticity` 0.0 → 0.55 + `call_looseness` 4.0 authored) makes

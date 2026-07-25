@@ -104,10 +104,17 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # this seed (old post-W3R-1 counts: UTG2¹ 84, LJ¹ 124, HJ¹ 151, CO¹ 125, CO² 35,
 # SB¹ 111, SB² 63, BTN¹ 122, BTN² 44). No preflop content changed; every _WANT_*
 # coverage shape still fires (verified) — stream displacement, not a coverage regression.
+# RE-PINNED for W3R-3 (persona-realism-w3r-3, 2026-07-24 — slice-authorized): the #4
+# spr_commit ladder (fish 2.0 → 1.4, maniac 4.0 → 3.3) changes both bots' low-SPR
+# stack-off decisions, so hands end differently and the shared-rng stream drifts at
+# this seed (old post-W3R-2 counts: UTG2¹ 84, LJ¹ 121, HJ¹ 140, CO¹ 138, CO² 30,
+# SB¹ 98, SB² 55, BTN¹ 129, BTN² 44). #12's `call_looseness` authoring is
+# byte-identical; #5 was dropped by owner decision. No preflop content changed; every
+# _WANT_* coverage shape still fires — stream displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 84, ("LJ", 1): 121, ("HJ", 1): 140, ("CO", 1): 138,
-    ("CO", 2): 30, ("SB", 1): 98, ("SB", 2): 55, ("BTN", 1): 129,
-    ("BTN", 2): 44,
+    ("UTG2", 1): 80, ("LJ", 1): 117, ("HJ", 1): 150, ("CO", 1): 152,
+    ("CO", 2): 31, ("SB", 1): 102, ("SB", 2): 60, ("BTN", 1): 126,
+    ("BTN", 2): 45,
 }
 
 

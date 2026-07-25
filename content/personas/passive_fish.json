@@ -12,7 +12,7 @@
     "call_looseness": 0.42,
     "bluff_freq": 0.12,
     "sizing": { "0.33": 0.6, "0.5": 0.3, "0.75": 0.1 },
-    "spr_commit": 2.0,
+    "spr_commit": 1.4,
     "multiway_bluff_damp": 0.4
   },
   "preflop": [

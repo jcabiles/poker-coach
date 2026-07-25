@@ -238,6 +238,17 @@ _CHECK_BASE = {
 # unaffected since _DRAW_CALL_BONUS (WEAK 0.20 / STRONG 0.55) still adds on
 # top. Street-aware river "air-call ~0" gate is deferred to a later slice
 # (P2a) — this change is street-neutral, no street/river logic added here.
+#
+# ACE_HIGH stays 0.40 — a MEASURED negative result, not an oversight (W3R-3 #5,
+# H117 "naked ace-high floats raise-wars", owner decision 2026-07-24). Cutting this
+# GLOBAL base the way A1 cut AIR was tried and DROPPED: ACE_HIGH is ~35% of the
+# passive fish's real arrival range, so any cut below ~0.30 pushes the fish's
+# arrival-range fold-to-bet ABOVE the RES-D α = f/(1+f) ceiling (at base 0.22:
+# 0.408 vs α+0.05 = 0.383 at ½-pot, 0.658 vs 0.650 at 1.5×), while the only
+# α-clean value (0.30) moves the roster's ace-high fold by only +0.03 — cosmetic
+# under the softmax law. The global constant is the wrong tool: the H117 leak is
+# specifically a FACING-A-RAISE float, so the fix is re-routed to a raise-scoped
+# damp in a later slice. Do NOT re-attempt a flat cut here.
 _FOLD_BASE = {
     StrengthBucket.MONSTER: 0.0,
     StrengthBucket.TWO_PAIR_PLUS: 0.05,

@@ -284,6 +284,52 @@ def test_size_elasticity_steeper_fold_vs_bigger_size():
     assert fold_gap(high) > fold_gap(low)
 
 
+# W3R-3 (#4, hand-history review H11/H76): the spr_commit LADDER. The fish was
+# authored `spr_commit` 2.0 — ABOVE the calling station's 1.5 — so the supposedly
+# scared passive bot reached its stack-commitment threshold at a HIGHER SPR, i.e.
+# committed EARLIER than the stickiest persona on the roster. Backwards. Fixed by
+# fish 2.0 → 1.4 (now strictly below the station) and maniac 4.0 → 3.3 (a mild pull
+# on the deep over-commit). The engine gate is `stack/pot <= spr_commit` (line ~804),
+# so a HIGHER dial commits at a HIGHER (i.e. earlier) SPR — the assertions below use
+# an SPR that lands strictly BETWEEN the old and new dials, where a made hand facing
+# a bet is committed (fold merit zeroed) at the OLD dial and is not at the NEW one.
+_COMMIT_TPTK = (("Ah", "Kd"), ["Ac", "9s", "3h"])  # OVERPAIR_TPTK — the commit rung
+
+
+def _commit_fold_prob(persona: str, spr: float, spr_commit: float | None = None) -> float:
+    """Exact normalized P(fold) for a committable made hand facing a ½-pot bet at a
+    chosen SPR. `spr_commit=None` uses the pack's authored dial."""
+    pack = _pack(persona)
+    if spr_commit is not None:
+        pack.postflop = pack.postflop.model_copy(update={"spr_commit": spr_commit})
+    pot, stack = 60.0, 60.0 * spr
+    hole, board = _COMMIT_TPTK
+    return _dist_for_pack(
+        pack, hole, board,
+        [personas_postflop_legal_fold(), personas_postflop_legal_call(20.0),
+         personas_postflop_legal_raise(40.0, stack)],
+        pot, stack, current_bet_to=20.0,
+    ).get(ActionType.FOLD, 0.0)
+
+
+def test_spr_commit_ladder_fish_commits_later_than_the_station():
+    """#4 (H11/H76): at SPR 1.45 — between the fish's new 1.4 and the station's 1.5 —
+    the STATION is pot-committed (fold merit zeroed) and the FISH is not. Under the
+    old fish dial (2.0) the fish was committed here too, i.e. it committed EARLIER
+    than the station. Exact weights, no sampling noise."""
+    assert _pack("passive_fish").postflop.spr_commit < _pack("calling_station").postflop.spr_commit
+    assert _commit_fold_prob("calling_station", 1.45) == 0.0  # station: committed
+    assert _commit_fold_prob("passive_fish", 1.45) > 0.0  # fish: NOT committed (new)
+    assert _commit_fold_prob("passive_fish", 1.45, spr_commit=2.0) == 0.0  # old fish: was
+
+
+def test_spr_commit_ladder_maniac_pulled_off_the_deep_commit():
+    """#4: the maniac's 4.0 → 3.3 pull. At SPR 3.6 the old dial committed its stack
+    with a one-pair-class made hand; the new dial does not."""
+    assert _commit_fold_prob("maniac", 3.6) > 0.0
+    assert _commit_fold_prob("maniac", 3.6, spr_commit=4.0) == 0.0
+
+
 def test_sizing_spread_no_deterministic_strength_to_size():
     pack = _pack("lag")
     hole = ("Ah", "Kd")  # strong made hand, single fixed bucket
@@ -2289,13 +2335,27 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
 # persona's aggregates move via environment + rng-stream displacement (nit's AF
 # re-crosses the >=30 CALL floor → numeric again). Covered by the W3R-2 arrival
 # bands (test_arrival_range_ftc.py) + the flipped exact-weight price tests above.
+# RE-RECORDED for W3R-3 (persona-realism-w3r-3, 2026-07-24 — slice-authorized):
+# the #4 spr_commit LADDER only — fish 2.0 -> 1.4 (it was committing its stack at a
+# HIGHER SPR than the calling station's 1.5, i.e. EARLIER — backwards for a scared
+# bot) and maniac 4.0 -> 3.3. Both bots' low-SPR commit points move, so their
+# stack-off/fold decisions change BY DESIGN; this is a SHARED-TABLE sim on one rng
+# stream, so every persona's aggregates shift via environment + rng-stream
+# displacement, not a policy change. #12 (tag/nit/lag explicit `call_looseness` ==
+# their previously-inherited `stickiness`) contributes ZERO drift — verified
+# byte-identical in isolation (stripping the three authored values back to None
+# reproduces every row below exactly). #5 (the global ACE_HIGH call-base cut) was
+# DROPPED from this slice by owner decision — see the `_FOLD_BASE` calibration
+# comment in personas_postflop.py — so no ace-high behavior is in this re-record.
+# Covered by the exact-weight `test_spr_commit_ladder_*` tests above; population
+# bands stay frozen to W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.3567073170731707, 0.1746031746031746, 0.7407407407407407),
+    "calling_station": (0.36085626911314983, 0.1746031746031746, 0.7407407407407407),
     "lag": (3.1621621621621623, None, 0.5851063829787234),
-    "maniac": (3.357142857142857, 0.3235294117647059, 0.5704697986577181),
+    "maniac": (3.357142857142857, 0.3235294117647059, 0.5771812080536913),
     "nit": (0.9444444444444444, None, 0.5490196078431373),
-    "passive_fish": (0.9338235294117647, 0.44, 0.5650224215246636),
-    "tag": (2.787878787878788, None, 0.6666666666666666),
+    "passive_fish": (0.9264705882352942, 0.44, 0.5695067264573991),
+    "tag": (2.875, None, 0.6538461538461539),
 }
 
 
