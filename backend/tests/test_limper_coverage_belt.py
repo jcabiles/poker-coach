@@ -90,10 +90,17 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # rng organic stream again (old post-W2-b counts: UTG2¹ 87, LJ¹ 110, HJ¹ 134, CO¹ 141,
 # CO² 33, SB¹ 96, SB² 69, BTN¹ 126, BTN² 44). No preflop content changed; every _WANT_*
 # coverage shape still fires (verified) — stream displacement only, not a regression.
+# RE-PINNED for W3R-1 (persona-realism-w3r1, 2026-07-24 — slice-authorized): a PURE
+# preflop-content change (maniac `vs_rfi` 3-tier legit range replaces the any-two
+# cold-call; maniac + lag SB open-limps deleted; maniac HJ/CO/BTN offsuit-ace opens
+# trimmed) changes bot PREFLOP mixes directly, shifting the shared-rng hand stream at
+# this seed (old post-W3-b/c/d counts: UTG2¹ 99, LJ¹ 107, HJ¹ 132, CO¹ 118, CO² 43,
+# SB¹ 102, SB² 50, BTN¹ 130, BTN² 41). Every _WANT_* coverage shape still fires
+# (verified) — stream displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 99, ("LJ", 1): 107, ("HJ", 1): 132, ("CO", 1): 118,
-    ("CO", 2): 43, ("SB", 1): 102, ("SB", 2): 50, ("BTN", 1): 130,
-    ("BTN", 2): 41,
+    ("UTG2", 1): 84, ("LJ", 1): 124, ("HJ", 1): 151, ("CO", 1): 125,
+    ("CO", 2): 35, ("SB", 1): 111, ("SB", 2): 63, ("BTN", 1): 122,
+    ("BTN", 2): 44,
 }
 
 

@@ -1509,9 +1509,26 @@ _STREET_BY_BOARD_LEN = {3: Street.FLOP, 4: Street.TURN, 5: Street.RIVER}
 
 
 def _postflop_decision(
-    pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to
+    pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to,
+    *, is_aggressor=_OMIT, latest_aggressor_contribution_bb=_OMIT, context=_OMIT,
 ) -> Decision:
+    # The context kwargs default to _OMIT so `_play_hand` (the band/stat sim,
+    # below) calls this EXACTLY as before -> its WTSD/texture/VPIP stats stay
+    # byte-identical (the band sampler remains context-blind; tracked as the
+    # W3R-1 deeper follow-up). Only the sim_session action-parity test threads
+    # the same context production's `play.bot_decision` derives, so the mirror
+    # matches the real (W3-a/b/c/d context-aware) bot's ACTION exactly.
     kinds = {la.action for la in legal}
+    _kw = {
+        "current_bet_to": current_bet_to,
+        "street": _STREET_BY_BOARD_LEN[len(board)],
+    }
+    if is_aggressor is not _OMIT:
+        _kw["is_aggressor"] = is_aggressor
+    if latest_aggressor_contribution_bb is not _OMIT:
+        _kw["latest_aggressor_contribution_bb"] = latest_aggressor_contribution_bb
+    if context is not _OMIT:
+        _kw["context"] = context
     d = sample_postflop_decision(
         pack,
         hole,
@@ -1521,8 +1538,7 @@ def _postflop_decision(
         stack_bb,
         opponents,
         rng,
-        current_bet_to=current_bet_to,
-        street=_STREET_BY_BOARD_LEN[len(board)],
+        **_kw,
     )
     if d.action not in kinds:
         # Defensive: never happens if the sampler honors `legal`, but keep
@@ -2174,13 +2190,20 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
 # flop stays byte-identical for the street schedule (mult 1.0), but W3-b (opted) and
 # W3-d shift flop one-pair betting, so this whole tripwire re-records. Covered by
 # the W3-b/c/d exact-weight unit tests.
+# RE-RECORDED for W3R-1 (persona-realism-w3r1, 2026-07-24 — slice-authorized):
+# a PURE preflop-content change (maniac `vs_rfi` 3-tier legit range replaces the
+# any-two cold-call; maniac + lag SB open-limps deleted; maniac HJ/CO/BTN offsuit-
+# ace opens trimmed). No postflop/engine code changed, but which hands reach each
+# postflop street shifts, so the shared-rng stream drifts and every persona's
+# AF/FtC/WTSD moves (nit's AF now falls below the >=30 CALL floor → None). Covered
+# by the W3R-1 preflop assertion tests (test_w3r1_preflop_cleanup.py).
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.4324324324, 0.2463768116, 0.6022304833),
-    "lag": (1.7843137255, None, 0.5684210526),
-    "maniac": (3.7118644068, 0.3888888889, 0.4880382775),
-    "nit": (1.1333333333, None, 0.7307692308),
-    "passive_fish": (0.6352941176, 0.3714285714, 0.6036866359),
-    "tag": (1.7142857143, None, 0.6710526316),
+    "calling_station": (0.45695364238410596, 0.3013698630136986, 0.6402640264026402),
+    "lag": (2.549019607843137, None, 0.55),
+    "maniac": (3.217391304347826, 0.3235294117647059, 0.569060773480663),
+    "nit": (None, None, 0.54),
+    "passive_fish": (0.5817307692307693, 0.2682926829268293, 0.6347826086956522),
+    "tag": (2.163265306122449, None, 0.5869565217391305),
 }
 
 
@@ -2232,7 +2255,11 @@ def test_persona_stats_ext_all_metrics_compute():
 # it. AF/FtC stay on the cheaper throughput-n; only WTSD (fragile near band edges
 # under-sampled at n~250) needs the floor. `_persona_stats` memoizes per
 # (persona, n), so the bands and ordering tests share these sims — paid once.
-_WTSD_ORDER_N = 2500
+# W3R-1: bumped 2500 -> 4000. The maniac preflop cleanup shifted the rng stream,
+# narrowing the station-vs-tag WTSD margin at n=2500 (0.619 vs 0.630 -- the TRUE
+# ordering still holds and WIDENS with n: station>tag at n=4000/6000). A tightening
+# (more hands), matching the documented W3-b/c/d precedent, not a band loosen.
+_WTSD_ORDER_N = 4000
 
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)

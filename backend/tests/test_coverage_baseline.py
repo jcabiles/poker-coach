@@ -63,6 +63,13 @@ stream drifts → total 1227 → 1255, graded 363 → 345. NOTE: graded RATIO di
 realism): the more-realistic villains simply visit a different mix of hero spots, and
 the mapper (unchanged) grades that mix slightly less. Flagged for the mapper-coverage
 track, not a persona-realism regression. Seeded-fixture re-record; bands frozen to W4-b.
+
+RE-RECORDED for W3R-1 (persona-realism-w3r1, 2026-07-24 — slice-authorized): a PURE
+preflop-content change (maniac `vs_rfi` 3-tier legit range replaces the any-two
+cold-call; maniac + lag SB open-limps deleted; maniac HJ/CO/BTN offsuit-ace opens
+trimmed) shifts which hands reach hero, so the seeded stream drifts → total 1255 →
+1250, graded 345 → 378 (graded coverage rose). No engine/postflop code changed.
+Seeded-fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

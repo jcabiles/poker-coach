@@ -199,7 +199,13 @@ BANDS = {
     # M3 behavior, not a range regression (first-in-raise, 3-bet and
     # vs_rfi-continue all stayed inside their existing bands).
     "lag": ((20, 30), (18, 24), (8, 12), (25, 42)),
-    "maniac": ((30, 45), (30, 40), (12, 20), (45, 70)),
+    # maniac vs_rfi-continue re-anchored (W3R-1): the old (45, 70) codified the
+    # deleted any-two `vs_rfi "*"` cold-call. The `vs_rfi` node is now the
+    # 3-tier legit loose-flat range (premium 3bet / strong 3bet-or-flat /
+    # wide-marginal flat); continue-rate measured at 45.99% on the pinned seed
+    # (hash-stable). Snug window around the measured value. The 3bet band stays
+    # [12,20] (restored via tier-2 3bet:0.45, measured 12.59%) — NOT re-anchored.
+    "maniac": ((30, 45), (30, 40), (12, 20), (44, 48)),
 }
 
 DEALS = 1112  # pinned: 1,112 deals x 9 seats ~= 10k samples per facing
