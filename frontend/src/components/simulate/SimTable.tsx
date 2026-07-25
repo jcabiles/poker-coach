@@ -293,7 +293,8 @@ export default function SimTable({
                     {personaLabel(seat.persona_type)}
                   </span>
                 )}
-                {/* Position · stack · range on one row under the persona plate. */}
+                {/* Position + range on one row under the persona plate; the
+                    stack figure sits on its own row below (owner request). */}
                 <span className="sim-meta">
                   <span className="pos">
                     {seat.position}
@@ -302,10 +303,6 @@ export default function SimTable({
                         D
                       </span>
                     )}
-                  </span>
-                  <span className="stack num">
-                    {fmtBb(seat.stack_bb)}bb
-                    {allin && <span className="sim-allin"> all-in</span>}
                   </span>
                   {/* Range reveal (V2): live villain pods only. Gated on the
                       STAGED fold state (`folded` above) — same value the pod
@@ -329,6 +326,11 @@ export default function SimTable({
                       range
                     </button>
                   )}
+                </span>
+                {/* Stack figure on its own row, below the position line. */}
+                <span className="stack num sim-stack-row">
+                  {fmtBb(seat.stack_bb)}bb
+                  {allin && <span className="sim-allin"> all-in</span>}
                 </span>
               </div>
             );
