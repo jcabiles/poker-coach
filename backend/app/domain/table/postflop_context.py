@@ -105,6 +105,23 @@ def bet_prev_street(
     )
 
 
+def street_aggression_count(action_history: Sequence[HistoryAction], street: Street) -> int:
+    """W5-a3-iii (C30) — how many BET/RAISE actions have happened on `street`
+    so far: 0 = unopened, 1 = facing a bare bet, 2+ = facing a raise (or a
+    raise war). The raw count `facing_raise` below thresholds at `>= 2`; a
+    future consumer (W3R-5's texture-fold-boost) needs the count itself to
+    gate on `== 1` specifically (facing a BET, never a raise) instead of just
+    the boolean. Kept in `table.postflop_context` (not `PostflopContext`,
+    same reasoning as `facing_raise`) so the band sampler / parity mirror can
+    derive it exactly as production would, without a second taxonomy.
+    """
+    return sum(
+        1
+        for h in action_history
+        if h.street is street and h.action in (ActionType.BET, ActionType.RAISE)
+    )
+
+
 def facing_raise(action_history: Sequence[HistoryAction], street: Street) -> bool:
     """W3R-6 — is the outstanding wager on `street` a RAISE (not a bare bet)?
 
@@ -118,14 +135,11 @@ def facing_raise(action_history: Sequence[HistoryAction], street: Street) -> boo
     to opt into this signal ALONE, and building a `PostflopContext` there would
     apply the `in_position=False` default to W3-b's position damp and silently
     change the villain-range reveal.
+
+    W5-a3-iii: now built on `street_aggression_count` (same predicate, no
+    behavior change — verified by the existing `facing_raise` unit tests).
     """
-    n = 0
-    for h in action_history:
-        if h.street is street and h.action in (ActionType.BET, ActionType.RAISE):
-            n += 1
-            if n >= 2:
-                return True
-    return False
+    return street_aggression_count(action_history, street) >= 2
 
 
 def _has_flush_draw(hole: tuple[Card, Card], board: list[Card]) -> bool:

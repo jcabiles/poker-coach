@@ -711,17 +711,58 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       no-go otherwise forbids — the §5 row is in scope **for this slice alone**, and only to CREATE the new row.
       **Consumer:** NEXT item **N-raise**. **Appetite:** ~1 slice.
 
-- [ ] **W5-a3-iii — Band-sampler + parity-mirror context kwargs. ⛔ THE ONLY W3R-5 BLOCKER.** *ICE 9·8·4.*
-      **Solution:** add `context=` / `is_aggressor=` / `facing_raise=` / `street_aggressions=` to the S4 band
-      sampler (`_play_hand` / `_persona_stats`) **and** to the parity mirror — which is **the TEST**
-      `backend/tests/test_sim_session.py::test_bot_decision_parity_with_harness:248` (R17), **NOT** the service
-      file `backend/app/services/sim_session.py` (that is W5-c3's file; the disjointness claim holds).
-      **Pass/fail:** the sampler accepts all four context kwargs; the parity mirror threads the same context and
-      stays green; a `street_aggressions`-dependent effect is **visible** to the AF/WTSD/FtC gate (the C30 gap).
-      **No-gos:** **measurement only** — defaults reproduce today's sampler exactly; **no band re-anchor** (W4-b).
-      **Prerequisite of:** the **W3R-5 re-spec**, and W4-b (C27 #3). **Appetite:** ~1 large slice.
-      **Fold the §6 refresh (iv) into whichever of a3-i/ii/iii lands LAST:** update §6 to record that all six W0-b
-      metrics compute and only smoke-assert, and state which rows D7 promotes to HARD.
+- [x] **W5-a3-iii — Band-sampler + parity-mirror context kwargs. ⛔ THE ONLY W3R-5 BLOCKER.** ✅ 2026-07-25 (branch
+      `feat/w5-a3iii-band-sampler-context`). *ICE 9·8·4.*
+      **Solution:** added `street_aggression_count(action_history, street) -> int` to
+      `table.postflop_context.py` (C30's missing raw count; `facing_raise` is now `count >= 2`, refactored onto it
+      — byte-identical, verified by the existing `facing_raise` unit tests). `_play_hand` gained an opt-in
+      `context_aware: bool = False` kwarg (threaded through `_persona_stats`, cache key extended to
+      `(persona, n, context_aware)`) that, when `True`, derives `is_aggressor` / `latest_aggressor_contribution_bb`
+      / `context` / `street_aggressions` EXACTLY as `play.bot_decision` does and passes them to `_postflop_decision`
+      (which now also accepts `street_aggressions=`, deriving `facing_raise` from it when the caller doesn't supply
+      the boolean directly — production has no raw-count parameter, so the count can only "thread" by producing the
+      one boolean `sample_postflop_decision` actually consumes). Default `False` — every existing CI band/golden
+      call site is untouched and unmodified. The parity mirror
+      (`test_sim_session.py::test_bot_decision_parity_with_harness`) now threads `street_aggressions` (via the same
+      helper) instead of a directly-computed boolean, which doubles as a self-check that the count-based derivation
+      agrees with production's own `facing_raise()` call (an assert pins it).
+      **Pass/fail:** ✅ the sampler accepts all four context kwargs; the parity mirror threads the same context and
+      stays green (`test_bot_decision_parity_with_harness` unchanged pass, 3-hand-seed coverage). ✅ A
+      `street_aggressions`-dependent effect is now **visible** to the AF gate: new
+      `test_street_aggressions_effect_visible_to_af_gate` runs `_persona_stats(packs, "tag", 300, context_aware=...)`
+      both ways — AF **2.769 → 1.667** (a facing-raise-gated drop from W3R-6's `_ONE_PAIR_RAISE_DAMP` /
+      `_ACE_HIGH_FLOAT_RAISE_DAMP`, which never fired in the band sampler before this slice), both sides clearing
+      the `>=30` occurrence floor (52/69), direction stable at n=250/350/400/500. This is a NEW, separate cache
+      entry — it does NOT touch the `context_aware=False` (default) CI-frozen bands/goldens.
+      **No band moved** — `test_persona_stats_byte_identical_after_log_refactor` (the golden tripwire) and
+      `test_persona_postflop_bands` both pass unchanged; `context_aware` defaults `False` everywhere they call in.
+      **No-gos:** measurement only — confirmed; no band re-anchor — confirmed (the visibility demonstration is an
+      opt-in side channel, not a change to any existing assertion).
+      **§6 refresh (iv), NOT applied to the contract file this round:** this slice lands LAST among a3-i/ii/iii, so
+      it owns the refresh, but `docs/ai-dlc/contracts/persona-realism-theory-contract.md` was locked to a
+      concurrently-running agent this round (owner-imposed, not this maker's call) — editing it here would race
+      that edit. Recording the refresh content here instead, for whoever next has the contract file open to apply
+      to §6 (currently stale: it lists all six W0-b metrics as "Metrics to BUILD (Wave 0)"):
+      - All six W0-b metrics (`ExtStats` / ` _persona_stats_ext`, `test_personas_postflop.py:2320` +) **compute
+        today** — none are "to BUILD" any more. Table row 1 (CBet-flop-overall) is now correctly aggressor-side
+        (W5-a3-i); rows 2-6 (W$SD, VPIP/PFR/gap, size-bucketed FtC, IP/OOP split, turn-barrel%) compute but read
+        DIRECTIONAL/smoke only (roadmap D7: a metric is HARD only once "live AND showing the expected direction"
+        for the mechanic it gates, and none of rows 2-6 have had that direction check performed yet).
+      - **D7 promotes to HARD today: none of the six.** The only HARD-today gates remain the pre-existing three —
+        AF, fold-to-first-cbet, WTSD (`test_persona_postflop_bands`) — and per W5-a1/W5-a2 those two of the three
+        (fold-to-cbet, AF) are GRANDFATHERED-HARD pending §5's provenance audit, not newly HARD from this metric
+        framework.
+      - **Metric #1 (aggressor-side CBet-flop) cannot be promoted to HARD at the CI smoke-test N (200).** W5-a3-i's
+        audit trail (`test_personas_postflop.py:2271-2317`) measured aggressor-only opportunities at ~1/hand vs
+        ~3/hand under the old denominator: at n=200 the `>=30` floor is missed for 4/6 personas (station, nit,
+        fish, tag read `None`); at n=4000 the SPARSEST persona (calling_station, which rarely holds the preflop
+        aggressor seat) clears the floor only barely (33 opportunities). **A promotion to HARD would need at least
+        n≈4000 for every persona to clear the floor at all, and meaningfully more (rough estimate n≈10,000-12,000,
+        scaling station's ~0.008 opportunities/hand up to a comfortable 3σ-stable occurrence count, not just the
+        bare 30 minimum) for a non-fragile band.** That is far beyond what CI affords — n=4000 alone already costs
+        ~50s/side, and the CI N is deliberately staying at 200 (§11 item 14's coverage-delta adjudication, W5-a3-i
+        entry above). Metric #1 stays smoke/DIRECTIONAL only; do not gate a NEW HARD assertion on it without first
+        revisiting the CI-N budget.
 
 - [ ] **W5-a4 — Resolve the α-ceiling vs §5 fold-to-c-bet contradiction (N-α, PROMOTED from NEXT — R7,
       2026-07-25).** *ICE 9·8·4.* **Promoted because W4-b cannot close without it** — and NEXT is defined in this
