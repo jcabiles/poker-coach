@@ -116,6 +116,16 @@ from app.schemas.simulate import (
 HERO_SEAT = 0
 _STARTING_STACK_BB = 100.0
 _REBUY_FLOOR_BB = 1.0
+# W5-c3: caps the carry-over stack a seat brings into its NEXT hand, matching
+# a capped-buy-in cash game (a big winner's stack is trimmed back to the cap
+# between hands rather than compounding without bound). 2x the starting stack
+# — the theory contract's whole per-archetype target-stat table (persona-
+# realism-theory-contract.md §5, "Reference pool" note) is calibrated to a
+# "~100bb" reference pool; 200bb keeps every hand's effective SPR inside a
+# band that still spans the pack `spr_commit` levers (authored 1.2-3.3)
+# without letting stacks drift into the multi-thousand-bb territory a real
+# ~100bb-pool player never sees.
+_STACK_CAP_BB = 200.0
 
 # R1 capability seam: gates the on-demand villain reveal after a hero fold. A
 # future hidden-persona mode can flip this off to withhold reveals without a
@@ -164,7 +174,16 @@ def _fresh_rng() -> random.Random:
 
 
 def _apply_settlement(seats: list[SimSeat], settlement: Settlement) -> None:
-    """Apply per-seat deltas to carry-over stacks; auto-rebuy busted seats.
+    """Apply per-seat deltas to carry-over stacks; auto-rebuy busted seats and
+    cap-trim seats that won past `_STACK_CAP_BB` (W5-c3).
+
+    Both corrections use the same net-invariant form: `buyins_bb` absorbs
+    exactly the amount `stack_bb` is moved by, so `stack_bb - buyins_bb`
+    (net_bb, the ledger) is unchanged by the correction itself — a rebuy
+    isn't a loss and a cap-trim isn't a loss either, both are just chips
+    entering/leaving play. This is also why table-wide chip conservation
+    (`sum(stack_bb - buyins_bb) == 0`, since settlement deltas already sum to
+    zero) survives the correction untouched.
 
     Rounds stack_bb/buyins_bb to 2dp on every write (engine convention) so
     net_bb stays free of IEEE-754 display noise.
@@ -173,8 +192,14 @@ def _apply_settlement(seats: list[SimSeat], settlement: Settlement) -> None:
         delta = settlement.deltas[row.seat_index].delta_bb
         stack = round(row.stack_bb + delta, 2)
         if stack < _REBUY_FLOOR_BB:
-            row.buyins_bb = round(row.buyins_bb + (_STARTING_STACK_BB - stack), 2)
-            stack = _STARTING_STACK_BB
+            target = _STARTING_STACK_BB
+        elif stack > _STACK_CAP_BB:
+            target = _STACK_CAP_BB
+        else:
+            target = None
+        if target is not None:
+            row.buyins_bb = round(row.buyins_bb + (target - stack), 2)
+            stack = target
         row.stack_bb = round(stack, 2)
 
 
