@@ -2848,7 +2848,9 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
+  /* Tight so the hanging range tab does not reach down into the chip puck of
+     the flank pod below it (the eyebrow line already spends the height budget). */
+  gap: 2px;
   /* Safety net. The slot-relative anchor (slotStyle) already keeps a pod inside
      the ring at any width; this bounds how far the plate may reach toward the
      board before the one flexible piece (the persona eyebrow) gives way. */
@@ -2872,8 +2874,11 @@ kbd {
   align-items: flex-start;
   justify-content: center;
   min-width: 0;
-  padding: 1px var(--space-2);
-  background: color-mix(in srgb, var(--felt) 58%, var(--stage-bg));
+  padding: 0 var(--space-2);
+  /* Darker of the two tints. Pushed well toward stage-bg so the two-tone step
+     is visible even on the near-black DAY felt, where any two dark greens sit
+     close in luminance; the seam on the stack cell (below) is the belt. */
+  background: color-mix(in srgb, var(--felt) 42%, var(--stage-bg));
 }
 /* Inside the cell the position no longer carries its own pill ground — the cell
    IS the ground. Sim-plate-scoped, so PokerTable's shared .pos pill is untouched. */
@@ -2882,7 +2887,7 @@ kbd {
   box-shadow: none;
   padding: 0;
   letter-spacing: 0.6px;
-  line-height: 1.15;
+  line-height: 1.05;
 }
 /* Persona drops to an eyebrow beneath the position — the only piece allowed to
    give way (ellipsis) when the plate hits its max-width. */
@@ -2892,16 +2897,19 @@ kbd {
   min-width: 0;
   font-size: var(--text-2xs);
   letter-spacing: 0.6px;
-  line-height: 1.1;
+  line-height: 1;
   color: color-mix(in srgb, var(--felt-text) 74%, var(--felt));
 }
-/* Stack half — lighter tint, figure over its unit, baseline-aligned. */
+/* Stack half — lighter tint, figure over its unit, baseline-aligned. The inset
+   left-edge hairline is the seam between the two cells: it makes the two-tone
+   structure read even when the tonal step is compressed by a very dark felt. */
 .sim-plate-stack {
   display: flex;
   align-items: baseline;
   gap: 2px;
-  padding: 1px var(--space-2);
-  background: color-mix(in srgb, var(--felt) 82%, var(--stage-bg));
+  padding: 0 var(--space-2);
+  background: color-mix(in srgb, var(--felt) 88%, var(--stage-bg));
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--felt-text) 24%, transparent);
   white-space: nowrap;
 }
 .sim-plate-stack .stack {
