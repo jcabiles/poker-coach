@@ -119,10 +119,17 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # nothing here (preflop mapping, and the add-on is river-only). No preflop content
 # changed; every _WANT_* coverage shape still fires — stream displacement, not a
 # coverage regression.
+# RE-PINNED for W3R-6 (persona-realism-w3r-6, 2026-07-24 — slice-authorized): the two
+# facing-a-raise merit damps (#9 made one-pair stops re-raising into flop/turn action;
+# #5 naked ace-high stops floating a raise) change bot postflop play at every
+# facing-a-raise node, so hands end differently and the shared-rng stream drifts at this
+# seed (old post-W3R-4 counts: UTG2¹ 90, LJ¹ 132, HJ¹ 151, CO¹ 126, CO² 40, SB¹ 113,
+# SB² 53, BTN¹ 130, BTN² 37). No preflop content changed; every _WANT_* coverage shape
+# still fires (verified) — stream displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 90, ("LJ", 1): 132, ("HJ", 1): 151, ("CO", 1): 126,
-    ("CO", 2): 40, ("SB", 1): 113, ("SB", 2): 53, ("BTN", 1): 130,
-    ("BTN", 2): 37,
+    ("UTG2", 1): 71, ("LJ", 1): 132, ("HJ", 1): 134, ("CO", 1): 137,
+    ("CO", 2): 32, ("SB", 1): 123, ("SB", 2): 48, ("BTN", 1): 125,
+    ("BTN", 2): 35,
 }
 
 

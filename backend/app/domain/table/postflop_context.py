@@ -105,6 +105,29 @@ def bet_prev_street(
     )
 
 
+def facing_raise(action_history: Sequence[HistoryAction], street: Street) -> bool:
+    """W3R-6 — is the outstanding wager on `street` a RAISE (not a bare bet)?
+
+    Postflop the FIRST aggressive action on a street is always a BET, so a
+    second BET/RAISE on that street can only be a raise: the rule is exactly
+    `count(action in (BET, RAISE) on this street) >= 2`. The `h.street is
+    street` filter is what excludes preflop raises (a preflop 3-bet followed by
+    a lone flop bet is NOT facing a raise).
+
+    Deliberately NOT a `PostflopContext` field: the range estimator must be able
+    to opt into this signal ALONE, and building a `PostflopContext` there would
+    apply the `in_position=False` default to W3-b's position damp and silently
+    change the villain-range reveal.
+    """
+    n = 0
+    for h in action_history:
+        if h.street is street and h.action in (ActionType.BET, ActionType.RAISE):
+            n += 1
+            if n >= 2:
+                return True
+    return False
+
+
 def _has_flush_draw(hole: tuple[Card, Card], board: list[Card]) -> bool:
     """Four cards to a flush using a hole suit (the flush-draw half of
     `personas_postflop._draw_category`, kept minimal to avoid a second

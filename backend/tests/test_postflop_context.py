@@ -18,6 +18,7 @@ from app.domain.table.postflop_context import (
     busted_draw_kind,
     derive_in_position,
     derive_postflop_context,
+    facing_raise,
 )
 
 
@@ -124,6 +125,68 @@ def test_bet_prev_street_ignores_same_street_and_two_streets_back():
     # immediately-preceding street (turn) does.
     hist = [_bet(Street.FLOP, Position.CO), _check(Street.TURN, Position.CO)]
     assert bet_prev_street(hist, Street.RIVER, Position.CO) is False
+
+
+# ------------------------------------------------------- W3R-6 facing_raise
+
+
+def _raise(street: Street, pos: Position) -> HistoryAction:
+    return HistoryAction(street=street, position=pos, action=ActionType.RAISE, amount_bb=8.0)
+
+
+def test_facing_raise_bare_bet_is_false():
+    hist = [_bet(Street.FLOP, Position.CO)]
+    assert facing_raise(hist, Street.FLOP) is False
+
+
+def test_facing_raise_bet_then_raise_is_true():
+    hist = [_bet(Street.FLOP, Position.CO), _raise(Street.FLOP, Position.BB)]
+    assert facing_raise(hist, Street.FLOP) is True
+
+
+def test_facing_raise_re_raise_is_true():
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _raise(Street.FLOP, Position.BB),
+        _raise(Street.FLOP, Position.CO),
+    ]
+    assert facing_raise(hist, Street.FLOP) is True
+
+
+def test_facing_raise_ignores_preflop_raises():
+    # A preflop 3-bet war followed by a single flop bet is NOT facing a raise.
+    hist = [
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BTN, action=ActionType.RAISE, amount_bb=3.0
+        ),
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BB, action=ActionType.RAISE, amount_bb=10.0
+        ),
+        _bet(Street.FLOP, Position.BB),
+    ]
+    assert facing_raise(hist, Street.FLOP) is False
+
+
+def test_facing_raise_ignores_other_streets():
+    # A flop bet-raise war does not make the TURN a facing-a-raise node.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _raise(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.BB),
+    ]
+    assert facing_raise(hist, Street.TURN) is False
+    assert facing_raise(hist, Street.FLOP) is True
+
+
+def test_facing_raise_checks_and_calls_do_not_count():
+    hist = [
+        _check(Street.FLOP, Position.CO),
+        _bet(Street.FLOP, Position.BB),
+        HistoryAction(
+            street=Street.FLOP, position=Position.CO, action=ActionType.CALL, amount_bb=2.0
+        ),
+    ]
+    assert facing_raise(hist, Street.FLOP) is False
 
 
 # ------------------------------------------------------------------ A4

@@ -1620,6 +1620,7 @@ _STREET_BY_BOARD_LEN = {3: Street.FLOP, 4: Street.TURN, 5: Street.RIVER}
 def _postflop_decision(
     pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to,
     *, is_aggressor=_OMIT, latest_aggressor_contribution_bb=_OMIT, context=_OMIT,
+    facing_raise=_OMIT,
 ) -> Decision:
     # The context kwargs default to _OMIT so `_play_hand` (the band/stat sim,
     # below) calls this EXACTLY as before -> its WTSD/texture/VPIP stats stay
@@ -1638,6 +1639,8 @@ def _postflop_decision(
         _kw["latest_aggressor_contribution_bb"] = latest_aggressor_contribution_bb
     if context is not _OMIT:
         _kw["context"] = context
+    if facing_raise is not _OMIT:
+        _kw["facing_raise"] = facing_raise
     d = sample_postflop_decision(
         pack,
         hole,
@@ -2885,3 +2888,215 @@ def test_position_sensitivity_bounded_to_unit_interval():
     PersonaPostflop.model_validate({**base, "position_sensitivity": 1.0})  # ok
     with pytest.raises(pydantic.ValidationError):
         PersonaPostflop.model_validate({**base, "position_sensitivity": 1.5})
+
+
+# ====================== W3R-6 — facing-a-raise merit damps (#9, #5) =============
+# Both damps are gated on `facing_raise`, so `facing_raise=False` at the SAME
+# street IS the pre-slice status quo — every "byte-identical to status quo" leg
+# below is exactly that A/B (and the street=None path is pinned equal to it).
+#
+# GATE NOTE: #9 shipped with the spec's AUTHORIZED NARROWING (facing a RAISE,
+# not merely facing chips). The wider gate was implemented and measured first and
+# pushed the passive fish's arrival-range fold-to-bet to 0.6528 vs the α + 0.05
+# ceiling 0.650 (undamped baseline 0.6422). See _ONE_PAIR_RAISE_DAMP.
+
+_W3R6_FACING = [
+    personas_postflop_legal_fold(),
+    personas_postflop_legal_call(5.0),
+    personas_postflop_legal_raise(15.0, 100.0),
+]
+# H117 (99 on J-J-7) — the cited middle-pair raise-war hand.
+_W3R6_MID = (("9h", "9c"), ["Js", "Jd", "7c"], ["Js", "Jd", "7c", "2s"])
+# H32-shape top pair, weak kicker, dry board.
+_W3R6_TOP = (("Qh", "Jd"), ["Qs", "8d", "3c"], ["Qs", "8d", "3c", "2s"])
+# Naked ace-high, no draw (H117's float side).
+_W3R6_AHI = (("Ad", "7c"), ["Ks", "9h", "2s"], ["Ks", "9h", "2s", "4d"])
+
+
+def _w3r6_dist(persona, hole, board, *, street, facing_raise):
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _pack(persona), hole, board, _W3R6_FACING, 10.0, 100.0, 1,
+        cap,  # type: ignore[arg-type]
+        current_bet_to=5.0, street=street, facing_raise=facing_raise,
+    )
+    total = sum(cap.dist.values())
+    return {a: w / total for a, w in cap.dist.items()}
+
+
+def _w3r6_assert_bucket(hole, board, bucket, draw):
+    got = strength_bucket(hole, board)
+    assert got == (bucket, draw), f"spot drifted: {got} != {(bucket, draw)}"
+
+
+# ---- leg 1: made one-pair stops re-raising into flop/turn action (#9) ----------
+# Measured normalized P(RAISE), status quo -> damped (facing a raise), damp 0.35:
+#   tag    MIDDLE_PAIR  0.187 -> 0.075   TOP_PAIR  0.308 -> 0.135
+#   maniac MIDDLE_PAIR  0.360 -> 0.165   TOP_PAIR  0.528 -> 0.281
+_W3R6_RAISE_DROP = {
+    ("tag", "mid"): (0.1871, 0.0745),
+    ("tag", "top"): (0.3078, 0.1347),
+    ("maniac", "mid"): (0.3604, 0.1647),
+    ("maniac", "top"): (0.5276, 0.2811),
+}
+
+
+@pytest.mark.parametrize("persona", ["tag", "maniac"])
+@pytest.mark.parametrize("name,bucket", [("mid", StrengthBucket.MIDDLE_PAIR),
+                                         ("top", StrengthBucket.TOP_PAIR)])
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
+def test_one_pair_raise_damped_facing_raise_pre_river(persona, name, bucket, street):
+    hole, flop, turn = _W3R6_MID if name == "mid" else _W3R6_TOP
+    board = flop if street is Street.FLOP else turn
+    _w3r6_assert_bucket(hole, board, bucket, DrawCategory.NONE)
+    sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+    dm = _w3r6_dist(persona, hole, board, street=street, facing_raise=True)
+    assert dm[ActionType.RAISE] < sq[ActionType.RAISE]
+    exp_sq, exp_dm = _W3R6_RAISE_DROP[(persona, name)]
+    assert sq[ActionType.RAISE] == pytest.approx(exp_sq, abs=5e-4)
+    assert dm[ActionType.RAISE] == pytest.approx(exp_dm, abs=5e-4)
+    # the street=None identity path agrees with the facing_raise=False status quo
+    none_sq = _w3r6_dist(persona, hole, board, street=None, facing_raise=False)
+    assert none_sq == sq
+
+
+# ---- leg 1b: the gate-lock — damp 1 never fires facing a bare bet -------------
+# Regression guard for the narrowed gate itself (facing_raise required, not just
+# "chips faced"). Proves facing_raise=False is byte-identical to the SAME spot
+# with facing_raise=True but _ONE_PAIR_RAISE_DAMP neutralized to 1.0 (i.e. the
+# gate contributing literally nothing) — a genuinely different code path than the
+# golden-float comparison in leg 1, so it can't pass by coincidence. If the gate
+# is later re-widened to fire on a bare bet (dropping the `facing_raise`
+# requirement), `faced_bet` would pick up the damp while `neutralized` would not,
+# and this test would fail.
+@pytest.mark.parametrize("persona", ["tag", "maniac"])
+@pytest.mark.parametrize("name,bucket", [("mid", StrengthBucket.MIDDLE_PAIR),
+                                         ("top", StrengthBucket.TOP_PAIR)])
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
+def test_one_pair_raise_damp_does_not_fire_facing_a_bare_bet(persona, name, bucket, street):
+    hole, flop, turn = _W3R6_MID if name == "mid" else _W3R6_TOP
+    board = flop if street is Street.FLOP else turn
+    _w3r6_assert_bucket(hole, board, bucket, DrawCategory.NONE)
+    faced_bet = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+    damp = personas_postflop._ONE_PAIR_RAISE_DAMP
+    try:
+        personas_postflop._ONE_PAIR_RAISE_DAMP = 1.0
+        neutralized = _w3r6_dist(persona, hole, board, street=street, facing_raise=True)
+    finally:
+        personas_postflop._ONE_PAIR_RAISE_DAMP = damp
+    assert faced_bet == neutralized
+    # non-vacuous: with the damp active, facing a raise DOES move RAISE merit,
+    # so the gate is genuinely doing something at facing_raise=True.
+    damped = _w3r6_dist(persona, hole, board, street=street, facing_raise=True)
+    assert damped[ActionType.RAISE] < faced_bet[ActionType.RAISE]
+
+
+# ---- leg 2: semi-bluff raises spared ------------------------------------------
+_W3R6_DRAW_BOARD = ["Qs", "8h", "3h"]
+_W3R6_TOP_FD = ("Qh", "Jh")   # TOP_PAIR + flush draw (STRONG)
+_W3R6_TOP_DRY = ("Qc", "Jd")  # TOP_PAIR, no draw — same board
+
+
+def test_semi_bluff_raise_survives_the_one_pair_damp():
+    _w3r6_assert_bucket(_W3R6_TOP_FD, _W3R6_DRAW_BOARD,
+                        StrengthBucket.TOP_PAIR, DrawCategory.STRONG)
+    _w3r6_assert_bucket(_W3R6_TOP_DRY, _W3R6_DRAW_BOARD,
+                        StrengthBucket.TOP_PAIR, DrawCategory.NONE)
+    for persona in ("tag", "maniac"):
+        drawing = _w3r6_dist(persona, _W3R6_TOP_FD, _W3R6_DRAW_BOARD,
+                             street=Street.FLOP, facing_raise=True)
+        dry = _w3r6_dist(persona, _W3R6_TOP_DRY, _W3R6_DRAW_BOARD,
+                         street=Street.FLOP, facing_raise=True)
+        assert drawing[ActionType.RAISE] > dry[ActionType.RAISE], persona
+
+
+@pytest.mark.parametrize("hole,board", [_STRONG_DRAW, _WEAK_DRAW])
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN, Street.RIVER, None])
+def test_pure_flopped_draw_facing_raise_is_byte_identical(hole, board, street):
+    # AIR + a draw: neither damp's bucket gate matches, at any street.
+    for persona in ("tag", "maniac", "passive_fish"):
+        sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+        assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == sq
+
+
+# ---- leg 3: two-pair+ value raises untouched ----------------------------------
+_W3R6_STRONG_SPOTS = [
+    (StrengthBucket.MONSTER, ("7s", "7d"), ["7c", "Kd", "3s"], ["7c", "Kd", "3s", "2c"]),
+    (StrengthBucket.TWO_PAIR_PLUS, ("Kh", "9d"), ["Ks", "9c", "2d"], ["Ks", "9c", "2d", "4s"]),
+    (StrengthBucket.OVERPAIR_TPTK, ("Ah", "Ad"), ["Kc", "8d", "3s"], ["Kc", "8d", "3s", "2c"]),
+]
+
+
+@pytest.mark.parametrize("bucket,hole,flop,turn", _W3R6_STRONG_SPOTS)
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
+def test_value_raises_untouched_by_the_one_pair_damp(bucket, hole, flop, turn, street):
+    """OVERPAIR_TPTK is deliberately NOT damped: the bucket bundles true
+    overpairs with TPTK, so damping it would damp real overpairs. H107 (TPTK) is
+    therefore only PARTIALLY addressed by this slice — the rest is W3R-7."""
+    board = flop if street is Street.FLOP else turn
+    _w3r6_assert_bucket(hole, board, bucket, DrawCategory.NONE)
+    for persona in ("tag", "maniac"):
+        sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+        assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == sq
+
+
+# ---- leg 4: naked ace-high folds to a raise (#5) -------------------------------
+@pytest.mark.parametrize("persona", ["tag", "passive_fish"])
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
+def test_naked_ace_high_folds_to_a_raise(persona, street):
+    hole, flop, turn = _W3R6_AHI
+    board = flop if street is Street.FLOP else turn
+    _w3r6_assert_bucket(hole, board, StrengthBucket.ACE_HIGH, DrawCategory.NONE)
+    sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+    dm = _w3r6_dist(persona, hole, board, street=street, facing_raise=True)
+    # measured at _ACE_HIGH_FLOAT_RAISE_DAMP 0.55: +0.096 .. +0.114
+    assert dm[ActionType.FOLD] - sq[ActionType.FOLD] >= 0.05, (
+        f"{persona} {street}: fold {sq[ActionType.FOLD]:.3f} -> {dm[ActionType.FOLD]:.3f}"
+    )
+    assert dm[ActionType.CALL] < sq[ActionType.CALL]
+
+
+# ---- leg 5: the α-safety proof — facing a BET is byte-identical ----------------
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN, Street.RIVER, None])
+def test_ace_high_facing_a_bet_is_byte_identical(persona, street):
+    """The whole α-ceiling safety argument: the arrival-range fold-to-bet curve
+    is measured facing a BET, and NOTHING on that node moved (both damps need
+    facing_raise). The RIVER leg additionally covers the facing-a-raise case —
+    call_merit is already 0 there via the bluff-cell river gate."""
+    hole, flop, turn = _W3R6_AHI
+    board = {Street.TURN: turn, Street.RIVER: turn + ["6c"]}.get(street, flop)
+    faced_bet = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+    # Non-vacuous: compare against the engine with BOTH damps neutralized to 1.0,
+    # i.e. literally pre-W3R-6 behavior.
+    one, ace = (
+        personas_postflop._ONE_PAIR_RAISE_DAMP,
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP,
+    )
+    try:
+        personas_postflop._ONE_PAIR_RAISE_DAMP = 1.0
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = 1.0
+        pre_slice = _w3r6_dist(persona, hole, board, street=street, facing_raise=True)
+    finally:
+        personas_postflop._ONE_PAIR_RAISE_DAMP = one
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = ace
+    assert faced_bet == pre_slice
+    if street is Street.RIVER:
+        # facing a RAISE on the river is byte-identical too (call_merit is
+        # already 0 via the bluff-cell river gate; the raise damp is pre-river).
+        assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == faced_bet
+
+
+def test_ace_high_with_a_draw_facing_raise_is_byte_identical():
+    # The damped term is _CALL_BASE[ACE_HIGH] on NAKED ace-high only.
+    hole, board = ("Ad", "7d"), ["Kd", "9d", "2s"]
+    _w3r6_assert_bucket(hole, board, StrengthBucket.ACE_HIGH, DrawCategory.STRONG)
+    for persona in ALL_PERSONAS:
+        for street in (Street.FLOP, Street.TURN):
+            sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
+            assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == sq
+
+
+def test_w3r6_damp_constants_inside_their_fitted_ranges():
+    assert 0.25 <= personas_postflop._ONE_PAIR_RAISE_DAMP <= 0.55
+    assert 0.35 <= personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP <= 0.65

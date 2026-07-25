@@ -246,9 +246,15 @@ _CHECK_BASE = {
 # arrival-range fold-to-bet ABOVE the RES-D α = f/(1+f) ceiling (at base 0.22:
 # 0.408 vs α+0.05 = 0.383 at ½-pot, 0.658 vs 0.650 at 1.5×), while the only
 # α-clean value (0.30) moves the roster's ace-high fold by only +0.03 — cosmetic
-# under the softmax law. The global constant is the wrong tool: the H117 leak is
-# specifically a FACING-A-RAISE float, so the fix is re-routed to a raise-scoped
-# damp in a later slice. Do NOT re-attempt a flat cut here.
+# under the softmax law. Do NOT re-attempt a flat cut here — the global cut stays
+# REFUTED.
+#
+# W3R-6 LANDED the scoped form instead: `_ACE_HIGH_FLOAT_RAISE_DAMP` multiplies
+# this base ONLY when the hand is naked ace-high FACING A RAISE on the flop/turn
+# (see the call-merit branch below). That is safe for a structural reason, not a
+# lucky measurement: the α-ceiling contract is measured over a facing-a-BET curve
+# (the W3R-0 arrival harness), so a facing-a-RAISE gate is off the measurement
+# node by construction, and every facing-a-BET decision stays byte-identical.
 _FOLD_BASE = {
     StrengthBucket.MONSTER: 0.0,
     StrengthBucket.TWO_PAIR_PLUS: 0.05,
@@ -323,6 +329,49 @@ _STREET_WEAK_DRAW_MULT = {Street.FLOP: 1.0, Street.TURN: 0.4, Street.RIVER: 0.0}
 # (the missed suit shows on board). Added AFTER the street decay so the story-bluff
 # survives it. FIT SEEDS; gated on context.bet_prev_street.
 _BUSTED_RIVER_BLUFF = {BustedDraw.STRAIGHT: 0.30, BustedDraw.FLUSH: 0.15}
+# W3R-6 (#9, H117/H32/H107): made one-pair stops re-raising into flop/turn
+# action. `_RIVER_RAISE_FLOOR` already KILLS this line on the river; pre-river it
+# must be rare but alive (a protection/merge raise is real), so this is a damp,
+# not a floor (A1 guardrail: a direction, never an asserted floor). Multiplies
+# the `_RAISE_BASE` term ONLY — `_DRAW_RAISE_BONUS` stays outside, which IS the
+# "semi-bluff raises are spared" mechanic. FIT SEED, range [0.25, 0.55].
+#
+# GATE = facing a RAISE — the spec's AUTHORIZED NARROWING, taken on a MEASURED
+# bust, not a band move. The wider "facing chips" gate was implemented and
+# measured first: it shifts one-pair raise merit onto FOLD inside the passive
+# fish's real arrival range, pushing its 1.5×-overbet fold-to-bet to 0.6528 vs
+# the α + 0.05 ceiling of 0.650 (undamped baseline 0.6422 — only 0.0078 of
+# headroom). In-range values 0.45/0.55 scraped under by ~0.004, i.e. luck, not
+# structure. Narrowing removes the interaction entirely (the arrival-range α
+# curve is a facing-a-BET curve) and still covers every cited hand — H117 / H32 /
+# H107 are all raise-war spots.
+# OVERPAIR_TPTK is deliberately NOT damped: that bucket bundles true overpairs
+# (AA on K-high) with TPTK, and damping it would damp real overpairs. H107 is
+# therefore only PARTIALLY addressed here — the rest needs W3R-7's bucket split.
+#
+# FITTED at 0.35 (the range midpoint's shape target), measured on normalized
+# P(RAISE) facing a flop/turn raise: tag MIDDLE_PAIR 0.187 → 0.075, tag TOP_PAIR
+# 0.308 → 0.135, maniac MIDDLE_PAIR 0.360 → 0.165, maniac TOP_PAIR 0.528 → 0.281
+# (a ~2.9× pre-normalization cut). 0.25/0.45/0.55 also clear the spot legs; 0.35
+# is the value whose cut matches the "rare but alive" shape argument. With the
+# narrowed gate every candidate leaves the α curve and the frozen bands untouched.
+_ONE_PAIR_RAISE_DAMP = 0.35
+# W3R-6 (#5, re-routed from W3R-3): naked ace-high stops FLOATING A RAISE on the
+# flop/turn. Multiplies the `_CALL_BASE[ACE_HIGH]` term only, gated on
+# `facing_raise` + draw NONE + flop/turn. The FOLD merit is never boosted — the
+# fold share rises through normalization. Node-scoped ON PURPOSE: the α
+# fold-ceiling contract is measured over a facing-a-BET curve, so a facing-a-RAISE
+# damp is off that measurement node by construction (the structural reason the
+# GLOBAL cut refuted in W3R-3 is safe here). FIT SEED, range [0.35, 0.65].
+#
+# FITTED at 0.55 — effective in-node base 0.40 × 0.55 = 0.22, exactly the W3R-3
+# magnitude that was directionally right and failed only on scope. Measured on
+# ΔP(FOLD) facing a raise (the ≥ 0.05 target): tag flop +0.104 / turn +0.114,
+# passive_fish flop +0.096 / turn +0.101, with P(CALL) falling 0.361 → 0.237 and
+# 0.280 → 0.176. 0.35/0.45/0.65 also clear the ≥ 0.05 bar (+0.073 … +0.181); 0.55
+# is kept because it is the anchored magnitude and the mildest one that clears it
+# with margin at every measured cell.
+_ACE_HIGH_FLOAT_RAISE_DAMP = 0.55
 
 
 def _draw_agg_street_mult(draw: DrawCategory, street: Street | None) -> float:
@@ -605,6 +654,7 @@ def sample_postflop_decision(
     street: Street | None = None,
     latest_aggressor_contribution_bb: float | None = None,
     context: PostflopContext | None = None,
+    facing_raise: bool = False,
 ) -> Decision:
     """Draw a frequency-mixed postflop decision from the pack's levers.
 
@@ -619,6 +669,11 @@ def sample_postflop_decision(
     end-to-end as a walking skeleton but NOT yet read — the position/street/
     texture mechanics (W3-b/c/d) consume it. Default `None` and every current
     caller are byte-identical.
+
+    W3R-6: `facing_raise` (derived by `table.postflop_context.facing_raise`) is a
+    FLAT kwarg, not a `PostflopContext` field — the range estimator opts into
+    this signal alone, and building a context there would newly activate W3-b's
+    `in_position=False` position damp. Default `False` is byte-identical.
 
     Facing state is derived from the `legal` shapes (unopened: CHECK+BET;
     matched-with-option: CHECK+RAISE; facing chips: FOLD+CALL[+RAISE]).
@@ -728,7 +783,19 @@ def sample_postflop_decision(
         # River polarization (see _RIVER_RAISE_FLOOR): air never bluff-CALLS
         # the river — it folds or bluff-raises. Flooring happens BEFORE the
         # SPR-commit block so a floored 0 survives the commit boost.
-        call_merit = (_CALL_BASE[bucket] + _DRAW_CALL_BONUS[draw]) * looseness
+        # W3R-6 (#5): naked ace-high stops floating a RAISE pre-river. Damps the
+        # CALL_BASE term only (the draw bonus is untouched — naked hands only),
+        # gated on facing a raise + flop/turn; the fold share rises purely
+        # through normalization. See _ACE_HIGH_FLOAT_RAISE_DAMP.
+        call_base = _CALL_BASE[bucket]
+        if (
+            bucket is StrengthBucket.ACE_HIGH
+            and draw is DrawCategory.NONE
+            and facing_raise
+            and street in (Street.FLOP, Street.TURN)
+        ):
+            call_base *= _ACE_HIGH_FLOAT_RAISE_DAMP
+        call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness
         if bluff_cell and street is Street.RIVER:
             call_merit = 0.0
         entries.append((ActionType.CALL, call_merit))
@@ -738,8 +805,18 @@ def sample_postflop_decision(
             else:
                 # W3-c: the draw's semi-bluff RAISE bonus decays by street (value
                 # _RAISE_BASE unchanged); flop/None → ×1.0.
+                # W3R-6 (#9): a made one-pair hand stops re-raising into
+                # flop/turn action. The _RAISE_BASE term ONLY is damped, so the
+                # semi-bluff raise (_DRAW_RAISE_BONUS) survives intact.
+                raise_base = _RAISE_BASE[bucket]
+                if (
+                    bucket in _VULNERABLE_ONE_PAIR
+                    and facing_raise
+                    and street in (Street.FLOP, Street.TURN)
+                ):
+                    raise_base *= _ONE_PAIR_RAISE_DAMP
                 raise_merit = (
-                    _RAISE_BASE[bucket]
+                    raise_base
                     + _DRAW_RAISE_BONUS[draw] * _draw_agg_street_mult(draw, street)
                 ) * agg_scale
                 if street is Street.RIVER and bucket in _RIVER_RAISE_FLOOR:

@@ -25,7 +25,7 @@ from app.domain.personas import sample_preflop_action
 from app.domain.personas_postflop import sample_postflop_decision
 from app.domain.spot import ActionType, PlayerStatus, Position, Street
 from app.domain.table.engine import HandState, apply, legal_actions
-from app.domain.table.postflop_context import derive_postflop_context
+from app.domain.table.postflop_context import derive_postflop_context, facing_raise
 from app.domain.table.sizing import (
     last_aggressor_position,
     pot_before_current_aggression,
@@ -141,6 +141,7 @@ def _postflop_decision(
     street,
     latest_aggressor_contribution_bb,
     context,
+    facing_raise,
 ) -> Decision:
     kinds = {la.action for la in legal}
     d = sample_postflop_decision(
@@ -157,6 +158,7 @@ def _postflop_decision(
         street=street,
         latest_aggressor_contribution_bb=latest_aggressor_contribution_bb,
         context=context,
+        facing_raise=facing_raise,
     )
     if d.action not in kinds:
         # Defensive: never happens if the sampler honors `legal`, but keep
@@ -216,6 +218,9 @@ def bot_decision(
     # busted_draw) and thread them to the sampler. No sampler branch reads them
     # yet (walking skeleton) — decisions are byte-identical; W3-b/c/d consume.
     context = derive_postflop_context(state, seat)
+    # W3R-6: is the outstanding wager on this street a RAISE? A flat flag, not a
+    # context field (the estimator opts into it alone) — see postflop_context.
+    faced_raise = facing_raise(state.action_history, state.street)
     return _postflop_decision(
         pack,
         seat_state.hole_cards,
@@ -230,6 +235,7 @@ def bot_decision(
         state.street,
         contribution,
         context,
+        faced_raise,
     )
 
 
