@@ -56,6 +56,17 @@ stickiness elasticity split"). If the intent is unclear, infer it from the diff 
      joint calibration, frozen `spot_signature()`, grader untouched.
    - **Intentional-leaves (§8):** did the slice "fix" F12 (aggression-cap compression) or F14 (no
      strength-correlated sizing)? Either is a FAIL.
+   - **Target provenance (§5a, §11 item 15) — the contract is NOT immune.** Every other item asks whether the
+     slice obeys the contract. This one asks whether the *target it obeyed* was sound. Check three things:
+     (a) does the slice cite a §5 target as a **bare number**, with no `(format, pool/stakes, source)` triple?
+     (b) does it transfer a format-SENSITIVE stat across table sizes without restating it, or gate HARD on a
+     row §5a marks `[UNVERIFIED]`? (c) **the W3R-1 rule** — did the slice fail to reach a target and respond
+     by widening a lever, widening a band, or re-scoping the test, rather than stopping and re-opening that
+     target's provenance? Any of the three is a FAIL. Where the defect is in the contract itself rather than
+     the slice, raise it as a **CONTRACT-DEFECT at HIGH** and say so explicitly — **do not pass a slice on the
+     contract's authority alone.** Read the current §5a registry each run and cite the row you relied on; this
+     clause carries no numbers deliberately, because hardcoding them here would reproduce the very defect
+     (a stale target living in a second place) that §5a exists to prevent.
 4. **Run checks when useful.** You may run the test suite / harness metrics via Bash (read-only intent) to
    confirm a claimed stat actually moved, or that byte-identity holds for un-opted-in callers. Do not mutate
    anything.
