@@ -58,6 +58,15 @@ ticket can say "run this and check X."
 
 **Owned files:** `backend/tools/__init__.py` (NEW — **sole owner in this wave**) · `backend/tools/export_session.py` (NEW)
 
+> 📎 **A WORKING REFERENCE IMPLEMENTATION EXISTS — port it, do not rewrite it.**
+> `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/reference-scripts/export_hands.py`
+> (gitignored, on disk). It is the script that actually produced `SYNTHESIS.md` and `findings/*.md`, and
+> it already solves every trap listed below: per-hand starting-stack reconstruction, the per-hand
+> `position → seat` remap, made-hand classification via `postflop._hand_category`, a replication of
+> `engine.settle`'s side-pot maths, and an assertion that the action replay reconciles to each seat's
+> stored `invested_total_bb` on all 181 hands. **T-EXPORT = port it to `backend/tools/export_session.py`
+> + add a `--session` CLI + wire `app.db.session.engine` in place of the hardcoded path.**
+
 **Mechanism:**
 - Reuse `app.db.session.engine` — do not hardcode a DB path, or the tool reads a different DB than the app writes.
 - **Per-hand starting stack must be reconstructed** as `stack_bb + invested_total_bb` from that hand's
@@ -150,6 +159,17 @@ cd backend && python -m pytest tests/test_personas_postflop.py -k "occupancy" -q
 Assert on the **roster-pooled** vector: `occupancy["UTG"]["unopened"] == 1.000` exactly ·
 `0.05 <= occupancy["BTN"]["unopened"] <= 0.12` · `0.33 <= roster_wide_unopened <= 0.43` · `unopened`
 share monotone non-increasing UTG→BTN across the seven non-blind seats. Print the 9×5 grid on failure.
+
+**Verification recipe (used to produce the bands — reuse it):** the arrival numbers can be measured
+outside the harness by importing it directly, which avoids standing up a second sim:
+```python
+import sys; sys.path.insert(0, 'tests')
+from test_personas_postflop import _play_hand          # (rng, hand_seed, button_seat, persona_by_seat, packs)
+# replay state.action_history per hand; for each seat's FIRST preflop action, bucket by
+# (position, unopened|vs_limpers|vs_rfi+) using "has anyone raised / limped before this seat acted"
+```
+Measured this way on the post-merge packs, n=600 hands / 5384 seat-decisions: **UTG 100% · UTG1 80% ·
+UTG2 56% · LJ 36% · HJ 22% · CO 14% · BTN 8% · SB 4% · BB 0% · roster-wide 36%.**
 
 **No-gos:** no second simulation loop (breaks the frozen ≤12s budget) · no touching `_persona_stats`,
 `_preflop_facing`, or anything under `app/domain/` · **zero new rng draws**, so the existing AF/FtC/WTSD
