@@ -160,10 +160,23 @@ def test_maniac_untouched_opens_byte_identical(packs, position):
 # --------------------------------------------------------------- T3 (lag SB)
 
 
-@pytest.mark.parametrize("hand", ["54s", "32s", "J9o"])
-def test_lag_sb_no_open_limp(packs, hand):
+# T3's invariant is "lag never OPEN-LIMPS from the SB" — it is a check on the
+# ACTION SET, not on range width. W5-b1 (2026-07-25) widened the lag SB
+# `unopened` node from ~22% to 51.98% authored, so two of these three probes are
+# now inside the range; the pins are updated to the new ranges rather than the
+# ranges being carved to keep the pins (which would corrupt the persona to
+# protect a test). `"limp" not in acts` — the actual T3 guarantee — is asserted
+# for all three and is unchanged.
+#   54s -> mix 2 (raise 0.4 / fold 0.6)      32s -> outside the node
+#   J9o -> mix 1 via `J8o+` (raise 1.0)
+@pytest.mark.parametrize(
+    ("hand", "expected"),
+    [("54s", {"raise", "fold"}), ("32s", {"fold"}), ("J9o", {"raise"})],
+)
+def test_lag_sb_no_open_limp(packs, hand, expected):
     acts = _actions(packs[VillainType("lag")], Position.SB, "unopened", hand)
-    assert "limp" not in acts and acts == {"fold"}, f"{hand} lag SB actions {acts}"
+    assert "limp" not in acts, f"{hand} lag SB open-limped: {acts}"
+    assert acts == expected, f"{hand} lag SB actions {acts}"
 
 
 _LAG_VS_RFI = [

@@ -192,8 +192,12 @@ def test_four_bet_line_strict_subset_and_hand_computed_posterior(packs):
     open_set, four_set = _positive(open_res), _positive(four_res)
     assert four_set < open_set  # strict subset
     # tag.json: UTG open ∩ vs_3bet raise-mass = {KK+, AKs @1.0} ∪ {AQo @0.4}
-    # (A5s 4-bets but is outside the UTG open range).
-    assert four_set == {"AA", "KK", "AKs", "AQo"}
+    # ∪ {A5s @0.4}. A5s JOINED this set in W5-b1 (2026-07-25): the tag UTG
+    # `unopened` node widened from "77+, AJs+, KQs, AQo+" to "55+, A6s+, ..."
+    # plus a 0.5-weight mix carrying A5s, so the A5s 4-bet bluff is now
+    # reachable from the open range instead of dangling outside it. The pin is
+    # updated to the new range — the range is NOT carved to preserve the pin.
+    assert four_set == {"AA", "KK", "AKs", "AQo", "A5s"}
     # Hand-computed posterior ratio: AA = 6 combos × (1.0 × 1.0);
     # AQo = 12 combos × (1.0 × 0.4) → AA/AQo = 6/4.8 = 1.25.
     assert four_res.class_weights["AA"] / four_res.class_weights["AQo"] == pytest.approx(1.25)

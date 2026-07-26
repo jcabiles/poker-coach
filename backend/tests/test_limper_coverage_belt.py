@@ -126,10 +126,20 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # seed (old post-W3R-4 counts: UTG2¹ 90, LJ¹ 132, HJ¹ 151, CO¹ 126, CO² 40, SB¹ 113,
 # SB² 53, BTN¹ 130, BTN² 37). No preflop content changed; every _WANT_* coverage shape
 # still fires (verified) — stream displacement, not a coverage regression.
+# RE-PINNED for W5-b1 (persona-realism-w5-b1, 2026-07-25 — slice-authorized): the
+# nit/tag/lag `unopened` ladders were widened to 9-max full-ring widths (authored
+# mean nit 8.0 → 28.5, tag 16.4 → 34.0, lag 22.6 → 43.2), a PURE preflop-content
+# change that alters bot preflop mixes directly — so the shared-rng hand stream
+# shifts at this seed (old post-W3R-6 counts: UTG2¹ 71, LJ¹ 132, HJ¹ 134, CO¹ 137,
+# CO² 32, SB¹ 123, SB² 48, BTN¹ 125, BTN² 35). Wider opens ALSO mean fewer limped
+# pots survive to hero, which is why the late-seat faces-1 counts fall while UTG2
+# rises. Every _WANT_* coverage shape still fires (verified: UTG2¹ 109, LJ¹ 112,
+# HJ¹ 98, SB¹ 90, CO² 38, SB² 47, BB¹ 58, BB² 35, BB³ 7) — stream displacement
+# plus the intended range widening, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 71, ("LJ", 1): 132, ("HJ", 1): 134, ("CO", 1): 137,
-    ("CO", 2): 32, ("SB", 1): 123, ("SB", 2): 48, ("BTN", 1): 125,
-    ("BTN", 2): 35,
+    ("UTG2", 1): 109, ("LJ", 1): 112, ("HJ", 1): 98, ("CO", 1): 102,
+    ("CO", 2): 38, ("SB", 1): 90, ("SB", 2): 47, ("BTN", 1): 93,
+    ("BTN", 2): 30,
 }
 
 

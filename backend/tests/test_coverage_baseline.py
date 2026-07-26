@@ -115,6 +115,19 @@ than) the W3-b/c/d 27.5% dip: MAPPER coverage is orthogonal to persona realism (
 realistic villains visit a different mix of hero spots, and the unchanged mapper grades
 that mix slightly less). Flagged for the mapper-coverage track, not a persona-realism
 regression. Seeded-fixture re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for W5-b1 (persona-realism-w5-b1, 2026-07-25 — slice-authorized): the
+nit/tag/lag `unopened` ladders were widened to 9-max full-ring widths (authored mean
+nit 8.0 → 28.5, tag 16.4 → 34.0, lag 22.6 → 43.2). PURE preflop content — no engine
+or postflop code changed — but it changes which hands open, so the seeded stream
+drifts → total 1290 → 1215, graded 354 → 336. Graded ratio 27.4% → 27.6% (UP
+slice-over-slice). Cumulative vs the IMMUTABLE persona-realism-start snapshot:
+27.6% (336/1215) vs 28.3% (349/1233) — still the same pre-existing DIP first flagged
+at W3-b/c/d, unchanged in character and no worse: MAPPER coverage is orthogonal to
+persona realism (the mapper is untouched; realistic villains simply route hero into a
+different mix of spots). Fewer total hero decision points is the expected direction —
+wider opens end more hands preflop. Flagged for the mapper-coverage track, not a
+persona-realism regression. Seeded-fixture re-record; bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
