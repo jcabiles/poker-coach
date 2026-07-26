@@ -171,7 +171,17 @@ combined population-band re-anchor after the whole spine converges (don't chase 
 → **W3R bot-review remediation** (2026-07-24 hand-history review — full 14-fix program; harness-first)
 → **W5-A / W5-C foundation** (target provenance + measurement repairs + engine correctness)
 → **remaining W3R tail** (W3R-4b, W3R-5, W3R-7) → **W5-B preflop range width**
+→ **W-ARR arrival instrumentation** (NEW, R8 2026-07-25 — see below; gates W5-B's D7 exit)
 → **W3.5 human-realism checkpoint** (blinded, on remediated bots) → **W4 commitment brake LAST + single band re-anchor + seam batch**.
+
+**Wave-order insertion (R8, 2026-07-25) — `W-ARR` before W3.5.** The 181-hand review
+(`docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`) established that the
+dominant defect class in this initiative is **arrival, not policy**: *which nodes get visited*, not what
+the policy does once there. Three independent analyses converged on it. The decisive datum — the BTN
+reaches the `unopened` node **8%** of the time vs UTG's **100%** — explains why W5-b1 widened the
+nit/tag/lag ladders, moved the aggregate marginals, closed cleanly, and changed almost nothing in late
+position. **That work is correct and stranded.** No instrument in this repo measures arrival, so the
+project cannot today distinguish *stranded* work from *broken* work. `W-ARR` is two counter dicts.
 All postflop-mechanic slices own `personas_postflop.py` ⇒ they run **serially** on that spine. The commitment
 brake is sequenced LAST (highest regression risk; it must layer on the stabilized price/fold equation, not force
 re-tuning). Every slice: default-off byte-identity for un-opted-in direct callers until the live loop opts in.
@@ -997,6 +1007,67 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       **No-gos:** no persona lever change; ship an Alembic migration if the schema moves.
       **Blocks:** **W3.5**. **Appetite:** ~1 slice.
 
+### W-ARR — arrival instrumentation (NEW, R8 2026-07-25; from the 181-hand review)
+
+> Source: `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`.
+> Both slices are **counters, not statistics** — no sampling variance, no flake, no sample-size
+> requirement, negligible CI cost. Neither exists today.
+
+- [ ] **W-ARR-a — Node-occupancy counters.** *ICE 9·9·2 — highest leverage-per-cost in the review.*
+      **Problem:** every gate and metric in the harness measures **policy** (what the persona does at a node).
+      Nothing measures **arrival** (which nodes it reaches). So a correct range authored behind an unreachable
+      node is indistinguishable from a wrong range. This is not hypothetical: the nit analyst verified that
+      tag's authored ladder is textbook (UTG **17.2%** → BTN **58.4%** combo-weighted, 3.4× widening) while the
+      button *measures* as tag's tightest seat (5.0% VPIP). Both are true. The inversion is arrival, not ladder.
+      **Solution:** a `persona × position × facing_node` counter dict in `_persona_stats_ext`. That is the whole
+      slice.
+      **Why it must precede further preflop tuning:** under gate pressure without it, a tuner widens the button
+      ladder to compensate for a `vs_limpers` cliff — a compensating-error trap. The nit analyst identified this
+      as the concrete failure mode of the naive fix (a positional-VPIP monotonicity gate), which it separately
+      **refuted** on three grounds: it fails **98.5% of the time on a *correctly designed* ladder** at today's CI
+      n (~67 obs/position); making it pass needs **12,153 hands/persona → 72,921 across the roster**, a 25–60×
+      blowup against the frozen 12s budget; and monotonicity is **wrong-by-design** for station/fish (flat
+      positional VPIP is realistic for recreational archetypes) and red-by-construction for maniac (pinned
+      W3R-1 invariant). **Do not build the sampled-distribution gate. Build the counter.**
+      **Pass/fail:** the counter is live and reproduces the review's headline table (BTN `unopened` ≈ 8%,
+      UTG ≈ 100%, roster-wide `unopened` ≈ 38%).
+      **Unblocks:** W5-B's D7 exit for any positionally-scoped node work (see NEXT item N-limp).
+      **Appetite:** ~1 small slice.
+
+- [ ] **W-ARR-b — Mapper-rejection-reason counters.** *ICE 8·9·2.*
+      **Problem:** the same blindness in the grading path, and it is **actively worsening**. `grade_map_postflop.py`
+      accepts only the **HU single-raised-pot continuation line** and returns `None` on any doubt. In the 181-hand
+      session **not one of HERO's 66 postflop decisions fit that shape** — they were three-way, 3-bet pots, or
+      limped pots — yielding **4/66 = 6.1%** postflop coverage (flop 4/28, turn **0/23**, river **0/15**). The
+      turn/river graders are **not** the problem: S5–S8 are done, `providers/turn.py` and `providers/river.py`
+      exist and are dispatched. They are never *reached*.
+      **The coupling that makes this urgent:** every persona-realism gain that adds limping, cold-calling,
+      donk-leading or off-grid sizing **further starves an HU-SRP-only mapper**. This has already happened once
+      (`simulate-table.md:493` — the open-gate had to be widened because "bots never open 2.5 — was zeroing
+
+> ⚠️ **CORRECTION 2026-07-25 (verified against HEAD) — do NOT quote `grade_map_postflop.py`'s module
+> docstring; it is STALE.** It claims "ONLY the HU single-raised-pot continuation line," but HEAD ships
+> **19 postflop mappers**, including **nine multiway** (`map_mw_flop_cbet`, `map_mw_vs_turn_bet`,
+> `map_mw_caller_vs_river_bet`, …), **two limped-pot** (`map_limped_flop_lead`, `map_limped_flop_vs_lead`)
+> and `map_flop_vs_caller_raise`. Consequence: **"multiway" and "limped pot" are NOT rejection reasons** —
+> they are *supported shapes* that reject for some further reason. The measured 4/66 (turn 0/23, river 0/15)
+> is unchanged; the CAUSE is gate predicates, not absent mappers, and the reason distribution is **unknown
+> until `T-REJECT` measures it**. One structural hole is already confirmed: the limped-pot mappers are
+> **flop-only**, so every limped turn and river has no mapper at all. **Scope any widening from `T-REJECT`'s
+> observed matrix, never from prose.** (Fix the stale docstring while you are in there.)
+
+      HJ/CO/BTN coverage"). **This initiative is currently degrading the other initiative's coverage, and nothing
+      measures it.**
+      **Solution:** counter the `None`-return reason (multiway · 3-bet pot · limped · off-grid bet fraction ·
+      donk/lead · other).
+      **Pass/fail:** counters live; the cumulative graded-coverage delta required by the anti-laundering rule can
+      be attributed to a *reason* rather than reported as an unexplained dip (cf. W3-b/c/d's unexplained
+      29.6% → 27.5%).
+      **Appetite:** ~1 small slice. **Note:** the fix that follows (widening the mapper) is grader work and belongs
+      to `professional-teacher-rework`; only the counter is in scope here.
+
+---
+
 ### W3.5 — checkpoint (gates before the final re-anchor)
 
 - [ ] **W3.5 — Human-realism playtest (D9) — RETAINED as a formal blinded gate (owner 2026-07-24).** Blinded seeded
@@ -1030,8 +1101,29 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       denominator unification shifts the effective SPR of **every** gate. Re-fitting them is part of this slice, not
       a follow-up. (Also note **B11 shares this same fold merit** — it stays a LATER bet whose assumption is
       testable only once W4-a has landed; see LATER.)
+      **Depends-on (ADDED R8, 2026-07-25) — the per-hand stack reset must land FIRST.** The 181-hand review
+      measured the live table at **median 130bb** start, **44%** of seat-hands above 150bb, capped at 200bb, with
+      someone committing 60bb+ in **19%** of hands (real 100bb 9-max: ~5%). Owner adjudicated 2026-07-25: **this is
+      a bug — stacks should reset to ~100bb per hand** (`backend/app/services/sim_session.py`). Since W4-a's whole
+      subject is `c = to_call/stack` and it must also re-fit `spr_commit`, fitting it against a stack distribution
+      that is about to change wastes the fit. Sequence the reset ahead of this slice.
+      **Hazard (ADDED R8) — `spr_commit` is a STEP FUNCTION, and the fit loop is undefined for it.** Measured
+      (fish, overpair, facing ½-pot): at SPR **1.50** → FOLD 0.038 / RAISE 0.325; at SPR **1.33** → FOLD 0.000 /
+      RAISE 0.605. `_commit_transform` zeroes fold **and** ×3-boosts BET/RAISE at the same instant, so a ~5bb stack
+      change swings raise frequency **28 points** with **zero gradient either side**. The fit loop's step 4
+      ("adjust the seed and re-measure") presumes a gradient; this lever needs a **bracketing search**. W4-a is the
+      slice that tunes it — budget for that, or the re-fit will thrash.
+      **Scope gap (ADDED R8) — the no-go leaves half the observed defect uncovered.** The review's canonical
+      evidence hand (H102: a TAG raises to 59bb on the turn with `K6o`, no pair no draw, OOP into two players, is
+      shoved on for 137bb, and **calls 91bb with king-high**) contains **two** ungoverned air actions. The pass/fail
+      below already covers the *call*. The *initiating raise* is boost-side and falls outside "facing-fold merit
+      only" — that is **M6**, and contract §7 forbids shipping M6 and W4-a in different waves (same fold merit, same
+      `c`). Plan them together.
       **Pass/fail:** a TAG folds ~80%-stack King-high while still stacking off a set; aggression-factor/fold-to-cbet
       survive; `test_clamp_and_jam_edge` green. **No-gos:** scope to facing-fold merit only. **Appetite:** ~1 large slice.
+      *(R8 note: H102 above is this pass/fail criterion occurring **verbatim in live play** — TAG, king-high, ~80%
+      of stack. The criterion was well chosen; the slice is correctly specified. An earlier thesis that W4 was
+      mis-specified and could move earlier was **refuted** on this point.)*
       *(Commit-factor archetype spread: let W2-a's `call_looseness` carry nit-vs-station separation first; widen the `D`
       exponent only if the spread measures too weak.)*
 
@@ -1187,6 +1279,120 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
   §11 item 13 **FAILs any slice touching graders**. *(Tag collision: `track-F3` here is NOT `audit-F3` —
   overcard / range-favorability — which was built as W3-d.)*
 
+### NEW NEXT items (2026-07-25 181-hand review, R8)
+
+> Source: `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`. Six persona
+> analyses + a hero/grader audit + a cross-persona pass, then six adversarial refutations. **Every item
+> below survived refutation and was verified against the code** — items that did not survive are recorded
+> in the synthesis scorecard, not here.
+
+**Tier 1 — cheap, verified, no sequencing conflict:**
+
+- **N-anchor — W3-b silently broke the `bluff_freq` exact-frequency anchor.** `check_merit = max(1.0 -
+  bluff_mass, 0.0)` (`personas_postflop.py:829`) makes `P(bet)` *exactly* equal the composed `bluff_mass` —
+  a rare **exact-frequency control**, verified exact for fish (0.1036), station (0.0259), maniac (0.6213).
+  But `_position_agg_mult` multiplies `agg_merit` at `:868-869` **after** the complement is fixed, so for
+  nit/tag/lag the identity breaks (tag OOP: **0.1495 actual vs 0.1899 authored**). W3-b demoted `bluff_freq`
+  from an exact control to an ordinary merit **for exactly the three personas that opted in**. Fix: apply the
+  position multiplier to `bluff_mass` *before* setting the complement. **~3 lines.** This is the cleanest
+  documented instance of silent cross-slice lever contamination in the tree.
+- **N-dead — `stickiness` is a dead lever.** Measured reach: **0.0%** of a 1,620-cell decision grid. For
+  `passive_fish` and `calling_station` (both author `call_looseness` *and* `size_elasticity`) it is read
+  **nowhere**. For nit/tag/lag it survives only as `stickiness ** -0.15` in the price exponent, where +25%
+  moves the exponent 3.4%. Only maniac still uses it for both. An author reading `"stickiness": 1.4` in a pack
+  reasonably concludes it controls stickiness; it controls nothing. **Delete or wire.**
+- **N-cat — `_hand_category` mislabels hands, and the postflop graders consume it.** H47 a flopped wheel
+  straight → `draw`; H6 two pair on a four-flush paired board → `strong` on all three streets; H24 `draw` on a
+  river. A grading **input** defect. The project's own N2 principle applies: *teaching amplifies a wrong grade.*
+  Inputs before prose. **Cross-initiative — file a seam-row.**
+- **N-trace — `build_trace` never passes `context=` or `facing_raise=`.** So `_position_agg_mult` returns
+  identity in every trace spot and `_BUSTED_RIVER_BLUFF` can never fire. **Every context mechanic W3 shipped is
+  invisible to the D8 anti-degeneracy pack that exists to catch context bugs.** A missing kwarg, not a missing
+  framework.
+
+**Tier 2 — verified, needs a decision:**
+
+- **N-d8gate — give D8 an assertion surface.** `node_trace.py` already captures the **exact normalized merit
+  vector** via the capture-rng trick: **zero sampling variance**, conditionable on anything. But `prescription`
+  is free text nothing compares against, so no violated prescription can fail CI. Four deterministic assertions
+  written during the review, **all four failing today**: nit folds K-high vs a 33%-pot flop bet (target ≥0.60,
+  actual **0.276**) · nit does not jam a non-nut flush on a paired board at SPR 1.0 (≤0.25, **0.845**) · nit
+  c-bets air as PFR HU IP (≥0.45, **0.043**) · nit folds TT vs a raise on Q-K-8 (≥0.80, **0.293**). This is the
+  correct answer to "the gates are blind": **assertions on a zero-variance instrument**, not sampled
+  distributions the frozen CI budget cannot support.
+- **N-cbet — promote `cbet_flop` to HARD with a real-world band.** Recorded harness value for the nit is
+  **0.197 (old) / 0.277 (new) at n=4000** against a real-world nit c-bet of **55–70%**. A 30–40 point miss
+  sitting in an **existing scalar marginal at n=4000**. The instrument saw the review's single most visible
+  postflop defect; **no band was ever attached to it.** Note §5a currently marks the c-bet row `[UNVERIFIED]`
+  DIRECTIONAL-only — so this item is really *"source the band"*, and it must respect the §11 item-7
+  band-laundering guard.
+- **N-limp — positionally scope `vs_limpers` (INSIDE W5-B, not a new wave).** The largest structural realism
+  defect found: at a limp-heavy 9-max table the position ladder is bypassed exactly where position matters most
+  (BTN `unopened` arrival **8%**), so tag/nit/maniac measure the **button as their tightest seat**. Verified
+  cheap: **no schema change** (`PersonaNode.positions` is already facing-agnostic, `PersonaPack._node_ordering`
+  already enforces explicit-before-wildcard, and `personas.py`'s scan applies the filter to every facing
+  identically), and **~12 ranges, not 108** — `positions` takes a list so iso ranges collapse to ~4 tiers, and
+  **only nit/tag/lag should be scoped**, because recreational archetypes genuinely are *not* position-aware
+  (scoping fish/station would be **anti**-realistic). Two constraints: it edits the JSON files **W5-B owns**
+  under the "serialize per pack" rule, so it **is** W5-B work rather than a parallel wave; and it **cannot close
+  under D7 until `W-ARR-a` exists**. **Cut `vs_rfi` from scope** — actor position is not opener position, and
+  shipping it risks a false "`audit-F18` done" signal.
+- **N-logit — nested logit on the facing node.** Split the single normalization in two: stage 1
+  `P(continue)` = defend vs fold, stage 2 `P(raise | continue)`. Then `call_looseness` drives stage 1 only and
+  `aggression` stage 2 only — **orthogonal by construction**, mapping one-to-one onto fold-to-c-bet and
+  raise-share. **~10 lines** around `:744-824`. Directly fixes the measured `passive_fish` pathology where
+  cutting `call_looseness` to 0.42 to reduce over-calling sent the removed mass to **RAISE** (monster raise
+  44.3% → **72.6%**) instead of FOLD, because nothing scales `_RAISE_BASE`. **Cost:** re-anchors every
+  facing-node band once — so sequence with W4-b, not against it.
+- **N-vecfit — make the fit loop vector-valued for the two identity levers.** Measured lever reach:
+  `call_looseness` **76.3%** of cells and `aggression` **59.8%** (both broad-spectrum, all five actions) vs
+  `size_elasticity` 42.2%, `bluff_freq` 5.3%, `position_sensitivity` **4.8%** (CHECK/BET only),
+  `multiway_bluff_damp` 2.3%. The lever set is **block-triangular, not dense** — `∂CBet/∂ln(call_looseness) =
+  0.000000` exactly, in all tested mixes, because the facing-side levers cannot reach unopened-node stats. The
+  2×2 Jacobian of the two identity levers is **well-conditioned (cond ≈ 2–3)**, so cross-talk is real but
+  jointly fittable in a few iterations. The defect is that `persona-realism-fit-loop.md` steps 2–4 specify a
+  **scalar** loop — coordinate descent on a non-diagonal system, which zig-zags. **Keep D11**; it guards the
+  residual *arrival* coupling that none of this removes. Caveat: cond(J) = **14.3** for the station on an
+  air-heavy range, so pair targets whose Jacobian rows are not parallel (FtC + CBet separates; FtC +
+  RaiseShare does not).
+- **N-maniac — the maniac is ~20 points below its VPIP band** (**25.4%** observed vs a 45–60 target) — by that
+  measure the **roster's largest single band violation**, larger than the routing defect above. Cause: `930eb20`
+  (#119) widened the `unopened` ladders for nit/tag/lag and **did not touch `maniac.json`**, leaving the
+  maniac's authored open width **below the TAG's** (BTN 48.0 vs tag 58.4; UTG 15.9 vs 17.2). It also 3-bets
+  **3.4%** and folds to raises **67.8%** — a preflop *caller*. **Regression introduced 2026-07-25.**
+- **N-riverair — river air/ace-high `call_merit = 0.0` is an absolute where a frequency belongs.** Measured
+  table-wide, not station-specific: holding a busted hand facing a river bet, station folds **6/6**, fish
+  **7/7**, tag 1/1, nit 4/5. The station's defining real-world move — the ace-high river call — is
+  **impossible**, and a student learns that **triple-barrel bluffing works against everyone**. The α/MDF
+  objection that killed the earlier `_CALL_BASE[ACE_HIGH]` cut **does not apply**: α = f/(1+f) is a fold
+  **ceiling**, and adding call mass *lowers* fold frequency — sign-opposite, moving into the feasible interior.
+  **But** it inverts a parametrized all-persona pinned test
+  (`test_river_air_never_calls_but_still_bluff_raises`), changes the bluff cell's normalization denominator,
+  and is a **WTSD band mover** — so §7 sequences it **into the W4 cluster**. A single shared constant also
+  cannot carry it: the value is divided by `call_looseness`, and at `b≈0.05` the station/nit/tag land in band
+  while the **fish sits at 0.050 against a 0.20–0.30 target**, because `passive_fish.call_looseness = 0.42` is
+  anomalously *below the nit's 0.6*. **Adjudicate the fish lever first.**
+
+**Cross-initiative (file as seam-rows to `professional-teacher-rework`):**
+
+- **N-cover — widen `grade_map_postflop.py` past HU-SRP** (multiway · limped · donk/lead · bet-fraction
+  tolerance; bot bets like 1.16 / 3.49 / 21.38 must currently land within 0.06bb of a recognized fraction).
+  Partly filed as R5. **Time-sensitive: persona realism actively erodes it** — see `W-ARR-b`.
+- **N-oppo — opponent type as a grader input.** **Zero** references to `station`/`fish`/`nit`/`maniac`/`lag`/
+  `exploit`/`villain` across all **142** reasoning texts. At a table where the entire edge is opponent-specific,
+  the advice would be identical against eight solvers. Persona realism will never fix this, and it is **filed
+  nowhere**.
+- **N-blind — `blind_defense` endorsed folding 5 times out of 5**, firing in ~21% of blind-vs-raise spots,
+  including BB `KTo` (H35) and BB `87o` (H152) — both routine defends. It told a player already defending
+  1-in-13 that folding was correct on every occasion it had an opinion.
+- **N-stale — `.claude/CLAUDE.md` still lists "turn/river engine deferred" as a global no-go.** Stale by ~15
+  days: S5–S8 are `[x]`, `providers/turn.py` / `providers/river.py` exist and are dispatched, and
+  `professional-teacher-rework.md:3-5` records the supersession. **Remove the line** — it caused two analysts
+  in this review to mis-attribute the 0/23 turn and 0/15 river coverage to design intent rather than to the
+  mapper gate.
+
+---
+
 ## LATER — bets (problem · confidence · assumption to test) — the deferred / architecture tail
 
 - **Villain-range rungs (b) + (c) (G1-b/c).** (b) persona-conditional range prior updated by the betting line — medium;
@@ -1299,6 +1505,21 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
 - **The architectural line** — range-blindness (`audit-F16`) is currently by design. The barrel-more range side, exploit-coaching,
   and villain-range rungs (b)/(c) push against "no solver tables"; building them past rung (a) is an owner-gated architecture
   decision, not a bug-fix.
+  > **R8 (2026-07-25) — `audit-F16` IS the realism ceiling; nothing else is.** The owner asked whether reopening the
+  > architecture is on the table. The 181-hand review's refutation round answered it, and the answer is **spend the
+  > appetite narrowly**. Three candidate "architectural" defects were tested and all three collapsed into tuning or
+  > wiring: *no initiative concept* — **false**, `bet_prev_street` is consumed at `:739` and modifies `bluff_mass`
+  > (a frequency), and since `_PREV_STREET[FLOP] = PREFLOP` it **is literally the c-bet predicate**, already shipped
+  > and unit-tested; *levers aren't independent* — **partly false**, the lever set is block-triangular and
+  > well-conditioned (cond ≈ 2–3), fixable with a vector-valued fit loop (`N-vecfit`) plus ~10 lines of nested logit
+  > (`N-logit`); *invert the model to author target frequencies* — **intractable or isomorphic**, 774,144 conditioning
+  > cells per persona raw, ~36,000 across six after aggressive pruning, against 8 numbers per pack today, and any
+  > tractable authoring scheme must factor as base-table × context-multipliers, i.e. **the current architecture with
+  > the normalization moved**. What genuinely is **not lever-reachable at any tuning effort** is anything requiring a
+  > *plan across streets* or a *model of one's own range*: the model is per-decision, strength-first, with one boolean
+  > of sequence memory. That is `audit-F16`, and it is where the ceiling question should be aimed if it is ever
+  > funded. Everything below it is reachable — the review scored the roster **3–4/10**, and the items in NEXT are
+  > sufficient to move that materially **without** crossing this line.
 
 ---
 *Handoff: on approval, the top unchecked NOW slice — **W3R-4b** (W0-a/b/c and W3R-0 are merged and ticked; note the
