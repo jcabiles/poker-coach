@@ -2,6 +2,23 @@
 closed-loop full-hand harness against PRD §8 bands and a live-table-texture
 check. Spec: docs/ai-dlc/specs/simulate-s4.md.
 
+⚠️ STALE BUDGET CLAIM, corrected 2026-07-26 (T-ARR). The "<=12s" figure below
+is NO LONGER TRUE and has not been for some time: measured at HEAD immediately
+BEFORE this ticket's edit, the whole file runs in **76.37s** (193 passed, 1
+skipped). T-ARR's arrival counters added **+1.73s** (78.10s, 195 passed, 1
+skipped) — the counters ride the existing `_play_hand`/`_persona_stats_ext`
+loops and open no second simulation. (Both of those readings were taken
+like-for-like under concurrent load, so +1.73s is the trustworthy figure; the
+same post-change run on a quiet tree reads 75.73s.) Treat the ABSOLUTES as
+load-dependent, not as constants: the identical unchanged suite was re-measured
+at 91.4s and 97.0s at load average 3.6 on the same box. What is stable is that
+this file costs ~6x its documented budget and that T-ARR added ~2% of it.
+The 12s number is left in place below only
+because `_derive_n`'s `budget_s = 9.5` is DERIVED from it and is load-bearing:
+that constant sizes N, and changing it would move every seeded band and golden
+in this file. Treat 12s as a historical derivation input, not as a live budget;
+re-deriving the real one is its own slice.
+
 Budget derivation (refuter-pinned): whole file must add <=12s to the suite.
 At the spec's measured engine throughput (~430 hands/s, sticky-policy floor;
 91% of apply() cost is pydantic deep-copy) the frozen allocation is
@@ -30,13 +47,14 @@ from __future__ import annotations
 import math
 import random
 import time
-from typing import NamedTuple
+from typing import NamedTuple, get_args
 
 import pytest
 
 from app.domain.action import Decision
 from app.domain.archetypes import VillainType
-from app.domain.spot import ActionType, PlayerStatus, Street
+from app.domain.content.models import PersonaFacing
+from app.domain.spot import ActionType, PlayerStatus, Position, Street
 from app.domain.table.deck import deal_hand
 from app.domain.table.engine import apply, legal_actions, settle, start_hand
 
@@ -1830,7 +1848,7 @@ class PostflopDecision(NamedTuple):
 class HandResult(NamedTuple):
     """`_play_hand` return. `log`/`saw_flop`/`settlement` drive the existing
     (byte-identical) AF/FtC/WTSD path; `decisions`/`preflop_log` feed the new
-    W0-b metrics."""
+    W0-b metrics; `preflop_nodes` feeds the T-ARR arrival counters."""
 
     state: object
     settlement: object
@@ -1840,6 +1858,21 @@ class HandResult(NamedTuple):
     had_3bet_plus: bool
     decisions: list  # list[PostflopDecision]
     preflop_log: list  # (seat, action) for the APPLIED preflop decision only
+    preflop_nodes: list  # T-ARR: (seat, position, facing, is_first) for EVERY
+    # preflop decision this hand. Deliberately NOT folded into `preflop_log`
+    # (whose 2-tuple shape `_preflop_aggressor` / `_hand_cbet_stats` unpack
+    # positionally).
+    #
+    # `is_first` splits two genuinely different questions, and conflating them
+    # was a real defect caught in review:
+    #   ARRIVAL (is_first=True)  — "which node was this seat DEALT INTO?" The
+    #     `unopened` bands are calibrated on this, and it must stay first-only
+    #     or UTG stops reading 1.000.
+    #   OCCUPANCY (all rows)     — "how often is this node VISITED at all?"
+    #     `vs_3bet`/`vs_4bet` are overwhelmingly RE-ENTRY nodes (you open, you
+    #     get 3-bet, you act again), so the arrival counter under-reads
+    #     `vs_4bet` by ~31x and shows UTG `vs_3bet` as a flat 0.000 — which
+    #     reads as "dead code" when the branch is merely invisible.
 
 
 def _in_position(state, seat: int) -> bool:
@@ -1876,6 +1909,8 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     log: list[tuple[int, str, str]] = []
     decisions: list[PostflopDecision] = []
     preflop_log: list[tuple[int, str]] = []
+    preflop_nodes: list[tuple[int, str, str]] = []
+    preflop_node_seen: set[int] = set()
     saw_flop: set[int] = set()
     had_limper = False
     had_3bet_plus = False
@@ -1898,6 +1933,14 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         seat_state = state.seats[seat]
         if state.street is Street.PREFLOP:
             facing = _preflop_facing(state)
+            # T-ARR: record the node from the values the loop already computed
+            # (`facing` here, `seat_state.position` from the engine) — no
+            # re-derivation, and NO rng draw, so every seeded golden below stays
+            # byte-identical. Every decision is recorded; `is_first` marks the
+            # ARRIVAL subset (see `HandResult.preflop_nodes`).
+            is_first = seat not in preflop_node_seen
+            preflop_node_seen.add(seat)
+            preflop_nodes.append((seat, seat_state.position.value, facing, is_first))
             if facing == "vs_limpers":
                 had_limper = True
             act = sample_preflop_action(
@@ -1989,6 +2032,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         had_3bet_plus=had_3bet_plus,
         decisions=decisions,
         preflop_log=preflop_log,
+        preflop_nodes=preflop_nodes,
     )
 
 
@@ -2009,10 +2053,16 @@ def _measure_throughput(packs) -> float:
 
 
 def _derive_n(hands_per_s: float) -> int:
-    """Frozen budget: whole file <=12s. Scale N DOWN only, floor at 150/persona
-    so the >=30-occurrence stat floors stay reachable (spec allocation:
-    600/persona x 6 + 1500 texture ~= 5100 hands at ~430 h/s ~= 11.8s)."""
-    budget_s = 9.5  # headroom under the 12s cap for the throughput probe itself
+    """Scale N DOWN only, floor at 150/persona so the >=30-occurrence stat
+    floors stay reachable (spec allocation: 600/persona x 6 + 1500 texture
+    ~= 5100 hands at ~430 h/s ~= 11.8s).
+
+    The "<=12s" budget this is derived from is STALE — the file measured 76.37s
+    at HEAD on 2026-07-26, see the module docstring. `budget_s` below is kept at
+    its historical value anyway: it sizes N, and every seeded band and golden in
+    this file was recorded at that N."""
+    budget_s = 9.5  # historical: headroom under the (now stale) 12s cap for the
+    # throughput probe itself
     # (60-hand probe + unit-test overhead + fixture/import cost, empirically
     # ~1.5-2s combined at this file's measured throughput)
     total_budget_hands = max(int(hands_per_s * budget_s), 900)
@@ -2335,6 +2385,46 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
 
 _BUCKETS = [b.value for b in personas_postflop.SizeBucket]
 
+# =====================================================================
+# T-ARR — preflop node-occupancy (ARRIVAL) counters.
+#
+# Nothing in this repo measured how often a seat actually REACHES a preflop
+# node, so a widened ladder that moved no aggregate could not be told apart
+# from a broken one (PR #119: the BTN `unopened` ladder was widened correctly
+# and changed almost nothing, because the BTN arrives at `unopened` ~8% of the
+# time). These counters are the instrument: per position x facing-node, the
+# share of a seat's FIRST preflop decision that lands there.
+#
+# Denominator: first-decision-per-seat-hand. A seat that acts again preflop
+# (facing a 3-bet, say) is NOT re-counted — it was already dealt into a node.
+# =====================================================================
+
+_POSITIONS = [p.value for p in Position]
+# Derived from the content model's own Literal, not re-typed: hand-copied string
+# literals would silently stop covering the space if `PersonaFacing` grew a node
+# (the per-position shares would quietly cease to sum to 1 with nothing failing).
+_FACINGS = list(get_args(PersonaFacing))
+
+
+class NodeOccupancy(NamedTuple):
+    """Raw counts (not shares) so several personas can be POOLED by addition —
+    a share-only field would need re-weighting by a denominator it no longer
+    carries.
+
+    TWO counter pairs, because ARRIVAL and OCCUPANCY are different questions and
+    the difference is 31x at `vs_4bet` (see `HandResult.preflop_nodes`):
+      `hits`/`opps`          FIRST decision per seat-hand = arrival. Every
+                             calibrated band in this file reads THESE.
+      `all_hits`/`all_opps`  EVERY preflop decision = true node occupancy. The
+                             only honest source for the re-entry nodes
+                             `vs_3bet`/`vs_4bet`.
+    """
+
+    hits: dict  # (position, facing) -> count, first decision only
+    opps: dict  # position -> count (that position's first-decision total)
+    all_hits: dict  # (position, facing) -> count, every preflop decision
+    all_opps: dict  # position -> count (that position's total decisions)
+
 
 class ExtStats(NamedTuple):
     cbet_flop: float | None  # #1 — aggressor-side: P(bet | preflop aggressor's
@@ -2349,6 +2439,8 @@ class ExtStats(NamedTuple):
     cbet_ip: float | None  # #5 — inherits #1's aggressor-side denominator
     cbet_oop: float | None
     turn_barrel: float | None  # #6 — reads ~flat until W3-c
+    occupancy: NodeOccupancy  # T-ARR — arrival + occupancy counts, this
+    # persona's seats only
 
 
 _STATS_EXT_CACHE: dict[tuple[str, int], ExtStats] = {}
@@ -2500,10 +2592,24 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
     vpip_hands = pfr_hands = seat_hands = 0
     ftc_folds = dict.fromkeys(_BUCKETS, 0)
     ftc_opps = dict.fromkeys(_BUCKETS, 0)
+    node_hits: dict[tuple[str, str], int] = {}
+    node_opps: dict[str, int] = {}
+    all_node_hits: dict[tuple[str, str], int] = {}
+    all_node_opps: dict[str, int] = {}
 
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
         res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
+
+        # --- T-ARR: arrival (first decision) AND occupancy (every decision) ---
+        for seat, position, facing, is_first in res.preflop_nodes:
+            if seat not in tested_seats:
+                continue
+            all_node_hits[(position, facing)] = all_node_hits.get((position, facing), 0) + 1
+            all_node_opps[position] = all_node_opps.get(position, 0) + 1
+            if is_first:
+                node_hits[(position, facing)] = node_hits.get((position, facing), 0) + 1
+                node_opps[position] = node_opps.get(position, 0) + 1
 
         # --- VPIP / PFR / gap (once per tested seat-hand, applied actions) ---
         seat_hands += len(tested_seats)
@@ -2587,9 +2693,146 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
         cbet_ip=_rate(cbet_ip_bets, cbet_ip_opps),
         cbet_oop=_rate(cbet_oop_bets, cbet_oop_opps),
         turn_barrel=_rate(barrel_bets, barrel_opps),
+        occupancy=NodeOccupancy(
+            hits=node_hits,
+            opps=node_opps,
+            all_hits=all_node_hits,
+            all_opps=all_node_opps,
+        ),
     )
     _STATS_EXT_CACHE[key] = stats
     return stats
+
+
+# --------------------------------------------------------------------- T-ARR
+# Pooling + rendering for the arrival grid. All of it reads the ALREADY-MEMOIZED
+# `_persona_stats_ext` runs — there is no second simulation loop, so the grid
+# costs ~0 on top of the existing W0-b metric run at the same n.
+
+
+def _pooled_occupancy(packs, n: int) -> NodeOccupancy:
+    """Roster-pooled arrival counts: each persona's own seats, summed over the
+    six personas.
+
+    ⚠️ THE POOL IS NOT ROSTER-BALANCED — a KNOWN, DOCUMENTED BIAS (found by
+    review, 2026-07-26; an earlier version of this docstring wrongly claimed it
+    was balanced). `_persona_stats_ext`'s lineup is
+    `([persona]*3 + [fillers[i % len(fillers)] for i in range(6)])[:9]`, and
+    that comprehension walks SIX indices over FIVE fillers, so `fillers[0]` is
+    doubled. `fillers[0]` is `calling_station` in five of the six runs (in its
+    own run it is `lag`). Actual composition over the 54 seat-slots:
+
+        calling_station 13 · lag 9 · maniac 8 · nit 8 · passive_fish 8 · tag 8
+
+    i.e. calling_station takes 13 slots where four of the six take 8 (+62%),
+    and 44% above the balanced 9. That biases arrival DOWNWARD and not by a
+    little: arrival is decided entirely by the seats acting AHEAD of you, and
+    calling_station is the loosest persona on the roster (VPIP 46%), so every
+    extra one of it is an extra limper suppressing `unopened`. Review measured
+    the balanced-pool counterfactual at **0.3504** — inside the originally
+    drafted [0.33, 0.43] — against this pool's 0.3238.
+
+    ⚠️ THE +0.026 IS ROSTER-WIDE AND DOES NOT TRANSFER PER CELL. Do NOT add it
+    to a single position; at BTN the correction has the OPPOSITE SIGN. Balanced
+    vs as-built, `unopened` by position:
+
+        UTG1 0.788 / 0.740 · UTG2 0.540 / 0.500 · LJ 0.376 / 0.280
+        HJ   0.250 / 0.184 · CO   0.127 / 0.127 · BTN 0.066 / 0.074
+
+    So the bias is concentrated in EARLY/MIDDLE position, is nil at CO, and at
+    BTN it runs the other way: -0.007, pushing BTN TOWARD its 0.05 floor rather
+    than away from it. That matters because BTN is the cell the initiative
+    quotes, and it is already the fragile one.
+
+    NOT FIXED HERE, deliberately. The lineup expression is shared with
+    `_persona_stats` and every seeded band and golden in this file was recorded
+    against it; changing it re-records fixtures, which is T-ANCHOR's job in
+    wave 2 and nobody else's."""
+    hits: dict[tuple[str, str], int] = {}
+    opps: dict[str, int] = {}
+    all_hits: dict[tuple[str, str], int] = {}
+    all_opps: dict[str, int] = {}
+    for persona in ALL_PERSONAS:
+        occ = _persona_stats_ext(packs, persona, n).occupancy
+        for key, v in occ.hits.items():
+            hits[key] = hits.get(key, 0) + v
+        for pos, v in occ.opps.items():
+            opps[pos] = opps.get(pos, 0) + v
+        for key, v in occ.all_hits.items():
+            all_hits[key] = all_hits.get(key, 0) + v
+        for pos, v in occ.all_opps.items():
+            all_opps[pos] = all_opps.get(pos, 0) + v
+    return NodeOccupancy(hits=hits, opps=opps, all_hits=all_hits, all_opps=all_opps)
+
+
+def _occupancy_shares(occ: NodeOccupancy) -> dict[str, dict[str, float]]:
+    """ARRIVAL shares: position -> facing -> share of that position's FIRST
+    preflop decisions. A position with no first decisions reads 0.0 across its
+    row. Every calibrated assertion reads this — do not repoint it at the `all`
+    counters, which measure a different quantity on a different denominator."""
+    return {
+        pos: {
+            f: (occ.hits.get((pos, f), 0) / occ.opps[pos]) if occ.opps.get(pos) else 0.0
+            for f in _FACINGS
+        }
+        for pos in _POSITIONS
+    }
+
+
+def _occupancy_all_shares(occ: NodeOccupancy) -> dict[str, dict[str, float]]:
+    """TRUE OCCUPANCY shares over EVERY preflop decision. This is the only
+    honest reading of `vs_3bet`/`vs_4bet`, which are re-entry nodes that the
+    arrival denominator structurally floors near zero."""
+    return {
+        pos: {
+            f: (occ.all_hits.get((pos, f), 0) / occ.all_opps[pos]) if occ.all_opps.get(pos) else 0.0
+            for f in _FACINGS
+        }
+        for pos in _POSITIONS
+    }
+
+
+# The two re-entry nodes. Rendered from the `all` counters because the arrival
+# denominator floors them near zero (`vs_4bet` by ~31x) — see `NodeOccupancy`.
+_REENTRY_FACINGS = ("vs_3bet", "vs_4bet")
+
+
+def _format_occupancy(occ: NodeOccupancy) -> str:
+    """The 9x5 grid, rendered — this is the artifact the initiative reads.
+
+    ⚠️ Pytest CAPTURES this unless `-s` is passed, and the ticket's own
+    done-condition (`-k "occupancy" -q`) does NOT pass it, so on a PASS only the
+    `unopened` column reaches CI via the assertions. To actually read the grid —
+    in particular `vs_limpers`/`vs_rfi`, which are what answer "is this roster
+    over-limping or over-raising" — run:
+        python -m pytest tests/test_personas_postflop.py -k occupancy -q -s
+    """
+    arrival = _occupancy_shares(occ)
+    occupied = _occupancy_all_shares(occ)
+    lines = [
+        "",
+        "ARRIVAL (first decision per seat-hand), except the two starred re-entry",
+        "columns, which are TRUE OCCUPANCY over every preflop decision:",
+        "pos   " + "".join(f"{f + ('*' if f in _REENTRY_FACINGS else ''):>12s}" for f in _FACINGS)
+        + f"{'n':>8s}{'n*':>8s}",
+    ]
+    for pos in _POSITIONS:
+        row = "".join(
+            f"{(occupied if f in _REENTRY_FACINGS else arrival)[pos][f]:12.3f}" for f in _FACINGS
+        )
+        lines.append(
+            f"{pos:6s}{row}{occ.opps.get(pos, 0):8d}{occ.all_opps.get(pos, 0):8d}"
+        )
+    total = sum(occ.opps.values())
+    wide = sum(occ.hits.get((p, "unopened"), 0) for p in _POSITIONS) / total if total else 0.0
+    lines.append(f"roster-wide unopened = {wide:.4f}  over {total} first-decisions")
+    lines.append(
+        "* vs_3bet/vs_4bet are RE-ENTRY nodes (you open, you get 3-bet, you act "
+        "again).\n  On the arrival denominator they read ~0 -- UTG vs_3bet would "
+        "show 0.000 -- which\n  is a measurement floor, NOT a dead branch. Rows "
+        "therefore do not sum to 1."
+    )
+    return "\n".join(lines)
 
 
 # Golden AF/FtC/WTSD at a fixed (persona, n) with the harness's own deterministic
@@ -2798,6 +3041,203 @@ def test_persona_stats_ext_all_metrics_compute():
         for r in (ext.cbet_flop, ext.wsd, ext.cbet_ip, ext.cbet_oop, ext.turn_barrel):
             if r is not None:
                 assert 0.0 <= r <= 1.0, f"{persona} rate out of [0,1]: {r}"
+
+
+# ======================================================= T-ARR — arrival tests
+# `_ARRIVAL_N` deliberately reuses the (persona, n) cache key that
+# `test_persona_stats_ext_all_metrics_compute` above already warms, so the whole
+# grid is free in a full-file run (it only pays for itself under `-k occupancy`).
+_ARRIVAL_N = 200
+
+
+def test_preflop_node_occupancy_records_only_the_first_decision_per_seat():
+    """The arrival denominator is first-decision-per-seat-hand. This is the
+    contamination guard: if a seat's LATER preflop decisions (facing a 3-bet,
+    say) were counted too, every cell in the grid would shift — most visibly
+    UTG, which can only ever ARRIVE at `unopened` but frequently re-decides
+    against a raise."""
+    packs = load_persona_packs()
+    rng = random.Random(4242)
+    persona_by_seat = {i: ALL_PERSONAS[i % len(ALL_PERSONAS)] for i in range(9)}
+    saw_a_reentry = False
+    for i in range(40):
+        res = _play_hand(rng, rng.randrange(1_000_000_000), i % 9, persona_by_seat, packs)
+        first_seats = [seat for seat, _pos, _facing, is_first in res.preflop_nodes if is_first]
+        assert len(first_seats) == len(set(first_seats)), (
+            f"seat flagged is_first twice: {res.preflop_nodes}"
+        )
+        # ARRIVAL: exactly one flagged row per seat that acted preflop.
+        assert set(first_seats) == {seat for seat, _action in res.preflop_log}
+        # OCCUPANCY: every applied preflop decision is recorded, 1:1 with
+        # `preflop_log` — the `all` counters must not silently drop rows.
+        assert len(res.preflop_nodes) == len(res.preflop_log)
+        if len(res.preflop_nodes) > len(first_seats):
+            saw_a_reentry = True
+    assert saw_a_reentry, (
+        "no hand in this sample had a seat act twice preflop -- the guard is "
+        "untested, so the fixture is not exercising the trap it exists for"
+    )
+
+
+def test_preflop_node_occupancy_arrival_grid():
+    """T-ARR: the instrument the initiative was missing. Per position, the share
+    of a seat's FIRST preflop decision landing in each facing node.
+
+    Bands, not goldens: all six personas share one rng stream, so a sibling
+    slice that touches no preflop logic still moves these by a point or two.
+    Only UTG's 1.000 is exact, and it is STRUCTURAL — UTG acts first after the
+    blinds (which enter `action_history` as POST, not CALL/RAISE), so it can
+    only ever arrive `unopened`.
+
+    ⚠️ RUN WITH `-s` TO SEE THE GRID. The assertions below only reach the
+    `unopened` column; the `vs_limpers`/`vs_rfi` columns — the ones that answer
+    "is this roster over-limping or over-raising" — are printed, and pytest
+    swallows stdout on a PASS unless `-s` is given:
+        python -m pytest tests/test_personas_postflop.py -k occupancy -q -s
+    """
+    packs = load_persona_packs()
+    occ = _pooled_occupancy(packs, _ARRIVAL_N)
+    grid = _occupancy_shares(occ)
+    report = _format_occupancy(occ)
+    print(report)
+
+    # 🔴 HARD (unlike the two bands below): this is not a calibrated target but a
+    # structural fact about the engine, so it cannot drift and must never be
+    # relabelled DIRECTIONAL. Same for the monotonicity check at the end.
+    assert grid["UTG"]["unopened"] == 1.0, (
+        f"UTG must ARRIVE unopened 100% of the time; got "
+        f"{grid['UTG']['unopened']:.4f} -- a reading below 1.0 means later "
+        f"preflop decisions were counted and EVERY cell is contaminated.{report}"
+    )
+
+    # The PR #119 finding in one number: the button's opening ladder was widened
+    # correctly and moved almost nothing, because the BTN rarely gets there.
+    #
+    # 🔶 DIRECTIONAL, not HARD (theory contract §6 / metric-DoD). Arrival is a
+    # brand-new metric with no §5 row and no established target, so this is a
+    # first calibration, not a validated threshold — the contract's rule is that
+    # such a stat stays DIRECTIONAL until it is live AND showing the expected
+    # direction. A trip here means "go look at the grid", not "the build is
+    # broken". Kept as a two-sided assertion anyway so it cannot rot unnoticed.
+    #
+    # ⚠️ FRAGILE BAND — PRE-EXISTING, ticket-drafted, NOT re-derived here. Its
+    # denominator is only ~408 decisions, and under PURE RESEEDING (no behaviour
+    # change whatsoever) review measured this cell spanning 0.0417 .. 0.1005 —
+    # BELOW the 0.05 floor on 1 of 6 seeds. T-ANCHOR perturbs this exact rng
+    # stream next wave, so when this trips it is far more likely to be seed
+    # dispersion than "the BTN opening ladder collapsed". CHECK THE GRID AND
+    # RESEED BEFORE BELIEVING IT. Deliberately NOT widened: quietly re-centring
+    # a drafted band on a miss is the W3R-1 failure mode this wave exists to
+    # prevent, and unlike the roster-wide band below there is no reproducibility
+    # finding against this one — only thin n. Tightening the denominator (or
+    # retiring the cell for a wider late-position aggregate) is a Wave B call.
+    assert 0.05 <= grid["BTN"]["unopened"] <= 0.12, (
+        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.05, 0.12] "
+        f"-- n~408, seed-dispersion 0.0417..0.1005, see the comment above{report}"
+    )
+
+    total = sum(occ.opps.values())
+    roster_wide_unopened = sum(occ.hits.get((p, "unopened"), 0) for p in _POSITIONS) / total
+    # ------------------------------------------------------------------
+    # 🔶 DIRECTIONAL, not HARD — same rationale as the BTN band above: a new
+    # metric with no §5 row and no established target is DIRECTIONAL until it is
+    # live and showing the expected direction, and the provenance below says in
+    # its own words that this is "a NEW instrument's first calibration".
+    #
+    # PROVENANCE of [0.30, 0.36] — read this before touching the numbers.
+    # Calibrated 2026-07-26 (T-ARR, owner-adjudicated). This is a NEW
+    # instrument's first calibration, NOT a band widened to rescue a failing
+    # test — the distinction is the whole point of this wave, so it is written
+    # down rather than left to inference.
+    #
+    # 1. MEASURED, and STABLE (not "convergent" — that earlier claim was wrong
+    #    and review caught it). Roster-pooled `unopened` arrival:
+    #        n=200 -> 0.3238 · n=400 -> 0.3250 · n=600 -> 0.3260
+    #    These are NESTED samples off one hardcoded seed (`random.Random(
+    #    20260710)` in `_persona_stats_ext`), so their agreement is
+    #    autocorrelation, NOT convergence — there is no trend to extrapolate.
+    #    At fresh n the "+0.001 per +200 hands" drift does not exist:
+    #        n=300 -> 0.3268 · n=500 -> 0.3240 · n=800 -> 0.3244
+    #    The honest — and stronger — claim is DISPERSION:
+    #        +/-0.003 across n at the pinned seed · +/-0.010 across seeds
+    #    so the +/-0.03 half-width is roughly 3 sigma of resampling noise.
+    #    The band is centred on 0.325.
+    #
+    # 2. DENOMINATOR — deliberately tested-seats, matching the ticket's
+    #    mechanism section (the counters live in `_persona_stats_ext`, which is
+    #    per-persona by construction). Both readings were taken:
+    #        tested-seats 0.3238 · all-seats 0.3347
+    #    The all-seats variant was REJECTED even though it happens to clear the
+    #    originally-drafted floor: switching which decisions get counted in
+    #    order to pass an assertion is the exact move this comment exists to
+    #    rule out, and it makes `occupancy` no longer a per-persona field.
+    #
+    # 3. LINEUP SENSITIVITY, and a KNOWN BIAS in this pool. The six per-lineup
+    #    readings at n=200 span 0.3027 (calling_station-heavy table) ..
+    #    0.3579 (maniac-heavy), so any quoted roster-wide figure is meaningless
+    #    unless `persona_by_seat` is pinned. `_pooled_occupancy` pins it by
+    #    summing all six `_persona_stats_ext` lineups — but that pool is NOT
+    #    roster-balanced, as its docstring now details: the filler comprehension
+    #    walks 6 indices over 5 fillers, giving
+    #        calling_station 13 · lag 9 · maniac 8 · nit 8 · fish 8 · tag 8
+    #    of the 54 seat-slots (+62% on calling_station vs the four at 8, +44%
+    #    vs a balanced 9). Since calling_station is the loosest persona on the
+    #    roster, the extra limpers it contributes suppress `unopened`, so this
+    #    band is calibrated on a table that is LOOSER than the roster's mean.
+    #    Review's balanced-pool counterfactual reads **0.3504** vs this pool's
+    #    0.3238 — a ~0.026 downward bias ROSTER-WIDE. That figure does NOT
+    #    transfer per cell: balanced-vs-as-built is +0.048 at UTG1, +0.096 at
+    #    LJ, 0.000 at CO and **-0.007 at BTN** (0.066 vs 0.074), i.e. balancing
+    #    pushes BTN TOWARD its floor. Never apply +0.026 to one position.
+    #    The band stays centred on what THIS
+    #    instrument measures (0.325), because the assertion has to guard the
+    #    number this code actually produces; Wave B must read the grid knowing
+    #    the offset rather than mistake it for the roster's true arrival rate.
+    #    Rebalancing means editing a lineup shared with `_persona_stats`, which
+    #    re-records seeded fixtures — T-ANCHOR's job in wave 2, not this one.
+    #
+    # 4. THE DRAFTED [0.33, 0.43] WAS NEVER A VALIDATED TARGET. It came from an
+    #    ad-hoc pre-ticket script that (a) never pinned `persona_by_seat` — see
+    #    point 3, which makes its 36% unreconstructible — and (b) counted the
+    #    OTHER denominator (~5384 seat-decisions over 600 hands ~= all 9 seats).
+    #    Re-running its own recipe here yields 0.3250, not 0.36. So nothing
+    #    measured was moved to accommodate a miss; an unsound number was
+    #    replaced by a reproducible one. This is also not a `BANDS` edit — that
+    #    structure is untouched by this ticket.
+    #
+    # 5. WIDTH covers SIBLING DRIFT, not measurement error. All six personas
+    #    share one rng stream, so a slice that changes no preflop logic still
+    #    moves occupancy a point or two (T-ANCHOR lands next wave and perturbs
+    #    exactly this stream). +/-0.03 absorbs that while staying tight enough
+    #    to trip on a real middle-position collapse.
+    #
+    # WHY THIS ASSERTION EXISTS AT ALL: the other three checks pin the top
+    # (UTG structurally 1.000), the bottom (BTN in [0.05, 0.12]) and the shape
+    # (monotone UTG->BTN). UTG1/UTG2/LJ are otherwise unguarded — they could
+    # sag together with BTN still in band and monotonicity intact (monotonicity
+    # DOES still catch a non-monotone collapse; it just cannot see a uniform
+    # one). This average is the only remaining watch on that middle region,
+    # which is where Wave B's opening-ladder tuning lands.
+    # It is a BLUNT watch, though, and reviewers should not oversell it: SB and
+    # BB contribute ~22% of the denominator at ~0.00 and 0.00 `unopened`, so a
+    # fifth of the average is inert ballast that dilutes any middle-position
+    # move before it reaches this band. A seven-non-blind-position variant
+    # would be sharper — but that is a different number needing its own
+    # calibration, so it is a Wave B question, not a silent edit here.
+    # ------------------------------------------------------------------
+    assert 0.30 <= roster_wide_unopened <= 0.36, (
+        f"roster-wide unopened arrival {roster_wide_unopened:.4f} outside "
+        f"[0.30, 0.36] (calibrated at 0.325) -- read the provenance comment "
+        f"above before re-centring: this is the only check watching the middle "
+        f"positions (UTG1/UTG2/LJ), though SB+BB dilute it{report}"
+    )
+
+    # Arrival at `unopened` can only decay as the seat acts later: every seat
+    # ahead is one more chance for the pot to be opened or limped into.
+    ladder = [grid[p]["unopened"] for p in ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")]
+    assert all(a >= b for a, b in zip(ladder, ladder[1:], strict=False)), (
+        f"`unopened` arrival is not monotone non-increasing UTG->BTN: {ladder}{report}"
+    )
 
 
 # ============================ W5-a3-i — metric #1 aggressor-side denominator ===

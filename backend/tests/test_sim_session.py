@@ -40,6 +40,7 @@ from app.domain.table.sizing import (
 )
 from app.services import sim_session
 from app.services.sim_session import (
+    HERO_SEAT,
     SessionNotFound,
     create_session,
     deal_next_hand,
@@ -101,7 +102,13 @@ def test_create_session_seats_and_lineup(db):
     assert by_index[0].is_hero and by_index[0].persona_type is None
     bots = sorted(by_index[i].persona_type for i in range(1, 9))
     assert bots == sorted(v.value for v in play.LINEUP)
-    assert all(s.stack_bb == 100.0 and s.buyins_bb == 100.0 for s in seats)
+    # T-STACK: hand 1's deal already re-bought every seat inside the band, so
+    # the seeded 100/100 is redrawn — but the ledger still starts at zero.
+    assert all(
+        sim_session._BUYIN_MIN_BB <= s.stack_bb <= sim_session._BUYIN_MAX_BB
+        for s in seats
+    )
+    assert all(round(s.stack_bb - s.buyins_bb, 2) == 0.0 for s in seats)
     assert len(view.hand.seats) == 9
     assert view.hand.hero.hole_cards is not None
 
@@ -185,10 +192,10 @@ def test_restore_missing_or_ended_session_is_none(db):
     assert restore_session(db, view.session_id) is None
 
 
-# ----------------------------------------------------- ledger / rebuy / chips
+# ------------------------------------------------ ledger / settlement / chips
 
 
-def test_bust_triggers_rebuy_and_2dp_ledger():
+def test_settlement_writes_true_stacks_and_2dp_ledger():
     seats = [
         SimSeat(
             session_id="s", seat_index=i, is_hero=i == 0,
@@ -205,15 +212,36 @@ def test_bust_triggers_rebuy_and_2dp_ledger():
         showdown_seats=[0, 1],
     )
     sim_session._apply_settlement(seats, settlement)
-    # Seat 0 busted (0.45 < 1.0): rebuy to 100, buyins grow by 99.55.
-    assert seats[0].stack_bb == 100.0
-    assert seats[0].buyins_bb == 199.55
+    # T-STACK: settlement writes the TRUE finished stack and leaves buyins_bb
+    # alone — the whole delta lands in net_bb. The re-buy back to ~100bb is a
+    # separate step that runs at DEAL time (see test_sim_session_buyin_cap.py).
+    assert seats[0].stack_bb == 0.45 and seats[0].buyins_bb == 100.0
     assert seats[1].stack_bb == 199.55 and seats[1].buyins_bb == 100.0
     for s in seats:
         assert s.stack_bb == round(s.stack_bb, 2)
         assert s.buyins_bb == round(s.buyins_bb, 2)
     net = sum(s.stack_bb - s.buyins_bb for s in seats)
     assert round(net, 2) == 0.0
+
+
+def test_settled_view_reports_one_stack_basis_for_hero_and_villains(db):
+    """`hand.hero.stack_bb` and the hero's own `seats[]` entry must never come
+    from different bases: mid-hand both are the live engine state, and once
+    the hand is complete both are the post-settlement SimSeat row (settle() is
+    pure, so the engine state has no winnings in it)."""
+    view = create_session(db)
+    for _ in range(10):
+        assert view.hand.hero.stack_bb == view.hand.seats[HERO_SEAT].stack_bb
+        view = _play_current_hand(db, view)
+        assert view.hand.hand_over
+        assert view.hand.hero.stack_bb == view.hand.seats[HERO_SEAT].stack_bb
+        row = db.exec(
+            select(SimSeat)
+            .where(SimSeat.session_id == view.session_id)
+            .where(SimSeat.seat_index == HERO_SEAT)
+        ).first()
+        assert view.hand.hero.stack_bb == row.stack_bb
+        view = deal_next_hand(db, view.session_id)
 
 
 def test_chip_conservation_across_hands(db):
@@ -238,8 +266,21 @@ def test_deal_reproducible_from_rng_seed(db):
     dealt = deal_hand(random.Random(int(row.rng_seed)))
     assert [tuple(s.hole_cards) for s in state.seats] == dealt.hole_cards
     assert state.full_board == dealt.board
+    # T-STACK: the per-hand buy-in draw is pinned to the same recorded seed, so
+    # the START STACKS — an input to the hand, like the cards — are re-derivable
+    # from rng_seed alone. A seat's starting stack is what it has behind plus
+    # everything it has put in.
+    replay_seats = [
+        SimSeat(session_id="s", seat_index=i, is_hero=i == 0, stack_bb=0.0, buyins_bb=0.0)
+        for i in range(9)
+    ]
+    for r, s in zip(replay_seats, state.seats, strict=True):
+        r.stack_bb = round(s.stack_bb + s.invested_total_bb, 2)
+    expected = [r.stack_bb for r in replay_seats]
+    sim_session._rebuy_seats(replay_seats, random.Random(int(row.rng_seed) ^ 1))
+    assert [r.stack_bb for r in replay_seats] == expected
     # NOT full-hand replay: bot actions use a separate, unseeded-from-rng_seed
-    # stream by design — only the deal is pinned to rng_seed.
+    # stream by design — only the deal and the buy-in are pinned to rng_seed.
 
 
 # ---------------------------------------------------- per-decision parity
