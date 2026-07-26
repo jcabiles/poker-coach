@@ -7,10 +7,19 @@ the postflop spot signature (so same-texture boards map to one SRS bucket).
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
+from typing import Literal
 
 RANKS = "23456789TJQKA"
 _RIDX = {r: i for i, r in enumerate(RANKS)}
+
+# W5-c2: street-aware classification. `classify()` defaults to "flop" (the
+# ORIGINAL, byte-identical board[:3] behavior every existing caller relies
+# on — srs.spot_signature() and the grader included). "turn"/"river" are
+# opt-in re-classification for a NEW consumer to use deliberately; no
+# existing call site passes `street=`, so the default path is untouched.
+_STREET_LEN: dict[str, int] = {"flop": 3, "turn": 4, "river": 5}
 
 
 @dataclass(frozen=True)
@@ -28,32 +37,53 @@ class Texture:
         return _RIDX[self.high_card] >= _RIDX["T"]
 
 
-def classify(board: list[str]) -> Texture:
-    """Classifies exactly the FIRST 3 cards of `board` (the flop). Callers with a longer board
-    must slice deliberately — this function does not know which 3 cards are the 'flop' beyond
-    position. Raises if fewer than 3 cards."""
-    if len(board) < 3:
-        raise ValueError(f"texture.classify needs >=3 board cards, got {len(board)}")
-    cards = board[:3]
+def classify(board: list[str], *, street: Literal["flop", "turn", "river"] = "flop") -> Texture:
+    """Classifies the board texture for `street` (default "flop" — the ORIGINAL,
+    byte-identical behavior: exactly the FIRST 3 cards of `board`). Every existing
+    caller relies on this default; do not pass `street=` from a flop-only call site
+    (`srs.spot_signature()`, the grader) — see W5-c2.
+
+    `street="turn"`/`street="river"` are OPT-IN re-classification against the first
+    4/5 board cards respectively, for a consumer that deliberately wants the texture
+    to react to a card that pairs the board or completes a flush after the flop.
+    Raises if `board` is shorter than the street requires."""
+    n = _STREET_LEN[street]
+    if len(board) < n:
+        raise ValueError(
+            f"texture.classify needs >={n} board cards for street={street!r}, got {len(board)}"
+        )
+    cards = board[:n]
     rs = [_RIDX[c[0]] for c in cards]
     ss = [c[1] for c in cards]
 
     distinct = sorted(set(rs), reverse=True)
-    if len(distinct) == 1:
-        pairing = "trips"
-    elif len(distinct) == 2:
-        pairing = "paired"
+    rank_counts = Counter(rs)
+    max_mult = max(rank_counts.values())
+    n_pairs = sum(1 for c in rank_counts.values() if c == 2)
+    if max_mult >= 4:
+        pairing = "quads"
+    elif max_mult == 3:
+        pairing = "full-house" if n_pairs >= 1 else "trips"
+    elif max_mult == 2:
+        pairing = "two-pair" if n_pairs >= 2 else "paired"
     else:
         pairing = "unpaired"
 
-    suitedness = {1: "monotone", 2: "two-tone", 3: "rainbow"}[len(set(ss))]
+    suit_counts = Counter(ss)
+    max_suit = max(suit_counts.values())
+    if max_suit >= 3:
+        suitedness = "monotone"
+    elif max_suit == 2:
+        suitedness = "two-tone"
+    else:
+        suitedness = "rainbow"
 
     span = distinct[0] - distinct[-1] if len(distinct) > 1 else 0
-    if len(distinct) == 3 and span <= 4:
+    if len(distinct) >= 3 and span <= 4:
         connectedness = "connected"
     elif len(distinct) >= 2 and span <= 2:
         connectedness = "connected"
-    elif len(distinct) == 3 and span <= 6:
+    elif len(distinct) >= 3 and span <= 6:
         connectedness = "semi-connected"
     else:
         connectedness = "disconnected"
