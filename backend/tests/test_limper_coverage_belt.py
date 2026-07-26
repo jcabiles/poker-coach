@@ -126,10 +126,19 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # seed (old post-W3R-4 counts: UTG2¹ 90, LJ¹ 132, HJ¹ 151, CO¹ 126, CO² 40, SB¹ 113,
 # SB² 53, BTN¹ 130, BTN² 37). No preflop content changed; every _WANT_* coverage shape
 # still fires (verified) — stream displacement, not a coverage regression.
+# RE-PINNED for W5-b1 + W5-b2 (persona-realism, 2026-07-25 — slice-authorized): unlike
+# every re-pin above, these two slices DO change preflop content — W5-b1 widened the
+# `unopened` ladder for nit/tag/lag and W5-b2 replaced their single position-blind
+# `vs_rfi`/`vs_limpers` nodes with per-actor-seat ladders. Bots therefore open, iso-raise,
+# 3-bet and cold-call at different frequencies, so the limped-pot mix this belt counts
+# moves directly (not merely by stream displacement). Old post-W3R-6 counts: UTG2¹ 71,
+# LJ¹ 132, HJ¹ 134, CO¹ 137, CO² 32, SB¹ 123, SB² 48, BTN¹ 125, BTN² 35. Every _WANT_*
+# coverage shape still fires (BB¹/BB²/BB³ and all nine pairs above are non-zero) — the
+# belt's actual guarantee is intact; only the counts moved.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 71, ("LJ", 1): 132, ("HJ", 1): 134, ("CO", 1): 137,
-    ("CO", 2): 32, ("SB", 1): 123, ("SB", 2): 48, ("BTN", 1): 125,
-    ("BTN", 2): 35,
+    ("UTG2", 1): 87, ("LJ", 1): 120, ("HJ", 1): 116, ("CO", 1): 95,
+    ("CO", 2): 29, ("SB", 1): 86, ("SB", 2): 34, ("BTN", 1): 96,
+    ("BTN", 2): 46,
 }
 
 

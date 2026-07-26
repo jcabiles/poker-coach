@@ -166,17 +166,36 @@ def test_lag_sb_no_open_limp(packs, hand):
     assert "limp" not in acts and acts == {"fold"}, f"{hand} lag SB actions {acts}"
 
 
-_LAG_VS_RFI = [
-    ("JJ+, AQs+, AKo", {"3bet": 1.0}),
-    ("TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QJs, JTs, "
-     "AJo, ATo, KQo, KJo", {"3bet": 0.6, "fold": 0.4}),
-    ("77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, "
-     "54s, QJo, JTo, T9o, 98o", {"call": 1.0}),
-    ("A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",
-     {"call": 0.65, "fold": 0.35}),
+# RE-RECORDED by W5-b2 (actor-position `vs_rfi`, 2026-07-25). W3R-1 pinned the
+# single `positions: null` lag `vs_rfi` node byte-identically; W5-b2 replaces it
+# with a six-node actor-seat ladder, so a byte-identity pin on the OLD node is
+# unsatisfiable by construction. The pin is re-recorded against the CO node (the
+# seat it always read) and the INVARIANT it existed to protect -- audit-F11's
+# deletion of the any-two `"*"` cold-call catch-all -- is now asserted directly
+# and for every seat, which the old shape-equality only implied.
+_LAG_VS_RFI_CO = [
+    ("JJ+, AQs, AKs, AKo", {"3bet": 1.0}),
+    ("TT, 99, AJs, ATs, KQs, KJs, A5s, A4s, A3s, AQo", {"3bet": 0.95, "call": 0.05}),
+    ("88, 77, QJs, JTs, A2s, KQo", {"3bet": 0.9, "call": 0.1}),
+    ("66-44, T9s, 98s, AJo, ATo", {"call": 1.0}),
+    ("33, 22, A9s, A8s, A7s, A6s, KTs, QTs, J9s, 87s, 76s, KJo, QJo",
+     {"call": 0.9, "fold": 0.1}),
+    ("K9s, K8s, Q9s, Q8s, J8s, T8s, 65s, 54s, KTo, QTo, JTo, T9o",
+     {"call": 0.42, "fold": 0.58}),
 ]
 
 
 def test_lag_vs_rfi_byte_identical(packs):
     node = _find_node(packs[VillainType("lag")], "vs_rfi", Position.CO)
-    assert node is not None and _mix_shape(node) == _LAG_VS_RFI
+    assert node is not None and _mix_shape(node) == _LAG_VS_RFI_CO
+
+
+def test_lag_vs_rfi_has_no_any_two_catch_all(packs):
+    """audit-F11 (the reason the pin above exists): lag must never cold-call an
+    any-two `"*"` range facing an RFI, from ANY seat."""
+    pack = packs[VillainType("lag")]
+    nodes = [n for n in pack.preflop if n.facing == "vs_rfi"]
+    assert nodes, "lag has no vs_rfi node"
+    for node in nodes:
+        for mix in node.mixes:
+            assert mix.combos.strip() != "*", f"any-two vs_rfi catch-all at {node.positions}"

@@ -1749,6 +1749,11 @@ class HandResult(NamedTuple):
     had_3bet_plus: bool
     decisions: list  # list[PostflopDecision]
     preflop_log: list  # (seat, action) for the APPLIED preflop decision only
+    # W5-b2: the SAME applied preflop decisions, carrying the seat's position
+    # and the facing node it was drawn from -> (seat, position, facing, action).
+    # A parallel record, so `preflop_log`'s shape (and every consumer of it)
+    # is untouched; recording only, no extra rng draw.
+    preflop_seat_log: list = ()
 
 
 def _in_position(state, seat: int) -> bool:
@@ -1785,6 +1790,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     log: list[tuple[int, str, str]] = []
     decisions: list[PostflopDecision] = []
     preflop_log: list[tuple[int, str]] = []
+    preflop_seat_log: list[tuple[int, str, str, str]] = []
     saw_flop: set[int] = set()
     had_limper = False
     had_3bet_plus = False
@@ -1820,6 +1826,9 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
             # Log the APPLIED preflop decision only — no new rng draw, no
             # "cleanup" of the existing double-sample (would shift the stream).
             preflop_log.append((seat, decision.action.value))
+            preflop_seat_log.append(
+                (seat, seat_state.position.value, facing, decision.action.value)
+            )
         else:
             pot_bb = sum(s.invested_total_bb for s in state.seats)
             opponents = _live_opponents(state, seat)
@@ -1898,6 +1907,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         had_3bet_plus=had_3bet_plus,
         decisions=decisions,
         preflop_log=preflop_log,
+        preflop_seat_log=preflop_seat_log,
     )
 
 
@@ -2258,6 +2268,10 @@ class ExtStats(NamedTuple):
     cbet_ip: float | None  # #5 — inherits #1's aggressor-side denominator
     cbet_oop: float | None
     turn_barrel: float | None  # #6 — reads ~flat until W3-c
+    # W5-b2 (north-star ACTOR-position metric, C2 as re-scoped by D1):
+    # position -> P(continue | this seat faced a single RFI), observed on the
+    # same seeded lineup. `None` per position below the >=30-occurrence floor.
+    vs_rfi_continue_by_pos: dict = ()
 
 
 _STATS_EXT_CACHE: dict[tuple[str, int], ExtStats] = {}
@@ -2407,6 +2421,8 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
     barrel_bets = barrel_opps = 0
     wsd_win = wsd_show = 0
     vpip_hands = pfr_hands = seat_hands = 0
+    rfi_cont: dict[str, int] = {}
+    rfi_opps: dict[str, int] = {}
     ftc_folds = dict.fromkeys(_BUCKETS, 0)
     ftc_opps = dict.fromkeys(_BUCKETS, 0)
 
@@ -2426,6 +2442,14 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
                 vpip_hands += 1
             if acts & {"bet", "raise"}:
                 pfr_hands += 1
+
+        # --- vs_rfi continue by ACTOR position (W5-b2, north-star C2) ---
+        for seat, pos, facing, action in res.preflop_seat_log:
+            if seat not in tested_seats or facing != "vs_rfi":
+                continue
+            rfi_opps[pos] = rfi_opps.get(pos, 0) + 1
+            if action != "fold":
+                rfi_cont[pos] = rfi_cont.get(pos, 0) + 1
 
         # --- W$SD (won >=1 pot / went to showdown) ---
         for seat in tested_seats:
@@ -2496,6 +2520,9 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
         cbet_ip=_rate(cbet_ip_bets, cbet_ip_opps),
         cbet_oop=_rate(cbet_oop_bets, cbet_oop_opps),
         turn_barrel=_rate(barrel_bets, barrel_opps),
+        vs_rfi_continue_by_pos={
+            pos: _rate(rfi_cont.get(pos, 0), rfi_opps[pos]) for pos in sorted(rfi_opps)
+        },
     )
     _STATS_EXT_CACHE[key] = stats
     return stats
@@ -2583,13 +2610,26 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
 # (#7 is covered by the exact-weight `test_busted_river_bluff_decays_with_
 # opponents`). Exact tripwire re-record; population bands stay frozen to W4-b and
 # every persona was re-measured IN its existing band (no re-anchor).
+# RE-RECORDED for W5-b1 + W5-b2 (persona-realism, 2026-07-25 — slice-authorized):
+# both slices change PREFLOP content, so the seeded lineup reaches different flops
+# with different ranges and the whole postflop stream moves. W5-b1 widened the
+# `unopened` ladder (nit/tag/lag); W5-b2 replaced their position-blind `vs_rfi` /
+# `vs_limpers` nodes with per-actor-seat ladders. Old post-W3R-6 goldens:
+#   calling_station (0.3788300835654596, 0.09375,             0.7466666666666667)
+#   lag             (2.5098039215686274, None,                0.5963302752293578)
+#   maniac          (3.3962264150943398, 0.3548387096774194,  0.5608108108108109)
+#   nit             (1.1935483870967742, None,                0.6923076923076923)
+#   passive_fish    (0.9264705882352942, 0.44,                0.5695067264573991)
+#   tag             (2.3076923076923075, None,                0.5945945945945946)
+# This is the exact-tripwire re-record (it MUST track intended behavior); it is NOT
+# the population WTSD/AF tolerance-band re-anchor, which stays frozen to W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.3788300835654596, 0.09375, 0.7466666666666667),
-    "lag": (2.5098039215686274, None, 0.5963302752293578),
-    "maniac": (3.3962264150943398, 0.3548387096774194, 0.5608108108108109),
-    "nit": (1.1935483870967742, None, 0.6923076923076923),
-    "passive_fish": (0.9264705882352942, 0.44, 0.5695067264573991),
-    "tag": (2.3076923076923075, None, 0.5945945945945946),
+    "calling_station": (0.37037037037037035, 0.19047619047619047, 0.6666666666666666),
+    "lag": (2.823529411764706, None, 0.5204081632653061),
+    "maniac": (3.2264150943396226, 0.2571428571428571, 0.547945205479452),
+    "nit": (1.1515151515151516, None, 0.5074626865671642),
+    "passive_fish": (1.1891891891891893, 0.52, 0.5021645021645021),
+    "tag": (2.5813953488372094, None, 0.5824175824175825),
 }
 
 
@@ -3420,3 +3460,145 @@ def test_ace_high_with_a_draw_facing_raise_is_byte_identical():
 def test_w3r6_damp_constants_inside_their_fitted_ranges():
     assert 0.25 <= personas_postflop._ONE_PAIR_RAISE_DAMP <= 0.55
     assert 0.35 <= personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP <= 0.65
+
+
+# ================== W5-b2 — actor-position `vs_rfi` (north-star C2 / D1) ======
+#
+# Before this slice every `vs_rfi` node in every pack was `positions: null`, so
+# one number served all eight non-opener seats (measured: station 55.7 / maniac
+# 46.6 / fish 43.3 / lag 25.4 / tag 15.5 / nit 5.8, each a single constant) --
+# a TAG's big-blind defence and its middle-position cold-call vs an early open
+# were forced to be the same frequency. nit / tag / lag now author a six-node
+# actor-seat ladder (EP / MP / CO / BTN / SB / BB).
+#
+# SCOPE (deliberate): maniac, calling_station and passive_fish keep the single
+# wildcard node. Theory contract §5 ledger #14's mechanism -- only the
+# position-aware archetypes respond to seats-left-to-act -- is the same reason
+# those three packs were left out of the 9-max VPIP/PFR correction. A station
+# that cold-called the same way from every seat is in character, not a defect.
+#
+# The OPENER-position axis (answering a UTG open differently from a BTN open)
+# is explicitly NOT here: that is E1-b, needs schema + sampler plumbing, and
+# stays in LATER. With actor-position nodes only, a seat has exactly ONE
+# `vs_rfi` node and therefore exactly one number.
+
+from app.domain.content.notation import parse_range  # noqa: E402
+from app.domain.spot import Position  # noqa: E402
+
+_POS_GROUPS = {
+    "EP": ("UTG", "UTG1", "UTG2"),
+    "MP": ("LJ", "HJ"),
+    "CO": ("CO",),
+    "BTN": ("BTN",),
+    "SB": ("SB",),
+    "BB": ("BB",),
+}
+_ACTOR_POSITION_PACKS = ("nit", "tag", "lag")
+
+
+def _authored_continue_by_seat(pack, facing: str) -> dict[str, float]:
+    """Exact combo-weighted P(continue) per seat for `facing` -- enumerated over
+    all 169 hand classes (pair 6 / suited 4 / offsuit 12 combos), reading the
+    node+mix `sample_preflop_action` would pick. Deterministic: no rng, so this
+    is a property of the authored content, not of a lucky seed."""
+    ranks = "AKQJT98765432"
+    classes: list[tuple[str, int]] = []
+    for i, a in enumerate(ranks):
+        for j, b in enumerate(ranks):
+            if i == j:
+                classes.append((a + b, 6))
+            elif i < j:
+                classes.append((a + b + "s", 4))
+                classes.append((a + b + "o", 12))
+    total = float(sum(c for _, c in classes))
+
+    out: dict[str, float] = {}
+    for seat in [p for g in _POS_GROUPS.values() for p in g]:
+        position = Position(seat)
+        cont = 0.0
+        for hand, c in classes:
+            weights = {"fold": 1.0}
+            for node in pack.preflop:
+                if node.facing != facing:
+                    continue
+                if node.positions is not None and position not in node.positions:
+                    continue
+                for mix in node.mixes:
+                    if hand in parse_range(mix.combos):
+                        weights = dict(mix.weights)
+                        break
+                break
+            mass = sum(weights.values())
+            fold = weights.get("fold", 0.0) + max(0.0, 1.0 - mass)
+            cont += 100.0 * c * (1.0 - fold / max(mass, 1.0)) / total
+        out[seat] = cont
+    return out
+
+
+def _grouped(by_seat: dict[str, float]) -> dict[str, float]:
+    return {g: sum(by_seat[p] for p in ps) / len(ps) for g, ps in _POS_GROUPS.items()}
+
+
+@pytest.mark.parametrize("persona", _ACTOR_POSITION_PACKS)
+def test_vs_rfi_continue_is_actor_position_aware(persona):
+    """(a) The per-seat `vs_rfi` continue is no longer a single constant, and it
+    is ordered blind-seat-widest -- BB >= SB > MP > EP, the price / closing-
+    action ordering. Asserted on the AUTHORED content (exact enumeration), so
+    it is a lever-identity pin, not a population band."""
+    packs = load_persona_packs()
+    by_seat = _authored_continue_by_seat(packs[VillainType(persona)], "vs_rfi")
+    spread = max(by_seat.values()) - min(by_seat.values())
+    assert spread > 1.0, f"{persona} vs_rfi continue is (near-)constant by seat: {by_seat}"
+    g = _grouped(by_seat)
+    assert g["BB"] >= g["SB"], f"{persona} BB {g['BB']:.1f} < SB {g['SB']:.1f}: {g}"
+    assert g["SB"] > g["MP"], f"{persona} SB {g['SB']:.1f} <= MP {g['MP']:.1f}: {g}"
+    assert g["MP"] > g["EP"], f"{persona} MP {g['MP']:.1f} <= EP {g['EP']:.1f}: {g}"
+
+
+def test_tag_bb_defence_separates_from_its_middle_position_cold_call():
+    """(b) The fix itself: TAG's BB defence and its MP cold-call, which one
+    `positions: null` node forced to the identical 15.5%, are now distinct
+    numbers -- BB defends multiple times wider than it cold-calls from MP."""
+    packs = load_persona_packs()
+    g = _grouped(_authored_continue_by_seat(packs[VillainType("tag")], "vs_rfi"))
+    assert g["BB"] > 2.0 * g["MP"], f"tag BB {g['BB']:.1f} vs MP {g['MP']:.1f} — not separated"
+    assert g["BB"] > 25.0, f"tag BB defence {g['BB']:.1f}% is not a seat-appropriate level"
+
+
+def test_wildcard_vs_rfi_packs_stay_position_blind():
+    """Scope pin: the three archetypes with no position mechanism (§5 ledger
+    #14) keep ONE `vs_rfi` node, so their per-seat continue stays constant."""
+    packs = load_persona_packs()
+    for persona in ("maniac", "calling_station", "passive_fish"):
+        by_seat = _authored_continue_by_seat(packs[VillainType(persona)], "vs_rfi")
+        assert max(by_seat.values()) - min(by_seat.values()) < 1e-9, f"{persona}: {by_seat}"
+
+
+@pytest.mark.parametrize("persona", _ACTOR_POSITION_PACKS)
+def test_vs_rfi_by_seat_reads_positive_on_persona_stats_ext(persona):
+    """(c) The north-star's re-scoped ACTOR-seat metric, read on the harness that
+    exists: `_persona_stats_ext` observes each tested seat's answer to a single
+    RFI, and the blind-vs-middle-position gap survives closed-loop play.
+
+    n=600 (not the 200 smoke N) because a seat faces an RFI in only a fraction
+    of its hands and the >=30-occurrence floor otherwise Nones the middle-
+    position cells out. UTG can never face an RFI, and UTG1/UTG2 seldom do, so
+    the EP cells are expected to read None here -- that is structural, and the
+    authored-enumeration test above is what pins the EP end of the ladder.
+
+    The 1.3x margin is deliberately far inside the measured spread: over five
+    independent seeds x {n=400, n=600} the smallest observed BB:MP ratio was
+    1.58 (nit), 1.62 (lag), 1.71 (tag) -- so this does not pass on one lucky
+    realization. Direction only; no population band is asserted (§7/§11 item 7:
+    the single band re-anchor is W4-b)."""
+    packs = load_persona_packs()
+    by_pos = _persona_stats_ext(packs, persona, 600).vs_rfi_continue_by_pos
+    reported = {p: v for p, v in by_pos.items() if v is not None}
+    assert len(reported) >= 4, f"{persona}: too few seats above the floor: {by_pos}"
+    assert max(reported.values()) > min(reported.values()), f"{persona} flat by seat: {by_pos}"
+    mp = [by_pos[p] for p in ("LJ", "HJ") if by_pos.get(p) is not None]
+    assert mp and by_pos.get("BB") is not None, f"{persona}: BB/MP below the floor: {by_pos}"
+    mp_rate = sum(mp) / len(mp)
+    assert by_pos["BB"] > 1.3 * mp_rate, (
+        f"{persona} observed BB {by_pos['BB']:.3f} not wider than MP {mp_rate:.3f}"
+    )
