@@ -1322,6 +1322,33 @@ the serial spine S2→S4→S9→S10, not the agent budget.
     the live wide-shell + ring-height and stacks ≤1100px. Shared `HandReplay` (Simulate quick-replay) +
     `PokerTable` untouched; no backend/type change. Dual review (refuter + Codex Sol) + design-reviewer
     PASS both themes @ 1440/1024/375.)*
+  - [x] **Hand replayer — on-demand villain reveal.** **DONE 2026-07-26** *(feat/history-villain-reveal,
+    /ai-dlc-ux-ui → routed to /ai-dlc as a feature). The History replayer gained the two reveal scopes the
+    live table has had since R1: `Reveal last-in` / `Reveal all`, flipping villain pods face-up on the
+    stepped felt. **Backend:** new `HandRevealView` + `sim_session.reveal_hand()` + `GET
+    /simulate/hand/{id}/reveal/{scope}` — hand-scoped, so unlike the session-scoped R1 `reveal()` it
+    reaches any completed hand in history including one whose session ended (resolves via the existing
+    `_load_owned_complete_hand`, so 404 semantics come free). Payload is `ShowdownSeatView` not
+    `RevealedSeatView`: `Settlement.deltas` is nine index-aligned real entries, so every revealed seat —
+    even one that folded preflop — carries a TRUE settlement delta and the felt's existing `.hrt-pod-delta`
+    chip works unchanged. NO migration; `state_json` already held every hole card. **NO-PEEK preserved:**
+    `_build_replay`/`settle` untouched, reveal is a separate endpoint, and a new fold-out characterization
+    test pins that a hand with empty `showdown_seats` has no terminal step and zero `revealed_seats` on
+    every step. **FE:** cards face-up at EVERY step (not just terminal), a revealed card overrides the
+    `!seat.folded` guard so `all` shows early folders, genuine-showdown precedence mirrors
+    `SimTable.tsx:181-186`, and clicking the active scope UN-reveals (deliberate divergence from the live
+    table's one-way reveal — makes `aria-pressed` truthful). `HandReplayTable`'s new props are all OPTIONAL,
+    so its required signature stays `{replay, onClose}` and the `HandReplay` host-swap survives.
+    **Dual pre-build review (refuter + Codex Sol) caught a HIGH both reviewers found independently:** reveal
+    state lives in the never-remounting `HistoryView`, so a late response from hand A could render on hand B
+    by seat-index collision — a NO-PEEK violation AND a fabrication. Fixed by extracting a PURE
+    `revealRequest.ts` reducer with a `{handId, scope, gen}` identity guard (frontend is vitest-only, no
+    RTL/jsdom, so purity is what made the three race cases testable at all — 13 vitest). Both reviewers also
+    refuted the spec's route-ordering claim: `/hand/{id}/reveal/{scope}` is 4 segments vs the session route's
+    3, so they cannot collide at any declaration order. 1110 backend pass/1 skip + ruff + FE typecheck/build
+    + 35 vitest green; browser-verified on 206 real hands (fold-out `last-in` = lone winner; `all` = 8 seats
+    incl. a folded one; toggle-off; per-hand reset; 0 console errors). 375px overflow at the masthead is
+    PRE-EXISTING shell chrome (`:212`) — zero `hrt-*`/`sim-reveal-*` offenders.)*
   - **FOLLOW-UP (unspec'd, LOW) — unify the hand-number label across the History list → replayer.**
     *Evidence:* the History list labels each row **"Hand {day_ordinal}"** (`frontend/src/components/HistoryView.tsx`
     ~L202-203, `it.day_ordinal` = Nth-completed that UTC day) but the opened replayer header shows the

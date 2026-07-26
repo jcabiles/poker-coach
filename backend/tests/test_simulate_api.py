@@ -247,3 +247,87 @@ def test_next_hand_rebuys_inside_the_band_and_advances_button(client):
     # over 20 hands in test_sim_session_buyin_cap.py.)
     assert round(sum(seat["net_bb"] for seat in hand2["seats"]), 2) == 0.0
     _assert_no_leaked_hole_cards(body)
+
+
+# ------------------------------- History villain reveal (T3): wire contract
+
+
+def _completed_hand_id(client: TestClient) -> int:
+    """Play one hand to completion and return its sim_hand_id from history."""
+    create = _create_live_hero_turn_session(client)
+    _play_hand_to_completion(client, create["session_id"])
+    items = client.get("/api/v1/simulate/history").json()["items"]
+    assert items, "a completed hand should be filed in history"
+    return items[0]["sim_hand_id"]
+
+
+def test_hand_reveal_returns_cards_and_deltas(client):
+    hand_id = _completed_hand_id(client)
+    for scope in ("last-in", "all"):
+        resp = client.get(f"/api/v1/simulate/hand/{hand_id}/reveal/{scope}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["available"] is True
+        assert body["scope"] == scope
+        for seat in body["seats"]:
+            assert seat["seat_index"] != 0  # hero never revealed
+            assert len(seat["hole_cards"]) == 2
+            for c in seat["hole_cards"]:
+                validate_card(c)
+            assert isinstance(seat["delta_bb"], (int, float))
+    # 'all' is a superset of 'last-in' — every non-hero seat was dealt in.
+    last_in = client.get(f"/api/v1/simulate/hand/{hand_id}/reveal/last-in").json()
+    all_seats = client.get(f"/api/v1/simulate/hand/{hand_id}/reveal/all").json()
+    assert {s["seat_index"] for s in last_in["seats"]} <= {
+        s["seat_index"] for s in all_seats["seats"]
+    }
+    assert {s["seat_index"] for s in all_seats["seats"]} == set(range(1, 9))
+
+
+def test_hand_reveal_unknown_scope_is_200_body_not_404(client):
+    hand_id = _completed_hand_id(client)
+    resp = client.get(f"/api/v1/simulate/hand/{hand_id}/reveal/sideways")
+    assert resp.status_code == 200
+    assert resp.json()["available"] is False
+    assert resp.json()["seats"] == []
+
+
+def test_hand_reveal_404_on_unknown_hand(client):
+    resp = client.get("/api/v1/simulate/hand/999999/reveal/all")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "hand not found"
+
+
+def test_hand_reveal_route_does_not_shadow_session_reveal(client):
+    """The two reveal routes differ in segment count and must both resolve.
+
+    /simulate/hand/{id}/reveal/{scope}   -> 4 segments (this feature)
+    /simulate/{session_id}/reveal/{scope} -> 3 segments (live R1, pre-existing)
+    """
+    create = _create_live_hero_turn_session(client)
+    session_id = create["session_id"]
+    _play_hand_to_completion(client, session_id)
+
+    session_scoped = client.get(f"/api/v1/simulate/{session_id}/reveal/all")
+    assert session_scoped.status_code == 200
+    assert session_scoped.json()["available"] is True
+    # Session-scoped payload keeps its original shape: cards only, no delta_bb.
+    for seat in session_scoped.json()["seats"]:
+        assert "delta_bb" not in seat
+
+    hand_id = client.get("/api/v1/simulate/history").json()["items"][0]["sim_hand_id"]
+    hand_scoped = client.get(f"/api/v1/simulate/hand/{hand_id}/reveal/all")
+    assert hand_scoped.status_code == 200
+    # Hand-scoped payload carries the delta the History felt needs.
+    for seat in hand_scoped.json()["seats"]:
+        assert "delta_bb" in seat
+
+
+def test_replay_endpoint_still_hides_villains_after_reveal_exists(client):
+    """The reveal endpoint is additive — /replay must not have widened."""
+    hand_id = _completed_hand_id(client)
+    steps = client.get(f"/api/v1/simulate/hand/{hand_id}/replay").json()["steps"]
+    assert steps
+    for step in steps:
+        if not step["is_terminal"]:
+            assert step["revealed_seats"] == []

@@ -17,6 +17,7 @@ import type {
   QuizResult,
   RecapResponse,
   ReviewPlanResponse,
+  HandRevealView,
   RevealView,
   SessionView,
   Spot,
@@ -214,4 +215,17 @@ export async function getReveal(
   scope: "last-in" | "all",
 ): Promise<RevealView> {
   return json(await fetch(`${BASE}/simulate/${sessionId}/reveal/${scope}`));
+}
+
+// The hand-scoped sibling of getReveal, for the History replayer: reveals one
+// COMPLETED hand's villain cards by sim_hand_id, so it works on any hand in
+// history (including one whose session has ended) rather than only a live
+// session's current hand. Returns delta_bb per seat as well as cards.
+// `available` false when the capability is off / the scope is unknown; a
+// missing / not-owned / not-complete hand 404s.
+export async function getHandReveal(
+  simHandId: number,
+  scope: "last-in" | "all",
+): Promise<HandRevealView> {
+  return json(await fetch(`${BASE}/simulate/hand/${simHandId}/reveal/${scope}`));
 }

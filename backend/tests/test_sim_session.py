@@ -47,6 +47,7 @@ from app.services.sim_session import (
     leave_session,
     restore_session,
     reveal,
+    reveal_hand,
 )
 
 
@@ -676,3 +677,117 @@ def test_reveal_unavailable_when_capability_off(db, monkeypatch):
 def test_reveal_missing_session_raises(db):
     with pytest.raises(SessionNotFound):
         reveal(db, "no-such-session", "all")
+
+
+# ------------------------------------------ History villain reveal (T2)
+# The hand-scoped sibling of reveal(): addressed by sim_hand_id instead of a live
+# session, and carrying a REAL settle() delta per seat. Reuses the crafted
+# terminal states above — bot RNG is unseeded, so a fold-out can't be played
+# deterministically.
+
+
+def _write_terminal_hand_id(db, session_id: str, state: HandState) -> int:
+    """_write_terminal, but hand back the sim_hand_id History would hold."""
+    _write_terminal(db, session_id, state)
+    session = sim_session._get_session(db, session_id, "")
+    return sim_session._current_hand(db, session).id
+
+
+def test_reveal_hand_last_in_returns_only_live_seats(db):
+    state = _terminal_state(hero="fold", in_seats=(1, 2), allin_seats=(3,))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    result = reveal_hand(db, hand_id, "last-in")
+    assert result.available
+    assert {s.seat_index for s in result.seats} == {1, 2, 3}
+    assert all(len(s.hole_cards) == 2 for s in result.seats)
+
+
+def test_reveal_hand_all_returns_every_nonhero_seat(db):
+    state = _terminal_state(hero="fold", in_seats=(1, 2), allin_seats=(3,))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    result = reveal_hand(db, hand_id, "all")
+    assert result.available
+    assert {s.seat_index for s in result.seats} == set(range(1, 9))  # hero excluded
+
+
+def test_reveal_hand_cards_and_deltas_are_the_real_ones(db):
+    """No fabrication: every card matches state_json and every delta matches
+    settle().deltas — including for seats that folded and never showed down."""
+    from app.domain.table.engine import settle as engine_settle
+
+    state = _terminal_state(hero="fold", in_seats=(1, 2), allin_seats=(3,))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    settlement = engine_settle(state)
+
+    result = reveal_hand(db, hand_id, "all")
+    assert result.available
+    for s in result.seats:
+        assert s.hole_cards == state.seats[s.seat_index].hole_cards
+        assert s.delta_bb == settlement.deltas[s.seat_index].delta_bb
+    # Seats 4-8 folded preflop and reached no showdown, yet still carry a genuine
+    # settlement figure — this is why the payload is ShowdownSeatView.
+    assert {4, 5, 6, 7, 8}.issubset({s.seat_index for s in result.seats})
+
+
+def test_reveal_hand_never_includes_hero(db):
+    for hero in ("fold", "in"):
+        state = _terminal_state(hero=hero, in_seats=(2,))
+        view = create_session(db)
+        hand_id = _write_terminal_hand_id(db, view.session_id, state)
+        for scope in ("last-in", "all"):
+            result = reveal_hand(db, hand_id, scope)
+            assert HERO_SEAT not in {s.seat_index for s in result.seats}
+
+
+def test_reveal_hand_unknown_scope_is_200_body_not_error(db):
+    state = _terminal_state(hero="fold", in_seats=(1, 2))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    result = reveal_hand(db, hand_id, "sideways")
+    assert not result.available
+    assert result.seats == []
+
+
+def test_reveal_hand_unavailable_when_capability_off(db, monkeypatch):
+    state = _terminal_state(hero="fold", in_seats=(1, 2))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    monkeypatch.setattr(sim_session, "REVEAL_ENABLED", False)
+    result = reveal_hand(db, hand_id, "all")
+    assert not result.available
+    assert result.seats == []
+
+
+def test_reveal_hand_raises_on_missing_or_incomplete_hand(db):
+    with pytest.raises(SessionNotFound):
+        reveal_hand(db, 999_999, "all")
+    # A live (in_progress) hand is not revealable — 404, not a 200 body, because
+    # _load_owned_complete_hand owns that gate.
+    view = create_session(db)
+    session = sim_session._get_session(db, view.session_id, "")
+    live_id = sim_session._current_hand(db, session).id
+    with pytest.raises(SessionNotFound):
+        reveal_hand(db, live_id, "all")
+
+
+def test_reveal_hand_not_owned_raises(db):
+    state = _terminal_state(hero="fold", in_seats=(1, 2))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    with pytest.raises(SessionNotFound):
+        reveal_hand(db, hand_id, "all", owner_id="someone-else")
+
+
+def test_reveal_hand_still_works_after_the_session_ended(db):
+    """The History case the session-scoped reveal() cannot serve: the session is
+    over, so _current_hand is unreachable, but the hand is still in history."""
+    state = _terminal_state(hero="fold", in_seats=(1, 2))
+    view = create_session(db)
+    hand_id = _write_terminal_hand_id(db, view.session_id, state)
+    leave_session(db, view.session_id)
+    result = reveal_hand(db, hand_id, "last-in")
+    assert result.available
+    assert {s.seat_index for s in result.seats} == {1, 2}

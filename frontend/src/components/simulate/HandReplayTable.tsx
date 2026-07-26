@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 
-import type { ReplayStepView, HandReplayView } from "../../api/types";
+import type { ReplayStepView, HandReplayView, ShowdownSeatView } from "../../api/types";
 import Card from "../Card";
 import { fmtBb, fmtEvLoss, streetLabel, tierOf } from "./simGrade";
 import { buildReplayModel, deriveSeats } from "./replaySeats";
+import type { RevealScope } from "./revealRequest";
 
 // Simulate History Replayer (HRT-2) — the two-pane replay reader for the History
 // route. Left: the LIVE Simulate felt (same stage/felt/tablering/tseat classes)
@@ -52,9 +53,30 @@ function streetCards(finalBoard: string[], street: string): string[] {
 export default function HandReplayTable({
   replay,
   onClose,
+  revealScope = null,
+  revealedBySeat,
+  revealPending = false,
+  revealUnavailable = false,
+  onReveal,
 }: {
   replay: HandReplayView;
   onClose: () => void;
+  // ── On-demand villain reveal (History only) ────────────────────────────────
+  // Every reveal prop is OPTIONAL with a default so this component's required
+  // signature stays `{ replay, onClose }` — identical to the single-column
+  // `HandReplay`, which is what keeps the two swappable at the host.
+  //
+  // The parent (HistoryView) owns the state and the fetch; the rules live in the
+  // pure `revealRequest` module. Omit `onReveal` and the controls don't render at
+  // all — the replayer behaves exactly as it did before this feature.
+  revealScope?: RevealScope | null;
+  // seat_index -> revealed seat. Unlike the terminal-step `seat.reveal` from the
+  // deriver, these apply at EVERY step: the user opted in explicitly, and seeing
+  // the cards during the action is the whole point of reviewing a hand.
+  revealedBySeat?: ReadonlyMap<number, ShowdownSeatView>;
+  revealPending?: boolean;
+  revealUnavailable?: boolean;
+  onReveal?: (scope: RevealScope) => void;
 }) {
   const model = useMemo(() => buildReplayModel(replay), [replay]);
   const visible = model.visibleSteps.length ? model.visibleSteps : [replay.steps.length - 1];
@@ -148,7 +170,13 @@ export default function HandReplayTable({
 
                 {felt.seats.map((seat, i) => {
                   const style = slotStyle(i, felt.seats.length);
-                  const reveal = seat.reveal;
+                  // Precedence mirrors the live felt (SimTable.tsx:181-186): a
+                  // genuine showdown reveal wins over an on-demand one. Because
+                  // this branch renders whenever `reveal` is set, an on-demand
+                  // card also overrides the `!seat.folded` face-down guard below
+                  // — which is what makes "reveal all" show seats that folded
+                  // preflop.
+                  const reveal = seat.reveal ?? revealedBySeat?.get(seat.seatIndex);
                   const tone =
                     reveal && reveal.delta_bb > 0
                       ? "up"
@@ -233,6 +261,42 @@ export default function HandReplayTable({
               Next →
             </button>
           </div>
+
+          {/* Reveal villain hands — the two scopes the live table offers, with
+              one deliberate difference: clicking the ACTIVE scope hides again,
+              so `aria-pressed` is truthful. Never disabled while a request is
+              out; the parent's identity guard makes a mid-flight toggle safe,
+              and a control that locks up mid-click reads as broken. */}
+          {onReveal && (
+            <div className="hrt-reveal">
+              <div
+                className="sim-reveal-actions"
+                role="group"
+                aria-label="Reveal villain hands"
+              >
+                {(["last-in", "all"] as const).map((scope) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    className={
+                      "btn sim-reveal-btn" +
+                      (revealScope === scope ? " sim-reveal-btn-on" : "")
+                    }
+                    aria-pressed={revealScope === scope}
+                    aria-busy={revealPending && revealScope === scope}
+                    onClick={() => onReveal(scope)}
+                  >
+                    {scope === "last-in" ? "Reveal last-in" : "Reveal all"}
+                  </button>
+                ))}
+              </div>
+              {revealUnavailable && (
+                <p className="hrt-reveal-note" role="status">
+                  Revealing villain hands is turned off.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Verdict — only on the hero's own decision steps (never a POST). */}
           {step.is_hero && !step.is_post && <HeroVerdict step={step} />}

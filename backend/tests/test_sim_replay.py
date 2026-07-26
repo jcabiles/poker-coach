@@ -391,6 +391,46 @@ def test_no_peek_no_villain_card_before_showdown_step(db):
     assert saw_a_showdown, "expected at least one showdown across 15 aggressive hands"
 
 
+# ------------------------------- history villain-reveal (T0): replay is frozen
+
+
+def test_replay_carries_no_reveal_at_all_on_fold_out_hands(db):
+    """Tripwire for the History on-demand villain reveal.
+
+    That feature is ADDITIVE: it ships on its own `/hand/{id}/reveal/{scope}`
+    endpoint and must never widen this payload. The sibling test above covers
+    hands that DO reach showdown; this covers the case the reveal feature exists
+    for — a fold-out.
+
+    A fold-out has empty `settle().showdown_seats`, and `_build_replay` gates
+    `is_terminal` on `bool(showdown_seats)`. So such a hand has NO terminal step
+    at all, and not one step may carry a revealed seat. If a later change starts
+    sourcing reveals from `state.seats` instead of `showdown_seats`, this fails.
+    """
+    session_id = _play_hands(db, 12, aggressive=False)
+    hands = list(
+        db.exec(
+            select(SimHand)
+            .where(SimHand.session_id == session_id)
+            .where(SimHand.status == "complete")
+        )
+    )
+    assert hands
+    saw_fold_out = False
+    for hand in hands:
+        state = HandState.model_validate_json(hand.state_json)
+        if settle(state).showdown_seats:
+            continue  # genuine showdown — covered by the test above
+        saw_fold_out = True
+        replay = get_hand_replay(db, hand.id)
+        assert replay.steps, "a completed hand always reconstructs ≥1 step"
+        assert not any(s.is_terminal for s in replay.steps)
+        assert all(s.revealed_seats == [] for s in replay.steps)
+        # Hero's own cards still ship (the tripwire must not pass by going blank).
+        assert len(replay.hero_cards) == 2
+    assert saw_fold_out, "expected ≥1 fold-out across 12 hero-folding hands"
+
+
 # ---------------------------------------------- T3: all-in runout terminal board
 
 

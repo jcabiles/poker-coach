@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { getHandReveal } from "../api/client";
 import type { HandReplayView, HistoryListItemView, HistoryListView } from "../api/types";
 import HandReplayTable from "./simulate/HandReplayTable";
+import type { RevealScope, RevealState } from "./simulate/revealRequest";
+import {
+  applyRevealError,
+  applyRevealResponse,
+  initialRevealState,
+  resetForHand,
+  toggleReveal,
+} from "./simulate/revealRequest";
 import { tierOf } from "./simulate/simGrade";
 
 // Simulate Hand-History + Replay (T5) — the hand register. A day-ruled ledger of
@@ -70,6 +79,18 @@ export default function HistoryView() {
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
 
+  // Villain reveal for the open hand. All the rules (toggle-off, scope swap, and
+  // the identity guard that stops a late response landing on the wrong hand) live
+  // in the pure `revealRequest` module — this component only fetches and
+  // dispatches. The ref mirrors state so two clicks in one tick still compute
+  // distinct generations; reads go through it, never through the render closure.
+  const [reveal, setReveal] = useState<RevealState>(() => initialRevealState(0));
+  const revealRef = useRef(reveal);
+  const setRevealNow = useCallback((next: RevealState) => {
+    revealRef.current = next;
+    setReveal(next);
+  }, []);
+
   const loadList = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -86,24 +107,61 @@ export default function HistoryView() {
     void loadList();
   }, [loadList]);
 
-  const openHand = useCallback(async (id: number) => {
-    setReplayLoading(true);
-    setReplayError(null);
-    setReplay(null);
-    try {
-      const view = await fetchJson<HandReplayView>(`${BASE}/simulate/hand/${id}/replay`);
-      setReplay(view);
-    } catch (e) {
-      setReplayError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setReplayLoading(false);
-    }
-  }, []);
+  const openHand = useCallback(
+    async (id: number) => {
+      setReplayLoading(true);
+      setReplayError(null);
+      setReplay(null);
+      // Retarget reveal at the new hand. This must be explicit: the
+      // `key={sim_hand_id}` below remounts only the child, which cannot reset
+      // state owned here. Bumping the generation also strands any reveal still
+      // in flight for the previous hand.
+      setRevealNow(resetForHand(revealRef.current, id));
+      try {
+        const view = await fetchJson<HandReplayView>(`${BASE}/simulate/hand/${id}/replay`);
+        setReplay(view);
+      } catch (e) {
+        setReplayError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setReplayLoading(false);
+      }
+    },
+    [setRevealNow],
+  );
 
   const closeReplay = useCallback(() => {
     setReplay(null);
     setReplayError(null);
-  }, []);
+    setRevealNow(resetForHand(revealRef.current, 0));
+  }, [setRevealNow]);
+
+  // A reveal button was pressed. Fires at most one fetch; every response is
+  // matched against the request identity before it is allowed to touch state, so
+  // there is nothing to abort — a stale reply is simply discarded.
+  const onReveal = useCallback(
+    (scope: RevealScope) => {
+      const { state, request } = toggleReveal(revealRef.current, scope);
+      setRevealNow(state);
+      if (!request) return; // clicking the active scope just hides
+      void (async () => {
+        try {
+          const res = await getHandReveal(request.handId, request.scope);
+          setReveal((prev) => applyRevealResponse(prev, res, request));
+        } catch {
+          // Non-fatal, matching the live table: the felt stays face-down rather
+          // than the replayer erroring out over an optional extra.
+          setReveal((prev) => applyRevealError(prev, request));
+        }
+      })();
+    },
+    [setRevealNow],
+  );
+
+  // Keep the ref honest when React updates state behind our back (the async
+  // response path above uses a functional update, which bypasses setRevealNow).
+  useEffect(() => {
+    revealRef.current = reveal;
+  }, [reveal]);
 
   const items = list?.items ?? [];
   const filtered = useMemo(
@@ -118,7 +176,16 @@ export default function HistoryView() {
   if (replay) {
     return (
       <section className="history">
-        <HandReplayTable key={replay.sim_hand_id} replay={replay} onClose={closeReplay} />
+        <HandReplayTable
+          key={replay.sim_hand_id}
+          replay={replay}
+          onClose={closeReplay}
+          revealScope={reveal.handId === replay.sim_hand_id ? reveal.scope : null}
+          revealedBySeat={reveal.handId === replay.sim_hand_id ? reveal.bySeat : undefined}
+          revealPending={reveal.pending}
+          revealUnavailable={reveal.unavailable}
+          onReveal={onReveal}
+        />
       </section>
     );
   }
