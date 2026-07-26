@@ -500,3 +500,24 @@ export interface RevealView {
   scope: string; // "last-in" | "all"
   seats: RevealedSeatView[];
 }
+
+// On-demand villain reveal for ONE COMPLETED HAND, addressed by sim_hand_id —
+// the History replayer. Mirror of backend/app/schemas/simulate.py:HandRevealView.
+//
+// Two differences from RevealView above, both deliberate:
+//  1. Resolution — RevealView is session-scoped and only ever reaches a live
+//     session's CURRENT hand. This one reaches any completed hand in history,
+//     including hands from a session that has since ended.
+//  2. Payload — seats are ShowdownSeatView, so each carries `delta_bb` as well
+//     as cards. The History felt labels a revealed pod with its real result, and
+//     that number comes from the server's settle() deltas (built over all 9
+//     seats), never computed or faked here. RevealView has no delta_bb; don't
+//     confuse the two shapes.
+//
+// `available` false (empty seats) when the reveal capability is off or the scope
+// is unknown. A missing / not-owned / not-complete hand 404s.
+export interface HandRevealView {
+  available: boolean;
+  scope: string; // "last-in" | "all"
+  seats: ShowdownSeatView[];
+}

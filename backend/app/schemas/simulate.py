@@ -226,12 +226,19 @@ class RevealedSeatView(BaseModel):
 class RevealView(BaseModel):
     """On-demand reveal of the just-completed hand's villain cards (R1).
 
+    SESSION-scoped: resolves the current hand of a LIVE session. For any past
+    hand addressed by sim_hand_id, see HandRevealView below.
+
     Sourced server-side from SimHand.state_json; hero is never included (hero
-    folded, and hero cards already ship on Hero). available=false (empty seats)
-    when the reveal capability is off, the hand isn't complete, or the hero did
-    not fold this hand (a genuine showdown auto-reveals instead) — never a
-    fabricated reveal. Availability is a 200-body concern; 404 stays reserved
+    cards already ship on Hero). available=false (empty seats) when the reveal
+    capability is off, the scope is unknown, or no completed hand exists — never
+    a fabricated reveal. Availability is a 200-body concern; 404 stays reserved
     for a missing/ended session.
+
+    Originally hero-fold-only; now offered on ANY completed hand so the hero can
+    inspect what the bots held, including seats a genuine showdown never
+    compared. (This docstring previously still claimed hero-fold-only — corrected
+    to match `sim_session.reveal`, which was widened.)
 
     scope: 'last-in' = non-hero seats still IN/ALLIN at hand end;
     'all' = every non-hero seat dealt into the hand."""
@@ -239,6 +246,34 @@ class RevealView(BaseModel):
     available: bool
     scope: str
     seats: list[RevealedSeatView] = []
+
+
+class HandRevealView(BaseModel):
+    """On-demand villain reveal for one COMPLETED hand, addressed by sim_hand_id
+    (the History replayer).
+
+    Distinct from RevealView in two ways. (1) Resolution: that one is session-
+    scoped and only ever reaches a live session's current hand; this one reaches
+    any completed hand the owner has in history. (2) Payload: seats are
+    ShowdownSeatView, so each carries `delta_bb` as well as cards — the History
+    felt labels a revealed pod with its real result. Those deltas come from
+    settle().deltas, which is built over all 9 seats and sums to zero, so every
+    revealed seat has a genuine settlement figure. Nothing here is fabricated.
+
+    Additive by construction: this never widens HandReplayView, whose NO-PEEK
+    guarantee (villain cards only at the terminal step, only for
+    settle().showdown_seats) is unchanged.
+
+    available=false (200 body, no seats) when the reveal capability is off or the
+    scope is unknown. 404 is reserved for a missing / not-owned / not-complete
+    hand (SessionNotFound).
+
+    scope: 'last-in' = non-hero seats still IN/ALLIN at hand end;
+    'all' = every non-hero seat dealt into the hand."""
+
+    available: bool
+    scope: str
+    seats: list[ShowdownSeatView] = []
 
 
 class HistoryListItemView(BaseModel):

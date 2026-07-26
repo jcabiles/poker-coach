@@ -10,6 +10,11 @@ GET  /simulate/history               -> all completed hands, newest-first,
                                          day-bucketed with per-day ordinals.
 GET  /simulate/hand/{id}/replay      -> step-by-step replay of one completed hand
                                          with graded hero verdicts (staged reveal).
+GET  /simulate/hand/{id}/reveal/{scope} -> on-demand villain-card reveal for one
+                                         COMPLETED hand from history; scope
+                                         last-in|all. Hand-scoped sibling of
+                                         /{id}/reveal/{scope} below, which only
+                                         reaches a live session's current hand.
 GET  /simulate/replay?session_id=&hand_no= -> replay resolution by the
                                          (session_id, hand_no) pair (no sim_hand_id
                                          on the live wire).
@@ -44,6 +49,7 @@ from app.schemas.simulate import (
     CoachExplainRequest,
     CoachExplainView,
     HandReplayView,
+    HandRevealView,
     HistoryListView,
     LeakReportView,
     PostflopChartView,
@@ -130,6 +136,24 @@ async def hand_replay(
     # attached. 404 (SessionNotFound) on missing/not-owned/not-complete.
     try:
         return sim_session.get_hand_replay(db, sim_hand_id, owner_id=_OWNER_ID)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail="hand not found") from exc
+
+
+@router.get("/hand/{sim_hand_id}/reveal/{scope}", response_model=HandRevealView)
+async def hand_reveal(
+    sim_hand_id: int, scope: str, db: Session = Depends(get_session)
+) -> HandRevealView:
+    # On-demand villain reveal for one completed hand from history (the History
+    # replayer). Sits beside /hand/{id}/replay for readability; the literal "hand"
+    # prefix makes this four path segments, so it can never be shadowed by the
+    # three-segment /{session_id}/reveal/{scope} below regardless of declaration
+    # order. A bare /{id}/reveal/{scope} WOULD collide — do not add one.
+    #
+    # Availability (capability off / unknown scope) is a 200-body concern; 404 is
+    # for a missing / not-owned / not-complete hand.
+    try:
+        return sim_session.reveal_hand(db, sim_hand_id, scope, owner_id=_OWNER_ID)
     except SessionNotFound as exc:
         raise HTTPException(status_code=404, detail="hand not found") from exc
 

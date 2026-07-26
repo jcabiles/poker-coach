@@ -5430,6 +5430,31 @@ kbd {
   text-align: center;
 }
 
+/* Reveal villain hands — the History replayer's on-demand peek, below the
+   stepper. The shared .sim-reveal-actions / .sim-reveal-btn rules are reused as
+   they are (same control, same vocabulary, and .sim-reveal-btn already carries
+   the --muted border lift for 1.4.11 3:1 plus the [aria-pressed="true"] gilding
+   — no need to restate either). The ONE thing that doesn't travel is width:
+   .sim-reveal-btn is `flex: 1 1 0`, sized for the live table's narrow hand-over
+   panel, so here it would stretch the full felt. Cap and centre it instead —
+   scoped to .hrt-stage-col so the live table is untouched. */
+.hrt-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.hrt-stage-col .sim-reveal-actions {
+  width: 100%;
+  max-width: 26rem;
+}
+.hrt-reveal-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-align: center;
+}
+
 /* Moves panel — a street-grouped register with click-to-jump rows. */
 .hrt-moves {
   display: flex;

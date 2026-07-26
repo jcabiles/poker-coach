@@ -97,6 +97,7 @@ from app.schemas.simulate import (
     ExploitNoteView,
     GradeView,
     HandReplayView,
+    HandRevealView,
     HistoryListItemView,
     HistoryListView,
     LeakReportView,
@@ -1624,3 +1625,66 @@ def get_hand_replay_by_hand_no(
     replay = _build_replay(hand)
     _attach_verdicts(replay, _hand_decisions(db, hand.id))
     return replay
+
+
+def reveal_hand(
+    db: Session,
+    sim_hand_id: int,
+    scope: str,
+    owner_id: str = "",
+) -> HandRevealView:
+    """On-demand villain reveal for ONE COMPLETED HAND, addressed by sim_hand_id
+    (the History replayer).
+
+    The hand-scoped sibling of `reveal()`. That one resolves a LIVE session's
+    current hand via `_current_hand`, which History can't use — it holds a
+    sim_hand_id for an arbitrary past hand, often from a session that has ended.
+    So resolution goes through `_load_owned_complete_hand`, which owner-scopes and
+    requires status=="complete", raising SessionNotFound (=> 404) otherwise.
+
+    Sourced from the hand's `state_json` (all 9 seats' hole cards); the hero is
+    always excluded — hero cards already ship on `HandReplayView.hero_cards`.
+
+    Each revealed seat carries its REAL settlement delta from `settle().deltas`,
+    which is built over every seat and sums to zero, so a seat that folded preflop
+    still has a genuine figure. Nothing is fabricated. This is why the payload is
+    ShowdownSeatView rather than `reveal()`'s RevealedSeatView: the History felt
+    labels each revealed pod with its result, and the number has to be true.
+
+    ADDITIVE: this touches neither `_build_replay` nor `settle`, so the replay
+    payload's NO-PEEK guarantee (villain cards only at the terminal step, only for
+    settle().showdown_seats) is byte-identical before and after this function
+    exists. See tests/test_sim_replay.py for the tripwire.
+
+    available=false (200 body, no seats) when the capability is off, the scope is
+    unknown, or the hand somehow isn't over. 404 is `_load_owned_complete_hand`'s
+    to raise.
+
+    scope 'last-in' = non-hero seats still IN/ALLIN at hand end (the lone winner
+    on a fold-out, or the showdown participants);
+    'all' = every non-hero seat dealt into the hand.
+    """
+    hand = _load_owned_complete_hand(db, sim_hand_id, owner_id)
+    if not REVEAL_ENABLED or scope not in _REVEAL_SCOPES:
+        return HandRevealView(available=False, scope=scope)
+    state = HandState.model_validate_json(hand.state_json)
+    if not state.hand_over:
+        # Unreachable via _load_owned_complete_hand (it requires status
+        # "complete"), but settle() has no meaning on a live hand — branch
+        # explicitly rather than risk dereferencing a settlement that isn't there.
+        return HandRevealView(available=False, scope=scope)
+    settlement = settle(state)
+    seats = [
+        ShowdownSeatView(
+            seat_index=i,
+            hole_cards=eng.hole_cards,
+            delta_bb=settlement.deltas[i].delta_bb,
+        )
+        for i, eng in enumerate(state.seats)
+        if i != HERO_SEAT
+        and (
+            scope == "all"
+            or eng.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
+        )
+    ]
+    return HandRevealView(available=True, scope=scope, seats=seats)
