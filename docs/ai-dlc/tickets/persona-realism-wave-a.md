@@ -7,48 +7,166 @@ Spec: `docs/ai-dlc/specs/persona-realism-wave-a.md` · Contracts: `docs/ai-dlc/c
 > was live. The **traps** sections are the most valuable content here — each is the specific way that
 > analyst expects a competent worker to get the ticket wrong. Do not skip them.
 
-## DAG
+## Orchestration plan — owner-approved 2026-07-26
 
 > ✅ **UNBLOCKED 2026-07-26.** PRs #121–#124 merged (main at `8bc96e1`); the suite went from
 > **11 failed / 1054 passed** to **1071 passed / 1 skipped**. Every pinned constant below was
 > re-measured against the merged baseline and **held** — T-ANCHOR ratios drift < 0.003, T-TRACE is
 > bit-identical, T-ARR's arrival is BTN 8% / roster 36% (both bands still contain it). See the spec's
-> resolved-blocker table for the full before/after. **T-STICKY's baseline digest still must be captured
-> on merged `main` before any edit.**
+> resolved-blocker table for the full before/after.
+
+### ⚠️ CORRECTION — the forced `T-STACK → T-ANCHOR` chain rested on a false premise
+
+An earlier revision of this doc and of the spec forced T-STACK and T-ANCHOR to serialize, on the
+grounds that **both** re-record `_GOLDEN_STATS_N200`, `coverage_baseline.json` and the limper belt.
+**Verified false at file level on 2026-07-26:**
+
+| Fixture | Produced by | Stack source | Imports `sim_session`? |
+|---|---|---|---|
+| `_GOLDEN_STATS_N200` (`test_personas_postflop.py:2689`) | `_play_hand` | `start_hand(..., stacks_bb=[100.0] * 9)` at `:1875` | **No** — one comment at `:1761`, no import |
+| `coverage_baseline.json` (`test_coverage_baseline.py`) | its own loop | `stacks_bb=[100.0] * 9` at `:194` | **No** — `app.domain.table.*` only |
+| limper belt (`test_mw_funnel_belt.py`, `test_limper_coverage_belt.py`) | own loops | `stacks_bb=[100.0] * 9` at `:45` | **No** — zero references |
+
+All three harnesses hard-code 100bb and never touch `app/services/sim_session.py`, the only source file
+T-STACK edits. **T-ANCHOR is the wave's sole fixture re-recorder.** T-STACK therefore moves into the
+parallel wave, carrying the fingerprint tripwire below so the claim is *proved by the run* rather than
+trusted.
+
+**The underlying hazard is still real** and still governs the plan: two agents re-recording the same
+seeded fixtures concurrently is what produced the red `main` (#118/#119). The rule is now stated
+correctly — **nothing else runs while the sole re-recorder runs** — instead of as a wrong pairwise edge.
+
+### Waves
+
+| Wave | Tickets | Agent · model | Why grouped |
+|---|---|---|---|
+| **0** | T-REVIEWER (+ foundation file, below) | `implementer` · sonnet | Upgrades the theory reviewer **before** it gates waves 1–3 |
+| **1** | T-REJECT · T-STACK · T-ARR · T-TRACE · T-EXPORT | `heavy-worker`·opus · `heavy-worker`·opus · `implementer`·opus · `implementer`·opus · `implementer`·sonnet | Disjoint owned files; **none re-records a shared fixture** |
+| **2** | T-ANCHOR | `heavy-worker` · opus | Sole fixture re-recorder — runs alone against a quiet tree |
+| **3** | T-STICKY | `implementer` · opus | Byte-identity canary last: proves nothing upstream drifted |
+
+**Fable: declined by owner (2026-07-26).** Opus for all six substantive tickets; sonnet for T-REVIEWER
+and T-EXPORT. Rationale: every ticket here pins exact commands and exact expected values, so the work
+needs precision, not the long-horizon independent judgment Fable buys.
+
+**Terra-as-worker: SKIPPED for this wave** (`parallel-waves` §3.5 pilot precondition fails — the
+precondition wants ≥10 genuine candidates in the next ~30 tickets; this wave has at most one). Routing
+record for all eight tickets: `route: sonnet · evidence: none · exclusions: X1 (modifies application
+source logic) for T-STACK/T-ANCHOR/T-REJECT/T-STICKY; X5 (theory judgment) for T-ARR/T-TRACE ·
+confidence: high`.
+
+### Wave-1 disjointness proof (one file = one owner)
+
+| Ticket | Owned paths | Overlap |
+|---|---|---|
+| T-REJECT | `app/domain/table/grade_map_postflop.py`, `grade_map_reject.py` (NEW), `tools/reject_counts.py` (NEW), `tests/test_grade_map_reject.py` (NEW), `tests/test_domain_purity.py` | none |
+| T-STACK | `app/services/sim_session.py` + its sim-driven tests (see blast-radius note in the ticket) | none |
+| T-ARR | `tests/test_personas_postflop.py` | none in wave 1 |
+| T-TRACE | `tests/node_trace.py`, `tests/test_node_trace.py` | none |
+| T-EXPORT | `backend/tools/export_session.py` (NEW) | none |
+
+`tests/test_personas_postflop.py` is claimed by T-ARR (wave 1), T-ANCHOR (wave 2) and T-STICKY
+(wave 3) — **never two at once**, which is why they sit in three different waves.
+
+### Wave-0 foundation file (ownership moved)
+
+`backend/tools/__init__.py` (empty, NEW) is created by the **Wave 0** worker, not T-EXPORT. It is the
+only coupling between T-EXPORT and T-REJECT; landing it in wave 0 lets both run concurrently in wave 1.
+**T-EXPORT no longer owns it** — the earlier "sole owner in this wave" note on T-EXPORT is superseded.
+
+### Branch & delivery — stacked branches, four PRs, zero mid-run stops
+
+Owner decision 2026-07-26: four PRs (one per wave), **stacked** so nothing blocks on a merge.
 
 ```
-        (merge #121–#124 first — main is red)
-                      │
-T-EXPORT ──┬──► T-REJECT            (T-EXPORT owns backend/tools/__init__.py)
-           │                        (T-REJECT also BLOCKED on decision B1 below)
-T-STACK ───┴──► T-ANCHOR ──► T-STICKY
-   ▲              (serial spine; SHARED-FIXTURE ordering — see below)
-   └── lands + re-records fixtures FIRST
-
-T-TRACE        (fully independent — clean file, no contention)
-
-T-ARR          (independent logic, but shares test_personas_postflop.py — merge after T-ANCHOR)
-
-T-REVIEWER     (docs only, any time)
+main
+ └─ feat/persona-realism-wave-a-w0   → PR 1   (base: main)
+     └─ feat/persona-realism-wave-a-w1  → PR 2   (base: …-w0)
+         └─ feat/persona-realism-wave-a-w2  → PR 3   (base: …-w1)
+             └─ feat/persona-realism-wave-a-w3  → PR 4   (base: …-w2)
 ```
 
-**Parallel-safe:** `{T-EXPORT, T-TRACE, T-REVIEWER}` may run concurrently. `T-REJECT` follows T-EXPORT.
+One commit per ticket. **Merge in order, w0 → w3**, after the run reports. All work happens in the
+**one shared working tree** — no git worktrees. Two reasons, both previously paid for: a worktree has no
+`backend/.venv` and none of the gitignored research artifacts T-EXPORT is told to port, and a prior
+session lost two measurement rounds to a worktree resolving `app` via the main repo's editable install,
+so before/after comparisons read unedited code and came back silently identical.
 
-**⚠️ T-STACK → T-ANCHOR is now FORCED (added post-review).** Both move the *same* seeded fixtures
-(`_GOLDEN_STATS_N200`, `coverage_baseline.json`, limper belt) — T-STACK via the SPR-distribution shift,
-T-ANCHOR via context threading on the live bot path. Run in parallel, the second re-records what the
-first already moved and the anti-laundering delta becomes unattributable — **the exact failure that
-produced today's red `main`** (#118 and #119 built concurrently, neither seeing the other). T-STACK
-lands and re-records first; T-ANCHOR re-records on top; each reports its own delta separately.
+**Research artifacts stay gitignored** (owner decision 2026-07-26, standing decision upheld). Workers
+read `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/` **off disk**; this works only
+because of the shared working tree above.
 
-**T-ANCHOR tripwire caveat while main is red:** the frozen golden
-`test_persona_stats_byte_identical_after_log_refactor` is **already failing** (calling_station AF
-`0.3973509933774834` vs golden `0.3788300835654596`), so its red/green state cannot discriminate "my
-change broke it" from "already broken." The two *bluff-ordering* tests are unaffected — both reviewers
-confirmed they currently pass and are mechanically immune, so the primary T-ANCHOR tripwire still holds.
+### Stop-the-line policy
 
-**Wave-wide no-gos:** no `BANDS` edit · no Alembic migration (none needed) · no authored-strategy
-change (no range or lever-value edits) · no mapper widening · no closing on "the constant is in the code."
+Ordinary failures: re-brief the worker and retry, **max 2 rounds**, then continue. **HALT the run and
+report to the owner** on any of these four:
+
+1. A fix would require **widening a `BANDS` entry, a test tolerance, or an assertion range**. This is
+   the #119 failure mode — the wave exists to prevent it and must never commit it silently.
+2. **Seeded fixtures moved in a ticket that asserts they cannot** (T-STACK's tripwire, T-ARR's
+   byte-identity, T-REJECT's mapper parity, T-STICKY's digest).
+3. A **pinned constant does not reproduce** (T-ANCHOR's ratios, T-TRACE's probabilities, T-EXPORT's
+   VPIP/PFR table, T-REJECT's `62` / `UNCLASSIFIED == 0`).
+4. The ticket **cannot be completed without editing a file no ticket owns**.
+
+### Wave-wide no-gos
+
+No `BANDS` edit · no Alembic migration (none needed) · no authored-strategy change (no range or
+lever-value edits) · no mapper widening · no closing on "the constant is in the code."
+
+---
+
+## Review protocol — MANDATORY at every wave fan-in
+
+> **This section did not exist before 2026-07-26.** The ticket doc named no reviewer for any ticket,
+> while `.claude/agents/persona-realism-theory-reviewer.md` instructs callers to use it *"at EVERY
+> persona-realism slice fan-in, alongside (not instead of) the generic refuter."* Nothing on the
+> orchestration side enforced that, so it would have been skipped. Owner decision 2026-07-26:
+> **both reviewers, on all eight tickets.**
+
+**Every ticket, no exceptions — two fresh-context reviewers, spawned in one message so they run
+concurrently:**
+
+| Reviewer | Owns the question | Reads |
+|---|---|---|
+| `refuter` | "Does this break a test, a contract, or an edge case?" | the ticket + the diff + `<profile.verify>` commands |
+| `persona-realism-theory-reviewer` | "Does this obey the grounded poker theory — and *is that theory right here*?" | `docs/ai-dlc/contracts/persona-realism-theory-contract.md` **in full, every run** (its §11 is the 14-item procedure) |
+
+**Third reviewer on the two hardest tickets only** (owner decision 2026-07-26): **T-REJECT** and
+**T-ANCHOR** additionally get **Codex Sol**. Invoke it directly — the `codex:codex-rescue` companion
+EPERMs under this repo's nested Seatbelt sandbox:
+
+```
+codex exec --sandbox danger-full-access -m gpt-5.6-sol "<review brief>"
+```
+
+Sol is **one input, never sole authority** — verify each finding against the code before acting on it.
+It earned the slot by catching two real defects in this wave's own planning docs that both Claude
+reviewers missed (a wrong session id, and `6×3×4×3` mis-stated as 648).
+
+**Rules binding on all reviewers:**
+
+- **Review-only. Never edit a file. READ-ONLY ON GIT** — no `stash`, `reset`, `checkout`, `switch`,
+  `branch`, `merge`. A review agent once ran `git stash`/`reset`/`checkout main` mid-review, detached a
+  commit onto `main` and wiped uncommitted work. Recovery cost a full session.
+- **Maker ≠ checker.** A worker never blesses its own ticket. Workers self-*verify* (run their own
+  done-condition) but never self-*approve*.
+- **Disagreement is surfaced, not resolved silently.** If `refuter` and the theory reviewer conflict —
+  or either conflicts with Sol — the orchestrator reports the conflict rather than picking a side.
+- **Sub-agents never spawn sub-agents.**
+
+**Per-ticket reviewer focus** (what each reviewer should be pointed at):
+
+| Ticket | `refuter` focus | Theory-reviewer focus |
+|---|---|---|
+| T-REVIEWER | agent file still parses; no other agent file created; user-global `refuter` untouched | does the added realism question actually close the "our theory is wrong" blind spot? |
+| T-REJECT | six mapper test files needed **zero** edits; public signatures still `Spot \| None`; domain purity enforced | is the taxonomy a poker-meaningful partition, or does it bucket the 62 into useless bins? |
+| T-STACK | `net_bb == stack_bb - buyins_bb` holds; chip conservation green; the 7 unnamed sim tests | is a hard 100bb reset the right game model, and is the `spr_commit` step-function movement expected rather than re-tuned? |
+| T-ARR | zero new rng draws; goldens byte-identical; `_persona_stats` untouched | is "first preflop decision per seat-hand" the right arrival denominator? |
+| T-TRACE | test-only; `personas_postflop.py` untouched; `_TraceRng`/seed unchanged | are the four inert spots *correctly* inert (§4 P1 boundary), or was inertness "repaired"? |
+| T-ANCHOR | bluff-ordering tests did **not** move (movement ⇒ double application); facing branch untouched | softmax law — is `bluff_freq` an exact-frequency lever again? gate boundary exactly `:825-871`? |
+| T-STICKY | digest identical before/after; `nit`/`tag`/`lag`/`maniac` packs untouched | does deleting the field change any authored strategy, and is maniac's both-branch read preserved? |
+| T-EXPORT | reconciles to `invested_total_bb` on all 181 hands; per-hand `position → seat` remap | are VPIP/PFR/3bet/WWSF/WTSD computed to standard tracking definitions? |
 
 ---
 
@@ -57,7 +175,20 @@ change (no range or lever-value edits) · no mapper widening · no closing on "t
 **Goal:** turn a stored sim session into per-persona hand packets plus tracking stats, so every later
 ticket can say "run this and check X."
 
-**Owned files:** `backend/tools/__init__.py` (NEW — **sole owner in this wave**) · `backend/tools/export_session.py` (NEW)
+**Owned files:** `backend/tools/export_session.py` (NEW) — **only this file.**
+
+> ⚠️ **Ownership change 2026-07-26:** `backend/tools/__init__.py` is created by the **Wave 0** worker, not
+> here. It already exists when you start. It was the sole coupling between T-EXPORT and T-REJECT; hoisting
+> it to wave 0 lets both run concurrently. **Do not create or edit it.**
+
+> 📎 **A WORKING REFERENCE IMPLEMENTATION EXISTS — port it, do not rewrite it.**
+> `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/reference-scripts/export_hands.py`
+> (gitignored, on disk). It is the script that actually produced `SYNTHESIS.md` and `findings/*.md`, and
+> it already solves every trap listed below: per-hand starting-stack reconstruction, the per-hand
+> `position → seat` remap, made-hand classification via `postflop._hand_category`, a replication of
+> `engine.settle`'s side-pot maths, and an assertion that the action replay reconciles to each seat's
+> stored `invested_total_bb` on all 181 hands. **T-EXPORT = port it to `backend/tools/export_session.py`
+> + add a `--session` CLI + wire `app.db.session.engine` in place of the hardcoded path.**
 
 **Mechanism:**
 - Reuse `app.db.session.engine` — do not hardcode a DB path, or the tool reads a different DB than the app writes.
@@ -118,9 +249,47 @@ for every seat `net_bb == stack_bb - buyins_bb` at all times, and `sum(net_bb) o
 `SimLedger.tsx:5-6`. The existing convention is that any correction moving `stack_bb` absorbs the same
 delta into `buyins_bb`. A reset that skips this makes every seat's displayed net read ~0 after hand 1.
 
-**Expected non-bug:** persona AF/WTSD will move even though no persona file is touched — `spr_commit` is a
-step function with zero gradient, so changing the SPR distribution changes behaviour. **Do not re-tune a
-lever to compensate.**
+**Expected non-bug:** persona AF/WTSD **as measured through the live sim service** may move even though no
+persona file is touched — `spr_commit` is a step function with zero gradient, so changing the SPR
+distribution changes behaviour. **Do not re-tune a lever to compensate.** ⚠️ Note this does **not** extend
+to the seeded harness fixtures — see the tripwire below.
+
+### ⚠️ BLAST RADIUS IS WIDER THAN THIS TICKET'S FILE LIST (added 2026-07-26)
+
+The owned-files line names three test files. **Ten** test files import `app.services.sim_session`. The
+seven unnamed ones are not owned by any other Wave A ticket, so this stays parallel-safe — but the worker
+must expect them and run the **full** suite, not just the three:
+
+```
+test_sim_grading_persistence.py   create_session, apply_hero_action, deal_next_hand   ← multi-hand flow, most likely to move
+test_sim_replay.py                (multi-symbol import)
+test_sim_leaks.py                 leak_by_spot, street_report
+test_sim_villain_range.py         HERO_SEAT, SessionNotFound, villain_range
+test_sim_postflop_sizing.py       _hero_legal_actions, apply_hero_action
+test_coach.py                     _grade_view
+test_simulate_api.py              (already named — API-level)
+```
+
+If a fix requires editing one of these, that is in scope. If it requires editing a file **outside** this
+list, HALT per the stop-the-line policy.
+
+### 🔒 FINGERPRINT TRIPWIRE — mandatory first and last action (added 2026-07-26)
+
+This ticket runs **concurrently** with four others on the evidence that it cannot reach the seeded
+fixtures (see the correction at the top of this doc). That evidence is file-level, not empirical, so the
+run must prove it. **Before your first edit and again after your last**, capture and compare:
+
+```
+cd backend && python -m pytest tests/test_personas_postflop.py::test_persona_stats_byte_identical_after_log_refactor \
+                              tests/test_coverage_baseline.py::test_coverage_never_regresses \
+                              tests/test_mw_funnel_belt.py tests/test_limper_coverage_belt.py -q
+```
+plus `shasum -a 256` of `backend/tests/coverage_baseline.json` (and any sibling baseline JSON it loads).
+
+**Expected: green before, green after, digest byte-identical.** If any of it moves, **STOP immediately
+and report** — do not re-record, do not proceed. Movement means the parallelisation premise is wrong and
+this ticket must serialize behind T-ANCHOR after all. Paste both fingerprints into the completion note
+either way; a clean pair is the evidence that retires the false dependency permanently.
 
 ---
 
@@ -152,6 +321,17 @@ Assert on the **roster-pooled** vector: `occupancy["UTG"]["unopened"] == 1.000` 
 `0.05 <= occupancy["BTN"]["unopened"] <= 0.12` · `0.33 <= roster_wide_unopened <= 0.43` · `unopened`
 share monotone non-increasing UTG→BTN across the seven non-blind seats. Print the 9×5 grid on failure.
 
+**Verification recipe (used to produce the bands — reuse it):** the arrival numbers can be measured
+outside the harness by importing it directly, which avoids standing up a second sim:
+```python
+import sys; sys.path.insert(0, 'tests')
+from test_personas_postflop import _play_hand          # (rng, hand_seed, button_seat, persona_by_seat, packs)
+# replay state.action_history per hand; for each seat's FIRST preflop action, bucket by
+# (position, unopened|vs_limpers|vs_rfi+) using "has anyone raised / limped before this seat acted"
+```
+Measured this way on the post-merge packs, n=600 hands / 5384 seat-decisions: **UTG 100% · UTG1 80% ·
+UTG2 56% · LJ 36% · HJ 22% · CO 14% · BTN 8% · SB 4% · BB 0% · roster-wide 36%.**
+
 **No-gos:** no second simulation loop (breaks the frozen ≤12s budget) · no touching `_persona_stats`,
 `_preflop_facing`, or anything under `app/domain/` · **zero new rng draws**, so the existing AF/FtC/WTSD
 golden must stay byte-identical — if it moves, you added a draw.
@@ -170,8 +350,9 @@ change. Use bands.
 widening is prioritized off measured counts instead of anecdote.
 
 **Owned files:** `backend/app/domain/table/grade_map_reject.py` (NEW) · `backend/tools/reject_counts.py`
-(NEW) · `backend/tests/test_grade_map_reject.py` (NEW). **Does not create `backend/tools/__init__.py`** —
-T-EXPORT owns it. **Edits no existing file.**
+(NEW) · `backend/tests/test_grade_map_reject.py` (NEW) · **`backend/app/domain/table/grade_map_postflop.py`
+(added by owner decision B1 — the gate-diagnostic refactor)** · `backend/tests/test_domain_purity.py`
+(add `grade_map_reject` to the module list). **Does not create `backend/tools/__init__.py`** — T-EXPORT owns it.
 
 **⚠️ Taxonomy correction — `grade_map_postflop.py`'s own module docstring is STALE.** It claims "ONLY the
 HU single-raised-pot continuation line," but HEAD ships **19 postflop mappers** including nine `map_mw_*`
@@ -197,9 +378,10 @@ cd backend && python -m tools.reject_counts --session adaadc548d6f499c965821a617
 `sum(reason counts) == 62` · **`UNCLASSIFIED == 0`**. Record the observed street × reason matrix in the
 completion note — `T-cover` is scoped off it.
 
-**No-gos:** do not widen any mapper · **do not change what `map_decision_point` returns** (if you find
-yourself adding an out-param or tuple return, the design has been abandoned) · no `spot_signature()`
-contact · `app/domain/` purity must hold.
+**No-gos:** do not widen any mapper · **do not change any PUBLIC mapper signature** — `map_decision_point`
+and every `map_*` keep returning `Spot | None`; the typed diagnostic is INTERNAL to the gate predicates ·
+no `spot_signature()` contact · `app/domain/` purity must hold (and must now be *enforced* — add the new
+module to `test_domain_purity.py`'s fixed list, or the check silently skips it).
 
 **Trap:** coding the taxonomy from the prose instead of from HEAD, emitting `MULTIWAY` and `LIMPED_POT` as
 reasons. That buckets ~all 62 into two useless bins and `T-cover` gets scoped off a fiction. **First commit
@@ -209,7 +391,29 @@ must be a read of the live mapper list, pasted into the PR description.**
 list**. It will not import `grade_map_reject.py` unless the name is added explicitly — so the "stays pure"
 claim is unenforced by default. **Add the module to that list in this ticket.**
 
-> ### ⛔ T-REJECT is BLOCKED on two unresolved design findings (Codex Sol, HIGH)
+> ### ✅ B1 RESOLVED — OWNER DECISION 2026-07-26: refactor the gates to report a reason
+>
+> **Chosen shape:** change the shared gate predicates in `grade_map_postflop.py` to return a **typed
+> internal diagnostic** consumed by *both* the live mappers and the new classifier, while every
+> **public mapper signature stays `Spot | None`** so no caller changes. One source of truth ⇒ the reason
+> counts cannot drift from what the grader actually does, which is the failure mode that would make this
+> measurement worthless six months out.
+>
+> **Consequences to the ticket, applied below:**
+> - **`backend/app/domain/table/grade_map_postflop.py` is now an OWNED file.** The earlier "edits no
+>   existing file" no-go is **withdrawn** — it was incompatible with a no-drift classifier and also
+>   contradicted this ticket's own instruction to fix the stale module docstring.
+> - Byte-identity for existing callers is no longer structural; it must now be **test-enforced**. Add an
+>   explicit assertion that `map_decision_point` returns exactly what it did before the refactor across
+>   the 181-hand corpus (the B2 parity assertion below already supplies the vehicle).
+> - Six test files reference these mappers (`test_grade_map_flop_facing.py`, `test_grade_map_turn_river.py`,
+>   `test_mw_funnel_belt.py`, `test_mw_hero_seat_widening.py`, `test_apply_multiway_opp.py`,
+>   `test_sim_postflop_sizing.py`). None should need edits — **if one does, the public contract moved and
+>   the refactor is wrong.** That is this ticket's primary tripwire.
+> - This becomes the second-largest ticket in the wave. It still parallelises safely: no other Wave A
+>   ticket touches `grade_map_postflop.py` or anything under `app/domain/table/`.
+>
+> ### ⛔ B2 remains — a specification addition, not a fork (do this as part of the ticket)
 >
 > **B1 — "edits no existing file" is incompatible with no-drift classification.** The reusable gates
 > discard the information the taxonomy needs: `_hu_srp_preflop` (`grade_map_postflop.py:191-221`) returns
@@ -355,8 +559,18 @@ fractions × 3 streets — *corrected from 648 during review; `6·3·4·3 = 216`
 after**, and `verify.sh` is green with **zero band edits**. Byte-identity *is* the observed number — the
 claim being proved is "removing this field changes no decision."
 
-**Capture the pre-change digest FIRST, on `main`, and paste it into the ticket before editing anything** —
-a digest computed only after the change proves nothing. Grid: personas sorted; hands
+**Capture the pre-change digest FIRST and paste it into the completion note before editing anything** —
+a digest computed only after the change proves nothing.
+
+> ⚠️ **Digest base corrected 2026-07-26.** An earlier revision said "on `main`." **Capture it on your own
+> branch base — the tip of `feat/persona-realism-wave-a-w2`, i.e. after T-ANCHOR has landed** — not on
+> `main`. The claim being proved is *"removing this field changes no decision,"* which is a before/after
+> around **your own** edit; a digest taken on a different tree would fail for reasons that are not yours.
+> T-ANCHOR is expected not to move this grid at all (it touches only the non-facing branch `:825-871`,
+> while every cell here is a **facing** spot — `current_bet_to=bet`, legal `[FOLD, CALL, RAISE]`), so a
+> pre-edit digest that differs from the drafted expectation is itself a finding worth reporting.
+
+Grid: personas sorted; hands
 `('7h','5d')/['Kc','9s','3h']`, `('Kh','9d')/['Ks','7c','2h']`, `('Ah','Ad')/['Ks','7c','2h']`; faced
 fractions `0.30/0.55/0.90/1.50` of a `20.0` pot; streets FLOP/TURN/RIVER (board sliced to 3/4/5 from
 `bd + ['4d','3c']`); legal `[FOLD, CALL(min=bet), RAISE(min=2·bet, max=300)]`; capture-rng seeded `1`;
@@ -383,15 +597,40 @@ byte-identical. **The deletion is safe only exactly where the field is unread.**
 **Goal:** close the structural blind spot in the one project reviewer — it asks "does this obey our
 committed theory?", which cannot catch "our theory is wrong," the exact failure the 181-hand review found.
 
-**Owned files:** `.claude/agents/persona-realism-theory-reviewer.md`
+**Owned files:** `.claude/agents/persona-realism-theory-reviewer.md` · `backend/tools/__init__.py`
+(NEW, empty — the wave-0 foundation file, see below)
+
+**⚠️ This is WAVE 0 — it runs alone and lands before every other ticket.** Reason: this agent is a
+**mandatory reviewer on all eight tickets** (see the Review protocol above). Landing it last would mean
+seven tickets get graded by the un-upgraded version, which can only ask *"does this obey our committed
+theory?"* — structurally unable to catch *"our theory is wrong,"* the exact failure the 181-hand review
+found.
 
 **Mechanism:** add a second review question — *"would a real player of this archetype actually do this?
 If the committed theory says otherwise, say so and name the file/lever."* — plus pointers to
 `backend/tests/node_trace.py` (the zero-variance probe, which all six analysts reinvented with ad-hoc
-Monte Carlo) and `backend/tools/export_session.py` (once T-EXPORT lands).
+Monte Carlo) and `backend/tools/export_session.py` (lands in wave 1 via T-EXPORT — reference it as the
+session-stats tool, and note it may not exist yet on the branch you are reviewing).
 
-**Done-condition:** the file names both tools and both questions; a fresh reader can state what this
-reviewer owns that the generic `refuter` does not.
+**Second deliverable — the foundation file.** Create `backend/tools/__init__.py` as an **empty** file
+(no docstring, no imports, no `__all__`). It exists solely to make `backend/tools/` a package so
+T-EXPORT and T-REJECT can both add modules there in wave 1 without one blocking the other. Nothing else
+in this ticket touches `backend/`.
+
+**Done-condition:** the agent file names both tools and both questions, and a fresh reader can state what
+this reviewer owns that the generic `refuter` does not. Plus:
+```
+cd backend && python -c "import tools; print('ok')"
+```
+→ `ok`, and `./scripts/verify.sh` → `BACKEND VERIFY OK` (an empty package must not perturb collection).
 
 **No-gos:** do not create additional agent files · do not edit the user-global `refuter` (it is shared
-across all projects and must stay domain-neutral).
+across all projects and must stay domain-neutral) · **do not put anything in `tools/__init__.py`** —
+content there would be imported by both wave-1 tickets and become a hidden shared dependency.
+
+**Trap — `.claude/agents/` is sandbox-deny-write for git.** Editing the file with the Edit tool works,
+but git cannot rewrite it during a checkout, so switching to a branch that lacks this commit aborts with
+*"Please commit your changes or stash them."* Diagnose with `git diff <branch> -- <path>`: if the diff is
+**empty**, disk already matches and git is refusing on a conservative check — `git switch --merge <branch>`
+clears it. The stacked-branch layout avoids this entirely by never switching backwards; do not switch
+branches inside this ticket.

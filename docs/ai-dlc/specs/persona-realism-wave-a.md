@@ -41,7 +41,7 @@ that the review's headline arrival numbers become reproducible from the harness.
 | **T-EXPORT** | `backend/tools/export_session.py` (NEW) · `backend/tools/__init__.py` (NEW — sole owner) |
 | **T-STACK** | `backend/app/services/sim_session.py` · `backend/tests/test_sim_session_buyin_cap.py` (**rewrite**) |
 | **T-ARR** | `backend/tests/test_personas_postflop.py` (`_persona_stats_ext`, `HandResult`, `_play_hand` capture site) |
-| **T-REJECT** | `backend/app/domain/table/grade_map_reject.py` (NEW) · `backend/tools/reject_counts.py` (NEW) · `backend/tests/test_grade_map_reject.py` (NEW) |
+| **T-REJECT** | `grade_map_reject.py` (NEW) · `tools/reject_counts.py` (NEW) · `tests/test_grade_map_reject.py` (NEW) · **`grade_map_postflop.py`** (owner decision B1) · `tests/test_domain_purity.py` |
 | **T-TRACE** | `backend/tests/node_trace.py` · `backend/tests/test_node_trace.py` |
 | **T-ANCHOR** | `backend/app/domain/personas_postflop.py` (lines 825–871 only) · `backend/tests/test_personas_postflop.py` (new test only) |
 | **T-STICKY** | `backend/app/domain/content/models.py` · `content/personas/{passive_fish,calling_station}.json` · `backend/tests/test_personas_postflop.py` (mechanical fixes only) |
@@ -52,15 +52,37 @@ T-ANCHOR (new test) and T-STICKY (mechanical). Disjoint line regions, but **sequ
 T-STICKY** — T-ANCHOR is the only behaviour-changing one and must own any fixture re-record.
 `backend/tools/__init__.py` is owned by **T-EXPORT only**.
 
-**⚠️ SHARED-FIXTURE ORDERING — T-STACK must land before T-ANCHOR (added post-review, `refuter`).**
-Both tickets move the **same** seeded fixture set — `_GOLDEN_STATS_N200`, `coverage_baseline.json`, the
-limper belt — by different routes: T-STACK via the SPR-distribution shift (`spr_commit` is a step
-function), T-ANCHOR via live-bot-path context threading. Built in parallel, whichever lands second
-re-records fixtures the first already moved, and the anti-laundering "cumulative delta vs
-`coverage_baseline.persona-realism-start.json`" report becomes **unattributable**. That is precisely
-the failure that produced the current red `main` (#118 and #119 built concurrently, neither seeing the
-other). **Rule: T-STACK lands and re-records first; T-ANCHOR then re-records on top of it, and each
-reports its own delta separately.** This supersedes the "parallel-safe" grouping for these two tickets.
+**~~⚠️ SHARED-FIXTURE ORDERING — T-STACK must land before T-ANCHOR~~ — RETRACTED 2026-07-26.**
+
+<details><summary>Original claim (kept for the record)</summary>
+
+> Both tickets move the **same** seeded fixture set — `_GOLDEN_STATS_N200`, `coverage_baseline.json`, the
+> limper belt — by different routes: T-STACK via the SPR-distribution shift (`spr_commit` is a step
+> function), T-ANCHOR via live-bot-path context threading. Built in parallel, whichever lands second
+> re-records fixtures the first already moved, and the anti-laundering "cumulative delta vs
+> `coverage_baseline.persona-realism-start.json`" report becomes **unattributable**. That is precisely
+> the failure that produced the current red `main` (#118 and #119 built concurrently, neither seeing the
+> other). **Rule: T-STACK lands and re-records first; T-ANCHOR then re-records on top of it, and each
+> reports its own delta separately.** This supersedes the "parallel-safe" grouping for these two tickets.
+
+</details>
+
+**Why it was wrong.** The premise — that T-STACK moves those three fixtures — is false. All three are
+produced by harnesses that call `start_hand(..., stacks_bb=[100.0] * 9)` directly and never import
+`app/services/sim_session.py`, the only source file T-STACK edits:
+
+| Fixture | Stack source | `sim_session` import |
+|---|---|---|
+| `_GOLDEN_STATS_N200` (`test_personas_postflop.py:2689`, via `_play_hand`) | `:1875` hard-codes `[100.0] * 9` | none — one comment at `:1761` |
+| `coverage_baseline.json` (`test_coverage_baseline.py`) | `:194` hard-codes `[100.0] * 9` | none — `app.domain.table.*` only |
+| limper belt (`test_mw_funnel_belt.py:45`, `test_limper_coverage_belt.py`) | hard-codes `[100.0] * 9` | zero references |
+
+**Corrected rule — the hazard is real, the edge was not.** Concurrent re-recording of shared seeded
+fixtures is still what produced the red `main`, and it still governs the plan. But **T-ANCHOR is the
+wave's sole fixture re-recorder**, so the correct constraint is *"nothing else runs while the sole
+re-recorder runs"* — expressed in the ticket doc as T-ANCHOR occupying wave 2 alone. T-STACK moves to
+wave 1 and carries a **fingerprint tripwire** (green + digest-identical before its first edit and after
+its last) so the run proves this rather than trusting it. Owner-approved 2026-07-26.
 
 ---
 
@@ -222,6 +244,47 @@ Wave A is done when all of the following hold on one branch:
 10. Zero `BANDS` edits in the diff.
 
 ---
+
+## Owner decisions — 2026-07-26 (post-review, binding)
+
+- **B1 — T-REJECT: refactor the gates to report a reason.** The shared gate predicates in
+  `grade_map_postflop.py` gain a **typed internal diagnostic** read by both the live mappers and the new
+  classifier; **public mapper signatures stay `Spot | None`**. Rejected alternatives: coarse reasons with a
+  large unclassified bucket (would swallow most of the 62 and defeat the purpose), and dropping T-REJECT
+  from the wave (loses the before/after window while the bots are still changing). Consequence: T-REJECT
+  now owns a shared file, byte-identity becomes test-enforced rather than structural, and its primary
+  tripwire is that **none of the six mapper test files should need an edit**.
+- **~~Build mode — parallel where the DAG allows~~ — SUPERSEDED 2026-07-26 by the wave plan below.**
+  The original wording ("serialise the fixture-touching chain T-STACK → T-ANCHOR → T-STICKY") rested on
+  the retracted shared-fixture claim above.
+
+### Build mode — owner decisions 2026-07-26 (binding; full detail in the ticket doc)
+
+- **Waves.** `0:` T-REVIEWER (+ the empty `backend/tools/__init__.py` foundation file) → `1:`
+  T-REJECT · T-STACK · T-ARR · T-TRACE · T-EXPORT (5 concurrent, disjoint files, none re-records a
+  shared fixture) → `2:` T-ANCHOR **alone** (sole fixture re-recorder, quiet tree) → `3:` T-STICKY
+  (byte-identity canary — proves nothing upstream drifted). `tests/test_personas_postflop.py` is claimed
+  by T-ARR, T-ANCHOR and T-STICKY, which is precisely why they sit in three different waves.
+- **Review protocol — the gap that mattered most.** The ticket doc named **no reviewer for any ticket**,
+  while the project's one poker agent instructs callers to use it at every persona-realism fan-in.
+  Now mandatory: **`refuter` + `persona-realism-theory-reviewer` on all eight**, spawned concurrently,
+  review-only and **read-only on git**. **Codex Sol** joins as a third reviewer on **T-REJECT** and
+  **T-ANCHOR** only, invoked directly (`codex exec --sandbox danger-full-access -m gpt-5.6-sol`) because
+  the `codex:codex-rescue` companion EPERMs under this repo's nested sandbox.
+- **Models.** Opus for the six substantive tickets, sonnet for T-REVIEWER and T-EXPORT. **Fable declined**
+  — every ticket pins exact commands and expected values, so the work needs precision, not long-horizon
+  independent judgment. **Terra-as-worker skipped** (`parallel-waves` §3.5 pilot precondition fails).
+- **Delivery.** Four **stacked** branches → four PRs (`w0` off `main`, each later wave off the previous),
+  one commit per ticket, merged in order `w0 → w3` after the run. Stacking is what lets four review-sized
+  PRs coexist with a zero-interruption run. **One shared working tree — no git worktrees** (a worktree has
+  no `backend/.venv` and none of the gitignored research artifacts T-EXPORT must port, and a prior session
+  lost two measurement rounds to a worktree resolving `app` via the main repo's editable install).
+- **Research artifacts stay gitignored** — standing decision upheld; workers read them off disk, which
+  works only because of the shared working tree.
+- **Stop-the-line.** Retry a failing ticket at most twice, then continue — **except** these four, which
+  halt the run: (1) a fix would require widening a `BANDS` entry, tolerance or assertion range (the #119
+  failure mode); (2) seeded fixtures moved in a ticket asserting they cannot; (3) a pinned constant does
+  not reproduce; (4) completion requires editing a file no ticket owns.
 
 ## Open questions carried into tickets
 
