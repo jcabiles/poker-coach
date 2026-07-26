@@ -123,22 +123,62 @@ def _facing(to_call: float, stack: float, jam: float | None = None) -> tuple[Leg
 # the capture never hits the zero-total-merit fallback (Sol #9 / theory nit).
 #
 # Context authorship: `in_position` states the node's real geometry (the OOP
-# twin below is the one deliberate exception — a copy varied on position ALONE).
-# `bet_prev_street` is "did this seat bet/raise the street before" — for a flop
-# spot that means "was the preflop raiser". `facing_raise` is False in every
-# spot: none of them faces a second aggressive action on the street (the two
-# facing spots face a bare BET), and the ticket forbids adding spots.
+# twin appended at the end is the one deliberate exception — a copy varied on
+# position ALONE). `bet_prev_street` is "did this seat bet/raise the street
+# before" — for a flop spot that means "was the preflop raiser".
+#
+# EXACTLY TWO spots are context-inert: the two FACING spots. The position
+# multiplier is SYMMETRIC (`1 ± 0.25 * position_sensitivity`), so an
+# authored-OOP unopened spot is NOT inert — it is damped x0.75 — which is why
+# authoring `in_position=False` never means "not applicable". See
+# `test_facing_spots_are_position_inert_by_design` for why the two facing spots
+# are correctly inert.
+#
+# `facing_raise` is False in every spot: none of them faces a second aggressive
+# action on the street (both facing spots face a bare BET), and this wave
+# forbids adding spots.
+#
+# ---------------------------------------------------------------------------
+# WAVE B FOLLOW-UPS — measured coverage gaps in THIS pack. All three are
+# spot-set work (no sampler change); this wave forbids adding spots, so they
+# are recorded, not fixed. Listed in the order they should be done.
+#
+# 1. NO BLUFF-CATCHER NODE EXISTS — do this FIRST. No spot on any street has a
+#    persona facing a bet with a MARGINAL MADE hand. The two facing spots are
+#    AIR + strong draw, and OVERPAIR/TPTK at SPR 0.75 where FOLD measures
+#    0.0000 for all six personas. So the node that decides both remaining
+#    HARD-today gates — and where the `call_looseness` x `size_elasticity`
+#    split, the ONLY thing separating `calling_station` from `passive_fish`,
+#    actually lives — is invisible to the probe. Suggested spot:
+#    `river_facing_bet_bluffcatcher`, KhQd on Kc 8s 3d 7h 2c facing a 2/3-pot
+#    bet, HU, 100bb. Sequenced ahead of item 3 because the cross-persona
+#    comparison has NO unit-test substitute, whereas the `facing_raise` damps
+#    do have dedicated unit coverage elsewhere.
+#
+# 2. `turn_barrel_toppair` IS A DUPLICATE NODE. Its probability vector is
+#    byte-identical to `flop_ip_toppair_dry` for all six personas (station
+#    0.3793 / nit 0.4783 / fish 0.4231 / tag 0.7857 / lag 0.8181 / maniac
+#    0.8725 at both). Correct by contract, not a bug: the street-aggression
+#    multiplier is bluff-side only, TOP_PAIR is value, the overcard count is 0
+#    on both boards, and the wetness multiplier reads only the first three
+#    cards, so the turn card is invisible. Consequence: the pack has 8 spots but
+#    only 7 DISTINCT nodes and ZERO coverage of turn barrelling — the widest
+#    per-archetype spread in the postflop keystone. Fix by giving that spot AIR
+#    or a WEAK draw instead of top pair.
+#
+# 3. `facing_raise` IS CONSTANT. It is False in all 8 spots, equal to the
+#    sampler default, so the two `facing_raise` damps in `personas_postflop.py`
+#    (ace-high float-raise, one-pair raise) are NOT exercised — the field gives
+#    the appearance of coverage without providing it. A facing-a-RAISE spot
+#    closes it.
+#
+# Any new spot goes on the END of SPOTS (see the seed-stability note there).
+# ---------------------------------------------------------------------------
 SPOTS: tuple[Spot, ...] = (
     Spot("flop_ip_toppair_dry", ("Ah", "Th"), ("As", "7d", "2c"),
          _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
          in_position=True, bet_prev_street=True, facing_raise=False,
          prescription="IP c-bet, top pair dry board: value-heavy, high c-bet freq"),
-    # The OOP twin of the spot above: byte-identical except `in_position=False`,
-    # so the pair isolates the W3-b position multiplier as the ONLY varying term.
-    Spot("flop_oop_toppair_dry", ("Ah", "Th"), ("As", "7d", "2c"),
-         _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
-         in_position=False, bet_prev_street=True, facing_raise=False,
-         prescription="OOP c-bet, top pair dry board: same node, out of position"),
     Spot("flop_oop_secondpair_overcards", ("Th", "9h"), ("9s", "Ah", "Kd"),
          _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
          in_position=False, bet_prev_street=True, facing_raise=False,
@@ -171,6 +211,19 @@ SPOTS: tuple[Spot, ...] = (
          _facing(10.0, 15.0, jam=15.0), 20.0, 15.0, 1, 10.0, Street.FLOP, False,
          in_position=True, bet_prev_street=True, facing_raise=False,
          prescription="overpair, low SPR facing a bet: commit / stack off"),
+    # APPENDED LAST, deliberately: `build_trace` seeds each spot `seed + index`,
+    # so inserting a spot mid-list would shift every later spot's seed and
+    # silently change its `chosen_action`. Probabilities are seed-independent,
+    # but a zero-variance probe must not perturb its own downstream rows —
+    # every new spot goes on the END.
+    #
+    # The OOP twin of `flop_ip_toppair_dry`: byte-identical except
+    # `in_position=False`, so the pair isolates the W3-b position multiplier as
+    # the ONLY varying term.
+    Spot("flop_oop_toppair_dry", ("Ah", "Th"), ("As", "7d", "2c"),
+         _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
+         in_position=False, bet_prev_street=True, facing_raise=False,
+         prescription="OOP c-bet, top pair dry board: same node, out of position"),
 )
 
 

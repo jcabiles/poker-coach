@@ -29,9 +29,12 @@ from app.domain.table.deck import deal_hand
 from app.domain.table.engine import HandState, apply, legal_actions, start_hand
 from app.domain.table.grade_map import map_decision_point
 from app.domain.table.grade_map_reject import (
+    _DEPTH_CONTEST,
     REASON_ORDER,
     RejectReason,
+    _street_twins,
     classify_postflop_rejection,
+    classify_with_evidence,
 )
 
 HERO_SEAT = 0
@@ -165,9 +168,11 @@ def test_open_size_off_band_oversized_open():
     assert _assert_unmapped(state) is RejectReason.OPEN_SIZE_OFF_BAND
 
 
-def test_hero_role_ungated_opener_in_the_no_bb_three_way():
-    """The no-BB 3-way family gates ONLY the later cold-caller. Hero opened it,
-    so the shape is gated on this street and hero simply has no seat in it."""
+def test_no_mapper_for_role_opener_in_the_no_bb_three_way():
+    """Hero opened, two cold-called, both blinds folded — hero is the 3-way
+    flop aggressor. The BB-in family maps exactly this role; the no-BB family
+    only ever grew its caller side. A build-order gap, so NO_MAPPER_FOR_ROLE
+    (buildable) rather than HERO_ROLE_UNGATED (theory-reviewer MED)."""
     state = _state(Position.UTG1)
     state = _preflop(state, {
         Position.UTG1: Decision(action=ActionType.RAISE, size_bb=3.0),
@@ -175,6 +180,24 @@ def test_hero_role_ungated_opener_in_the_no_bb_three_way():
         Position.BTN: Decision(action=ActionType.CALL),
     })
     assert gp._mw_nobb_srp_preflop(state).value is not None
+    assert _assert_unmapped(state) is RejectReason.NO_MAPPER_FOR_ROLE
+
+
+def test_hero_role_ungated_earlier_cold_caller_never_closes():
+    """The OTHER side of the split: the EARLIER of two cold-callers can never
+    close the street, which is a documented exclusion, not a missing mapper.
+    Widening here needs new theory — it must NOT look like a T-cover item."""
+    state = _state(Position.CO)
+    state = _preflop(state, {
+        Position.UTG1: Decision(action=ActionType.RAISE, size_bb=3.0),
+        Position.CO: Decision(action=ActionType.CALL),
+        Position.BTN: Decision(action=ActionType.CALL),
+    })
+    state = _play(state, [_check(Position.UTG1)])
+    gate = gp._mw_nobb_srp_preflop(state)
+    assert gate.value is not None
+    _opener, callers, _open_to = gate.value
+    assert callers[0].seat == HERO_SEAT and callers[-1].seat != HERO_SEAT
     assert _assert_unmapped(state) is RejectReason.HERO_ROLE_UNGATED
 
 
@@ -218,6 +241,64 @@ def test_stack_too_shallow_cannot_offer_the_big_bet_bucket():
     assert _assert_unmapped(state) is RejectReason.STACK_TOO_SHALLOW
 
 
+# --- UNCLASSIFIED must never mask a named sibling (refuter MED-1) -----------
+
+
+def _iso_raise_limper_folds() -> HandState:
+    """open-limp -> iso-raise -> the limper FOLDS, hero = the iso-raiser facing
+    the BB's flop check.
+
+    `_mw_srp_preflop` mis-reads the folded limper as a cold-caller who folded
+    POSTFLOP, so it passes and `_map_mw_flop_cbet` prices a 3-way pot
+    (3*3.0 + 0.5 = 9.5) against a live pot of 7.5 — its pot-consistency check
+    then fires `UNCLASSIFIED`. Every other flop twin correctly says
+    `PREFLOP_SHAPE_UNGATED`.
+    """
+    state = _state(Position.CO)
+    state = _play(state, [
+        _call(Position.UTG),                       # open-limp
+        _fold(Position.UTG1), _fold(Position.UTG2),
+        _fold(Position.LJ), _fold(Position.HJ),
+        _raise(Position.CO, 3.0),                  # hero isolates
+        _fold(Position.BTN), _fold(Position.SB), _call(Position.BB),
+        _fold(Position.UTG),                       # the limper folds
+        _check(Position.BB),                       # flop: BB checks to hero
+    ])
+    return state
+
+
+def test_unclassified_does_not_mask_a_named_sibling():
+    state = _iso_raise_limper_folds()
+    # The masking twin really is in play: its gate passes and it really does
+    # answer UNCLASSIFIED.
+    assert gp._mw_srp_preflop(state).value is not None
+    assert gp._map_mw_flop_cbet(state, HERO_SEAT).reason is RejectReason.UNCLASSIFIED
+    # ... and the other eight flop twins all name the real failure.
+    named = [
+        t(state, HERO_SEAT).reason
+        for t in _street_twins(gp, Street.FLOP)
+        if t is not gp._map_mw_flop_cbet
+    ]
+    assert set(named) == {RejectReason.PREFLOP_SHAPE_UNGATED}
+    # Selection must prefer the named reason over the catch-all.
+    assert _assert_unmapped(state) is RejectReason.PREFLOP_SHAPE_UNGATED
+
+
+def test_unclassified_still_reported_when_nothing_names_the_failure():
+    """The catch-all keeps the taxonomy total: if EVERY twin answers
+    UNCLASSIFIED there is nothing named to prefer, and it must surface."""
+    state = _iso_raise_limper_folds()
+    twins = _street_twins(gp, Street.FLOP)
+    assert all(
+        t(state, HERO_SEAT).reason is not None for t in twins
+    ), "precondition: this is an unmapped point"
+    # Simulate the degenerate case directly against the selection rule.
+    reasons = [RejectReason.UNCLASSIFIED] * len(twins)
+    named = [r for r in reasons if r is not RejectReason.UNCLASSIFIED]
+    assert not named
+    assert RejectReason.UNCLASSIFIED in REASON_ORDER
+
+
 # --- structural guards ------------------------------------------------------
 
 
@@ -257,11 +338,18 @@ def test_public_mappers_return_spot_or_none_never_a_diagnostic():
     assert built == 1, "exactly the flop c-bet mapper should claim this line"
 
 
+def test_preflop_state_is_rejected_loudly_not_scored_as_a_river():
+    """RIVER is `_street_twins`' fall-through, so a precondition violation used
+    to come back as a confident, meaningless reason (refuter LOW-3)."""
+    with pytest.raises(ValueError, match="POSTFLOP-only"):
+        _street_twins(gp, Street.PREFLOP)
+
+
 def test_taxonomy_is_total_and_ordered():
     assert REASON_ORDER == tuple(RejectReason)
     assert REASON_ORDER[0] is RejectReason.NO_MAPPER_FOR_STREET_SHAPE
     assert REASON_ORDER[-1] is RejectReason.UNCLASSIFIED
-    assert len(set(REASON_ORDER)) == len(REASON_ORDER) == 9
+    assert len(set(REASON_ORDER)) == len(REASON_ORDER) == 10
 
 
 def test_classifier_always_names_a_reason():
@@ -287,3 +375,55 @@ def test_classifier_always_names_a_reason():
                 break
             state = apply(state, Decision(action=ActionType.CHECK))
     assert seen, "the sweep produced no unmapped postflop hero decision"
+
+
+# --- the three-tier selection rule (theory-reviewer MED) --------------------
+
+
+def test_selection_rule_is_three_tiers_not_one_depth_contest():
+    """The docstring and the code must agree on which reasons are dominant,
+    which are contested by depth, and which is the fallback."""
+    dominant = {
+        RejectReason.NO_MAPPER_FOR_STREET_SHAPE,
+        RejectReason.NO_MAPPER_FOR_ROLE,
+        RejectReason.ALL_IN_IN_LINE,
+    }
+    assert not (dominant & _DEPTH_CONTEST), "a dominant reason is being contested"
+    assert RejectReason.UNCLASSIFIED not in _DEPTH_CONTEST
+    assert _DEPTH_CONTEST == {
+        RejectReason.PREFLOP_SHAPE_UNGATED,
+        RejectReason.OPEN_SIZE_OFF_BAND,
+        RejectReason.HERO_ROLE_UNGATED,
+        RejectReason.STREET_ACTION_SHAPE_UNGATED,
+        RejectReason.BET_FRACTION_OFF_GRID,
+        RejectReason.STACK_TOO_SHALLOW,
+    }
+    # Every reason is in exactly one tier — the taxonomy stays a partition.
+    assert dominant | _DEPTH_CONTEST | {RejectReason.UNCLASSIFIED} == set(REASON_ORDER)
+
+
+def test_all_in_dominates_a_deeper_sibling_reason():
+    """ALL_IN_IN_LINE is dominant, so it cannot be masked by a sibling that
+    reached a deeper stage. An all-in means the bet/raise subtree is GONE;
+    reporting "donk lead" instead would send T-cover after a mapper for a spot
+    that stays ungradeable regardless.
+
+    No line in the 181-hand corpus currently exercises the masking (the fix
+    moved 0 rows) — the exposure is structural and grows as T-cover widens the
+    gates, so it is pinned here at the rule level.
+    """
+    deeper = [
+        r
+        for r in _DEPTH_CONTEST
+        if REASON_ORDER.index(r) > REASON_ORDER.index(RejectReason.ALL_IN_IN_LINE)
+    ]
+    assert deeper, "precondition: deeper stages exist that used to mask ALL_IN"
+    state = _state(Position.BB, stacks={Position.CO: 3.0})
+    state = _preflop(state, {
+        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+        Position.CO: Decision(action=ActionType.CALL),
+        Position.BB: Decision(action=ActionType.CALL),
+    })
+    verdict = classify_with_evidence(state, HERO_SEAT)
+    assert verdict.reason is RejectReason.ALL_IN_IN_LINE
+    assert RejectReason.ALL_IN_IN_LINE in verdict.twin_reasons

@@ -7,8 +7,13 @@ actually produced SYNTHESIS.md and the six persona analyses) into this repo
 tool. Two deliberate deviations from the reference, both required by the
 ticket mechanism:
 
-- Reads `app.db.session.engine` instead of a hardcoded DB path, so the tool
-  always reads the same database the app writes.
+- Defaults to `app.db.session.DB_PATH` (the same file the live app writes)
+  instead of a hardcoded path, but is overridable via `--db PATH` or the
+  `POKER_COACH_DB` env var — a DB file can be swapped or archived out from
+  under a live session (this repo's own `backend/data/` has done exactly
+  that), so a fixed default alone is not enough to keep an analysis
+  reproducible; every packet is also stamped with which DB file produced it
+  (see `_git_sha`/provenance below).
 - Each hand's `state_json` is parsed through the real domain
   `HandState.model_validate_json` (not raw `json.loads`) and wrapped in
   try/except-and-skip, since `state_json` carries no version field and a row
@@ -25,26 +30,80 @@ Traps this script must not reintroduce (see the ticket):
   read from that hand's own terminal state, not from the seat ledger row.
 - Bot decisions never land in `SimDecision` (hero rows only); everything
   about villain play is read from `state.action_history`.
+- "Saw a flop" must be measured off `Hand.revealed` (`state.board`, the
+  ACTUALLY-revealed cards), never `Hand.board` (`state.full_board`, the
+  complete runout dealt up front even on a preflop fold-out) — the latter
+  is always >= 3 cards, so it silently scores every steal as a flop seen.
+- "Went to showdown" must be measured off `settle()`'s own `showdown_seats`
+  (a real hand comparison happened), never "reached the river without
+  folding" — an uncontested river bet is not a showdown.
+- `state_json` is written at every hero decision point, not only at
+  settlement (`sim_session.py:845`), so a row can have `hand_over=False`;
+  such hands are skipped (denominators would otherwise include a hand whose
+  net is silently 0).
 
 Usage:
-    python -m tools.export_session --session <session_id> [--out DIR]
+    python -m tools.export_session --session <session_id> [--db PATH] [--out DIR]
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 
-from sqlmodel import Session, select
+from sqlmodel import Session, create_engine, select
 
 from app.db.models import SimHand, SimSeat
-from app.db.session import engine
+from app.db.session import DB_PATH as DEFAULT_DB_PATH
 from app.domain.postflop import _hand_category
 from app.domain.table.engine import HandState, settle
 
 RANKS = "23456789TJQKA"
+# tools/export_session.py -> tools -> backend -> repo root
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def resolve_db_path(cli_value: str | None) -> Path:
+    """--db PATH > $POKER_COACH_DB > the live app's DB (app.db.session.DB_PATH).
+
+    Needed because the DB file this tool reads can be swapped or archived out
+    from under a live session (this repo's own backend/data/ has done exactly
+    that mid-analysis) — a fixed default is not enough for reproducibility."""
+    if cli_value:
+        return Path(cli_value)
+    env_value = os.environ.get("POKER_COACH_DB")
+    if env_value:
+        return Path(env_value)
+    return DEFAULT_DB_PATH
+
+
+def _git_sha() -> str:
+    """Short git SHA of the tool's current commit, read directly from
+    `.git/` — never invokes the `git` CLI (some callers of this tool run in
+    a context where git commands are forbidden mid-task). Best-effort: 'unknown'
+    if `.git` is missing or the ref can't be resolved."""
+    git_dir = REPO_ROOT / ".git"
+    try:
+        head = (git_dir / "HEAD").read_text().strip()
+    except OSError:
+        return "unknown"
+    if not head.startswith("ref:"):
+        return head[:12] or "unknown"  # detached HEAD: HEAD holds the SHA directly
+    ref = head.split(":", 1)[1].strip()
+    try:
+        return (git_dir / ref).read_text().strip()[:12]
+    except OSError:
+        pass
+    try:
+        for line in (git_dir / "packed-refs").read_text().splitlines():
+            if line.endswith(f" {ref}"):
+                return line.split()[0][:12]
+    except OSError:
+        pass
+    return "unknown"
 
 
 def hand_class(c1: str, c2: str) -> str:
@@ -74,6 +133,11 @@ class Hand:
         # full_board is always the complete 5-card runout (even on a
         # preflop fold-out); board only reveals up to the street reached.
         self.board = list(state.full_board) if state.full_board else list(state.board)
+        # `revealed` is the ACTUALLY-revealed board (0/3/4/5 cards by street
+        # reached) — the only correct signal for "did this seat see a flop".
+        # `self.board` (full runout) is display-only; using it for saw_flop
+        # is always-true and silently turns a preflop steal into a WWSF hit.
+        self.revealed = list(state.board)
         self.seats = {s.seat: s for s in state.seats}
         self.pos_of = {s.seat: s.position for s in state.seats}
         # THE TRAP: position -> seat is per-hand only. Button rotates every
@@ -83,10 +147,30 @@ class Hand:
         self.final_street = state.street
 
 
-def load(session_id: str) -> tuple[dict[int, str], list[Hand], int]:
-    """Seat->persona map + every hand whose state_json validates (NEW vs
-    the reference: skip-on-failure instead of raw json.loads)."""
-    with Session(engine) as db:
+def load(
+    session_id: str,
+    max_hand_no: int | None = None,
+    db_path: Path | None = None,
+) -> tuple[dict[int, str], list[Hand], int]:
+    """Seat->persona map + every hand whose state_json validates AND is
+    settled (NEW vs the reference: skip-on-failure instead of raw
+    json.loads; also skip hands persisted mid-hand — state_json is written
+    at every decision point, not just at settlement (sim_session.py:845),
+    so a row can be `hand_over=False` and would otherwise pollute every
+    denominator with a hand whose net is silently 0).
+
+    `max_hand_no` caps to `hand_no <= max_hand_no` — a live session keeps
+    growing under a concurrent writer, so this is the only way to pin a
+    reproducible analysis to a known-size corpus (e.g. "the 181-hand
+    session"). `db_path` defaults to `resolve_db_path(None)` — a DB file
+    this tool reads can be swapped/archived out from under a session, so a
+    per-call engine (never the shared `app.db.session.engine` singleton)
+    is required for `--db`/`POKER_COACH_DB` to actually take effect."""
+    db_path = db_path or resolve_db_path(None)
+    local_engine = create_engine(
+        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
+    )
+    with Session(local_engine) as db:
         seat_rows = db.exec(select(SimSeat).where(SimSeat.session_id == session_id)).all()
         seats = {r.seat_index: (r.persona_type or "HERO") for r in seat_rows}
 
@@ -94,6 +178,8 @@ def load(session_id: str) -> tuple[dict[int, str], list[Hand], int]:
             select(SimHand).where(SimHand.session_id == session_id)
         ).all()
 
+    if max_hand_no is not None:
+        hand_rows = [r for r in hand_rows if r.hand_no <= max_hand_no]
     hand_rows = sorted(hand_rows, key=lambda h: h.hand_no)
     hands: list[Hand] = []
     n_skipped = 0
@@ -106,6 +192,10 @@ def load(session_id: str) -> tuple[dict[int, str], list[Hand], int]:
         except Exception as exc:  # no version field on state_json; skip malformed rows
             n_skipped += 1
             print(f"skip hand {row.hand_no}: {type(exc).__name__}: {exc}", file=sys.stderr)
+            continue
+        if not state.hand_over:
+            n_skipped += 1
+            print(f"skip hand {row.hand_no}: not hand_over (persisted mid-hand)", file=sys.stderr)
             continue
         hands.append(Hand(row, state))
     return seats, hands, n_skipped
@@ -234,12 +324,13 @@ def hand_block(
     return "\n".join(lines)
 
 
-def stats_for(seat_list, seats, hands, replays, nets):
+def stats_for(seat_list, seats, hands, replays, nets, shows):
     """Compute standard poker tracking stats for a set of seats."""
     st: dict[str, float] = defaultdict(float)
     per_pos: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     for h in hands:
         acts = replays[h.hand_no]
+        hand_showdown = shows.get(h.hand_no, [])
         for seat in seat_list:
             if seat not in h.seats:
                 continue
@@ -280,9 +371,13 @@ def stats_for(seat_list, seats, hands, replays, nets):
                     st["call_vs_raise"] += 1
                 else:
                     st["fold_vs_raise"] += 1
-            # postflop
+            # postflop — use the ACTUALLY-revealed board, never the full
+            # runout (h.board), which is always 5 cards even on a fold-out.
+            # No `and vpip` term: canon (test_personas_postflop.py:1908-1916)
+            # counts any live seat that sees the flop, including one that is
+            # all-in from a posted blind with no voluntary preflop action.
             saw_flop = any(a["street"] == "flop" for a in mine) or (
-                h.seats[seat].status != "folded" and len(h.board) >= 3 and vpip
+                h.seats[seat].status != "folded" and len(h.revealed) >= 3
             )
             if saw_flop:
                 st["saw_flop"] += 1
@@ -311,12 +406,12 @@ def stats_for(seat_list, seats, hands, replays, nets):
                         st[f"{street}_faced_bet"] += 1
                         if a["action"] == "fold":
                             st[f"{street}_fold_vs_bet"] += 1
-            if h.seats[seat].status != "folded" and len(h.board) == 5:
-                # reached the end alive on a full board
-                if any(a["street"] == "river" for a in mine) or h.final_street == "river":
-                    st["wtsd_num"] += 1
-                    if nets[h.hand_no].get(seat, 0) > 0:
-                        st["wsd_win"] += 1
+            # WTSD = actually compared hands at showdown (settle()'s own
+            # showdown_seats, not "reached the river uncontested").
+            if seat in hand_showdown:
+                st["wtsd_num"] += 1
+                if nets[h.hand_no].get(seat, 0) > 0:
+                    st["wsd_win"] += 1
     return st, per_pos
 
 
@@ -330,6 +425,13 @@ def stats_block(st: dict, per_pos: dict) -> str:
     fr = st["faced_raise"]
     lines = [
         "## Tracking stats",
+        "",
+        "> **Stat status** (`docs/ai-dlc/contracts/persona-realism-theory-contract.md` §5):"
+        " **AF, Fold-to-C-bet aggregate, WTSD** are HARD-today, but only as a *pool-level*"
+        " number — no source certifies the per-archetype band edges, which stay DIRECTIONAL."
+        " **VPIP/PFR** are HARD-pending. **WWSF and W$SD carry no certified band at all.**"
+        " Targets are DIRECTIONAL; no §5 number is a CI gate before the Wave-4 re-measure —"
+        " do not read a PASS/FAIL verdict off any row below against an invented band.",
         "",
         "| Stat | Value | n |",
         "|---|---|---|",
@@ -388,10 +490,26 @@ def stats_block(st: dict, per_pos: dict) -> str:
     return "\n".join(lines)
 
 
-def build_packets(session_id: str, seats, hands, replays, settles):
+def build_packets(
+    session_id: str,
+    seats,
+    hands,
+    replays,
+    settles,
+    n_skipped: int = 0,
+    max_hand_no: int | None = None,
+    db_path: Path | None = None,
+):
     """Returns (summary_markdown, {persona: packet_markdown})."""
     nets = {k: v[0] for k, v in settles.items()}
     shows = {k: v[1] for k, v in settles.items()}
+
+    db_path = db_path or resolve_db_path(None)
+    bound_text = f"hand_no <= {max_hand_no}" if max_hand_no is not None else "unbounded"
+    provenance = (
+        f"> Provenance: session `{session_id}` · {bound_text} · "
+        f"db=`{db_path.name}` · tool SHA `{_git_sha()}`"
+    )
 
     by_persona: dict[str, list[int]] = defaultdict(list)
     for s, p in seats.items():
@@ -400,7 +518,7 @@ def build_packets(session_id: str, seats, hands, replays, settles):
     summary_rows = []
     packets: dict[str, str] = {}
     for persona, seat_list in sorted(by_persona.items()):
-        st, per_pos = stats_for(seat_list, seats, hands, replays, nets)
+        st, per_pos = stats_for(seat_list, seats, hands, replays, nets, shows)
         played, folded = [], []
         for h in hands:
             for seat in seat_list:
@@ -442,6 +560,8 @@ def build_packets(session_id: str, seats, hands, replays, settles):
             [
                 f"# {title} — every hand from session {session_id}",
                 "",
+                provenance,
+                "",
                 f"Seats occupied by this persona: {sorted(seat_list)} "
                 f"(9-max table, button rotates each hand).",
                 f"Hands where this persona voluntarily put money in: **{len(played)}**. "
@@ -472,11 +592,19 @@ def build_packets(session_id: str, seats, hands, replays, settles):
             f"{pct(st['wtsd_num'], st['saw_flop'])} |"
         )
 
+    bound_note = (
+        f"PINNED to hand_no <= {max_hand_no}"
+        if max_hand_no is not None
+        else "UNBOUNDED — includes every hand currently in this session"
+    )
     summary = "\n".join(
         [
-            f"## Per-persona summary — session {session_id} ({len(hands)} hands)",
+            f"## Per-persona summary — session {session_id} "
+            f"({len(hands)} hands, {n_skipped} skipped, {bound_note})",
             "",
-            "| persona | VPIP | PFR | 3bet | limp | WWSF | WTSD |",
+            provenance,
+            "",
+            "| persona | VPIP | PFR | 3bet+ | limp | WWSF | WTSD |",
             "|---|---|---|---|---|---|---|",
             *summary_rows,
         ]
@@ -497,20 +625,42 @@ def main() -> None:
         help="directory to write one markdown packet per persona (+ a summary). "
         "Omit to print everything to stdout instead.",
     )
+    parser.add_argument(
+        "--max-hand-no",
+        type=int,
+        default=None,
+        help="cap to hand_no <= N — pins the analysis to a fixed-size corpus even "
+        "if the session is still live and growing under a concurrent writer.",
+    )
+    parser.add_argument(
+        "--db",
+        type=str,
+        default=None,
+        help="path to the sqlite DB file to read. Defaults to $POKER_COACH_DB, then "
+        "the live app's DB (app.db.session.DB_PATH). A DB file can be swapped or "
+        "archived out from under a session, so pass this explicitly for reproducibility.",
+    )
     args = parser.parse_args()
 
-    seats, hands, n_skipped = load(args.session)
+    db_path = resolve_db_path(args.db)
+    seats, hands, n_skipped = load(args.session, max_hand_no=args.max_hand_no, db_path=db_path)
     if not hands:
-        print(f"no hands found for session {args.session!r} (skipped {n_skipped})", file=sys.stderr)
+        print(
+            f"no hands found for session {args.session!r} in {db_path} (skipped {n_skipped})",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
     replays = {h.hand_no: replay(h) for h in hands}
     settles = {h.hand_no: settle_hand(h) for h in hands}
 
-    summary, packets = build_packets(args.session, seats, hands, replays, settles)
+    summary, packets = build_packets(
+        args.session, seats, hands, replays, settles, n_skipped, args.max_hand_no, db_path
+    )
 
     if n_skipped:
-        print(f"skipped {n_skipped} hand(s) with unparseable state_json", file=sys.stderr)
+        # per-hand reasons already printed by load(); this is the roll-up.
+        print(f"skipped {n_skipped} hand(s) total (see above for reasons)", file=sys.stderr)
 
     if args.out:
         args.out.mkdir(parents=True, exist_ok=True)
