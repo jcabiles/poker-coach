@@ -651,6 +651,14 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       ⚠️ **Two follow-ups opened by this slice, both still live:**
       **(1) W5-a2-f — demote the fold-to-c-bet and AF HARD gates.** Deferred, not dropped:
       `backend/tests/test_personas_postflop.py` was owned by a concurrent slice. **Must land before W4-b.**
+      ⚠️ **COLLISION WITH W5-a4 (found 2026-07-25 at review, flagged by neither slice).** W5-a4 retires the
+      absolute-level α ceiling on the uniform-range aggregate and **re-homes it onto exactly this
+      `BANDS` / `test_persona_postflop_bands` fold-to-c-bet HARD gate**. If a2-f then demotes that gate to
+      no-regression, the **absolute** fold-to-c-bet ceiling is gated **nowhere** — a2-a4 in sequence silently
+      deletes coverage that neither slice's own delta reports as lost. **a2-f must name where the absolute ceiling
+      lands before it demotes anything.** The *price-response* half is unaffected: it lives in
+      `test_fold_to_bet_monotone_in_faced_size`, which W5-a4 leaves byte-identical on the original uniform fixture
+      (verified at review).
       **(2) CONTRACT-DEFECT (HIGH, §11 item 15)** — §5a shipped its format-SENSITIVE/INVARIANT lists as
       *unsourced assertions*. Putting AF on the INVARIANT list is itself a transfer claim made with no citation:
       ledger #14's error one level up (an unsourced *licence to transfer*, rather than an unsourced number). It
@@ -826,18 +834,33 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       the PFR target breaks the gap row. **Character over number**; the residual belongs in `vs_rfi` / `vs_limpers`
       (**W5-b2** / **W5-b4**), not in a wider open.
       **⚠️ RED BASELINE (owner-visible, 2026-07-25).** This slice merged with the suite at **10 failed / 1055
-      passed / 1 skipped**, all outside its own file scope. Root cause is a **parallel-merge hazard, not a defect in
-      either slice**: PR #118 (W5-a3-iii) added assertions fitted to the *pre-widening* packs and PR #119 then
-      widened them; the two were built concurrently so neither PR's checks saw the other. Failing:
+      passed / 1 skipped** in a full-suite run (**11** if any subset is run — see the throughput note below), all
+      outside its own file scope. Root cause is a **parallel-merge hazard, not a defect in either slice**: PR #118
+      (W5-a3-iii) added assertions fitted to the *pre-widening* packs and PR #119 then widened them; the two were
+      built concurrently so neither PR's checks saw the other. Failing:
       `test_coverage_baseline`, `test_grade_map_turn_river::test_bot_driven_turn_barrel_grades_on_standard_open`,
       `test_limper_coverage_belt`, `test_personas::test_persona_stat_bands[nit|tag|lag]`,
       `test_personas_postflop::test_persona_stats_byte_identical_after_log_refactor` (calling_station AF 0.3974 vs
       golden 0.3788), `test_personas_postflop::test_street_aggressions_effect_visible_to_af_gate` (AF drop 0.368 vs
       a demanded 0.5), `test_range_estimate::test_four_bet_line_strict_subset_and_hand_computed_posterior`,
-      `test_w3r1_preflop_cleanup::test_lag_sb_no_open_limp[J9o]`.
-      **`test_persona_stat_bands` is the one NON-mechanical entry** — it gates **authored width** against
-      **population PFR** targets, which are different quantities; the ruled re-scope to measured authored width did
-      not land here. **Process note:** the authored→PFR conversion is **not linear** — measured ×0.50–0.54 at narrow
+      `test_w3r1_preflop_cleanup::test_lag_sb_no_open_limp[J9o]`, and
+      `test_personas_postflop::test_table_texture_9max_live_lineup`.
+      **TWO non-mechanical entries, not one:**
+      **(1) `test_persona_stat_bands`** gates **authored width** against **population PFR** targets, which are
+      different quantities; the ruled re-scope to measured authored width did not land here.
+      **(2) `test_table_texture_9max_live_lineup`** — `limper rate 48.87%` against a `> 0.50` floor. **BISECTED
+      2026-07-25: PASSES at `c8a535e` (#118), FAILS at `930eb20` (#119), isolated conditions identical.** It is a
+      direct deterministic consequence of the widening — wider opens mean more raising and less limping, so the
+      limped-pot rate falls — **not noise**. ⚠️ **Two independent agents dismissed it as noise on the same
+      methodological error**: each compared against `main` with its own change stashed, which shows only that *their*
+      change didn't cause it, since `main` already contains #119. **Bisect to the introducing commit; never infer
+      "pre-existing noise" from a stash-comparison.** Its N is throughput-derived via the `budget` fixture, which is
+      why it surfaces in a subset run but not the full suite — that affects *when you see it*, not whether it is
+      real. Adjudicate as a W3R-1 question: either the 50% floor was calibrated to the old too-tight ranges and needs
+      **re-deriving with provenance**, or the widening overshot. Note it misses by only **1.1pp**, and the same
+      test's neighbouring `avg_players_to_flop` floor has already been re-derived twice (2.8→2.4→2.3) for related
+      reasons — read that history first. **Nudging the floor to 0.48 is the W3R-1 violation, not the fix.**
+      **Process note:** the authored→PFR conversion is **not linear** — measured ×0.50–0.54 at narrow
       widths falls to **×0.35 (nit) / ×0.34 (lag)** at the new widths, because wider opens mean more seats arrive
       already facing a raise. Do **not** derive a band by dividing a §5 PFR target by 0.50–0.54.
       **Green-up ownership is an open decision** (see W5-b2's entry). No threshold in the failing list may be
