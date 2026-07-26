@@ -41,7 +41,7 @@ that the review's headline arrival numbers become reproducible from the harness.
 | **T-EXPORT** | `backend/tools/export_session.py` (NEW) · `backend/tools/__init__.py` (NEW — sole owner) |
 | **T-STACK** | `backend/app/services/sim_session.py` · `backend/tests/test_sim_session_buyin_cap.py` (**rewrite**) |
 | **T-ARR** | `backend/tests/test_personas_postflop.py` (`_persona_stats_ext`, `HandResult`, `_play_hand` capture site) |
-| **T-REJECT** | `backend/app/domain/table/grade_map_reject.py` (NEW) · `backend/tools/reject_counts.py` (NEW) · `backend/tests/test_grade_map_reject.py` (NEW) |
+| **T-REJECT** | `grade_map_reject.py` (NEW) · `tools/reject_counts.py` (NEW) · `tests/test_grade_map_reject.py` (NEW) · **`grade_map_postflop.py`** (owner decision B1) · `tests/test_domain_purity.py` |
 | **T-TRACE** | `backend/tests/node_trace.py` · `backend/tests/test_node_trace.py` |
 | **T-ANCHOR** | `backend/app/domain/personas_postflop.py` (lines 825–871 only) · `backend/tests/test_personas_postflop.py` (new test only) |
 | **T-STICKY** | `backend/app/domain/content/models.py` · `content/personas/{passive_fish,calling_station}.json` · `backend/tests/test_personas_postflop.py` (mechanical fixes only) |
@@ -222,6 +222,21 @@ Wave A is done when all of the following hold on one branch:
 10. Zero `BANDS` edits in the diff.
 
 ---
+
+## Owner decisions — 2026-07-26 (post-review, binding)
+
+- **B1 — T-REJECT: refactor the gates to report a reason.** The shared gate predicates in
+  `grade_map_postflop.py` gain a **typed internal diagnostic** read by both the live mappers and the new
+  classifier; **public mapper signatures stay `Spot | None`**. Rejected alternatives: coarse reasons with a
+  large unclassified bucket (would swallow most of the 62 and defeat the purpose), and dropping T-REJECT
+  from the wave (loses the before/after window while the bots are still changing). Consequence: T-REJECT
+  now owns a shared file, byte-identity becomes test-enforced rather than structural, and its primary
+  tripwire is that **none of the six mapper test files should need an edit**.
+- **Build mode — parallel where the DAG allows.** Run the genuinely independent tickets concurrently
+  (`T-EXPORT`, `T-TRACE`, `T-REVIEWER`, and `T-REJECT` — which touches nothing else in the wave), then
+  **serialise the fixture-touching chain T-STACK → T-ANCHOR → T-STICKY**, with `T-ARR` merging after
+  T-ANCHOR. ⚠️ The forced serialisation is not optional: parallel agents re-recording the same seeded
+  fixtures is exactly what produced the broken `main` this wave had to wait on (#118/#119).
 
 ## Open questions carried into tickets
 

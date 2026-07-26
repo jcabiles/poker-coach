@@ -170,8 +170,9 @@ change. Use bands.
 widening is prioritized off measured counts instead of anecdote.
 
 **Owned files:** `backend/app/domain/table/grade_map_reject.py` (NEW) · `backend/tools/reject_counts.py`
-(NEW) · `backend/tests/test_grade_map_reject.py` (NEW). **Does not create `backend/tools/__init__.py`** —
-T-EXPORT owns it. **Edits no existing file.**
+(NEW) · `backend/tests/test_grade_map_reject.py` (NEW) · **`backend/app/domain/table/grade_map_postflop.py`
+(added by owner decision B1 — the gate-diagnostic refactor)** · `backend/tests/test_domain_purity.py`
+(add `grade_map_reject` to the module list). **Does not create `backend/tools/__init__.py`** — T-EXPORT owns it.
 
 **⚠️ Taxonomy correction — `grade_map_postflop.py`'s own module docstring is STALE.** It claims "ONLY the
 HU single-raised-pot continuation line," but HEAD ships **19 postflop mappers** including nine `map_mw_*`
@@ -197,9 +198,10 @@ cd backend && python -m tools.reject_counts --session adaadc548d6f499c965821a617
 `sum(reason counts) == 62` · **`UNCLASSIFIED == 0`**. Record the observed street × reason matrix in the
 completion note — `T-cover` is scoped off it.
 
-**No-gos:** do not widen any mapper · **do not change what `map_decision_point` returns** (if you find
-yourself adding an out-param or tuple return, the design has been abandoned) · no `spot_signature()`
-contact · `app/domain/` purity must hold.
+**No-gos:** do not widen any mapper · **do not change any PUBLIC mapper signature** — `map_decision_point`
+and every `map_*` keep returning `Spot | None`; the typed diagnostic is INTERNAL to the gate predicates ·
+no `spot_signature()` contact · `app/domain/` purity must hold (and must now be *enforced* — add the new
+module to `test_domain_purity.py`'s fixed list, or the check silently skips it).
 
 **Trap:** coding the taxonomy from the prose instead of from HEAD, emitting `MULTIWAY` and `LIMPED_POT` as
 reasons. That buckets ~all 62 into two useless bins and `T-cover` gets scoped off a fiction. **First commit
@@ -209,7 +211,29 @@ must be a read of the live mapper list, pasted into the PR description.**
 list**. It will not import `grade_map_reject.py` unless the name is added explicitly — so the "stays pure"
 claim is unenforced by default. **Add the module to that list in this ticket.**
 
-> ### ⛔ T-REJECT is BLOCKED on two unresolved design findings (Codex Sol, HIGH)
+> ### ✅ B1 RESOLVED — OWNER DECISION 2026-07-26: refactor the gates to report a reason
+>
+> **Chosen shape:** change the shared gate predicates in `grade_map_postflop.py` to return a **typed
+> internal diagnostic** consumed by *both* the live mappers and the new classifier, while every
+> **public mapper signature stays `Spot | None`** so no caller changes. One source of truth ⇒ the reason
+> counts cannot drift from what the grader actually does, which is the failure mode that would make this
+> measurement worthless six months out.
+>
+> **Consequences to the ticket, applied below:**
+> - **`backend/app/domain/table/grade_map_postflop.py` is now an OWNED file.** The earlier "edits no
+>   existing file" no-go is **withdrawn** — it was incompatible with a no-drift classifier and also
+>   contradicted this ticket's own instruction to fix the stale module docstring.
+> - Byte-identity for existing callers is no longer structural; it must now be **test-enforced**. Add an
+>   explicit assertion that `map_decision_point` returns exactly what it did before the refactor across
+>   the 181-hand corpus (the B2 parity assertion below already supplies the vehicle).
+> - Six test files reference these mappers (`test_grade_map_flop_facing.py`, `test_grade_map_turn_river.py`,
+>   `test_mw_funnel_belt.py`, `test_mw_hero_seat_widening.py`, `test_apply_multiway_opp.py`,
+>   `test_sim_postflop_sizing.py`). None should need edits — **if one does, the public contract moved and
+>   the refactor is wrong.** That is this ticket's primary tripwire.
+> - This becomes the second-largest ticket in the wave. It still parallelises safely: no other Wave A
+>   ticket touches `grade_map_postflop.py` or anything under `app/domain/table/`.
+>
+> ### ⛔ B2 remains — a specification addition, not a fork (do this as part of the ticket)
 >
 > **B1 — "edits no existing file" is incompatible with no-drift classification.** The reusable gates
 > discard the information the taxonomy needs: `_hu_srp_preflop` (`grade_map_postflop.py:191-221`) returns
