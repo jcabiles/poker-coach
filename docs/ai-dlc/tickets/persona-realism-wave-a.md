@@ -17,22 +17,22 @@ Spec: `docs/ai-dlc/specs/persona-realism-wave-a.md` · Contracts: `docs/ai-dlc/c
 > on merged `main` before any edit.**
 
 ```
-        (merge #121–#124 first — main is red)
-                      │
-T-EXPORT ──┬──► T-REJECT            (T-EXPORT owns backend/tools/__init__.py)
-           │                        (T-REJECT also BLOCKED on decision B1 below)
-T-STACK ───┴──► T-ANCHOR ──► T-STICKY
-   ▲              (serial spine; SHARED-FIXTURE ordering — see below)
-   └── lands + re-records fixtures FIRST
+PARALLEL GROUP (no shared files — run concurrently)
+  T-EXPORT ──► T-REJECT      (T-EXPORT owns backend/tools/__init__.py;
+  T-TRACE                     T-REJECT now also owns grade_map_postflop.py — B1)
+  T-REVIEWER
 
-T-TRACE        (fully independent — clean file, no contention)
+SERIAL CHAIN (all re-record the SAME seeded fixtures — never parallel)
+  T-STACK ──► T-ANCHOR ──► T-STICKY
+     └─ lands + re-records FIRST, then T-ANCHOR re-records on top
 
-T-ARR          (independent logic, but shares test_personas_postflop.py — merge after T-ANCHOR)
-
-T-REVIEWER     (docs only, any time)
+  T-ARR      independent logic, but shares test_personas_postflop.py
+             — build any time, MERGE after T-ANCHOR
 ```
 
-**Parallel-safe:** `{T-EXPORT, T-TRACE, T-REVIEWER}` may run concurrently. `T-REJECT` follows T-EXPORT.
+**Build mode — owner decision 2026-07-26: parallel where the DAG allows.** `{T-EXPORT, T-TRACE,
+T-REVIEWER}` run concurrently; `T-REJECT` follows T-EXPORT (it touches nothing else in the wave, so it
+parallelises against the serial chain). The serial chain is **not** optional — see below.
 
 **⚠️ T-STACK → T-ANCHOR is now FORCED (added post-review).** Both move the *same* seeded fixtures
 (`_GOLDEN_STATS_N200`, `coverage_baseline.json`, limper belt) — T-STACK via the SPR-distribution shift,
@@ -41,11 +41,10 @@ first already moved and the anti-laundering delta becomes unattributable — **t
 produced today's red `main`** (#118 and #119 built concurrently, neither seeing the other). T-STACK
 lands and re-records first; T-ANCHOR re-records on top; each reports its own delta separately.
 
-**T-ANCHOR tripwire caveat while main is red:** the frozen golden
-`test_persona_stats_byte_identical_after_log_refactor` is **already failing** (calling_station AF
-`0.3973509933774834` vs golden `0.3788300835654596`), so its red/green state cannot discriminate "my
-change broke it" from "already broken." The two *bluff-ordering* tests are unaffected — both reviewers
-confirmed they currently pass and are mechanically immune, so the primary T-ANCHOR tripwire still holds.
+**T-ANCHOR tripwire — now fully usable.** The frozen golden
+`test_persona_stats_byte_identical_after_log_refactor` was failing pre-merge and **now passes**, so its
+red/green state IS a valid discriminator again. Both bluff-ordering tests pass and are mechanically
+immune, so the primary inverted tripwire (any movement ⇒ double application) holds.
 
 **Wave-wide no-gos:** no `BANDS` edit · no Alembic migration (none needed) · no authored-strategy
 change (no range or lever-value edits) · no mapper widening · no closing on "the constant is in the code."
