@@ -2,6 +2,19 @@
 closed-loop full-hand harness against PRD §8 bands and a live-table-texture
 check. Spec: docs/ai-dlc/specs/simulate-s4.md.
 
+⚠️ STALE BUDGET CLAIM, corrected 2026-07-26 (T-ARR). The "<=12s" figure below
+is NO LONGER TRUE and has not been for some time: measured at HEAD immediately
+BEFORE this ticket's edit, the whole file runs in **76.37s** (193 passed, 1
+skipped). T-ARR's arrival counters added **+1.73s** (78.10s, 195 passed, 1
+skipped) — the counters ride the existing `_play_hand`/`_persona_stats_ext`
+loops and open no second simulation. (Both of those readings were taken
+like-for-like under concurrent load, so +1.73s is the trustworthy figure; the
+same post-change run on a quiet tree reads 75.73s.) The 12s number is left in place below only
+because `_derive_n`'s `budget_s = 9.5` is DERIVED from it and is load-bearing:
+that constant sizes N, and changing it would move every seeded band and golden
+in this file. Treat 12s as a historical derivation input, not as a live budget;
+re-deriving the real one is its own slice.
+
 Budget derivation (refuter-pinned): whole file must add <=12s to the suite.
 At the spec's measured engine throughput (~430 hands/s, sticky-policy floor;
 91% of apply() cost is pydantic deep-copy) the frozen allocation is
@@ -36,7 +49,7 @@ import pytest
 
 from app.domain.action import Decision
 from app.domain.archetypes import VillainType
-from app.domain.spot import ActionType, PlayerStatus, Street
+from app.domain.spot import ActionType, PlayerStatus, Position, Street
 from app.domain.table.deck import deal_hand
 from app.domain.table.engine import apply, legal_actions, settle, start_hand
 
@@ -1830,7 +1843,7 @@ class PostflopDecision(NamedTuple):
 class HandResult(NamedTuple):
     """`_play_hand` return. `log`/`saw_flop`/`settlement` drive the existing
     (byte-identical) AF/FtC/WTSD path; `decisions`/`preflop_log` feed the new
-    W0-b metrics."""
+    W0-b metrics; `preflop_nodes` feeds the T-ARR arrival counters."""
 
     state: object
     settlement: object
@@ -1840,6 +1853,13 @@ class HandResult(NamedTuple):
     had_3bet_plus: bool
     decisions: list  # list[PostflopDecision]
     preflop_log: list  # (seat, action) for the APPLIED preflop decision only
+    preflop_nodes: list  # T-ARR: (seat, position, facing) for each seat's
+    # FIRST preflop decision this hand — the ARRIVAL node. Deliberately NOT
+    # folded into `preflop_log` (whose 2-tuple shape `_preflop_aggressor` /
+    # `_hand_cbet_stats` unpack positionally) and deliberately first-decision-
+    # only: a seat's later preflop decisions are re-entries into a node it was
+    # already dealt into, so counting them would contaminate every cell (UTG
+    # would stop reading 1.000 `unopened`).
 
 
 def _in_position(state, seat: int) -> bool:
@@ -1876,6 +1896,8 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     log: list[tuple[int, str, str]] = []
     decisions: list[PostflopDecision] = []
     preflop_log: list[tuple[int, str]] = []
+    preflop_nodes: list[tuple[int, str, str]] = []
+    preflop_node_seen: set[int] = set()
     saw_flop: set[int] = set()
     had_limper = False
     had_3bet_plus = False
@@ -1898,6 +1920,13 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         seat_state = state.seats[seat]
         if state.street is Street.PREFLOP:
             facing = _preflop_facing(state)
+            # T-ARR: record the ARRIVAL node from the values the loop already
+            # computed (`facing` here, `seat_state.position` from the engine) —
+            # no re-derivation, and NO rng draw, so every seeded golden below
+            # stays byte-identical.
+            if seat not in preflop_node_seen:
+                preflop_node_seen.add(seat)
+                preflop_nodes.append((seat, seat_state.position.value, facing))
             if facing == "vs_limpers":
                 had_limper = True
             act = sample_preflop_action(
@@ -1989,6 +2018,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         had_3bet_plus=had_3bet_plus,
         decisions=decisions,
         preflop_log=preflop_log,
+        preflop_nodes=preflop_nodes,
     )
 
 
@@ -2009,10 +2039,16 @@ def _measure_throughput(packs) -> float:
 
 
 def _derive_n(hands_per_s: float) -> int:
-    """Frozen budget: whole file <=12s. Scale N DOWN only, floor at 150/persona
-    so the >=30-occurrence stat floors stay reachable (spec allocation:
-    600/persona x 6 + 1500 texture ~= 5100 hands at ~430 h/s ~= 11.8s)."""
-    budget_s = 9.5  # headroom under the 12s cap for the throughput probe itself
+    """Scale N DOWN only, floor at 150/persona so the >=30-occurrence stat
+    floors stay reachable (spec allocation: 600/persona x 6 + 1500 texture
+    ~= 5100 hands at ~430 h/s ~= 11.8s).
+
+    The "<=12s" budget this is derived from is STALE — the file measured 76.37s
+    at HEAD on 2026-07-26, see the module docstring. `budget_s` below is kept at
+    its historical value anyway: it sizes N, and every seeded band and golden in
+    this file was recorded at that N."""
+    budget_s = 9.5  # historical: headroom under the (now stale) 12s cap for the
+    # throughput probe itself
     # (60-hand probe + unit-test overhead + fixture/import cost, empirically
     # ~1.5-2s combined at this file's measured throughput)
     total_budget_hands = max(int(hands_per_s * budget_s), 900)
@@ -2335,6 +2371,32 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
 
 _BUCKETS = [b.value for b in personas_postflop.SizeBucket]
 
+# =====================================================================
+# T-ARR — preflop node-occupancy (ARRIVAL) counters.
+#
+# Nothing in this repo measured how often a seat actually REACHES a preflop
+# node, so a widened ladder that moved no aggregate could not be told apart
+# from a broken one (PR #119: the BTN `unopened` ladder was widened correctly
+# and changed almost nothing, because the BTN arrives at `unopened` ~8% of the
+# time). These counters are the instrument: per position x facing-node, the
+# share of a seat's FIRST preflop decision that lands there.
+#
+# Denominator: first-decision-per-seat-hand. A seat that acts again preflop
+# (facing a 3-bet, say) is NOT re-counted — it was already dealt into a node.
+# =====================================================================
+
+_POSITIONS = [p.value for p in Position]
+_FACINGS = ["unopened", "vs_limpers", "vs_rfi", "vs_3bet", "vs_4bet"]
+
+
+class NodeOccupancy(NamedTuple):
+    """Raw arrival counts, kept as counts (not shares) so several personas'
+    occupancies can be POOLED by addition — a share-only field would need
+    re-weighting by a denominator it no longer carries."""
+
+    hits: dict  # (position, facing) -> count
+    opps: dict  # position -> count (that position's first-decision total)
+
 
 class ExtStats(NamedTuple):
     cbet_flop: float | None  # #1 — aggressor-side: P(bet | preflop aggressor's
@@ -2349,6 +2411,7 @@ class ExtStats(NamedTuple):
     cbet_ip: float | None  # #5 — inherits #1's aggressor-side denominator
     cbet_oop: float | None
     turn_barrel: float | None  # #6 — reads ~flat until W3-c
+    occupancy: NodeOccupancy  # T-ARR — arrival counts for this persona's seats
 
 
 _STATS_EXT_CACHE: dict[tuple[str, int], ExtStats] = {}
@@ -2500,10 +2563,18 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
     vpip_hands = pfr_hands = seat_hands = 0
     ftc_folds = dict.fromkeys(_BUCKETS, 0)
     ftc_opps = dict.fromkeys(_BUCKETS, 0)
+    node_hits: dict[tuple[str, str], int] = {}
+    node_opps: dict[str, int] = {}
 
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
         res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
+
+        # --- T-ARR arrival: which preflop node this persona's seats land in ---
+        for seat, position, facing in res.preflop_nodes:
+            if seat in tested_seats:
+                node_hits[(position, facing)] = node_hits.get((position, facing), 0) + 1
+                node_opps[position] = node_opps.get(position, 0) + 1
 
         # --- VPIP / PFR / gap (once per tested seat-hand, applied actions) ---
         seat_hands += len(tested_seats)
@@ -2587,9 +2658,57 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
         cbet_ip=_rate(cbet_ip_bets, cbet_ip_opps),
         cbet_oop=_rate(cbet_oop_bets, cbet_oop_opps),
         turn_barrel=_rate(barrel_bets, barrel_opps),
+        occupancy=NodeOccupancy(hits=node_hits, opps=node_opps),
     )
     _STATS_EXT_CACHE[key] = stats
     return stats
+
+
+# --------------------------------------------------------------------- T-ARR
+# Pooling + rendering for the arrival grid. All of it reads the ALREADY-MEMOIZED
+# `_persona_stats_ext` runs — there is no second simulation loop, so the grid
+# costs ~0 on top of the existing W0-b metric run at the same n.
+
+
+def _pooled_occupancy(packs, n: int) -> NodeOccupancy:
+    """Roster-pooled arrival counts: each persona's own seats, summed over the
+    six personas. Pooling is balanced at the roster level even though each
+    `_persona_stats_ext` lineup triples its tested persona — across the six
+    runs every persona occupies the same 9 of the 54 seat-slots."""
+    hits: dict[tuple[str, str], int] = {}
+    opps: dict[str, int] = {}
+    for persona in ALL_PERSONAS:
+        occ = _persona_stats_ext(packs, persona, n).occupancy
+        for key, v in occ.hits.items():
+            hits[key] = hits.get(key, 0) + v
+        for pos, v in occ.opps.items():
+            opps[pos] = opps.get(pos, 0) + v
+    return NodeOccupancy(hits=hits, opps=opps)
+
+
+def _occupancy_shares(occ: NodeOccupancy) -> dict[str, dict[str, float]]:
+    """position -> facing -> share of that position's FIRST preflop decisions.
+    A position with no first decisions at all reads 0.0 across its row."""
+    return {
+        pos: {
+            f: (occ.hits.get((pos, f), 0) / occ.opps[pos]) if occ.opps.get(pos) else 0.0
+            for f in _FACINGS
+        }
+        for pos in _POSITIONS
+    }
+
+
+def _format_occupancy(occ: NodeOccupancy) -> str:
+    """The 9x5 grid, rendered — this is the artifact the initiative reads."""
+    shares = _occupancy_shares(occ)
+    lines = ["", "pos   " + "".join(f"{f:>12s}" for f in _FACINGS) + f"{'n':>8s}"]
+    for pos in _POSITIONS:
+        row = "".join(f"{shares[pos][f]:12.3f}" for f in _FACINGS)
+        lines.append(f"{pos:6s}{row}{occ.opps.get(pos, 0):8d}")
+    total = sum(occ.opps.values())
+    wide = sum(occ.hits.get((p, 'unopened'), 0) for p in _POSITIONS) / total if total else 0.0
+    lines.append(f"roster-wide unopened = {wide:.4f}  over {total} seat-decisions")
+    return "\n".join(lines)
 
 
 # Golden AF/FtC/WTSD at a fixed (persona, n) with the harness's own deterministic
@@ -2798,6 +2917,132 @@ def test_persona_stats_ext_all_metrics_compute():
         for r in (ext.cbet_flop, ext.wsd, ext.cbet_ip, ext.cbet_oop, ext.turn_barrel):
             if r is not None:
                 assert 0.0 <= r <= 1.0, f"{persona} rate out of [0,1]: {r}"
+
+
+# ======================================================= T-ARR — arrival tests
+# `_ARRIVAL_N` deliberately reuses the (persona, n) cache key that
+# `test_persona_stats_ext_all_metrics_compute` above already warms, so the whole
+# grid is free in a full-file run (it only pays for itself under `-k occupancy`).
+_ARRIVAL_N = 200
+
+
+def test_preflop_node_occupancy_records_only_the_first_decision_per_seat():
+    """The arrival denominator is first-decision-per-seat-hand. This is the
+    contamination guard: if a seat's LATER preflop decisions (facing a 3-bet,
+    say) were counted too, every cell in the grid would shift — most visibly
+    UTG, which can only ever ARRIVE at `unopened` but frequently re-decides
+    against a raise."""
+    packs = load_persona_packs()
+    rng = random.Random(4242)
+    persona_by_seat = {i: ALL_PERSONAS[i % len(ALL_PERSONAS)] for i in range(9)}
+    saw_a_reentry = False
+    for i in range(40):
+        res = _play_hand(rng, rng.randrange(1_000_000_000), i % 9, persona_by_seat, packs)
+        seats = [seat for seat, _pos, _facing in res.preflop_nodes]
+        assert len(seats) == len(set(seats)), f"seat recorded twice: {res.preflop_nodes}"
+        # Every recorded arrival must correspond to a real applied decision.
+        assert set(seats) == {seat for seat, _action in res.preflop_log}
+        if len(res.preflop_log) > len(seats):
+            saw_a_reentry = True
+    assert saw_a_reentry, (
+        "no hand in this sample had a seat act twice preflop -- the guard is "
+        "untested, so the fixture is not exercising the trap it exists for"
+    )
+
+
+def test_preflop_node_occupancy_arrival_grid():
+    """T-ARR: the instrument the initiative was missing. Per position, the share
+    of a seat's FIRST preflop decision landing in each facing node.
+
+    Bands, not goldens: all six personas share one rng stream, so a sibling
+    slice that touches no preflop logic still moves these by a point or two.
+    Only UTG's 1.000 is exact, and it is STRUCTURAL — UTG acts first after the
+    blinds (which enter `action_history` as POST, not CALL/RAISE), so it can
+    only ever arrive `unopened`."""
+    packs = load_persona_packs()
+    occ = _pooled_occupancy(packs, _ARRIVAL_N)
+    grid = _occupancy_shares(occ)
+    report = _format_occupancy(occ)
+    print(report)
+
+    assert grid["UTG"]["unopened"] == 1.0, (
+        f"UTG must ARRIVE unopened 100% of the time; got "
+        f"{grid['UTG']['unopened']:.4f} -- a reading below 1.0 means later "
+        f"preflop decisions were counted and EVERY cell is contaminated.{report}"
+    )
+
+    # The PR #119 finding in one number: the button's opening ladder was widened
+    # correctly and moved almost nothing, because the BTN rarely gets there.
+    assert 0.05 <= grid["BTN"]["unopened"] <= 0.12, (
+        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.05, 0.12]{report}"
+    )
+
+    total = sum(occ.opps.values())
+    roster_wide_unopened = sum(occ.hits.get((p, "unopened"), 0) for p in _POSITIONS) / total
+    # ------------------------------------------------------------------
+    # PROVENANCE of [0.30, 0.36] — read this before touching the numbers.
+    # Calibrated 2026-07-26 (T-ARR, owner-adjudicated). This is a NEW
+    # instrument's first calibration, NOT a band widened to rescue a failing
+    # test — the distinction is the whole point of this wave, so it is written
+    # down rather than left to inference.
+    #
+    # 1. MEASURED, and stable across n. Roster-pooled `unopened` arrival:
+    #        n=200 -> 0.3238 · n=400 -> 0.3250 · n=600 -> 0.3260
+    #    It CONVERGES (~+0.001 per +200 hands, settling near 0.325) rather
+    #    than wandering, so 0.325 is a real property of today's roster, not a
+    #    sample. The band is centred there.
+    #
+    # 2. DENOMINATOR — deliberately tested-seats, matching the ticket's
+    #    mechanism section (the counters live in `_persona_stats_ext`, which is
+    #    per-persona by construction). Both readings were taken:
+    #        tested-seats 0.3238 · all-seats 0.3347
+    #    The all-seats variant was REJECTED even though it happens to clear the
+    #    originally-drafted floor: switching which decisions get counted in
+    #    order to pass an assertion is the exact move this comment exists to
+    #    rule out, and it makes `occupancy` no longer a per-persona field.
+    #
+    # 3. LINEUP SENSITIVITY. Pooling hides a wide spread — the six per-lineup
+    #    readings at n=200 span 0.3027 (calling_station-heavy table) ..
+    #    0.3579 (maniac-heavy). Any quoted roster-wide figure is meaningless
+    #    unless `persona_by_seat` is pinned. `_pooled_occupancy` pins it by
+    #    summing all six `_persona_stats_ext` lineups, which is roster-balanced
+    #    (each persona holds 9 of the 54 seat-slots).
+    #
+    # 4. THE DRAFTED [0.33, 0.43] WAS NEVER A VALIDATED TARGET. It came from an
+    #    ad-hoc pre-ticket script that (a) never pinned `persona_by_seat` — see
+    #    point 3, which makes its 36% unreconstructible — and (b) counted the
+    #    OTHER denominator (~5384 seat-decisions over 600 hands ~= all 9 seats).
+    #    Re-running its own recipe here yields 0.3250, not 0.36. So nothing
+    #    measured was moved to accommodate a miss; an unsound number was
+    #    replaced by a reproducible one. This is also not a `BANDS` edit — that
+    #    structure is untouched by this ticket.
+    #
+    # 5. WIDTH covers SIBLING DRIFT, not measurement error. All six personas
+    #    share one rng stream, so a slice that changes no preflop logic still
+    #    moves occupancy a point or two (T-ANCHOR lands next wave and perturbs
+    #    exactly this stream). +/-0.03 absorbs that while staying tight enough
+    #    to trip on a real middle-position collapse.
+    #
+    # WHY THIS ASSERTION EXISTS AT ALL: the other three checks pin the top
+    # (UTG structurally 1.000), the bottom (BTN in [0.05, 0.12]) and the shape
+    # (monotone UTG->BTN). UTG1/UTG2/LJ are otherwise unguarded — they could
+    # collapse together with BTN still in band and monotonicity intact. This
+    # average is the only watch on that middle region, which is where Wave B's
+    # opening-ladder tuning lands.
+    # ------------------------------------------------------------------
+    assert 0.30 <= roster_wide_unopened <= 0.36, (
+        f"roster-wide unopened arrival {roster_wide_unopened:.4f} outside "
+        f"[0.30, 0.36] (calibrated at 0.325) -- read the provenance comment "
+        f"above before re-centring: a MIDDLE-position collapse (UTG1/UTG2/LJ) "
+        f"shows up here first and nowhere else{report}"
+    )
+
+    # Arrival at `unopened` can only decay as the seat acts later: every seat
+    # ahead is one more chance for the pot to be opened or limped into.
+    ladder = [grid[p]["unopened"] for p in ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")]
+    assert all(a >= b for a, b in zip(ladder, ladder[1:], strict=False)), (
+        f"`unopened` arrival is not monotone non-increasing UTG->BTN: {ladder}{report}"
+    )
 
 
 # ============================ W5-a3-i — metric #1 aggressor-side denominator ===
