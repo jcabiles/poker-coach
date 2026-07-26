@@ -152,6 +152,109 @@ and *partly* real new work (baseline preflop + all postflop are templated tautol
 
 ## NEXT — validated problems / opportunities (not yet spec'd)
 
+> 🔭 **Four items below (T-cover, T-agentcoach, T-oppo, T-blinddef) came out of the 2026-07-25 181-hand
+> review.** Owner flagged them as must-not-lose. Full evidence:
+> `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md` + `findings/HERO-findings.md`.
+>
+> ⛔ **SEQUENCING — OWNER DECISION 2026-07-25: FIX THE BOTS FIRST. These items are BLOCKED behind the
+> persona-realism remediation set.** The same review produced a bot-fix program filed as **R8** in
+> `roadmap/persona-realism.md` (`W-ARR` arrival instrumentation + the `N-*` NEXT items). That program is
+> **higher priority than everything in this block** and goes through `/roadmap-ai-dlc` first. Do **not** start
+> `T-agentcoach` — or pull any item here into NOW — until the bot-fix set has been planned and landed.
+>
+> Two independent reasons this order is correct, not arbitrary:
+> 1. **`T-agentcoach` coaches against the bots.** The roster currently scores **3–4/10** realism, and the
+>    review's own hero analysis had to caveat its bb/100 estimates for exactly that reason. An agent coach
+>    trained on unrealistic opponents teaches exploits that do not transfer — the failure mode the project's
+>    N2 principle already names ("teaching amplifies a wrong grade").
+> 2. **`T-cover`'s target is a moving one.** Persona-realism is *changing the distribution of spots the mapper
+>    must handle* (more limping, multiway, donk-leading, off-grid sizing). Widening the mapper against
+>    today's bot behaviour means re-widening it after the bots change. Wait for the bot distribution to settle.
+
+- **T-cover — "No baseline yet" is the dominant grader output, and the cause is the MAPPER, not the graders.**
+  *Evidence (measured, 181-hand session `adaadc548`):* **105 of 247** graded decisions (**42.5%**) returned
+  `coverage: unmappable` → the UI's "No baseline yet" (`simGrade.ts:24`, `SimDashboard.tsx`, `SimRecap.tsx`,
+  `HandReplay.tsx`, `SimPostflopChart.tsx` — it is on **five** surfaces). Postflop it is far worse: **4 of 66
+  graded = 6.1%**, with **turn 0/23** and **river 0/15**. The turn/river graders are **not** the problem —
+  S5–S8 are done and `providers/turn.py` / `providers/river.py` exist and are dispatched. The gate is
+  `backend/app/domain/table/grade_map_postflop.py`, which by its own docstring classifies **ONLY the HU
+  single-raised-pot continuation line** and returns `None` on **any** doubt. **Not one** of the session's 66
+  postflop decisions fit that shape — they were three-way, 3-bet pots, or limped pots. One hand (H6) *did*
+  pass the HU-SRP gate and still failed, because the fish donk-led three streets and donk/lead has no baseline.
+  *Candidate slices:* widen the mapper past HU-SRP — multiway · limped pots · 3-bet pots · donk/lead ·
+
+> ⚠️ **CORRECTION 2026-07-25 (verified against HEAD) — do NOT quote `grade_map_postflop.py`'s module
+> docstring; it is STALE.** It claims "ONLY the HU single-raised-pot continuation line," but HEAD ships
+> **19 postflop mappers**, including **nine multiway** (`map_mw_flop_cbet`, `map_mw_vs_turn_bet`,
+> `map_mw_caller_vs_river_bet`, …), **two limped-pot** (`map_limped_flop_lead`, `map_limped_flop_vs_lead`)
+> and `map_flop_vs_caller_raise`. Consequence: **"multiway" and "limped pot" are NOT rejection reasons** —
+> they are *supported shapes* that reject for some further reason. The measured 4/66 (turn 0/23, river 0/15)
+> is unchanged; the CAUSE is gate predicates, not absent mappers, and the reason distribution is **unknown
+> until `T-REJECT` measures it**. One structural hole is already confirmed: the limped-pot mappers are
+> **flop-only**, so every limped turn and river has no mapper at all. **Scope any widening from `T-REJECT`'s
+> observed matrix, never from prose.** (Fix the stale docstring while you are in there.)
+
+  **bet-fraction tolerance** (bot bets like `1.16`, `3.49`, `21.38` must currently land within **0.06bb** of a
+  recognized fraction; this already caused one regression where "bots never open 2.5" zeroed HJ/CO/BTN
+  coverage — `simulate-table.md:493`, filed as R5). Ship with per-reason rejection counters so the next dip is
+  attributable.
+  *Open questions:* which rejection reason to attack first (needs the counters); whether multiway gets a real
+  baseline or an explicit "multiway — not graded" tier distinct from "no baseline".
+  ⚠️ **Coupling — this is actively eroding.** `persona-realism` is making the bots limp, cold-call, donk-lead
+  and size off-grid *by design*. **Every persona-realism win starves this mapper further.** Counters are filed
+  there as `W-ARR-b`; the fix lives here.
+
+- **T-agentcoach — LLM-agent session coaching (EPIC-sized; owner-originated 2026-07-25).**
+  *Origin:* the owner read an agent-written analysis of his own 181-hand session and asked for it as a product
+  feature. **The target output shape is `findings/HERO-findings.md`** — read it before spec'ing; it is the
+  acceptance bar. That shape is: a level read · a stat-line table vs target ranges · **leaks ranked by
+  estimated bb/100** each with evidence hands and a concrete replacement action · an **opponent-specific
+  adjustment** section · honest strengths · and a "was the result skill or variance" decomposition.
+  *Why an agent and not more heuristics:* the highest-value findings were **cross-hand patterns no
+  per-decision grader can see**. Example: the same player bluffed 75% pot with ace-high **into a calling
+  station** (H77) and **checked back trip fours against that same station** (H107) — opposite-sign errors from
+  one cause (no opponent-type adjustment). Nothing that grades decisions independently can surface that.
+  *Foundation already shipped:* **N6** built the seam — `backend/app/services/coach.py`, Anthropic Claude API
+  behind a **swappable provider seam with a templated fallback** so tests and offline both work, key by env
+  var. This epic extends that seam; it does not invent a new one.
+  *Owner decisions locked 2026-07-25 (do not re-litigate):*
+  - **NARRATE ONLY.** The agent emits prose. It **must not** emit a correctness tier or an EV number. "No
+    baseline yet" remains the grade; the coaching appears **alongside** it. This preserves the invariant that
+    grading stays behind the one async `StrategyProvider`, keeps LLM output out of leak buckets and SRS
+    scheduling, and keeps EV credible. *(Full-verdict authority is a LATER bet — see "Bet: LLM verdict
+    authority".)*
+  - **Both shapes, sequenced.** **Phase 1 = session-level review** (one pass over the whole hand history →
+    the HERO-findings shape). **Phase 2 = per-spot backfill**, reusing the same agent/prompt to fill the
+    "No baseline yet" surfaces on demand. Phase 1 first — it establishes the prompt, the quality bar and the
+    persona context that Phase 2 reuses.
+  *Candidate slices:* session-transcript builder (the exporter written for the review is a working reference —
+  it reconstructs hole cards, positions, per-street action, made-hand category and showdown result, and
+  reconciles to each seat's stored `invested_total_bb`) · agent prompt + output contract · a rendered
+  session-review surface · Phase-2 per-spot path · cost/latency budget + caching.
+  *Open questions:* one call per session or map-reduce over hands (181 hands is a large context) · does the
+  review persist as a row or regenerate on demand · **the agent needs seat→persona to give opponent-specific
+  advice** — that is the same input `N-oppo` wants (see below), so build it once · privacy scope is wider than
+  N6's per-decision call (a whole session leaves the device; N6's precedent accepted per-hand data, this is a
+  larger disclosure and should be an explicit opt-in).
+
+- **T-oppo — opponent type as a grader input.** *Evidence:* across **all 142** reasoning texts in the session,
+  the words `station`, `fish`, `nit`, `maniac`, `lag`, `exploit` and `villain` appear **zero** times. The
+  advice would be identical against eight solvers. At a table where the entire edge is opponent-specific this
+  is the single largest quality gap in the existing feedback, and it is **currently filed nowhere**.
+  Concrete cost: the app graded the H77 ace-high bluff into a station and the H107 check-back of trips against
+  that same station without ever noticing the opponent. *Candidate slices:* thread seat persona into the
+  grading context; opponent-aware rationale selection. *Open question:* does this stay descriptive
+  ("this opponent rarely folds") or become prescriptive — the latter edges toward exploit-coaching, which the
+  persona roadmap treats as an owner-gated architecture line.
+
+- **T-blinddef — `blind_defense` endorses folding almost universally.** *Evidence:* it fired in ~21% of
+  blind-vs-raise spots (5 of ~24) and **endorsed a fold all 5 times**, including BB `KTo` (H35) and BB `87o`
+  (H152) — both routine defends. The user defends his big blind **1 hand in 13**; the coach confirmed that was
+  correct on every occasion it had an opinion. *Candidate slice:* re-author the `blind_defense` node rationale
+  + check the underlying range. *(Related: `_hand_category` mislabels — a flopped wheel straight came back
+  `draw` (H47), two pair on a four-flush paired board came back `strong` on all three streets (H6). The
+  postflop graders consume it. Grading **inputs** before grading prose.)*
+
 - **Onboarding + placement diagnostic.** *Evidence:* cold-start into a random spot; competent-novice deserves a seeded
   start; maps show the natural fit = seed `srs_item` rows via `record_attempt()` (no new table) + an "onboarded" flag.
   *Candidate slices:* first-run orientation; a short diagnostic; scoring→SM-2-seed mapping; needs N7 (path to seed into) +
@@ -177,6 +280,23 @@ and *partly* real new work (baseline preflop + all postflop are templated tautol
   2j multiway · 2k full-hand). *Confidence:* hi (well-sequenced in old roadmap) · **assumptions to test:** does 2f + its
   teaching move the primary metric (accuracy↑/EV-loss↓) enough to justify continuing the full engine build-out — or does the
   teaching layer alone capture most of the gain? · review-by: after 2f + teaching land.
+  > **OWNER DECISION 2026-07-25 — `T-agentcoach` IS the test of this bet.** This assumption was standing open with no
+  > experiment attached. It now has one: ship the LLM-agent session coach (NEXT → `T-agentcoach`), measure whether it
+  > moves accuracy / EV-loss, and let that result decide whether 2g–2k is ever built. If the teaching layer captures
+  > most of the gain, this bet closes unbuilt and five engine epics are saved. **Do not start 2g–2k before
+  > `T-agentcoach` has shipped and been measured.** Note the supporting evidence is already strong: the deterministic
+  > engine's *graders* for turn and river exist and work — they are simply never reached (`T-cover`), so the marginal
+  > value of *more graders* is unproven while the marginal value of *more reach* is demonstrated.
+
+- **Bet: LLM verdict authority** — let the agent coach emit a correctness tier, and much later an EV number, for spots
+  the heuristic mapper cannot grade. *Segment:* self + future learners · confidence: med ·
+  **owner decision 2026-07-25: "narrate only for now, full verdict much much later"** — `T-agentcoach` ships
+  narrate-only and this stays a bet. **Assumptions to test:** can an LLM tier be made reproducible enough to feed
+  leak buckets and SRS scheduling (both currently deterministic), and can an LLM EV be made credible enough to sit
+  next to engine EVs that the product promises are *approximate but principled*? **Blocking invariants to renegotiate
+  first:** grading stays behind the one async `StrategyProvider`; results are freq+EV never boolean; `spot_signature()`
+  is frozen. *Review-by:* after `T-agentcoach` Phase 1 has shipped and its prose quality has been judged in real use —
+  if the narration is not trusted, verdict authority is moot.
 - **Bet: solver-grade strategy (Phase 3)** — `SolverTableProvider` + `HybridProvider` on the same interface; revisit **2d
   equity-backed range advantage** (deferred — needs solver EV data). *Confidence:* med · review-by: after postflop breadth.
 - **Bet: live integration + mental game (Phase 4)** — live session logger, move-up readiness diagnostic, variance framing.
