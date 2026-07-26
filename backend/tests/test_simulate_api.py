@@ -181,7 +181,7 @@ def test_illegal_hero_action_returns_400(client):
     assert resp.status_code == 400
 
 
-def test_next_hand_carries_over_stacks_and_advances_button(client):
+def test_next_hand_resets_stacks_to_100bb_and_advances_button(client):
     create = client.post("/api/v1/simulate/session").json()
     session_id = create["session_id"]
     btn1 = create["hand"]["button_seat"]
@@ -194,9 +194,16 @@ def test_next_hand_carries_over_stacks_and_advances_button(client):
     hand2 = body["hand"]
     assert hand2["hand_no"] == 2
     assert hand2["button_seat"] == (btn1 + 1) % 9
-    # Carry-over: stacks reflect the previous hand's result, not a blanket
-    # reset to 100bb (a winner may legitimately hold >100bb).
-    assert any(seat["stack_bb"] != 100.0 for seat in hand2["seats"])
+    # T-STACK: hand 2 starts every seat at exactly 100bb. The view is mid-hand
+    # (blinds are posted and bots have acted up to the hero), so the *starting*
+    # stack is reconstructed as stack + what the seat has put in. Preflop is a
+    # single street, so invested_street_bb is the seat's whole commitment.
+    assert hand2["street"] == "preflop"
     for seat in hand2["seats"]:
-        assert seat["stack_bb"] >= 0.0
+        starting = round(seat["stack_bb"] + seat["invested_street_bb"], 2)
+        assert starting == 100.0
+    # ...and the reset did not zero the ledger: net_bb still carries hand 1's
+    # P&L, which sums to zero across the table.
+    assert any(seat["net_bb"] != 0.0 for seat in hand2["seats"])
+    assert round(sum(seat["net_bb"] for seat in hand2["seats"]), 2) == 0.0
     _assert_no_leaked_hole_cards(body)

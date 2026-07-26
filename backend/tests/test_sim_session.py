@@ -205,10 +205,12 @@ def test_bust_triggers_rebuy_and_2dp_ledger():
         showdown_seats=[0, 1],
     )
     sim_session._apply_settlement(seats, settlement)
-    # Seat 0 busted (0.45 < 1.0): rebuy to 100, buyins grow by 99.55.
+    # T-STACK: BOTH seats reset to 100 — the loser (0.45) is topped up by
+    # 99.55 and the winner (199.55) is racked off by 99.55, with buyins_bb
+    # absorbing each move so net_bb still reads -99.55 / +99.55.
     assert seats[0].stack_bb == 100.0
     assert seats[0].buyins_bb == 199.55
-    assert seats[1].stack_bb == 199.55 and seats[1].buyins_bb == 100.0
+    assert seats[1].stack_bb == 100.0 and seats[1].buyins_bb == 0.45
     for s in seats:
         assert s.stack_bb == round(s.stack_bb, 2)
         assert s.buyins_bb == round(s.buyins_bb, 2)
