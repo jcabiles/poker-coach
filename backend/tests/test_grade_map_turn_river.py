@@ -611,9 +611,19 @@ def test_bot_driven_turn_barrel_grades_on_standard_open(db, monkeypatch):
     # pinned (same pattern as test_grade_map.py's bot-driven belt, PLUS
     # secrets.randbelow: the initial button seat is the one entropy source that
     # belt missed, which made its hand offsets drift run-to-run). Fully pinned,
-    # the clean BB-flat line lands deterministically at hand ~505 of this
-    # stream (BB flats of a late open are rare in this limpy lineup — most
-    # opens get spoiled by cold-callers).
+    # the clean BB-flat line lands deterministically at a fixed hand offset in
+    # this stream (BB flats of a late open are rare — most opens get spoiled by
+    # cold-callers).
+    #
+    # RE-RECORDED for W5-b1 (persona-realism-w5-b1, 2026-07-25 — slice-authorized):
+    # widening the nit/tag/lag `unopened` ladders to 9-max full-ring widths shifts
+    # the seeded stream and makes the qualifying line RARER (more of hero's late
+    # opens now get 3-bet or cold-called by the wider ranges behind), so the first
+    # clean hit moves from hand ~505 to hand 911. The loop budget goes 600 -> 1200
+    # (~30% headroom over the measured 911). The BELT ITSELF is unchanged: it still
+    # asserts a turn-barrel spot grades organically from an HJ/CO/BTN 3.0 open.
+    # A future failure here means the coverage genuinely stopped firing — raise the
+    # budget only after re-measuring the actual first-hit offset, never blindly.
     from app.services import sim_session as svc
     from app.services.sim_session import create_session, deal_next_hand
 
@@ -624,7 +634,7 @@ def test_bot_driven_turn_barrel_grades_on_standard_open(db, monkeypatch):
     monkeypatch.setattr(svc.secrets, "randbelow", lambda _n: 0)
 
     view = create_session(db)
-    for _ in range(600):
+    for _ in range(1200):
         while not view.hand.hand_over:
             view = asyncio.run(
                 apply_hero_action(db, view.session_id, _belt_policy(view.hand))
@@ -642,6 +652,6 @@ def test_bot_driven_turn_barrel_grades_on_standard_open(db, monkeypatch):
             return
         view = deal_next_hand(db, view.session_id)
     raise AssertionError(
-        "no bot-driven turn-barrel decision graded in 600 hands "
+        "no bot-driven turn-barrel decision graded in 1200 hands "
         "(open-size band regression in grade_map_postflop?)"
     )
