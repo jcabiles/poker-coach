@@ -52,10 +52,9 @@ DrawCategory = personas_postflop.DrawCategory
 StrengthBucket = personas_postflop.StrengthBucket
 sample_postflop_decision = personas_postflop.sample_postflop_decision
 strength_bucket = personas_postflop.strength_bucket
-# The engine's own price grid — the α ceiling is graded against the SAME bucket
-# representative the price constants were fitted to (see the α-ceiling test).
-size_bucket = personas_postflop.size_bucket
-_BUCKET_ALPHA = personas_postflop._BUCKET_ALPHA
+# W5-a4: the `size_bucket` / `_BUCKET_ALPHA` aliases that lived here were only
+# ever read by the α-ceiling test, which now grades against the size-exact
+# continuous α = f/(1+f) instead of the coarser bucket representative.
 
 
 # --------------------------------------------------------------- fixtures
@@ -581,99 +580,190 @@ def test_fold_to_bet_monotone_in_faced_size(persona, fold_by_size):
         )
 
 
+# ---- The balanced-villain unit fixture (W5-a4, 2026-07-25) ----------------
+#
+# α = f/(1+f) is the fold ceiling **vs a BALANCED bettor**, and the identity
+# only bites on the range that bettor's bluff half is attacking: a
+# BLUFF-CATCHER range — hands that beat every bluff and lose to every value
+# bet, whose whole defensive job is to make the bluffs breakeven. That is the
+# same marginal-catcher construction the GRADER-side α test already uses
+# (`test_postflop.py::test_f5_alpha_ceiling_on_catcher_fold_share`, whose
+# `_F5_CATCHER` is a top pair classified "weak_made"); this fixture is its
+# bot-side mirror.
+#
+# Composition is fixed by theory, not by fit: the engine's one-pair rungs
+# MIDDLE_PAIR + TOP_PAIR at DrawCategory.NONE. Stronger rungs (OVERPAIR_TPTK
+# and up) beat part of the VALUE half, so they are not catchers; ACE_HIGH/AIR
+# lose to part of the BLUFF half; and a hand with a live draw is defended on
+# improvement equity rather than on catching a bluff. Excluding draws makes
+# this fixture STRICTER, not looser (draws call more, so they would pad the
+# headroom). Same deal stream, same node (pot 6bb, 100bb stacks, heads-up),
+# same per-cell seeds as `fold_by_size` — the ONLY difference is the filter.
+_CATCHER_BUCKETS = (StrengthBucket.MIDDLE_PAIR, StrengthBucket.TOP_PAIR)
+
+
 @pytest.fixture(scope="module")
-def fish_arrival_fold_by_size():
-    """The passive fish's fold-to-bet curve measured over its REAL arrival range
-    (the W3R-0 harness, `tests/test_arrival_range_ftc.py`) instead of this file's
-    uniform any-two `fold_by_size` fixture — see the α-ceiling test below for why
-    the fish (and only the fish, alongside nit) is measured this way (W3R-2,
-    owner decision 2). Same fracs as PRICE_FRACS, same seeds as the W3R-0
-    harness, so the numbers are literally that harness's flop row."""
-    from tests import test_arrival_range_ftc as arrival_harness
+def catcher_fold_by_size():
+    """persona -> {frac: fold-to-bet} over a pure bluff-catcher range (see the
+    block above), measured at the same node/seeds as `fold_by_size`."""
+    from app.domain.equity import RANKS
 
     packs = load_persona_packs()
     if set(VillainType) - set(packs):
         pytest.skip("not all persona packs authored yet")
-    pack = packs[VillainType("passive_fish")]
-    spots = arrival_harness._deal_spots(arrival_harness._ARRIVAL_N)
-    flop, _ = arrival_harness._build_flop_arrival(pack, spots)
-    return arrival_harness._fold_curve(
-        pack, flop, 3, arrival_harness._POT_FLOP, arrival_harness._STACK_START,
-        Street.FLOP, 20260721,
-    )
+    deal_rng = random.Random(20260721)
+    deck0 = [r + s for r in RANKS for s in "shdc"]
+    spots = []
+    while len(spots) < _PRICE_N:
+        deck = deck0[:]
+        deal_rng.shuffle(deck)
+        hole, board = (deck[0], deck[1]), deck[2:5]
+        made, draw = strength_bucket(hole, board)
+        if draw is DrawCategory.NONE and made in _CATCHER_BUCKETS:
+            spots.append((hole, board))
+
+    rates: dict[str, dict[float, float]] = {}
+    pot_pre = 6.0
+    for pi, persona in enumerate(ALL_PERSONAS):
+        pack = packs[VillainType(persona)]
+        rates[persona] = {}
+        for fi, frac in enumerate(PRICE_FRACS):
+            to_call = round(frac * pot_pre, 2)
+            pot = pot_pre + to_call
+            legal = [
+                personas_postflop_legal_fold(),
+                personas_postflop_legal_call(to_call),
+                personas_postflop_legal_raise(2 * to_call, 100.0),
+            ]
+            rng = random.Random(20260721 + 100 * pi + fi)  # stable per-cell seed
+            folds = 0
+            for hole, board in spots:
+                d = sample_postflop_decision(
+                    pack, hole, board, legal, pot, 100.0, 1, rng, current_bet_to=to_call
+                )
+                folds += d.action is ActionType.FOLD
+            rates[persona][frac] = folds / _PRICE_N
+    return rates
 
 
-@pytest.mark.parametrize("persona", [p for p in ALL_PERSONAS if p != "nit"])
-def test_fold_to_bet_respects_alpha_ceiling(persona, fold_by_size, fish_arrival_fold_by_size):
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_fold_to_bet_respects_alpha_ceiling(persona, catcher_fold_by_size):
     """RES-D §1c/§2 invariant 3 (A1 guardrail): α = f/(1+f) is a fold CEILING
-    vs a balanced bettor — never exceeded because of the price logic — and is
-    NOT a floor (no lower-bound assertion exists anywhere: personas may fold
-    far below α/MDF, e.g. calling_station ~0.10 vs ⅓-pot where α is 0.25).
-    nit is exempt (its deliberate over-fold leak is a persona choice, RES-D §2
-    invariant 3), though post-fit it too measures under α at every bucket.
+    vs a BALANCED bettor, and is NOT a floor — no lower-bound assertion on a
+    fold rate exists anywhere in this file, and none may be added (personas
+    fold far below α on purpose: the station catches at 0.03 vs a ⅓-pot bet
+    where α is 0.248).
 
-    TOLERANCE RE-DERIVED 0.03 → 0.05 (P1 A1, persona-realism-p1 — deliberate,
-    NOT a band-loosening to hide a regression): A1 cut _CALL_BASE[AIR]
-    0.25 → 0.08 so no-draw air now correctly folds. This fixture deals a
-    UNIFORM random range, which is heavily air-dominated — the old 0.25 air
-    call-base was propping up an artificially LOW aggregate fold rate, i.e.
-    the fixture was counting incorrect air-calls as "MDF compliance". Stash-
-    isolation confirmed A1 alone moves the aggregates (worst cell post-A1:
-    tag ½-pot 0.380 vs α+0.03 = 0.363). The extra 0.02 of tolerance absorbs
-    exactly that correct-air-folding shift over a uniform range; it is not
-    noise headroom (the fixture is seed-pinned/deterministic). Softening A1
-    itself to save the old tolerance would violate the P1 spec ("call
-    halves"). Real MDF regressions (price-blind folding, e.g. pre-F1's
-    tag ~0.39 vs ⅓-pot where α=0.25) still bust this ceiling by a wide
-    margin.
+    W5-a4 RE-SCOPE (2026-07-25) — the α guardrail now lives on a BALANCED-
+    VILLAIN unit fixture instead of on an arrival-range aggregate. This is the
+    slice the roadmap spec'd to resolve a contradiction three earlier slices
+    dodged by node-scoping (W3R-2 re-scoped the fish, W3R-6 narrowed to
+    facing-a-raise, W3R-5 HARD-STOPPED); it is a re-scoping of what the α
+    identity is asserted ABOUT, with **zero behavior change**.
 
-    RANGE RE-SCOPE for passive_fish (W3R-2, owner decision 2, 2026-07-24 —
-    a SECOND arrival-range-measured exemption alongside nit's, NOT a tolerance
-    loosening; α + 0.05 is untouched): the fish leg is measured over the fish's
-    REAL arrival range (the W3R-0 harness) rather than this fixture's uniform
-    any-two range. The arithmetic forces it — at a 1.5× overbet α = f/(1+f) =
-    0.60, while the audit's grounded fish OVERBET band is 60–80%, so on a uniform
-    any-two range the grounded band sits AT/ABOVE the ceiling by construction:
-    the two contracts are unsatisfiable together on a range the fish never
-    actually holds. On the fish's real arrival range (the hands it flat-calls
-    preflop and so genuinely defends) the band-hitting fit `call_looseness 0.42`
-    IS α-compliant at every bucket — measured 0.206 / 0.361 / 0.511 / 0.638 vs
-    α + 0.05 = 0.298 / 0.383 / 0.550 / 0.650. The uniform fixture is simply
-    mis-specified FOR THE FISH (its air-heavy composition × the fish's steep
-    `size_elasticity` 1.3 inflates the aggregate); every OTHER persona keeps the
-    uniform fixture unchanged.
+    WHY THE OLD FORM WAS MIS-SPECIFIED. The old test graded α against an
+    AGGREGATE fold rate over a UNIFORM any-two arrival range. Two different
+    opponent populations were being conflated:
 
-    BUCKET-vs-CONTINUOUS α (2026-07-25 — a measurement fix, NOT a loosening):
-    the ceiling is now `_BUCKET_ALPHA[size_bucket(frac)]`, the SAME representative
-    the engine's price constants were fitted against ("fitted numerically ...
-    against min(RES-D §2 band top, α − 0.01) per persona × BUCKET",
-    personas_postflop.py:465), instead of the continuous `frac/(1+frac)`.
+      * α bounds the fold frequency that is unexploitable **against a balanced
+        bettor** — one whose value:bluff ratio is game-theoretically correct,
+        so that his bluff half is exactly breakeven at MDF.
+      * §5's grounded fold-to-c-bet targets — nit 60–75, TAG 50–60, LAG 40–50,
+        fish 35–50 (contract §5, `Fold-to-C-bet aggregate`; provenance triple
+        per §5a: **format 9-max full ring · pool online micro–low NL cash
+        (NL2–NL25) · source S1 side-by-side FR 60 = 6-max 60, plus S4 the HM2
+        official full-ring forum band 40–70, corroborated on level by S3
+        42–57 and S5 ~40**; conf LOW, per-archetype band edges DIRECTIONAL)
+        are POPULATION observations against REAL villains who c-bet 55–70% of
+        flops — far more than balanced. Folding 60% of an arrival range to
+        THOSE bettors is the correct exploit, not a leak.
 
-    The engine resolves price by bucket — `_price_factor` reads
-    `_BUCKET_ALPHA[size_bucket(...)]`, and MEDIUM = 0.375 is the α of a 0.6-pot
-    bet. This fixture probes ½-pot, where continuous α = 0.3333. Grading a
-    bucketed engine against a continuous α imposed a 4.17pp offset that ate 83%
-    of the 5pp tolerance at the one cell that binds: tag's headroom by size was
-    7.5 / 0.4 / 7.5 / 7.2pp, tight ONLY at ½-pot — the single probe sitting at
-    the bottom edge of a bucket whose representative is above it. Since
-    RES-D-calibration §2 designs tag to sit AT α ("TAG ≈ α (textbook)"), tag's
-    measured 0.3791 against the engine's own 0.375 anchor is a 0.4pp hit on its
-    design target: the engine was correct and the test was mis-specified.
+    At the modal ½–⅔-pot c-bet α is ≈0.33–0.40, so nit's, TAG's and LAG's §5
+    targets were UNSATISFIABLE while the old form was live. The old form also
+    only passed by exempting the two personas it bound hardest: `nit` was cut
+    from the parametrize list outright, and the fish leg was swapped onto the
+    W3R-0 arrival harness. Measured on the old uniform fixture at HEAD, with
+    the exemptions removed, it fails outright — nit 0.5424 vs its 0.5200
+    allowance at pot, fish 0.4872 / 0.5768 / 0.7160 vs 0.4250 / 0.5200 /
+    0.6500 at ½-pot / pot / 1.5×-pot. The gate was passing on its exemptions.
 
-    Not uniformly looser — it retracks the ceiling to the engine's own grid.
-    SMALL 0.25 vs continuous 0.2481 (≈unchanged) · MEDIUM 0.375 vs 0.3333
-    (+4.2pp) · LARGE 0.47 vs 0.5000 (−3.0pp, STRICTER) · OVERBET 0.60 vs 0.6000
-    (unchanged). It also clears a LATENT failure the old form was masking: the
-    fish's arrival-range E[fold] at ½-pot is 0.3987, already 1.5pp over the old
-    0.3833 ceiling in expectation, passing only on a realization 2.37 SE below
-    its own mean (0.3626). Under the bucket ceiling (0.425) that leg is
-    genuinely compliant rather than luckily compliant."""
-    r = fish_arrival_fold_by_size if persona == "passive_fish" else fold_by_size[persona]
+    WHAT THE FIXTURE IS. A balanced villain bets a POLARIZED range, so the
+    defender's problem collapses to bluff-catching, and α is exactly the
+    constraint on how often a BLUFF-CATCHER may fold. The fixture is therefore
+    the one-pair no-draw catcher range described above `catcher_fold_by_size`
+    — the bot-side mirror of the grader's own α test
+    (`test_postflop.py::test_f5_alpha_ceiling_on_catcher_fold_share`). Node,
+    seeds and sampler call are identical to `fold_by_size`; only the range
+    filter differs.
+
+    THE ASSERTION IS STRICTLY STRONGER THAN THE ONE IT REPLACES, on all four
+    axes — this re-scope buys coverage, it does not spend it:
+      1. **All six personas**, including `nit` (whose exemption does NOT
+         survive: on a balanced-villain range the nit is α-compliant with
+         ≥10.3pp to spare, so its "deliberate over-fold leak" was an artifact
+         of the arrival-range aggregate, not of its price logic).
+      2. **No tolerance.** The old form allowed α + 0.05, tolerance derived to
+         absorb correct air-folding over the uniform range. On a catcher range
+         there is no air to absorb, so the ceiling is asserted RAW.
+      3. **The size-exact continuous α = f/(1+f)**, not the coarser
+         `_BUCKET_ALPHA` representative the old form had to retreat to. That
+         is stricter at MEDIUM (0.3333 vs 0.375) and at OVERBET-adjacent LARGE.
+      4. **No arrival-range leg at all**, so nothing here contradicts §5.
+
+    HEADROOM PER PERSONA (fold rate vs the size-exact α, at the committed
+    deal/decision seed 20260721, n=1250 catchers; ⅓-pot / ½-pot / pot /
+    1.5×-pot, α = 0.2481 / 0.3333 / 0.5000 / 0.6000):
+        nit              .0880 .1784 .3056 .4568 → +.160 +.155 +.194 +.143
+        tag              .0888 .1624 .2640 .3832 → +.159 +.171 +.236 +.217
+        lag              .0752 .1600 .2464 .3704 → +.173 +.173 +.254 +.230
+        maniac           .0464 .1496 .2120 .3096 → +.202 +.184 +.288 +.290
+        calling_station  .0296 .0312 .0568 .0672 → +.219 +.302 +.443 +.533
+        passive_fish     .1064 .2488 .3912 .5432 → +.142 +.085 +.109 +.057
+    Binding cell: passive_fish at the 1.5× overbet, +5.68pp (≈4.0 binomial SE
+    at this n). NOT a lucky seed — re-measured at four further (deal seed,
+    decision seed, n) configurations the sign never flips and the binding cell
+    never moves: (20260721, 20260721, 625) +3.20pp · (777, 777, 1250) +3.36pp ·
+    (424242, 424242, 1250) +2.08pp · (99, 12345, 2500) +4.76pp. Every other
+    persona-cell holds ≥8.5pp in every configuration.
+
+    HEADROOM IN THE CURRENCY OF THE NEXT SLICE (W3R-5, whose first attempt
+    HARD-STOPPED on the old form of this gate): W3R-5's mechanic is a
+    multiplicative fold-merit boost on exactly these one-pair buckets. Scaling
+    `_FOLD_BASE[MIDDLE_PAIR/TOP_PAIR]` uniformly and re-running this fixture,
+    the ceiling first breaks at **×1.30** (min headroom +0.0144 at ×1.20,
+    −0.0008 at ×1.30) — always at the same passive_fish/overbet cell. So a
+    ONE-SIDED boost up to ×1.29 is admissible here, and W3R-5's largest
+    re-spec'd leg (monotone ×1.22, with E[boost] ≈ 1.0 across boards) fits
+    even in the degenerate case where every board were monotone.
+
+    COVERAGE DELTA (§11 item 14), adjudicated rather than silent. GAINED: two
+    personas (nit, fish) × 4 sizes now under a HARD α ceiling that previously
+    exempted them, at zero tolerance and against a stricter α. RETIRED: the
+    absolute-level ceiling on the UNIFORM-range aggregate. That ceiling is not
+    lost coverage — it is re-homed, twice over: (a) an absolute per-persona
+    aggregate fold-to-c-bet ceiling is already live on the closed-loop harness
+    (`BANDS`/`test_persona_postflop_bands`, the HARD-today fold-to-c-bet gate),
+    which is the better instrument because it measures the real arrival range;
+    (b) the price-response regression the α test was actually catching
+    (price-blind defense) is caught by `test_fold_to_bet_monotone_in_faced_size`
+    on the very same uniform fixture, which is untouched by this slice and
+    still asserts monotonicity plus a ≥0.10 SMALL→LARGE spread for five
+    personas and a bounded shallow rise for the station.
+
+    NOT A BAND MOVE (§11 item 7) and NOT a W3R-1 dodge (§11 item 15): no band
+    was re-anchored, no lever or magnitude was touched, no §5 number was
+    written into an assertion, and the engine is byte-identical. §5's
+    fold-to-c-bet row keeps its existing HARD-today gate and its DIRECTIONAL
+    per-archetype edges — this slice deliberately does NOT promote §5's
+    per-archetype numbers into a new gate, because §5a records those edges as
+    uncertified (conf LOW, single-author format evidence) and §7 reserves the
+    single band re-anchor for W4-b."""
+    r = catcher_fold_by_size[persona]
     for frac in PRICE_FRACS:
-        alpha = _BUCKET_ALPHA[size_bucket(frac)]  # see BUCKET-vs-CONTINUOUS above
-        assert r[frac] <= alpha + 0.05, (  # tolerance: see A1 re-derivation above
-            f"{persona} fold-to-bet {r[frac]:.3f} vs {frac}-pot "
-            f"({size_bucket(frac)}) exceeds α ceiling {alpha:.3f}"
+        alpha = frac / (1 + frac)  # size-exact; no tolerance — see docstring
+        assert r[frac] <= alpha, (
+            f"{persona} bluff-catcher fold {r[frac]:.4f} vs a {frac}-pot bet "
+            f"exceeds the balanced-villain α ceiling {alpha:.4f}"
         )
 
 
@@ -696,8 +786,9 @@ def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
       `max(fish, maniac) < lag` legs pinned the fish to the loose trio and are
       replaced by `fish > tag` (its climb) plus a bound keeping it from running
       away past the nit. NOTE this is the uniform-range aggregate; on the fish's
-      REAL arrival range it folds 0.361 at ½-pot (see the α-ceiling test's range
-      re-scope).
+      REAL arrival range it folds 0.361 at ½-pot (W5-a4 moved that arrival-range
+      measurement out of this file — it is asserted against the grounded §5
+      bands by `tests/test_arrival_range_ftc.py::test_t4_flop_absolute_band`).
     - **calling_station drops to STRICTLY loosest.** Its `call_looseness` is now
       authored at 4.0 (was inheriting `stickiness` 1.8), so the near-tie
       `station <= min(fish, maniac) + 0.01` is re-derived back to a strict `<`
