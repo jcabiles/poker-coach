@@ -643,7 +643,27 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       **No-gos:** no band VALUES change here; **the only test added is the provenance parser** — no persona/band
       test edits. **Appetite:** ~1 small slice.
 
-- [ ] **W5-a2 — 9-max postflop band provenance audit + research pass (absorbs H6).** *ICE 9·7·5.*
+- [x] **W5-a2 — 9-max postflop band provenance audit + research pass (absorbs H6).** ✅ 2026-07-25 (PR #115,
+      `642ca0d`). *ICE 9·7·5.* Five of six rows survive unchanged; WTSD tag 27–31→**25–29 ‡** and lag 28–33→**26–31 ‡**
+      (the only postflop cells with two independent sources publishing 6-max and full ring side by side and
+      agreeing). c-bet / fold-to-c-bet / turn barrel / AF **CONFIRMED UNCHANGED at conf LOW** — a withheld
+      correction, not a certification. W$SD and c-bet LEVEL stay `[UNVERIFIED]`.
+      ⚠️ **Two follow-ups opened by this slice, both still live:**
+      **(1) W5-a2-f — demote the fold-to-c-bet and AF HARD gates.** Deferred, not dropped:
+      `backend/tests/test_personas_postflop.py` was owned by a concurrent slice. **Must land before W4-b.**
+      ⚠️ **COLLISION WITH W5-a4 (found 2026-07-25 at review, flagged by neither slice).** W5-a4 retires the
+      absolute-level α ceiling on the uniform-range aggregate and **re-homes it onto exactly this
+      `BANDS` / `test_persona_postflop_bands` fold-to-c-bet HARD gate**. If a2-f then demotes that gate to
+      no-regression, the **absolute** fold-to-c-bet ceiling is gated **nowhere** — a2-a4 in sequence silently
+      deletes coverage that neither slice's own delta reports as lost. **a2-f must name where the absolute ceiling
+      lands before it demotes anything.** The *price-response* half is unaffected: it lives in
+      `test_fold_to_bet_monotone_in_faced_size`, which W5-a4 leaves byte-identical on the original uniform fixture
+      (verified at review).
+      **(2) CONTRACT-DEFECT (HIGH, §11 item 15)** — §5a shipped its format-SENSITIVE/INVARIANT lists as
+      *unsourced assertions*. Putting AF on the INVARIANT list is itself a transfer claim made with no citation:
+      ledger #14's error one level up (an unsourced *licence to transfer*, rather than an unsourced number). It
+      held, but on luck rather than process. Remedy in force: every list entry now carries a source or
+      `[UNVERIFIED]`.
       **Problem:** §5's postflop rows (c-bet, fold-to-c-bet, AF, WTSD, turn barrel) were **never checked for table
       size** — the same defect ledger #14 corrected on the preflop half. **Two of them (fold-to-c-bet, AF) are wired
       as HARD CI gates today.** 5/6 personas miss the c-bet band (maniac **−20pp** measured aggressor-side at
@@ -711,8 +731,11 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       no-go otherwise forbids — the §5 row is in scope **for this slice alone**, and only to CREATE the new row.
       **Consumer:** NEXT item **N-raise**. **Appetite:** ~1 slice.
 
-- [x] **W5-a3-iii — Band-sampler + parity-mirror context kwargs. ⛔ THE ONLY W3R-5 BLOCKER.** ✅ 2026-07-25 (branch
-      `feat/w5-a3iii-band-sampler-context`). *ICE 9·8·4.*
+- [x] **W5-a3-iii — Band-sampler + parity-mirror context kwargs. ⛔ THE ONLY W3R-5 BLOCKER.** ✅ 2026-07-25
+      (PR #118, `c8a535e`). *ICE 9·8·4.*
+      ⚠️ **Its two new assertions were fitted to the PRE-W5-b1 packs and now FAIL on `main`** —
+      `test_persona_stats_byte_identical_after_log_refactor` and `test_street_aggressions_effect_visible_to_af_gate`.
+      A parallel-merge hazard, not a defect in either slice; see W5-b1's red-baseline block.
       **Solution:** added `street_aggression_count(action_history, street) -> int` to
       `table.postflop_context.py` (C30's missing raw count; `facing_raise` is now `count >= 2`, refactored onto it
       — byte-identical, verified by the existing `facing_raise` unit tests). `_play_hand` gained an opt-in
@@ -793,7 +816,55 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
 
 #### W5-B — preflop range width (`content/personas/*.json`; ONE OWNER PER PACK)
 
-- [ ] **W5-b1 — `unopened` ladder widening to the corrected 9-max bands.** *ICE 9·7·5.*
+- [x] **W5-b1 — `unopened` ladder widening to the corrected 9-max bands.** ✅ 2026-07-25 (PR #119, `930eb20`).
+      ⚠️ **MERGED NOT-GREEN — see the red-baseline block at the end of this entry.** *ICE 9·7·5.*
+      **Shipped:** authored `unopened` width nit **7.5→27.4**, tag **16.4→34.0**, lag **22.6→53.7** (combo-weighted,
+      first-mix-wins), hands ADDED family-wise in normal opening order; **not one call/limp weight touched** (nit's
+      open-limp mixes preserved verbatim, moved to the front of their node so first-mix-wins keeps the identical
+      limp frequency). By-seat ordering (tighter early, widest on the button) and per-node raise weights unchanged.
+      Metric #3 at n=1200, **REPORTED only, no band committed as a CI gate** (single anchor is W4-b, §11 item 7):
+      nit 6.4/4.4/2.0→**11.6/9.7/1.8**, tag 13.1/10.6/2.6→**16.4/13.1/3.3**, lag 17.9/12.9/4.9→**25.8/18.2/7.5** —
+      VPIP+PFR now IN band for all three; lag's gap **+1.6 HIGH**.
+      **Two W3R-1 findings recorded rather than engineered around:**
+      **(1) maniac NOT edited** — its ladder is pinned byte-identical by W3R-1's committed invariants (reopening is
+      **W5-b4**), and a 100%-of-all-hands `unopened` probe caps maniac PFR at **32.1** against a 38–48 band: the
+      band is **unreachable through this lever at ANY width**.
+      **(2) lag deliberately left SHORT of target** (owner ruling, 2026-07-25) — the width that reaches lag's PFR
+      target opens `A2o` from middle position, which is a maniac wearing a lag's name, and every setting reaching
+      the PFR target breaks the gap row. **Character over number**; the residual belongs in `vs_rfi` / `vs_limpers`
+      (**W5-b2** / **W5-b4**), not in a wider open.
+      **⚠️ RED BASELINE (owner-visible, 2026-07-25).** This slice merged with the suite at **10 failed / 1055
+      passed / 1 skipped** in a full-suite run (**11** if any subset is run — see the throughput note below), all
+      outside its own file scope. Root cause is a **parallel-merge hazard, not a defect in either slice**: PR #118
+      (W5-a3-iii) added assertions fitted to the *pre-widening* packs and PR #119 then widened them; the two were
+      built concurrently so neither PR's checks saw the other. Failing:
+      `test_coverage_baseline`, `test_grade_map_turn_river::test_bot_driven_turn_barrel_grades_on_standard_open`,
+      `test_limper_coverage_belt`, `test_personas::test_persona_stat_bands[nit|tag|lag]`,
+      `test_personas_postflop::test_persona_stats_byte_identical_after_log_refactor` (calling_station AF 0.3974 vs
+      golden 0.3788), `test_personas_postflop::test_street_aggressions_effect_visible_to_af_gate` (AF drop 0.368 vs
+      a demanded 0.5), `test_range_estimate::test_four_bet_line_strict_subset_and_hand_computed_posterior`,
+      `test_w3r1_preflop_cleanup::test_lag_sb_no_open_limp[J9o]`, and
+      `test_personas_postflop::test_table_texture_9max_live_lineup`.
+      **TWO non-mechanical entries, not one:**
+      **(1) `test_persona_stat_bands`** gates **authored width** against **population PFR** targets, which are
+      different quantities; the ruled re-scope to measured authored width did not land here.
+      **(2) `test_table_texture_9max_live_lineup`** — `limper rate 48.87%` against a `> 0.50` floor. **BISECTED
+      2026-07-25: PASSES at `c8a535e` (#118), FAILS at `930eb20` (#119), isolated conditions identical.** It is a
+      direct deterministic consequence of the widening — wider opens mean more raising and less limping, so the
+      limped-pot rate falls — **not noise**. ⚠️ **Two independent agents dismissed it as noise on the same
+      methodological error**: each compared against `main` with its own change stashed, which shows only that *their*
+      change didn't cause it, since `main` already contains #119. **Bisect to the introducing commit; never infer
+      "pre-existing noise" from a stash-comparison.** Its N is throughput-derived via the `budget` fixture, which is
+      why it surfaces in a subset run but not the full suite — that affects *when you see it*, not whether it is
+      real. Adjudicate as a W3R-1 question: either the 50% floor was calibrated to the old too-tight ranges and needs
+      **re-deriving with provenance**, or the widening overshot. Note it misses by only **1.1pp**, and the same
+      test's neighbouring `avg_players_to_flop` floor has already been re-derived twice (2.8→2.4→2.3) for related
+      reasons — read that history first. **Nudging the floor to 0.48 is the W3R-1 violation, not the fix.**
+      **Process note:** the authored→PFR conversion is **not linear** — measured ×0.50–0.54 at narrow
+      widths falls to **×0.35 (nit) / ×0.34 (lag)** at the new widths, because wider opens mean more seats arrive
+      already facing a raise. Do **not** derive a band by dividing a §5 PFR target by 0.50–0.54.
+      **Green-up ownership is an open decision** (see W5-b2's entry). No threshold in the failing list may be
+      loosened to make it pass — that is the W3R-1 violation this initiative exists to stop.
       **Problem:** the packs were authored as if unopened-raise width ≈ PFR — roughly true at 6-max, badly wrong at
       9-max where a seat usually **faces an open** and the residual routes to `vs_rfi` or `vs_limpers`. Measured
       authored width → observed PFR: nit **8.0→4.1** (×0.51), tag **16.4→8.8** (×0.54), lag **22.6→11.3** (×0.50),
@@ -906,7 +977,16 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       block this slice — the earlier "Blocks the W3R-5 re-spec" ↔ "Depends-on W5-c2" pair read as circular).
       **Appetite:** ~1 slice.
 
-- [ ] **W5-c3 — Buy-in cap / per-hand stack normalization.** *ICE 8·9·2.*
+- [x] **W5-c3 — Buy-in cap / per-hand stack normalization.** ✅ 2026-07-25 (PR #117, `3a18bdf`). *ICE 8·9·2.*
+      `_apply_settlement` previously only rebought busted seats (<1bb), so a winning stack compounded unbounded.
+      Added a **200bb cap** (2× the ~100bb reference pool §10 calibrates to): a stack winning past the cap is
+      trimmed back between hands using the same net-invariant `buyins_bb`-absorbs-the-delta form the existing rebuy
+      correction uses, so `net_bb` and table-wide chip conservation are untouched. **No schema change → no
+      migration.** 200-hand seeded measurement (same entropy seed both sides): stack range
+      **1.42–2475.28bb → 1.23–200.00bb**; SPR-commit gate **20.8% → 23.0%** overall, per-persona 7.4–44.8% →
+      10.7–43.5% (**non-degenerate on both sides — not pinned**); single-hand dominance of total absolute movement
+      **4.09% → 1.98%**, total absolute movement 34.7k → 21.1k bb over the same 200 hands.
+      **Unblocks W3.5.**
       **Problem:** `sim_session.py:117-118,175` — `_REBUY_FLOOR_BB = 1.0`, rebuy only **below** 1bb, **no cap, no
       top-off**. Effective stacks ran **9bb–1374bb** against a contract calibrated to ~100bb (§10). Every
       `spr_commit` (1.2–3.3) is then **always-on or never-on**, and bb/100 is uninterpretable — in the measured
