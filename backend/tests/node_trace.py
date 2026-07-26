@@ -20,6 +20,16 @@ Design notes:
   would always be CHECK/FOLD, the first candidate).
 - Reuses only the public sampler API on crafted fixtures — no dependency on the
   `_play_hand` harness and no `range_estimate` coupling (so: no parity risk).
+
+T-TRACE: every spot now authors its own situational context (`in_position`,
+`bet_prev_street`, `facing_raise`) and `build_trace` passes a real
+`PostflopContext` per spot, so W3's position multiplier and busted-draw river
+bluff are EXERCISED here instead of resolving to identity. `busted_draw` is
+DERIVED (`busted_draw_kind`) from the spot's own hole+board — never authored —
+so the trace can never disagree with production about what a busted draw is.
+Note `PostflopContext()` is not a neutral value: its `in_position=False`
+default applies the OOP damp, which is why each spot states its position
+explicitly (the "not applicable" value would be `context=None`).
 """
 
 from __future__ import annotations
@@ -32,6 +42,7 @@ from app.domain.action import ActionType
 from app.domain.archetypes import VillainType
 from app.domain.personas import load_persona_packs
 from app.domain.spot import LegalAction, Street
+from app.domain.table.postflop_context import PostflopContext, busted_draw_kind
 
 sample_postflop_decision = personas_postflop.sample_postflop_decision
 strength_bucket = personas_postflop.strength_bucket
@@ -66,6 +77,14 @@ class Spot(NamedTuple):
     current_bet_to: float
     street: Street
     is_aggressor: bool
+    # T-TRACE situational context. `in_position` and `bet_prev_street` become
+    # `PostflopContext` fields; `facing_raise` is a separate sampler kwarg by
+    # design (the range estimator must opt into it without inheriting the
+    # `PostflopContext` position default). `busted_draw` is deliberately ABSENT
+    # here — it is derived from hole+board in `build_trace`.
+    in_position: bool
+    bet_prev_street: bool
+    facing_raise: bool
     prescription: str
 
 
@@ -102,40 +121,81 @@ def _facing(to_call: float, stack: float, jam: float | None = None) -> tuple[Leg
 # The seeded spot set — one representative per node the roadmap names. Each is
 # deliberately a non-degenerate candidate set (>=2 actions with real merit) so
 # the capture never hits the zero-total-merit fallback (Sol #9 / theory nit).
+#
+# Context authorship: `in_position` states the node's real geometry (the OOP
+# twin below is the one deliberate exception — a copy varied on position ALONE).
+# `bet_prev_street` is "did this seat bet/raise the street before" — for a flop
+# spot that means "was the preflop raiser". `facing_raise` is False in every
+# spot: none of them faces a second aggressive action on the street (the two
+# facing spots face a bare BET), and the ticket forbids adding spots.
 SPOTS: tuple[Spot, ...] = (
     Spot("flop_ip_toppair_dry", ("Ah", "Th"), ("As", "7d", "2c"),
          _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
-         "IP c-bet, top pair dry board: value-heavy, high c-bet freq"),
+         in_position=True, bet_prev_street=True, facing_raise=False,
+         prescription="IP c-bet, top pair dry board: value-heavy, high c-bet freq"),
+    # The OOP twin of the spot above: byte-identical except `in_position=False`,
+    # so the pair isolates the W3-b position multiplier as the ONLY varying term.
+    Spot("flop_oop_toppair_dry", ("Ah", "Th"), ("As", "7d", "2c"),
+         _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
+         in_position=False, bet_prev_street=True, facing_raise=False,
+         prescription="OOP c-bet, top pair dry board: same node, out of position"),
     Spot("flop_oop_secondpair_overcards", ("Th", "9h"), ("9s", "Ah", "Kd"),
          _first_in(100.0), 6.0, 100.0, 1, 0.0, Street.FLOP, True,
-         "OOP middle pair + 2 overcards: vulnerable, check-heavy / thin"),
+         in_position=False, bet_prev_street=True, facing_raise=False,
+         prescription="OOP middle pair + 2 overcards: vulnerable, check-heavy / thin"),
+    # Facing a c-bet as the (out-of-position) preflop caller — the modal HU
+    # defence node.
     Spot("flop_facing_bet_strong_draw", ("Jh", "Th"), ("9h", "8c", "2h"),
          _facing(4.0, 100.0), 10.0, 100.0, 1, 4.0, Street.FLOP, False,
-         "strong combo draw vs a bet: semi-bluff raise / call, few folds"),
+         in_position=False, bet_prev_street=False, facing_raise=False,
+         prescription="strong combo draw vs a bet: semi-bluff raise / call, few folds"),
     Spot("turn_barrel_toppair", ("Ah", "Th"), ("As", "7d", "2c", "4s"),
          _first_in(100.0), 12.0, 100.0, 1, 0.0, Street.TURN, True,
-         "turn barrel with top pair: continuation vs give-up"),
+         in_position=True, bet_prev_street=True, facing_raise=False,
+         prescription="turn barrel with top pair: continuation vs give-up"),
+    # `bet_prev_street=True` is what makes this a *busted* barrel rather than a
+    # random river stab — the W3-c story bluff is gated on it.
     Spot("river_busted_draw", ("Jh", "Th"), ("9h", "8c", "2s", "3d", "Kc"),
          _first_in(100.0), 18.0, 100.0, 1, 0.0, Street.RIVER, True,
-         "busted draw on the river: polarized bluff vs give-up"),
+         in_position=True, bet_prev_street=True, facing_raise=False,
+         prescription="busted draw on the river: polarized bluff vs give-up"),
+    # 4-way: the aggressor is last to act in only 1 of 4 seats, so OOP is the
+    # representative multiway c-bet node.
     Spot("flop_multiway_toppair", ("Ah", "Th"), ("As", "7d", "2c"),
          _first_in(100.0), 8.0, 100.0, 3, 0.0, Street.FLOP, True,
-         "top pair 4-way: value tightens as opponents rise"),
+         in_position=False, bet_prev_street=True, facing_raise=False,
+         prescription="top pair 4-way: value tightens as opponents rise"),
+    # A bloated 20bb pot at 15bb stacks is a raised pot; this seat raised
+    # preflop and now faces a lead in position.
     Spot("flop_lowspr_commit_overpair", ("Ah", "Ad"), ("Ks", "7d", "2c"),
          _facing(10.0, 15.0, jam=15.0), 20.0, 15.0, 1, 10.0, Street.FLOP, False,
-         "overpair, low SPR facing a bet: commit / stack off"),
+         in_position=True, bet_prev_street=True, facing_raise=False,
+         prescription="overpair, low SPR facing a bet: commit / stack off"),
 )
 
 
-def build_trace(seed: int = 20260724) -> list[TraceRow]:
-    """Run every persona through every spot; return the node-trace rows."""
+def build_trace(seed: int = 20260724, spots: tuple[Spot, ...] = SPOTS) -> list[TraceRow]:
+    """Run every persona through every spot; return the node-trace rows.
+
+    `spots` defaults to the pack above (every existing caller is unchanged); a
+    caller may pass a same-length variant to isolate ONE context field — the
+    per-spot seed is `seed + index`, so index-aligned variants share the rng
+    stream and any difference in the trace is attributable to that field alone.
+    """
     packs = load_persona_packs()
     rows: list[TraceRow] = []
     for vt in VillainType:
         pack = packs[vt]
-        for i, spot in enumerate(SPOTS):
+        for i, spot in enumerate(spots):
             bucket, draw = strength_bucket(spot.hole, list(spot.board))
             cap = _TraceRng(seed + i)
+            context = PostflopContext(
+                in_position=spot.in_position,
+                bet_prev_street=spot.bet_prev_street,
+                # DERIVED, never authored — same helper production uses, so a
+                # spot can never claim a busted draw its cards do not hold.
+                busted_draw=busted_draw_kind(spot.hole, list(spot.board)),
+            )
             decision = sample_postflop_decision(
                 pack,
                 spot.hole,
@@ -148,6 +208,8 @@ def build_trace(seed: int = 20260724) -> list[TraceRow]:
                 current_bet_to=spot.current_bet_to,
                 is_aggressor=spot.is_aggressor,
                 street=spot.street,
+                context=context,
+                facing_raise=spot.facing_raise,
             )
             if cap.population is None:  # zero-total-merit fallback (deterministic)
                 probs = {decision.action.value: 1.0}
