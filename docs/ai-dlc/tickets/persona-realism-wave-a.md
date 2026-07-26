@@ -9,11 +9,12 @@ Spec: `docs/ai-dlc/specs/persona-realism-wave-a.md` · Contracts: `docs/ai-dlc/c
 
 ## DAG
 
-> ⛔ **WAVE A IS BLOCKED until `main` is green.** Measured twice by `refuter`: **11 failed / 1054
-> passed / 1 skipped**, so `verify.sh` — condition #1 of every ticket — cannot pass today. Blocked
-> behind open PRs **#121–#124** (#124 is the green-up). **After those merge, re-measure every pinned
-> constant in T-ANCHOR / T-TRACE / T-ARR / T-STICKY** — #122 changes `texture.py` and #124 changes
-> `content/personas/lag.json`, both of which move numbers baked into these tickets.
+> ✅ **UNBLOCKED 2026-07-26.** PRs #121–#124 merged (main at `8bc96e1`); the suite went from
+> **11 failed / 1054 passed** to **1071 passed / 1 skipped**. Every pinned constant below was
+> re-measured against the merged baseline and **held** — T-ANCHOR ratios drift < 0.003, T-TRACE is
+> bit-identical, T-ARR's arrival is BTN 8% / roster 36% (both bands still contain it). See the spec's
+> resolved-blocker table for the full before/after. **T-STICKY's baseline digest still must be captured
+> on merged `main` before any edit.**
 
 ```
         (merge #121–#124 first — main is red)

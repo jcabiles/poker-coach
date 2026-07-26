@@ -104,7 +104,40 @@ strategy lives in versioned `content/` data · every schema change ships an Alem
 
 ---
 
-## ⛔ BLOCKER — Wave A cannot start until `main` is green
+## ✅ BLOCKER RESOLVED 2026-07-26 — PRs #121–#124 merged, constants re-verified
+
+`#121` → `#124` merged (main now at `8bc96e1`). The three previously-failing tests pass:
+
+```
+pytest tests/test_coverage_baseline.py::test_coverage_never_regresses \
+       tests/test_personas_postflop.py::test_persona_stats_byte_identical_after_log_refactor \
+       tests/test_personas_postflop.py::test_street_aggressions_effect_visible_to_af_gate
+  → 3 passed in 8.13s
+```
+
+**Every pinned constant was re-measured against the merged baseline and HELD.** The caution below was
+warranted but the numbers survived:
+
+| Ticket | Constant | Pre-merge | Post-merge | Verdict |
+|---|---|---|---|---|
+| T-ANCHOR | IP:OOP ratio — nit / tag / lag | 1.6394 / 1.5157 / 1.2260 | **1.6373 / 1.5156 / 1.2258** | holds (drift < 0.003) |
+| T-ANCHOR | station / fish / maniac ratio | 1.0 exactly | **1.0 exactly** | holds |
+| T-ANCHOR | post-fix absolutes tag / lag | 0.2373→0.1424 / 0.3779→0.2793 | **derive to 0.2374→0.1424 / 0.3780→0.2794** | holds |
+| T-TRACE | nit dry-board bet, ctx None / IP / OOP | 0.4230769 / 0.4782609 / 0.3548387 | **bit-identical** | holds |
+| T-TRACE | river busted draw, None → ctx | 0.0156444 → 0.3656979 | **bit-identical** | holds |
+| T-ARR | BTN `unopened` / roster-wide | 8% / 38% | **8% / 36%** (n=600 fresh sim) | holds; both bands still contain it |
+
+Two notes. #122's texture change did **not** reach T-TRACE's spot. And T-ANCHOR's post-fix absolutes are
+*predictions*, not current readings — inverting the broken normalization from the measured IP values
+recovers the drafted figures exactly (tag `bluff_mass` ≈ 0.18989 → 0.2374/0.1424; lag ≈ 0.32866 →
+0.3780/0.2794), which independently confirms both the drafted numbers and the fix's arithmetic.
+
+**T-STICKY's baseline digest must still be captured on the merged `main` before editing** — it was never
+measured pre-merge, by design.
+
+<details><summary>Original blocker text (kept for the record)</summary>
+
+### ⛔ Wave A cannot start until `main` is green
 
 Both reviewers independently measured the baseline. `refuter` ran it twice:
 
