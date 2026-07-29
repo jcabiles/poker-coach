@@ -154,6 +154,21 @@ slice makes the live bot diverge from the streetless policy, the estimator MUST 
 and re-tested for **parity with the live policy** — else the villain-range reveal feature silently lies. Each such
 slice owns extending the estimator's replay context + a parity test. The action draw stays the FIRST `rng.choices`.
 
+### Gate-design rule — a criterion that already passes is not a criterion (R9, 2026-07-26)
+
+**Before a slice is built, execute its pass/fail against HEAD. The criterion that proves the slice's DEFECT IS
+FIXED must FAIL at HEAD.** If it already passes, it cannot detect the slice's own failure and must be replaced.
+Record the HEAD result in the ticket, not just the assertion.
+
+> **⚠️ EXEMPT — do not delete these; passing at HEAD is their entire job.** Preservation / no-regression /
+> invariant criteria: byte-identity digests, "a set still stacks off", the `bluff_freq` ordering pin, T-STICKY's
+> 216-cell grid, estimator-parity checks, "no schema change appears in the diff". A slice normally carries **both
+> kinds** — one criterion that must fail at HEAD (the fix) and several that must pass (the guards).
+
+Found in three live places (R9-3): W4-a's King-high check, W5-b3's non-decreasing ladder, and tag's zero-floored
+fold-to-c-bet band. This is a **gate-design** defect, not a fitting defect — a laundered gate is indistinguishable
+from a working one until a human plays the bots.
+
 ### Baseline & calibration discipline (anti-laundering)
 Re-recording `coverage_baseline.json` every slice replaces the comparator, so small repeated losses can vanish.
 Rule: an **immutable initiative-start snapshot** (`coverage_baseline.persona-realism-start.json`) exists; each
@@ -173,6 +188,11 @@ combined population-band re-anchor after the whole spine converges (don't chase 
 → **remaining W3R tail** (W3R-4b, W3R-5, W3R-7) → **W5-B preflop range width**
 → **W-ARR arrival instrumentation** (NEW, R8 2026-07-25 — see below; gates W5-B's D7 exit)
 → **W3.5 human-realism checkpoint** (blinded, on remediated bots) → **W4 commitment brake LAST + single band re-anchor + seam batch**.
+
+> **⚠️ SUPERSEDED FOR EVERYTHING NOT YET STARTED — see R9-4 below.** The owner re-sequenced on 2026-07-26:
+> **T-ANCHOR → T-STICKY → the `R9-DEFENCE` design pass → then this fitting order.** Reason: the engine cannot tell
+> a first bet from a third barrel (R9-1), so dials fitted now bake in compensating errors, and **W4-b is the single
+> authoritative band re-anchor** — spending it on the pre-fix engine wastes it.
 
 **Wave-order insertion (R8, 2026-07-25) — `W-ARR` before W3.5.** The 181-hand review
 (`docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`) established that the
@@ -205,6 +225,137 @@ The **W3R-5 re-spec** runs on the `personas_postflop.py` spine and stays **seria
 **Contract-status record (C14) — do NOT edit the contract from this roadmap; that is W5-a2's deliverable.**
 §5's **postflop** rows are **UNVERIFIED for table size** and therefore **DIRECTIONAL-only**; the two CI gates built
 on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until sourced.
+
+---
+
+### R9 — 250-hand review + roadmap correction pass (2026-07-26)
+
+A second independent measurement of the live roster (**250 hands**, session `2323b226…`, two blind Opus
+reviewers on disjoint personas) scored mean realism **4.2/10**. The earlier 181-hand review scored 3–4/10.
+**The bad verdict is now independently corroborated twice, from two corpora, by four reviewers.**
+
+The findings below were re-verified at `b581b3d` by a third pass, and that pass was itself adversarially
+reviewed by Codex Sol, which found six errors in it. What survives is what is written here.
+
+#### R9-1 — THE CENTRAL FINDING: the engine has no opponent-line term on defence
+
+**Aggression has a street schedule; defence has none.** Verified by code read:
+
+- `_STREET_AGG_MULT = {FLOP: 1.0, TURN: 0.6, RIVER: 0.33}` — applied to `bluff_mass` only, the **aggression** side.
+- `fold_merit = _FOLD_BASE[bucket] × _price_factor(...)` — **bucket and price only. No street, no line.**
+- `call_merit = (call_base + draw_bonus) × looseness` — **no street term**, bar two narrow exceptions
+  (air cannot call a river bet; an ace-high float damp facing a *raise* on flop/turn).
+
+**Proof — a matched counterfactual.** Hold bucket, draw class, price, opponent count, stack-to-pot ratio, legal
+action set and facing-state constant; vary **only** the street. Board grows with blanks chosen so the bucket does
+not change (verified, not assumed: `middle_pair` on all three streets).
+
+```
+hole 8h8s, board Kd7c2h (+3s, +4d), faced bet 5bb into 10bb (50% pot) on EVERY street,
+stack 200bb (deeper than every spr_commit), 1 opponent, facing a BET.
+
+persona                       flop                      turn                     river
+nit             F0.380 C0.566 R0.054      F0.380 C0.566 R0.054      F0.402 C0.598 R0.000
+tag             F0.327 C0.486 R0.187      F0.327 C0.486 R0.187      F0.402 C0.598 R0.000
+lag             F0.321 C0.435 R0.244      F0.321 C0.435 R0.244      F0.424 C0.576 R0.000
+passive_fish    F0.485 C0.453 R0.062      F0.485 C0.453 R0.062      F0.517 C0.483 R0.000
+calling_station F0.071 C0.918 R0.011      F0.071 C0.918 R0.011      F0.072 C0.928 R0.000
+maniac          F0.271 C0.368 R0.360      F0.271 C0.368 R0.360      F0.424 C0.576 R0.000
+```
+
+**Flop and turn are byte-identical for all six personas.** The river differs *only* because raise merit is zeroed
+there (`R0.000`), which renormalises the remaining mass — a side effect of the **aggression** side, not evidence
+of defensive street awareness. Note the river vectors also **collapse toward each other** (tag, lag and maniac all
+land on the same shape): archetype erasure, not archetype expression.
+
+**The claim, and the whole claim:** *facing the same bet with the same hand, the engine's flop and turn defence
+are the same decision.* A bot barrelled into twice plays identically to one facing a first stab. This is an
+**expressive gap** — "he barrelled again" is unrepresentable, so **no value of any existing lever can produce it**.
+It is the defensive mirror of the aggression-side gap (no c-bet concept), and `call_looseness` — a flat scalar
+across streets — cannot supply it.
+
+> **⚠️ What this does NOT establish.** It does **not** prove the omission *causes* the observed aggregate
+> per-street fold profiles. Real confounders move those independently: price grows with the pot, the multiway fold
+> boost recedes as fields shrink, `strength_bucket` is recomputed each street from a longer board, draws die on the
+> river, bluff/draw **raise** merit decays by street (which lifts normalised fold/call share with no defensive
+> change at all), and **the SPR commit gate becomes MORE likely to fire as the pot grows, zeroing fold for
+> committed made hands.** That gate is a direct, separate mechanism for late-street under-folding — **do not
+> attribute its effects to this finding.**
+>
+> An earlier draft of this finding claimed fold rate *"must mechanically fall as streets progress."* **That
+> inference is FALSE and is retracted** — the measured profile refutes it (tag 20.6→27.3→**66.7**, maniac
+> 24.1→42.1→**66.7**, both *rising*). Do not restore it.
+
+**Consequence for sequencing:** fitting dial values against a street-blind engine bakes in compensating errors
+that must later be unwound, and **W4-b is the single authoritative band re-anchor** — spending it on the old
+engine wastes it. Hence the R9 order below.
+
+#### R9-2 — measured per-street fold profile (250 hands), fold-when-facing-a-bet
+
+```
+persona          flop              turn              river
+nit              56.2% (9/16)      6.7%  (1/15)      12.5% (1/8)
+tag              20.6% (7/34)      27.3% (3/11)      66.7% (4/6)
+lag              16.0% (4/25)      33.3% (3/9)       16.7% (1/6)
+passive_fish     41.5% (39/94)     36.5% (19/52)     40.0% (10/25)
+calling_station  18.0% (11/61)     14.6% (7/48)      32.1% (9/28)
+maniac           24.1% (7/29)      42.1% (8/19)      66.7% (8/12)
+```
+
+**REPORTED, NOT GATED.** Several cells are n=6–15 and are directional only. nit's turn (1/15) is stark enough to
+act on as a *motivating symptom*; it is not evidence of a specific cause. **Do not turn any cell into a CI band**
+(§11 item 7).
+
+#### R9-3 — three NOW-spine slices have pass/fail checks that CANNOT FAIL
+
+A gate-design defect, found in three places and now generalised into a standing rule (see Cross-cutting):
+
+1. **W4-a** — its fix is a *multiplicative* brake on fold merit, but inside the commit gate fold merit is the
+   literal `0.0`, so the brake is inert there; and its pass/fail uses **King-high**, an `AIR` bucket where the gate
+   never fires. The slice can ship, pass, and leave every made-hand stack-off unchanged. (See W4-a for the
+   precision caveat — it is **not** globally inert.)
+2. **W5-b3** — *"per-seat RFI is monotone non-decreasing UTG→BTN"*. Non-decreasing admits equality. Run against
+   HEAD: nit `13.6 29.1 ×6`, station `0.6 ×7`, fish `2.6 3.8 ×6` — **all three already pass today, with zero JSON
+   change.**
+3. **tag's fold-to-c-bet band has a zero floor**, so it cannot fail low and will certify any amount of
+   over-calling. Live magnitude **20.6%** against a 50–60 target.
+
+#### R9-4 — R9 build order (owner decision, 2026-07-26)
+
+Supersedes the wave order above for everything not yet started:
+
+```
+Wave A wave 2  — T-ANCHOR   (sole fixture re-recorder; runs ALONE)
+      ↓
+Wave A wave 3  — T-STICKY   (216-cell digest taken on the w2 tip; MUST precede any facing-policy work)
+      ↓
+R9-DEFENCE design pass       (answer the NEXT-column design questions — NOT a build)
+      ↓
+the fitting waves            (W3R tail → W5-B → W3.5 → W4-a+M6 → W4-b LAST)
+```
+
+**Why T-STICKY must precede the defence work, specifically:** its 216-cell digest is a snapshot of decisions
+across facing spots, captured on the T-ANCHOR tip. Any change to how bots respond to bets invalidates those
+expectations before they are ever asserted.
+
+#### R9-5 — resolved: `bluff_freq` stays an UNCONDITIONAL exact-frequency lever (owner, 2026-07-26)
+
+T-ANCHOR restores the identity `P(bet) == composed bluff_mass` **exactly**. A c-bet concept conditioned on
+preflop initiative would necessarily break that identity. **Decision: the identity stays unconditional.**
+T-ANCHOR ships exactly as specified, needs no restatement, and the lever keeps the single clean meaning the fit
+loop targets. **Any c-bet mechanic must therefore be built as a SEPARATE factor elsewhere in the merit
+composition — it may not be expressed by conditioning `bluff_freq`.** See the `R9-CBET` NEXT item.
+
+#### R9-6 — corrections to the record
+
+| # | Correction |
+|---|---|
+| **R9-c1** | **ADAPT-2 REJECTED** — the claim that W4-b's WTSD target is *"structurally unreachable"*. Its arithmetic is single-shot: folding a flop bet also deletes that hand's turn and river decisions, so survival compounds as `(1−f)^k`. Using its own census and the measured `k ≈ 1.6–1.87` bets-faced-per-showdown, reaching the band ceiling needs a per-bet fold rate of ~66–71% — **inside** nit's grounded 60–75 fold-to-c-bet band. Its own floor figure (23.3%) also sits *inside* the 20–28 band. **Do NOT re-open the grounded WTSD target on this reasoning.** |
+| **R9-c2** | **ADAPT-4 REJECTED** — "W5-b3 and W-ARR-a cannot both be satisfied" is not a contradiction: *monotone non-decreasing* admits equality, so a flat ladder satisfies both. |
+| **R9-c3** | **A3 PARTIAL** — nit is *not* 20–30pp below its flop fold-to-c-bet target; live flop is **56.2%** against a 60–75 band (~4–19pp low). **The catastrophe is turn (6.7%) and river (12.5%).** This relocates the defect and changes which mechanism applies. |
+| **R9-c4** | **B8's framing REJECTED** — `88` on `4s4d7d` genuinely **is** two pair (eights and fours); the bucket is correct poker. Also **withdrawn**: the claimed B8→ADAPT-1 link — `TWO_PAIR_PLUS` and `OVERPAIR_TPTK` **both** clear the commit threshold, so re-bucketing between them removes no fold-zero. |
+| **R9-c5** | **Open-width statistics must use the `raise + 3bet` legs, NEVER `1 − fold`.** `1 − fold` includes limps. It matters enormously for `passive_fish` (RFI 2.6–3.8% but *continue* 21.9–43.3%) and `calling_station` (RFI **0.6%** flat vs continue 35.7–47.8%) — those two almost never raise; they limp. |
+| **R9-c6** | **All five `vs_rfi` / `vs_limpers` / `vs_3bet` / `vs_4bet` nodes are `positions: null` wildcards in all six packs** — only `unopened` is position-aware. Enumerated across every node of every pack. |
 
 ---
 
@@ -911,6 +1062,32 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       (c) the north-star's re-scoped **actor-seat** assertion (bots play differently from different SEATS) reads
       positive on `_persona_stats_ext`;
       (d) **no schema change appears in the diff.**
+      (e) **NEW (R9-COVER, 2026-07-26) — the authored-coverage inventory is clean for every node this slice
+      writes.** This slice multiplies `vs_rfi` and `vs_limpers` across eight seats. Each newly-authored node is a
+      fresh chance to reproduce a hole that already exists at HEAD, eight times over. Two structural checks, run
+      over all 169 hand classes × pack × facing × seat:
+      **(e1) OVERLAP — a hard failure.** Any class matched by **more than one mix** in the same node. The matcher
+      is **first-match-wins** (`personas.py:81-89`), so the later mix is silently dead code. Measured at HEAD:
+      `ATs`, `KJs`, `KQo` are each covered by two mixes in tag's `vs_rfi`, and first-match resolves all three to
+      `{3bet: 0.8, fold: 0.2}` — **`KQo` can literally never call a raise.** A silently dead mix is always a bug.
+      **(e2) NAMED PREMIUM SET — a hard failure.** A small, explicitly authored per-node list of classes that must
+      never resolve to 100% fold. Measured at HEAD: tag's `vs_rfi` returns `{'fold': 1.0}` with **zero matching
+      mixes** for `AQs`, `AQo`, `77` and `98s`. A TAG folding `AQs` to every open, from every seat, is not a tight
+      range — it is a gap in the authored content.
+      > **⚠️ Why this is a NAMED SET and not a strength ordering.** An earlier draft proposed asserting "a stronger
+      > class must not fold more often than a weaker one." **Reject that.** Hand-class strength is not a
+      > context-independent total order — `22` vs `A5s` vs `KQo` depends on the range and the node — so an agent
+      > implementing it would have to *invent* a 169-class ranking and bake it into CI. Name the specific classes
+      > per node instead.
+      > **Intentional folds are fine.** Per-node **allow-lists** carry the classes a pack deliberately folds; a nit
+      > folding most of the deck must not trip this.
+      **(e3) Remediation owner is THIS SLICE.** An inventory with no owner is a report nobody acts on. Failures in
+      nodes this slice authors are fixed here. Pre-existing `vs_rfi` holes are fixed here; maniac-specific holes
+      route to W5-b4.
+      > **Sequencing note (verified R9):** this is a **gate on W5-b2's output**, not a blocker in front of it.
+      > W5-b2 **authors** fresh per-seat nodes (line: *"author per-actor-position `vs_rfi` and `vs_limpers` nodes.
+      > JSON-only — no schema, no plumbing"*); it does **not** derive them from the existing mixes. So the HEAD
+      > hole is not mechanically propagated ×8 — it is re-authored, and can be fixed in the same pass.
       > **Why the old pass/fail was replaced:** it demanded tag's BB defend-vs-RFI hit ≈**22–28%** *(vs EP)* and
       > ≈**40–50%** *(vs BTN)* — **two numbers keyed on WHO OPENED**, i.e. the very opener axis this slice's own
       > no-gos scope OUT. With actor-position nodes only, tag-in-BB has exactly ONE `vs_rfi` node and therefore
@@ -922,15 +1099,52 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       into the pass/fail.** **No population band re-anchor — deferred to W4-b** (§5/§11 item 7: measure and report,
       never commit as a CI gate). **Appetite:** ~1 large slice.
 
-- [ ] **W5-b3 — E1-c: position-aware `unopened` for nit / station / fish.** *ICE 7·8·2.*
-      **Problem:** those three packs author only `['UTG']` + a wildcard, so **a nit opens a flat 8.0% from UTG1
-      through BB** (verified identical at every seat; a real nit runs ≈4% UTG → 15–18% BTN).
-      **Solution:** nine-position ladders, the same shape tag/lag/maniac already use.
-      **Pass/fail:** per-seat RFI is **monotone non-decreasing UTG→BTN** for all three; metric #3 VPIP/PFR
-      **measured against the §5 band and REPORTED — do NOT commit the band as a CI gate; the single band anchor is
-      W4-b.** (The monotonicity assertion is a lever-identity pin and IS committable.)
-      **No-gos:** JSON only; **no population band re-anchor — deferred to W4-b** (§5/§11 item 7).
+- [ ] **W5-b3 — E1-c: position-aware `unopened`. RE-SCOPED TO NIT ONLY (R9, 2026-07-26).** *ICE 7·8·2.*
+      **Problem (CORRECTED R9 — the old text was stale):** the old problem statement said *"a nit opens a flat
+      **8.0%** from UTG1 through BB"*. **At HEAD the nit opens 13.6% UTG and 29.1% at every other seat** — it is
+      already not flat, and both numbers are far too wide for the archetype. The real defect is (a) only ONE step
+      exists, UTG vs everywhere-else, and (b) the early-position end is **~4× too loose**. Monotonicity alone can
+      never fix (b) — a ladder that is uniformly too wide is still monotone.
+      **Solution:** a nine-position ladder for **nit**, the same shape tag/lag/maniac already use, pulling the
+      early end down as well as spreading the late end.
+      **Pass/fail (REPLACED R9-3 — the old criterion ALREADY PASSED AT HEAD and could not fail):**
+      (a) **STRICT increase on AUTHORED width** across **named seat pairs** — `UTG < LJ`, `LJ < CO`, `CO < BTN` —
+      measured as the combo-weighted `raise + 3bet` legs over all 1326 combos (**never `1 − fold`**, which includes
+      limps — R9-c5). Deterministic and n-free: this is an authored-content assertion, not a sampled one;
+      (b) an **early-position CEILING** on authored UTG width — monotonicity alone never pulls the early end down,
+      and (b) is the half the old criterion could not see;
+      (c) metric #3 VPIP/PFR **measured and REPORTED** against §5 — do NOT commit the band as a CI gate; the single
+      band anchor is W4-b.
+      > **HEAD result for (a), recorded per the gate-design rule:** nit `13.6 29.1 29.1 29.1 29.1 29.1 29.1` —
+      > **strict-increase FAILS at HEAD** (29.1 = 29.1 at every later pair). Correctly specified: the criterion can
+      > now detect its own failure.
+      > **⚠️ The ceiling VALUE is BLOCKED and stays DIRECTIONAL.** Two unsourced targets are in circulation — this
+      > roadmap's own `≈4% UTG → 15–18% BTN` and the 250-hand review's `≈6–8% → 18–22%`. **Do not reconcile them
+      > and do not gate on either.** RFI-by-seat is contract-flagged **format-sensitive** (6-max vs 9-max) and the
+      > seat-ordering claim is `[UNVERIFIED]`; §5a forbids a HARD gate on an UNVERIFIED row. Assert the ceiling's
+      > **existence** as a committed shape; source its **number** via the R9-SEATPROV research item in NEXT.
+      **Assert AUTHORED width, not realized RFI** — realized RFI is arrival-confounded, which is the entire point
+      of the W-ARR wave.
+      **No-gos:** JSON only; **no population band re-anchor — deferred to W4-b** (§5/§11 item 7); **do not extend
+      the strict ladder to `calling_station` or `passive_fish`** — see W5-b3b.
       **Appetite:** ~1 small slice.
+
+- [ ] **W5-b3b — flatness guard for `calling_station` / `passive_fish` (NEW, R9 2026-07-26).** *ICE 5·7·1.*
+      **Problem:** the old W5-b3 lumped these two in with the nit and demanded a monotone ladder from all three.
+      **That is wrong by design for these two archetypes.** NEXT item `N-limp` already records that scoping
+      recreational archetypes positionally is anti-realistic, and W-ARR-a independently calls monotonicity
+      wrong-by-design for exactly them. A recreational player does **not** tighten up under the gun; that is the
+      behaviour that makes them recreational. An agent left to infer the scope would very likely force a ladder
+      onto them and make them **less** realistic.
+      **Solution:** no ladder. Author nothing. Add a **no-regression guard** asserting their `unopened` width stays
+      flat across seats (station `0.6` flat, fish `2.6 / 3.8`), so a later slice cannot quietly ladder them.
+      **Pass/fail:** the flatness guard exists and passes; **it is an EXEMPT preservation criterion** under the
+      gate-design rule (it is supposed to pass at HEAD — that is its job).
+      > **R9-c2 recorded:** the claimed W5-b3 ↔ W-ARR-a contradiction (ADAPT-4) does not exist. *Monotone
+      > non-decreasing* admits equality, so a flat ladder satisfies both. The contradiction was the reason given
+      > for re-opening the ladder scope; it is rejected, and the scope split above stands on archetype grounds.
+      **No-gos:** JSON assertions only; do not touch either pack's content.
+      **Appetite:** ~1 small slice (can ride with W5-b3).
 
 - [ ] **W5-b4 — W3R-1 target reopen: maniac `vs_limpers` iso + cold-call mix.** *ICE 8·7·4.*
       **Problem:** W3R-1 locked maniac VPIP at **32.8%** against a §5 band of **45–58** on a refuted mechanism claim
@@ -1119,8 +1333,56 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
       below already covers the *call*. The *initiating raise* is boost-side and falls outside "facing-fold merit
       only" — that is **M6**, and contract §7 forbids shipping M6 and W4-a in different waves (same fold merit, same
       `c`). Plan them together.
-      **Pass/fail:** a TAG folds ~80%-stack King-high while still stacking off a set; aggression-factor/fold-to-cbet
-      survive; `test_clamp_and_jam_edge` green. **No-gos:** scope to facing-fold merit only. **Appetite:** ~1 large slice.
+      **Pass/fail (AMENDED R9-3, 2026-07-26 — the original set could not detect this slice's own failure):**
+      (a) **[KEEP — a real defect, reproduced verbatim in live play as H102]** a TAG folds ~80%-stack King-high
+      while still stacking off a set;
+      (b) **[NEW — the made-hand criterion, ⛔ BLOCKED, see below]** in a named made-hand spot inside the commit
+      gate, **fold probability becomes non-zero and exceeds its mechanic-off baseline**;
+      (c) **[EXEMPT preservation]** aggression-factor / fold-to-c-bet survive; `test_clamp_and_jam_edge` green.
+      **No-gos (⛔ CONTRADICTORY AS WRITTEN — see blocker (ii)):** ~~scope to facing-fold merit only~~.
+      **Appetite:** ~1 large slice.
+
+      > ### ⛔ W4-a is BLOCKED on two theory-contract amendments (R9, 2026-07-26)
+      >
+      > **This slice cannot be built as specified. A roadmap edit does not override a contract row** — both
+      > amendments below are OWNER decisions and must land in
+      > `docs/ai-dlc/contracts/persona-realism-theory-contract.md` first.
+      >
+      > **(i) Contract §4 row P6 preserves exactly what criterion (b) must relax.** P6 reads: *"Made hands (rung ≥
+      > OVERPAIR_TPTK) keep low-SPR commit unchanged."* Criterion (b) asks a made hand inside the commit gate to
+      > regain fold probability. **Amendment needed:** state the exception explicitly — *which* made hands, at what
+      > board texture, facing what action, may regain fold probability.
+      > **The poker here is subtle and an agent will get it wrong without this.** A **set at stack-to-pot ratio 1
+      > SHOULD stack off** — that is correct play, and criterion (a) already guards it. The target is narrower: an
+      > **overpair on a four-straight or four-flush board facing a check-raise**. Name the spot; do not write a
+      > blanket relaxation.
+      >
+      > **(ii) Contract §4 row P3 IS the no-go, and it makes this slice unable to cover its own defect.** P3 reads:
+      > *"`c = to_call/stack`. Scope to **facing-fold merit ONLY**."* But the canonical evidence hand contains
+      > **two** ungoverned air actions: the TAG *calls* 91bb with king-high (fold-side — covered) **and** *raises to
+      > 59bb* with king-high, out of position, into two players (boost-side — **not** covered). The boost-side half
+      > is **M6**, and contract §7 forbids shipping M6 and W4-a in different waves (same fold merit, same `c`).
+      > **So the no-go as written forbids the other half of the change the roadmap already requires be shipped
+      > together.** **Amendment needed:** replace "facing-fold merit only" with named fold-side **and** boost-side
+      > boundaries.
+      >
+      > **(iii) Do NOT invent a numeric target for criterion (b).** Make the first gate **zero-variance and
+      > directional** — capture the normalized merit vector and assert fold rises above its mechanic-off baseline
+      > in the named spot. Source any numeric level separately. **Also specify the check-raise sizing, the opponent
+      > count, and the opponent's persona** — an archetype-uniform fold target will force a TAG to over-fold
+      > against a maniac, which is the wrong direction for that matchup.
+      >
+      > **Falsification test to run the moment the brake exists** (this is the check that decides whether the
+      > mechanic works at all): capture the merit vector for `AA` on `Td 8s 2h │ Jc`, facing an 88%-pot turn raise,
+      > 85bb behind, 2 opponents. **If `fold` is still exactly `0.000`, the brake is inert in the commit region and
+      > the slice has not fixed its defect.**
+
+      > ### Precision — W4-a is NOT globally inert (do not overstate R9-3)
+      > The brake works wherever the commit gate has **not** fired. It governs the 3×-pot turn raise at `c = 0.65`.
+      > And its own problem statement — *"a scared fish never folds an overpair below SPR 2"* — is only **partly**
+      > inert: the fish's `spr_commit` is **1.4**, so between stack-to-pot 1.4 and 2.0 the brake works normally and
+      > only below 1.4 does it hit the literal `0.0`. **"W4-a does nothing" is false and must not be written into a
+      > ticket.**
       *(R8 note: H102 above is this pass/fail criterion occurring **verbatim in live play** — TAG, king-high, ~80%
       of stack. The criterion was well chosen; the slice is correctly specified. An earlier thesis that W4 was
       mis-specified and could move earlier was **refuted** on this point.)*
@@ -1391,6 +1653,154 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
   in this review to mis-attribute the 0/23 turn and 0/15 river coverage to design intent rather than to the
   mapper gate.
 
+### NEW NEXT items (2026-07-26, 250-hand review — R9)
+
+> **⛔ READ THIS BEFORE FILING ANY `R9-*` ITEM AS A SLICE.**
+> **`R9-DEFENCE` and `R9-CBET` are DESIGN QUESTIONS, NOT TICKETS.** They may not be handed to `/ai-dlc`, given a
+> pass/fail, or built until their questions below are answered by a design pass. An adversarial review established
+> that filing them as ordinary slices would cause an agent to "resolve" the open mechanism by adding exactly the
+> flat multiplier the softmax law forbids — because **a prohibition without an alternative mechanism is not a
+> specification**. Under-specified tickets here are worse than no tickets.
+> **`R9-SIGNAL` IS buildable now** and is the prerequisite for both.
+
+- **`R9-SIGNAL` — derive the defensive line signal (BUILDABLE; walking skeleton).** *Prerequisite for
+  `R9-DEFENCE`.* **The signal does not exist and cannot be borrowed.**
+  `bet_prev_street(history, street, position)` asks whether **`position` itself** bet or raised on the previous
+  street, and `derive_postflop_context` passes the **acting seat's own** position. It is the bot's memory of its
+  **own** aggression — the c-bet-versus-barrel signal — and is correctly used that way on the river busted-draw
+  bluff. **It is actor-relative and cannot express "the player betting into me barrelled again."**
+  > **⚠️ An earlier analysis called this "the same signal read from the other side" and treated the plumbing as
+  > already shipped. That was wrong.** It made this item look far smaller than it is. This is **construction**,
+  > not consumption.
+  **Build:** a new pure derivation — *did the seat currently betting into me also bet or raise the previous
+  street?* Working name `aggressor_bet_prev_street`. Add it to `PostflopContext` in
+  `backend/app/domain/table/postflop_context.py` beside the existing derivations, with its own unit tests.
+  **Keep `bet_prev_street` unchanged** — it stays the own-initiative signal for `R9-CBET`.
+  **Pass/fail:** the field is derived, threaded, unit-tested, and **read by nobody** — byte-identical behaviour,
+  zero fixture re-record. **Plus a range-estimator parity test** (see the estimator-parity discipline: any change
+  that makes the live bot diverge needs one; this one must prove it does *not* diverge).
+  Same walking-skeleton pattern W3-a used successfully (PR #96). **Appetite:** ~1 small slice.
+
+- **`R9-DEFENCE` — respond to sustained aggression. ⛔ DESIGN QUESTIONS, NOT A TICKET.**
+  **Goal:** a bot facing sustained aggression should continue less often than one facing a first stab, in an
+  archetype-appropriate way. This is R9-1, the central finding: flop and turn defence are **byte-identical** today.
+  **⛔ FORBIDDEN BY CONSTRUCTION:** a `street → scalar` map applied to `fold_merit` or `call_merit`. That is a
+  fourth multiplier, it re-creates `_STREET_AGG_MULT`'s shape on the wrong side of the decision, and **R9-1 shows
+  the street is not the variable that matters — the LINE is.** Two barrels on the turn is a different spot from a
+  first stab on the turn, and a street scalar cannot tell them apart.
+  **Answer all five before filing:**
+  1. **State** — key on the binary `aggressor_bet_prev_street` from `R9-SIGNAL`, or a richer line state (a count
+     of prior-street aggressions by the *current* aggressor)? *Recommend the minimal binary first.*
+  2. **Stage** — a single merit factor is the trap. Prefer an explicit two-stage form: `P(continue)`, then
+     `P(raise | continue)`, so that removing call mass **cannot silently inflate raises**. This is the documented
+     `N-logit` pathology, observed live: cutting the fish's `call_looseness` to 0.42 sent the freed mass to
+     **RAISE**, not FOLD, because nothing scales `_RAISE_BASE`. **`N-logit` is therefore a PREREQUISITE of this
+     item, not a sibling.**
+  3. **Scope** — which buckets? All, or made hands only? Does it fire facing a bet, facing a raise, or both?
+  4. **Persona axis** — is the response archetype-scaled? A station *should* be less responsive to a second barrel
+     than a nit. **There is no sourced per-archetype target for this** — keep it DIRECTIONAL until one exists.
+  5. **Attribution — do this BEFORE fitting anything.** Re-run R9-1's matched grid across price × bucket ×
+     headcount × stack-to-pot ratio to separate the line effect from price growth, the commit gate, and taxonomy
+     defects. **Fitting a mechanism over an unattributed aggregate is how you bake in a compensating error.**
+  **Acceptance harness when it is finally filed:** use R9-1's grid, extended — hold bucket / draw / price /
+  headcount / stack-to-pot / legal set constant and vary the **line**, not the street. The flop-versus-turn
+  byte-identity in R9-1 must **break**, in the archetype-appropriate direction.
+  **⚠️ Judge NORMALIZED PROBABILITY VECTORS, not raw merits.** Raise merit already decays by street on its own, so
+  reducing a competing merit lifts the normalized fold/call share without any defensive change whatsoever — a raw
+  merit comparison would certify a no-op as a fix.
+  **Sequencing:** must come after `T-STICKY` (its 216-cell digest is all facing spots and would be invalidated).
+
+- **`R9-CBET` — a continuation-bet concept. ⛔ DESIGN QUESTIONS, NOT A TICKET.**
+  **Problem:** `P(bet │ air)` is *exactly* `bluff_freq × damps` — a per-persona constant with no notion of who
+  raised before the flop. A low bluff frequency should express as **giving up on the turn**, not as **never
+  c-betting the flop**. **Not reachable through the lever:** raising the nit's `bluff_freq` from 0.04 to ~0.50 to
+  fix the c-bet rate would break the pinned cross-persona ordering test **and** multiply bluff-*raise* merit at
+  the same time (the ordering pin is `0.03/0.04/0.12/0.22/0.35/0.55`).
+  **✅ RESOLVED — the mechanism constraint (owner, R9-5):** `bluff_freq` **stays an unconditional exact-frequency
+  lever**. T-ANCHOR ships as specified and needs no restatement. **Therefore the c-bet term MUST be built as a
+  separate factor elsewhere in the merit composition — it may NOT be expressed by conditioning `bluff_freq`.**
+  **Answer before filing:**
+  1. **Node definition** — the contract records that existing c-bet sources measure different classes, so the
+     *level* is unresolved. Define precisely: `P(BET | preflop aggressor, first decision on the flop, heads-up, in
+     position)` — **stratify rather than aggregate**. Keep the level **DIRECTIONAL** until provenance exists;
+     **do NOT promote `cbet_flop` to a HARD gate** (§5a forbids it while UNVERIFIED — and see the `N-cbet`
+     disposition below, which proposes exactly that and is rejected on this half).
+  2. **Composition site** — where does the separate factor attach, given R9-5? This is the open design work.
+  **⚠️ FILE COLLISION:** T-ANCHOR owns `personas_postflop.py` **lines 825–871** — the non-facing `if bluff_cell:`
+  branch, which is exactly where a c-bet term lives. **Serialize behind T-ANCHOR.**
+
+- **`R9-SEATPROV` — source RFI-by-seat provenance (research slice).** *Blocks the numeric half of W5-b3's ceiling
+  and of the §5 seat axis.* Two unsourced seat ladders are in circulation and **neither may become a gate**.
+  Establish a 9-max full-ring, low-mid-stakes provenance row for opening frequency by seat, with the same
+  `(format, pool, source)` triple discipline §5a already requires. Until it lands, seat-axis work asserts
+  **shape** (strict increase, ceiling exists) and never **level**.
+
+- **`R9-SEATMETRIC` — the §5 target table needs a SEAT AXIS, or an inverted bot passes every gate.**
+  **Measured, and this is the sharpest instrument finding in R9:** `lag` posts VPIP **21.4** / PFR **18.1** —
+  ***both inside* the grounded LAG bands** — while achieving it by playing a **25% range from UTG 100% of the
+  time** and a **66% range from the button 14% of the time**. That is the archetype **inverted**, and every
+  current instrument reads it as a pass. **This is why dial-fitting has no gradient toward realism: the target
+  metrics cannot distinguish a realistic bot from an unrealistic one.**
+  **⚠️ SCOPE STRICTLY — do NOT populate a new §5 row with numbers.** RFI-by-seat is contract-flagged
+  format-sensitive and the seat-ordering claim is `[UNVERIFIED]`; importing unsourced figures as bands is exactly
+  the DIRECTIONAL-gating the project forbids. **This item adds an INSTRUMENT DEFINITION and a directional shape
+  status only.** Numbers wait on `R9-SEATPROV`.
+
+- **`R9-SHAPEGATE` — add shape assertions alongside level bands, but separate the two kinds.**
+  ✅ **Deterministic authored-shape invariants are n-free and safely committable** — authored-width ordering, the
+  pack coverage inventory, node-position structure. These read the JSON, not a sample.
+  ⚠️ **Sampled metrics stay REPORTED, not gated** — the arrival census and the R9-2 street profile — until
+  independently sourced and powered. Several R9-2 cells are n=6–15 and are labelled directional in this file.
+  **Do not let W-ARR-a's arrival counter quietly become a W4-b gate.**
+
+- **`R9-LOOSEFIT` — fit `call_looseness` for nit / tag / lag jointly. ⛔ ORDER MATTERS AND IS COUNTERINTUITIVE.**
+  **Problem:** **nit and tag both sit at `call_looseness = 0.6`** — identical. Two archetypes that should defend
+  very differently share the dial that decides defending. That equality *is* the defect.
+  **⛔ Do NOT lower `call_looseness` before the normalisation repair.** Freed call mass currently flows to
+  **RAISE**, not FOLD — the `N-logit` pathology, observed live when the fish was cut to 0.42. Tightening a bot
+  this way makes it *wilder*. **Correct order: `N-logit` → `N-vecfit` → this item → W4-b.**
+  **Fit fold-share and raise-share JOINTLY, not persona-by-persona against one aggregate band** — fitting nit and
+  tag separately against the same band can *erase* archetype separation rather than restore it.
+  **Add an explicit pairwise nit-versus-tag separation gate.**
+  > **⚠️ Re-grep before filing.** The claim that no filed slice already lowers `call_looseness` for these three
+  > after W5-a4 is an absence-of-evidence claim over a 1700-line file, flagged as its own author's weakest.
+  > **Verify it is still true before spending a slice on it.**
+
+- **`R9-TAXONOMY` — an under-pocket-pair class. ⚠️ WEAKEST ITEM IN R9 — STATE THE SEMANTICS OR DROP IT.**
+  > **This item is what remains after two errors were removed. Do not restore either.**
+  > **(1) `88` on `4s4d7d` genuinely IS two pair** (eights and fours). The bucket is correct poker; the claim that
+  > the board's pair was "counted as the bot's" is wrong and is withdrawn.
+  > **(2) The link to the commit-gate fold-zero is withdrawn** — `TWO_PAIR_PLUS` and `OVERPAIR_TPTK` **both** clear
+  > the commit threshold, so re-bucketing between them removes no fold-zero.
+  > **(3) The river-floor rationale is withdrawn** — `_RIVER_BET_FLOOR` makes `MIDDLE_PAIR` **check** rather than
+  > value-bet, and an under-pair generally *should* check the river. Removing the floor would make it **less**
+  > realistic.
+  **What may survive:** whether an under-pocket-pair sitting below two board cards (`55` on `6-J-3`) deserves a
+  class distinct from a genuine middle pair. **That is a judgement about desired showdown-equivalence, not a
+  demonstrated bug.** **State the desired semantics first, with a measured defect, or drop this item.**
+  **If pursued — SPLIT CLASSIFICATION FROM RE-FIT into two slices.** Introduce the taxonomy with an explicit
+  old→new lookup mapping and behaviour-neutral tests **first**, then fit each consumer separately. A new bucket
+  touches `_RUNG`, `_AGG_BASE`, `_CALL_BASE`, `_RAISE_BASE`, `_FOLD_BASE`, vulnerability membership, the river
+  floors **and** the commit gate simultaneously — changing them together makes any failure unattributable.
+  **Must serialize with W3R-4b and W3R-7, and precede any W3R-5 or `R9-DEFENCE` fit that conditions on buckets.**
+
+### Disposition of existing `N-*` items under R9 — read before filing anything (2026-07-26)
+
+**Stating this explicitly because a fresh agent working from R9 will otherwise create duplicates of items that
+already exist in this file.**
+
+| Item | Disposition under R9 |
+|---|---|
+| **`N-cbet` — ⚠️ TWO DISTINCT ENTRIES SHARE THIS LABEL** (the audit entry and the R8 entry) | **Merge both under `R9-CBET`.** **Reject** the R8 entry's proposal to promote `cbet_flop` to a HARD gate — §5a forbids it while UNVERIFIED. The audit entry re-levels damps on **made-hand** cells and never reaches the AIR cell (`if bluff_cell:` short-circuits first), so **it does not cover the c-bet defect** despite appearing to. |
+| **`N-anchor`** | Same subject as T-ANCHOR and resolved by R9-5. **Reconcile, do not duplicate.** |
+| **`N-logit`** | **PROMOTED to a prerequisite** of `R9-LOOSEFIT` and `R9-DEFENCE` (was a sibling). It is the normalisation repair both depend on, and without it both make bots wilder while appearing to tighten them. |
+| **`N-vecfit`** | **Prerequisite of `R9-LOOSEFIT`** — the two identity levers must be fit jointly, not one at a time. |
+| **`N-riverair`** | Its river half is correct and stands. ⚠️ **Its instruction to "adjudicate the fish lever first" is SUPERSEDED** — see NO-GO N2 below: the fish is the persona that is *correct*. Marked superseded in place. |
+| **`N-maniac`** | **Fold into W5-b4**, retaining open width as a **diagnostic**. See NO-GO N9. |
+| **`N-limp`** | Its `vs_rfi` cut is **superseded by W5-b2** (which keeps `vs_rfi` and cuts only the opener axis — the right call). Its "only nit/tag/lag" scoping should be **reconsidered for the BLIND SEATS specifically**: measured station BB VPIP is **28.6%**, its *second-tightest* seat, when a station closing the action for 2bb should be at its **loosest**. **Scope blinds for all six packs; leave open-position tiers to nit/tag/lag.** |
+| **`N-oppo`** | **Do NOT absorb into the opponent-modelling fork.** It is **grader/coaching-side** opponent modelling — a different consumer from bot decision-making. Two different problems that share a word. |
+| **`N-raise`, `N-d8gate`, `N-cat`, `N-blind`, `N-stale`** | **Unchanged by R9. Do not touch.** |
+
 ---
 
 ## LATER — bets (problem · confidence · assumption to test) — the deferred / architecture tail
@@ -1398,6 +1808,36 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
 - **Villain-range rungs (b) + (c) (G1-b/c).** (b) persona-conditional range prior updated by the betting line — medium;
   (c) full equity-vs-range estimator — the only NO-GO-ADJACENT rung vs "no solver tables". **Confidence: med/low.** Assumption:
   whether rung (a) realism is enough, or the barrel-more/exploit payoff justifies climbing. Decide the rung at promotion.
+
+  > ### R9 AMENDMENT (2026-07-26) — this is the DECISION POINT, and it sets the project's realism ceiling
+  >
+  > **Owner decision, 2026-07-26: these rungs STAY IN LATER, with the ceiling argument attached and the decision
+  > made deliberately rather than by drift.** Not promoted, not ruled out.
+  >
+  > **The structural fact.** Bots decide from **their own two cards, the board, and the price** — nothing in the
+  > engine represents what the opponent might be holding. Therefore **bluff-catching, thin value-betting and
+  > disciplined hero-folds are unreachable at ANY dial setting**, because all three require reasoning about the
+  > *other* player's range. This is not a tuning gap; the concept is absent.
+  > `backend/app/domain/range_estimate.py` **does** exist — but it feeds the **hero's** villain-range display, not
+  > bot decision-making. Do not mistake its existence for the engine having an opponent model.
+  >
+  > **Realism ceilings (JUDGEMENT, NOT MEASURED — do not cite these as data).** Calibrated against the two
+  > independent review scores (3–4/10 and 4.2/10) and a read of what each mechanism unlocks:
+  >
+  > | Scope | Ceiling |
+  > |---|---|
+  > | The roadmap as currently written | **~5/10** — passes its stat bands, still feels wrong to a human |
+  > | + `R9-DEFENCE` / `R9-SIGNAL` / `R9-CBET` (line awareness + initiative) | **~7/10** — bots form coherent lines |
+  > | + these rungs (opponent modelling) | **8+/10**, and a materially different project |
+  >
+  > **Why it is not promoted now:** promoting it re-opens the global **no-solver-tables** no-go, which is a
+  > repo-wide constraint and not this roadmap's to spend.
+  > **Why it is not ruled out:** rung (a) `G1-a` is **already COMMITTED**, so ruling out (b)/(c) would leave a
+  > half-built staircase.
+  > **⚠️ `N-oppo` is NOT this item.** That is grader/coaching-side opponent modelling — a different consumer.
+  > Do not merge them.
+  > **⚠️ Do not create a fourth entry for this.** `G1-a` is committed and `G1-b`/`G1-c` are here. Any future
+  > proposal to "add opponent modelling to the roadmap" is a duplicate — amend these.
 - **Exploit-coaching in-program ("you're facing a [type], here's how to adjust") (`track-F4`).** *High-level placeholder — the owner
   wants this eventually.* Teach the hero to adjust vs each archetype (vs a station value-bet thinner / never bluff; vs a nit
   fold to aggression). **Depends on:** villain-range rung (a) exposed to the grader **+ a new research pass for adjustment
@@ -1508,9 +1948,10 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
   > **R8 (2026-07-25) — `audit-F16` IS the realism ceiling; nothing else is.** The owner asked whether reopening the
   > architecture is on the table. The 181-hand review's refutation round answered it, and the answer is **spend the
   > appetite narrowly**. Three candidate "architectural" defects were tested and all three collapsed into tuning or
-  > wiring: *no initiative concept* — **false**, `bet_prev_street` is consumed at `:739` and modifies `bluff_mass`
+  > wiring: ~~*no initiative concept* — **false**, `bet_prev_street` is consumed at `:739` and modifies `bluff_mass`
   > (a frequency), and since `_PREV_STREET[FLOP] = PREFLOP` it **is literally the c-bet predicate**, already shipped
-  > and unit-tested; *levers aren't independent* — **partly false**, the lever set is block-triangular and
+  > and unit-tested~~ **← ⚠️ THIS REFUTATION IS ITSELF WRONG. REVERSED BY R9 (2026-07-26) — see the box below**;
+  > *levers aren't independent* — **partly false**, the lever set is block-triangular and
   > well-conditioned (cond ≈ 2–3), fixable with a vector-valued fit loop (`N-vecfit`) plus ~10 lines of nested logit
   > (`N-logit`); *invert the model to author target frequencies* — **intractable or isomorphic**, 774,144 conditioning
   > cells per persona raw, ~36,000 across six after aggressive pruning, against 8 numbers per pack today, and any
@@ -1521,8 +1962,55 @@ on them (**fold-to-c-bet**, **AF**) are demoted **HARD → no-regression** until
   > funded. Everything below it is reachable — the review scored the roster **3–4/10**, and the items in NEXT are
   > sufficient to move that materially **without** crossing this line.
 
+  > ### ⚠️ R9 REVERSAL (2026-07-26) — the "no initiative concept" thesis was refuted on a MISREADING
+  >
+  > **The refutation above is withdrawn. The thesis is UN-REFUTED and may be re-proposed.** It is now
+  > `R9-CBET` + `R9-SIGNAL` in NEXT.
+  >
+  > **What the refutation got wrong:** it cited one line where `bet_prev_street` is consumed and concluded the
+  > concept was shipped. **That line is RIVER-GATED.** Verified by grep: `bet_prev_street` appears **three times**
+  > in `personas_postflop.py` — one comment, one docstring, and **one code line**, which feeds **only** the
+  > busted-draw river bluff. **Derivation was mistaken for consumption.** The value is computed for every street
+  > and read on exactly one.
+  >
+  > **So the concept is NOT shipped:** on the flop — the street where a continuation bet actually happens —
+  > `P(bet │ air)` is still exactly `bluff_freq × damps`, a per-persona constant with no notion of who raised
+  > before the flop.
+  >
+  > **This matters beyond one thesis.** The no-re-propose rule reads from the 181-hand review's `SYNTHESIS.md`,
+  > so while this refutation stands there, **the correct diagnosis of the largest postflop defect gets
+  > automatically bounced by any agent that consults it.** The same correction must be written into
+  > `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`, not only here.
+  >
+  > **The other four refuted theses are unaffected and stay refuted.**
+
 ---
-*Handoff: on approval, the top unchecked NOW slice — **W3R-4b** (W0-a/b/c and W3R-0 are merged and ticked; note the
-R3 wave-order correction sequences **W5-A + W5-C before the W3R tail**, so W5-a1 → W5-a2 → W5-a3-i/ii/iii → W5-a4 and
-W5-c2 → W5-c3 land first where a W3R-tail slice depends on them) — goes to `/ai-dlc` for per-feature planning. One slice at a time;
-re-read pass/fail state between slices (agents falsely mark work done); fresh `refuter` at each fan-in.*
+
+## R9 NO-GOS (2026-07-26) — traps that would silently undo this work
+
+Each of these is a plausible-looking action that a fresh agent would take and that makes the bots **less**
+realistic, not more.
+
+| # | Do NOT | Because |
+|---|---|---|
+| **R9-N1** | **Do not re-open the grounded WTSD target** on the "structurally unreachable" argument | That arithmetic is single-shot — it models folding as removing *one* decision. Folding a flop bet also deletes that hand's turn and river decisions, so survival compounds as `(1−f)^k`. Corrected, the target is reachable **inside** the grounded fold band. Re-opening a grounded target is serious and hard to reverse. (R9-c1) |
+| **R9-N2** | **Do not "adjudicate the fish lever first"**, as `N-riverair` currently instructs | **The fish is the persona that is CORRECT.** Its elasticity slope is inside spec and its `call_looseness = 0.42` was fit under W3R-2 against a measured band. The nit-versus-fish inversion comes from **the nit sitting too loose**, not the fish sitting too tight. Adjudicating the fish risks "fixing" a bot that is already right. |
+| **R9-N3** | **Do not fix the nit by lowering `call_looseness` alone** | It is a **flat scalar across streets**, and the nit's defect is street-shaped (56% → 7% → 13%). Lowering it would fix the flop and leave the turn absurd. R9-1. |
+| **R9-N4** | **Do not widen any band to make a slice pass** | §11 item 7 auto-FAILs band-laundering. Honest re-grounding with a cited census is allowed; silent widening is not. |
+| **R9-N5** | **Do not fix arrival by widening open-range ladders** | Both reviews independently concluded the fix is positionally resolving the nodes bots actually **occupy** (`vs_rfi`, `vs_limpers` — all six packs are `positions: null` there, R9-c6). Widening ladders to compensate is the documented compensating-error trap: it moves the aggregate marginal while changing almost nothing in late position. |
+| **R9-N6** | **Do not raise the nit's `bluff_freq` to fix the c-bet rate** | Breaks the pinned cross-persona ordering test **and** multiplies bluff-*raise* merit at the same time. R9-CBET. |
+| **R9-N7** | **Do not re-propose the five theses the 181-hand review refuted** — **but the initiative/c-bet thesis is NO LONGER one of them** | See the R9 reversal box above. |
+| **R9-N8** | **Do not add another multiplier and call it a mechanism** | The softmax law exists to catch exactly this. R9-1 explains why a flat scale specifically cannot fix a line-shaped defect: it cannot distinguish two barrels on the turn from a first stab on the turn. |
+| **R9-N9** | **Do not delete the maniac's open-width framing** when folding `N-maniac` into W5-b4 | The maniac's decisive node is `vs_rfi` (**46.6%** continue but only a **12.6%** raise leg → **73% of its continues are flat calls**), not `unopened` width. **But** its authored early-position and button widths sit *below* the TAG's, so removing the axis entirely can leave a "maniac" that is too tight when unopened. **Retain open width as a measured diagnostic; forbid it only as a COMPENSATING lever** — it may not be widened to hit a PFR band that the `vs_rfi` node should be fixing. |
+| **R9-N10** | **Do not treat R9-2's street profile, or any arrival census cell, as a gate** | n=6–15 on several cells. REPORTED, never committed as CI. `R9-SHAPEGATE`. |
+
+---
+*Handoff: **SUPERSEDED BY R9-4 (2026-07-26).** The next item is **Wave A wave 2 — T-ANCHOR**, which runs **alone**
+(it is its wave's sole fixture re-recorder), then **wave 3 — T-STICKY**, then the **`R9-DEFENCE` design pass** (a
+design pass, NOT a build), and only then the fitting waves. Within the fitting waves the prior ordering still
+holds: the R3 wave-order correction sequences **W5-A + W5-C before the W3R tail**, so W5-a1 → W5-a2 →
+W5-a3-i/ii/iii → W5-a4 and W5-c2 → W5-c3 land first where a W3R-tail slice depends on them; the top unchecked
+fitting slice is **W3R-4b**. **W4-a is BLOCKED on two contract amendments** and **W4-b stays LAST** (single
+authoritative band re-anchor).
+One slice at a time; re-read pass/fail state between slices (agents falsely mark work done); fresh `refuter` at
+each fan-in, plus the `persona-realism-theory-reviewer` on every persona-realism slice.*
