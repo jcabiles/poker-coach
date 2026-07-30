@@ -28,6 +28,9 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Put the backend root on sys.path so `tests.<module>` imports resolve under a
+# bare `pytest` (CI), not just `python -m pytest` (which injects the CWD).
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py312"
