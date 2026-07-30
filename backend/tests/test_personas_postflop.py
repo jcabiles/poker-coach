@@ -1347,6 +1347,53 @@ def test_size_elasticity_zero_is_size_flat():
     assert all(abs(f - factors[0]) < 1e-12 for f in factors)  # SMALL..OVERBET flat
 
 
+# T-STICKY — `stickiness` authorship contract: required exactly while a
+# fallback path is live, forbidden once both split levers are authored.
+_STICKY_BASE = {
+    "aggression": 1.0,
+    "bluff_freq": 0.1,
+    "sizing": {"0.5": 1.0},
+    "spr_commit": 1.5,
+    "multiway_bluff_damp": 0.5,
+}
+
+
+def test_stickiness_forbidden_when_both_split_levers_authored():
+    from pydantic import ValidationError
+
+    from app.domain.content.models import PersonaPostflop
+
+    with pytest.raises(ValidationError, match="stickiness"):
+        PersonaPostflop.model_validate(
+            {**_STICKY_BASE, "stickiness": 1.4, "call_looseness": 0.42, "size_elasticity": 1.3}
+        )
+    # Key PRESENCE is the contract — an explicitly-authored null is still an
+    # authored key (review C-1: value-only checking would let it slip through).
+    with pytest.raises(ValidationError, match="stickiness"):
+        PersonaPostflop.model_validate(
+            {**_STICKY_BASE, "stickiness": None, "call_looseness": 0.42, "size_elasticity": 1.3}
+        )
+    # Same payload minus the dead field is valid.
+    PersonaPostflop.model_validate(
+        {**_STICKY_BASE, "call_looseness": 0.42, "size_elasticity": 1.3}
+    )
+
+
+def test_stickiness_required_while_any_fallback_path_is_live():
+    from pydantic import ValidationError
+
+    from app.domain.content.models import PersonaPostflop
+
+    for partial in (
+        {},  # neither lever → both fallbacks live
+        {"call_looseness": 0.6},  # size_elasticity fallback still live
+        {"size_elasticity": 0.55},  # call_looseness fallback still live
+    ):
+        with pytest.raises(ValidationError, match="stickiness"):
+            PersonaPostflop.model_validate({**_STICKY_BASE, **partial})
+        PersonaPostflop.model_validate({**_STICKY_BASE, "stickiness": 1.0, **partial})
+
+
 # Pinned representative spot: top pair weak kicker (Ah2d on Ac9s3h, no draw),
 # unopened flop, SPR well above commit — the paradigmatic saturation symptom
 # (a one-pair hand every persona MIXES bet/check with; pre-fix the maniac

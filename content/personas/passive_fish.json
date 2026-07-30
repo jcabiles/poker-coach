@@ -7,7 +7,6 @@
   "sizing": { "open_bb": 4.0, "threebet_mult": 3.0, "fourbet_mult": 2.2 },
   "postflop": {
     "aggression": 0.6,
-    "stickiness": 1.4,
     "size_elasticity": 1.3,
     "call_looseness": 0.42,
     "bluff_freq": 0.12,
