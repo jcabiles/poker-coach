@@ -90,6 +90,17 @@
           "default": null,
           "title": "Rationale"
         },
+        "rationale_parts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReasoningParts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "actions": {
           "items": {
             "$ref": "#/$defs/ActionRange"
@@ -135,6 +146,7 @@
         "vs_turn_bet",
         "river_barrel",
         "vs_river_bet",
+        "vs_caller_raise",
         "limped_lead",
         "limped_vs_lead"
       ],
@@ -155,6 +167,39 @@
       ],
       "title": "Position",
       "type": "string"
+    },
+    "ReasoningParts": {
+      "description": "Structured reasoning: one lead sentence + supporting bullet points.\n\nAdditive beside the flat `reasoning` string \u2014 which stays the deterministic\n\" \".join of lead + points so every legacy consumer (coach prompt, persisted\nrows, FE flat fallback) keeps working. Never parsed out of prose: the parts\ncome from compose_tiers' clause assembly, one clause per element. `sources`\ncarries doc citations demoted out of the readable text (rendered as a muted\nfooter / inside the deep-dive, never in lead or points).",
+      "properties": {
+        "lead": {
+          "title": "Lead",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Points",
+          "type": "array"
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sources"
+        }
+      },
+      "required": [
+        "lead"
+      ],
+      "title": "ReasoningParts",
+      "type": "object"
     },
     "VillainType": {
       "enum": [

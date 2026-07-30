@@ -1112,9 +1112,13 @@ def _exploit_note(
     if persona is None:
         return None
     entry = lookup(_content_index(), spot, villain_type=VillainType(persona))
-    if entry is None or entry.rationale is None:
+    if entry is None or entry.rationale_text is None:
         return None
-    return ExploitNoteView(villain_label=persona, rationale=entry.rationale)
+    return ExploitNoteView(
+        villain_label=persona,
+        rationale=entry.rationale_text,
+        rationale_parts=entry.rationale_parts,
+    )
 
 
 def preflop_chart(db: Session, session_id: str, owner_id: str = "") -> PreflopChartView:

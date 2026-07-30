@@ -14,6 +14,7 @@ the rationale tags. EVs are formatted with the "≈" approximate convention.
 from __future__ import annotations
 
 from app.domain.action import Decision
+from app.domain.archetypes import VillainType
 from app.domain.evaluation import (
     ActionEval,
     Correctness,
@@ -23,6 +24,18 @@ from app.domain.evaluation import (
     ReasoningParts,
 )
 from app.domain.spot import Spot
+
+# One-line plain descriptors for the exploit lede's villain prefix — the
+# persona name stays (players should learn the vocabulary) with the inline
+# explanation following, per the feedback-prose-readability voice rules.
+_VILLAIN_DESC = {
+    VillainType.CALLING_STATION: "calls far too often and rarely folds",
+    VillainType.NIT: "plays only premium hands and folds to pressure",
+    VillainType.LAG: "plays lots of hands and plays them aggressively",
+    VillainType.PASSIVE_FISH: "plays too many hands and mostly just calls",
+    VillainType.TAG: "a solid regular: tight hand selection, aggressive play",
+    VillainType.MANIAC: "raises and bluffs at every opportunity",
+}
 
 # --- Preflop mistake-shape tags (grading.py::_tags) -> mechanism phrases ---
 _PRE_SHAPE = {
@@ -147,21 +160,36 @@ def _reasoning_parts(spot: Spot, result: EvaluationResult) -> ReasoningParts:
         )
     tags = result.rationale_tags
     parts: list[str] = []
+    authored = result.authored_rationale_parts
+    sources = authored.sources if authored is not None else None
     exploit = "exploit" in tags and spot.villain_type is not None
     if exploit:
         # exploit lede first: the villain-specific sentence IS the hand-specific
-        # rationale here (authored_rationale is consumed by this lede, so the
+        # rationale here (authored rationale is consumed by this lede, so the
         # branches below must not repeat it).
         villain = spot.villain_type.value.replace("_", " ")
-        if result.authored_rationale:
+        if authored is not None:
+            # Structured authored content: villain prefix survives structuring
+            # (ledger C7) — the persona name + a plain inline descriptor lead,
+            # then the authored bullets follow.
+            desc = _VILLAIN_DESC.get(spot.villain_type)
+            prefix = f"Versus a {villain} ({desc}): " if desc else f"Versus a {villain}: "
+            parts.append(prefix + authored.lead)
+            parts.extend(authored.points)
+        elif result.authored_rationale:
             parts.append(f"Versus a {villain}: {result.authored_rationale}")
         else:
             parts.append(
                 f"This is an exploit adjustment versus a {villain}, "
                 f"shifted from the baseline chart."
             )
+    elif authored is not None:
+        # Structured authored content (rewritten packs): lead + bullets flow in
+        # as separate clauses — never re-joined, never parsed.
+        parts.append(authored.lead)
+        parts.extend(authored.points)
     elif result.authored_rationale:
-        # N3 authored content (preflop baseline or postflop node) leads.
+        # N3 flat authored content (preflop baseline or postflop node) leads.
         parts.append(result.authored_rationale)
     if tags and tags[0] in _NODE and len(tags) >= 4:
         node, adv, cat, wet = tags[0], tags[1], tags[2], tags[3]
@@ -204,7 +232,7 @@ def _reasoning_parts(spot: Spot, result: EvaluationResult) -> ReasoningParts:
                 f"The chart's line here is essentially pure: "
                 f"{_fmt(best)} at {_pct(best.frequency)}."
             )
-    return ReasoningParts(lead=parts[0], points=parts[1:])
+    return ReasoningParts(lead=parts[0], points=parts[1:], sources=sources)
 
 
 def _flat_reasoning(parts: ReasoningParts) -> str:
@@ -241,9 +269,14 @@ def compose_tiers(
     the structured form is the source of truth, the flat string the derivation.
     """
     parts = _reasoning_parts(spot, result)
+    deep = _deep_dive(result, decision)
+    if parts.sources:
+        # Citations demoted out of the readable text (Gate-1 decision): they
+        # live on parts.sources for footer rendering AND in the deep-dive.
+        deep = f"{deep} Sources: {parts.sources}."
     return FeedbackTiers(
         verdict=_verdict(result, decision),
         reasoning=_flat_reasoning(parts),
-        deep_dive=_deep_dive(result, decision),
+        deep_dive=deep,
         reasoning_parts=parts,
     )

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from app.domain.evaluation import ReasoningParts
 from app.domain.spot import Hero, LegalAction
 
 
@@ -171,7 +172,10 @@ class ExploitNoteView(BaseModel):
     the mapped Spot's facing position, never guessed (spec med-1)."""
 
     villain_label: str
-    rationale: str
+    rationale: str  # flat authored line (join of parts for rewritten entries)
+    # Structured authored rationale (lead + bullets + demoted citations);
+    # None for legacy flat-only entries — FE falls back to `rationale`.
+    rationale_parts: ReasoningParts | None = None
 
 
 class PreflopChartView(BaseModel):

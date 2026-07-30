@@ -203,6 +203,69 @@ def test_postflop_mistake_parts_have_real_bullets():
     assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
 
 
+def test_structured_entry_parts_flow_through_provider_seam():
+    """T2: an Entry carrying `rationale_parts` (no flat rationale) flows its
+    lead + points into tiers.reasoning_parts as separate clauses, its sources
+    into parts.sources + the deep-dive, and NEVER into the readable text."""
+    from app.domain.evaluation import ReasoningParts
+    from app.domain.providers import HeuristicProvider, TieredFeedbackProvider
+
+    key = (NodeContext.RFI, Position.CO, None, 0, None)
+    entry = _IDX[key].model_copy(
+        update={
+            "rationale": None,
+            "rationale_parts": ReasoningParts(
+                lead="Raise here — this hand opens from the cutoff every time.",
+                points=[
+                    "It is comfortably inside the opening range.",
+                    "Folding gives up a profitable open.",
+                ],
+                sources="Upswing RFI; doc 01 §2",
+            ),
+        }
+    )
+    p = TieredFeedbackProvider(HeuristicProvider({key: entry}))
+    res = _run(p.optimal(build_spot(entry, random.Random(1))))
+    parts = res.tiers.reasoning_parts
+    assert parts.lead.startswith("Raise here — this hand opens")
+    assert "It is comfortably inside the opening range." in parts.points
+    assert parts.sources == "Upswing RFI; doc 01 §2"
+    # flat fields carry the joined text (back-compat for coach / old rows)
+    assert res.authored_rationale == entry.rationale_text
+    assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
+    # citations demoted: deep-dive only, never the readable text
+    assert "§" not in res.tiers.reasoning
+    assert "Sources: Upswing RFI; doc 01 §2." in res.tiers.deep_dive
+
+
+def test_structured_exploit_entry_keeps_villain_prefix():
+    """T2 (ledger C7): structured exploit content keeps the `Versus a
+    {villain} ({plain descriptor}):` lede so exploit feedback never reads
+    like baseline advice."""
+    from app.domain.evaluation import ReasoningParts
+    from app.domain.providers import HeuristicProvider, TieredFeedbackProvider
+
+    key = (NodeContext.VS_RFI, Position.BTN, Position.CO, 0, VillainType.CALLING_STATION)
+    entry = _IDX[key].model_copy(
+        update={
+            "rationale": None,
+            "rationale_parts": ReasoningParts(
+                lead="Call wider — this player pays off too often to fold against.",
+                points=["Value bets earn extra streets; bluffs lose their point."],
+            ),
+        }
+    )
+    p = TieredFeedbackProvider(HeuristicProvider({key: entry}))
+    res = _run(p.optimal(build_spot(entry, random.Random(1))))
+    parts = res.tiers.reasoning_parts
+    assert parts.lead.startswith(
+        "Versus a calling station (calls far too often and rarely folds): Call wider"
+    )
+    assert "Value bets earn extra streets; bluffs lose their point." in parts.points
+    # the authored prose is consumed by the lede — not repeated later
+    assert res.tiers.reasoning.count("Call wider") == 1
+
+
 def test_not_found_parts_are_synthetic_lead_only():
     """Early-return branches (Coverage.NOT_FOUND) emit a synthetic lead with an
     empty bullet list (ledger R7/C6) — parts exist whenever tiers exist."""
