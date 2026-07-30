@@ -150,7 +150,15 @@ and *partly* real new work (baseline preflop + all postflop are templated tautol
       the one Now item not thin-and-vertical; accepted as a scoped exception, not an oversight. Do it before N-Next onboarding
       seeds `srs_item` rows, so those seeds are owner-scoped from birth.
 
-## NEXT — validated problems / opportunities (not yet spec'd)
+- [x] **N10 — Feedback-prose readability (structure + plain-language rewrite).** *(done 2026-07-30,
+      owner-initiated: the "Your decisions" panel prose was one jargon-dense paragraph. Shipped: structured
+      `ReasoningParts` {lead, points, sources} end-to-end — content packs → `compose_tiers` → wire → new 0014
+      column → FIVE renderers (SimRecap, HandReplay, HandReplayTable/History, FeedbackPanel, SimRangeChart
+      exploit note); all 93 authored rationales + the `feedback.py` template dicts rewritten in
+      keep-the-term-explain-it-inline voice; citations demoted out of readable text; recap prose now
+      reload-durable (pre-existing restore gap closed). Spec `specs/feedback-prose-readability.md`, dual-review
+      ledger (11 findings, all folded) `ledger/feedback-prose-readability.md`. verify.sh OK + wire probe on
+      all three surfaces; 1125 pass.)*
 
 > 🔭 **Four items below (T-cover, T-agentcoach, T-oppo, T-blinddef) came out of the 2026-07-25 181-hand
 > review.** Owner flagged them as must-not-lose. Full evidence:
