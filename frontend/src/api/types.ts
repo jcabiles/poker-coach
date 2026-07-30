@@ -45,6 +45,17 @@ export interface ActionEval {
   ev_bb: number;
 }
 
+// Structured reasoning (feedback-prose-readability): one lead sentence +
+// supporting bullets, composed backend-side. `sources` carries doc citations
+// demoted out of the readable text (render muted / in the deep-dive only).
+// The flat `reasoning` string is always the join of lead + points — renderers
+// prefer the parts and fall back to the flat paragraph when absent.
+export interface ReasoningParts {
+  lead: string;
+  points: string[];
+  sources?: string | null;
+}
+
 // N1 tiered teaching feedback: verdict -> reasoning -> deep-dive, composed
 // backend-side by the TieredFeedbackProvider wrapper (never parsed from
 // `explanation`, which is kept for backward compat).
@@ -52,6 +63,7 @@ export interface FeedbackTiers {
   verdict: string;
   reasoning: string;
   deep_dive: string;
+  reasoning_parts?: ReasoningParts | null;
 }
 
 export interface EvaluationResult {
@@ -255,6 +267,9 @@ export interface GradeView {
   coverage: string; // "full" | "partial" | "not_found" | "unmappable"
   verdict: string | null; // tiered verdict line; null when no baseline / reloaded
   reasoning: string | null; // the "why"; recap expands it for mistakes+ only
+  // Structured "why" (lead + bullets); null on no-baseline / pre-0014 rows —
+  // the recap then falls back to the flat `reasoning` paragraph.
+  reasoning_parts?: ReasoningParts | null;
   // N5 spot dims surfaced for the N6 coach; position always set, facing/node
   // null on unmappable spots. Survive a reload (persisted), unlike verdict.
   node_context: string | null;
@@ -410,6 +425,9 @@ export interface ReplayStepView {
   coverage: string | null; // "full"|"partial"|"not_found"|"unmappable"; null on ungraded steps
   verdict: string | null; // tiered verdict line; null when unpersisted / ungraded
   reasoning: string | null; // the "why"; null → tier + EV only, never fabricated
+  // Structured "why" from the 0014 column; null on pre-0014/ungraded rows —
+  // the replayer then falls back to the flat `reasoning` paragraph.
+  reasoning_parts?: ReasoningParts | null;
 }
 
 export interface HandReplayView {
@@ -432,7 +450,9 @@ export interface HandReplayView {
 // live villain's persona-keyed read line, null when no authored pair exists.
 export interface ExploitNoteView {
   villain_label: string; // the actual opponent seat's persona_type
-  rationale: string;
+  rationale: string; // flat authored line (join of parts for rewritten entries)
+  // Structured authored line; null for legacy flat-only entries.
+  rationale_parts?: ReasoningParts | null;
 }
 
 export interface PreflopChartView {

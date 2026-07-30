@@ -37,7 +37,7 @@ from app.domain.archetypes import VillainType
 from app.domain.content.models import PersonaPack
 from app.domain.content.notation import hole_cards_to_class
 from app.domain.content.registry import lookup
-from app.domain.evaluation import Coverage, EvaluationResult, FeedbackTiers
+from app.domain.evaluation import Coverage, EvaluationResult, FeedbackTiers, ReasoningParts
 from app.domain.grading import range_grid
 from app.domain.personas import load_persona_packs
 from app.domain.postflop import _hand_category, _river_cat_effective
@@ -298,13 +298,19 @@ def assert_session_active(db: Session, session_id: str, owner_id: str = "") -> N
 
 def _grade_view(row: SimDecision, tiers: FeedbackTiers | None = None) -> GradeView:
     """GradeView from a persisted SimDecision. verdict/reasoning come from the
-    in-memory evaluation tiers of the decision graded THIS request; persisted
-    rows carry no tier text (frozen S10 schema). Scope of the gap (W1 refuter
-    med-1): recap rows for earlier decisions lack tiers on the LIVE path, and
-    a session reload (restore_session) rebuilds the recap with tiers=None for
-    EVERY row — including the hand's final decision. correctness/ev_loss/
-    coverage always survive. Reload-durable reasoning = a SimDecision
-    verdict/reasoning migration (0011), tracked as a roadmap NEXT note."""
+    in-memory evaluation tiers of the decision graded THIS request; when tiers
+    are absent (recap rows for earlier decisions on the live path, and EVERY
+    row after a restore_session reload) they fall back to the columns persisted
+    at play time (0013 prose + 0014 structured parts) — the reload gap flagged
+    as feedback-prose-readability ledger C8 is closed by this fallback. Rows
+    that were never graded carry NULL there too; correctness/ev_loss/coverage
+    always survive."""
+    if tiers is not None:
+        verdict, reasoning = tiers.verdict, tiers.reasoning
+        parts = tiers.reasoning_parts
+    else:
+        verdict, reasoning = row.verdict_tier_text, row.reasoning_text
+        parts = _parse_reasoning_parts(row.reasoning_parts_json)
     return GradeView(
         street=row.street,
         ordinal=row.ordinal,
@@ -313,12 +319,25 @@ def _grade_view(row: SimDecision, tiers: FeedbackTiers | None = None) -> GradeVi
         sizing_correctness=row.sizing_correctness,
         ev_loss_bb=row.ev_loss_bb,
         coverage=row.coverage,
-        verdict=tiers.verdict if tiers is not None else None,
-        reasoning=tiers.reasoning if tiers is not None else None,
+        verdict=verdict,
+        reasoning=reasoning,
+        reasoning_parts=parts,
         node_context=row.node_context,
         position=row.position,
         facing_position=row.facing_position,
     )
+
+
+def _parse_reasoning_parts(raw: str | None) -> ReasoningParts | None:
+    """Deserialize a persisted reasoning_parts_json column (0014). NULL and
+    malformed payloads both degrade to None — readers then fall back to the
+    flat reasoning paragraph, never an error."""
+    if not raw:
+        return None
+    try:
+        return ReasoningParts.model_validate_json(raw)
+    except ValueError:
+        return None
 
 
 def _hand_decisions(db: Session, sim_hand_id: int) -> list[SimDecision]:
@@ -876,6 +895,10 @@ async def apply_hero_action(
         # tier+EV+coverage only, never fabricated prose.
         sim_row.verdict_tier_text = result.tiers.verdict
         sim_row.reasoning_text = result.tiers.reasoning
+        if result.tiers.reasoning_parts is not None:
+            # Structured parts (0014) — JSON serialization stays at the service
+            # layer; the domain model never sees the wire/DB encoding.
+            sim_row.reasoning_parts_json = result.tiers.reasoning_parts.model_dump_json()
     db.add(sim_row)
     if graded:
         # Tagged attempt so sim leaks flow into by-source stats. NEVER via
@@ -1606,6 +1629,7 @@ def _attach_verdicts(replay: HandReplayView, decisions: list[SimDecision]) -> No
         step.coverage = dec.coverage
         step.verdict = dec.verdict_tier_text
         step.reasoning = dec.reasoning_text
+        step.reasoning_parts = _parse_reasoning_parts(dec.reasoning_parts_json)
 
 
 def get_hand_replay(

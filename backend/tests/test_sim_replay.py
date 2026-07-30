@@ -141,14 +141,15 @@ def test_migration_0013_up_down_up_and_index_absent_after_downgrade(tmp_path):
         assert "ix_sim_hand_created_at" in idx
     engine.dispose()
 
-    # Down one: drops both text columns AND the created_at index.
-    command.downgrade(cfg, "-1")
+    # Down to 0012 (through 0014's parts column + 0013's text columns/index).
+    command.downgrade(cfg, "0012")
     engine = create_engine(url, connect_args={"check_same_thread": False})
     with engine.begin() as conn:
         cols = {
             r[1] for r in conn.execute(text("PRAGMA table_info(sim_decision)")).fetchall()
         }
         assert "verdict_tier_text" not in cols and "reasoning_text" not in cols
+        assert "reasoning_parts_json" not in cols  # 0014 down is clean too
         idx = {
             r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()
         }
@@ -182,6 +183,74 @@ def test_graded_decision_persists_verdict_text(db):
     for r in ungraded:
         assert r.verdict_tier_text is None
         assert r.reasoning_text is None
+
+
+def test_graded_decision_persists_structured_parts_and_replay_reads_them(db):
+    """feedback-prose T3: the 0014 reasoning_parts_json column round-trips —
+    persisted under the same graded-only gate, deserialized onto the replay
+    step, and the flat reasoning stays the join of lead + points."""
+    from app.domain.evaluation import ReasoningParts
+    from app.services.sim_session import get_hand_replay
+
+    session_id = _play_hands(db, 12, aggressive=True)
+    rows = list(db.exec(select(SimDecision).where(SimDecision.session_id == session_id)))
+    graded = [r for r in rows if r.coverage not in ("not_found", "unmappable")]
+    assert graded
+    for r in graded:
+        assert r.reasoning_parts_json is not None
+        parts = ReasoningParts.model_validate_json(r.reasoning_parts_json)
+        assert parts.lead
+        assert r.reasoning_text == " ".join([parts.lead, *parts.points])
+    for r in rows:
+        if r.coverage in ("not_found", "unmappable"):
+            assert r.reasoning_parts_json is None
+    # replay surfaces the structured parts on the matching hero step
+    a_row = graded[0]
+    replay = get_hand_replay(db, a_row.sim_hand_id)
+    stepped = [s for s in replay.steps if s.reasoning_parts is not None]
+    assert stepped, "graded hero step should carry reasoning_parts"
+    assert stepped[0].reasoning_parts.lead
+
+
+def test_restored_session_recap_carries_persisted_prose(db):
+    """feedback-prose T3 (ledger C8): reloading a completed hand rebuilds the
+    recap from the persisted 0013/0014 columns — verdict, flat reasoning AND
+    structured parts all survive the reload instead of vanishing."""
+    from app.services.sim_session import restore_session
+
+    graded_rows = []
+    for _ in range(10):  # retry fresh sessions until the LAST hand has a graded row
+        session_id = _play_hands(db, 1, aggressive=True)
+        restored = restore_session(db, session_id)
+        assert restored is not None
+        graded_rows = [g for g in restored.hand.recap if g.correctness is not None]
+        if graded_rows:
+            break
+    assert graded_rows, "no graded decision in 10 fresh hands"
+    for g in graded_rows:
+        assert g.verdict and g.reasoning  # persisted prose, not None-after-reload
+        assert g.reasoning_parts is not None and g.reasoning_parts.lead
+
+
+def test_pre_0014_rows_fall_back_to_flat_reasoning(db):
+    """A NULL reasoning_parts_json (pre-migration row) degrades to the flat
+    paragraph: replay step carries reasoning text but parts None."""
+    from app.services.sim_session import get_hand_replay
+
+    session_id = _play_hands(db, 6, aggressive=True)
+    rows = list(db.exec(select(SimDecision).where(SimDecision.session_id == session_id)))
+    graded = [r for r in rows if r.coverage not in ("not_found", "unmappable")]
+    assert graded
+    target = graded[0]
+    target.reasoning_parts_json = None  # simulate a pre-0014 row
+    db.add(target)
+    db.commit()
+    replay = get_hand_replay(db, target.sim_hand_id)
+    hero_graded = [s for s in replay.steps if s.reasoning is not None]
+    assert hero_graded
+    step = next(s for s in hero_graded if s.street == target.street)
+    assert step.reasoning  # flat paragraph survives
+    assert step.reasoning_parts is None  # no fabricated structure
 
 
 # --------------------------------------------- T3: per-day ordinal bucketing

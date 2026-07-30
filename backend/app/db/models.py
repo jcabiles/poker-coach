@@ -129,6 +129,11 @@ class SimDecision(SQLModel, table=True):
     # ungraded/legacy rows; replay then shows tier+EV+coverage only.
     verdict_tier_text: str | None = Field(default=None)
     reasoning_text: str | None = Field(default=None)
+    # Structured reasoning (migration 0014): JSON-serialized ReasoningParts
+    # {lead, points, sources}, persisted under the SAME graded-only gate as the
+    # two prose columns above. NULL for ungraded/pre-0014 rows — readers fall
+    # back to the flat reasoning_text paragraph.
+    reasoning_parts_json: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=_utcnow)
 
 
