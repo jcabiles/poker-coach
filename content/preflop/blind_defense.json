@@ -1,6 +1,6 @@
 {
   "id": "preflop-blind-defense",
-  "version": 2,
+  "version": 3,
   "domain": "preflop",
   "description": "SB/BB facing a single open: defend by 3-bet (value+bluff) / call / fold. BB defends wide vs late opens; SB plays 3-bet-or-fold vs steals. v2 (N5): fills the 9 missing opener seats (BB vs UTG1/UTG2/LJ/HJ, SB vs UTG..HJ) by monotonic interpolation between the v1 anchors (RES-A method).",
   "entries": [

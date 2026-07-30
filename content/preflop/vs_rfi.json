@@ -1,6 +1,6 @@
 {
   "id": "preflop-vs-rfi",
-  "version": 2,
+  "version": 3,
   "domain": "preflop",
   "description": "Facing a single open from a non-blind seat: 3-bet (value+bluff) / call / fold, by hero position x opener position. Linear/value-heavy per low-stakes research.",
   "entries": [

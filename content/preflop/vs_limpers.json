@@ -1,6 +1,6 @@
 {
   "id": "preflop-vs-limpers",
-  "version": 3,
+  "version": 4,
   "domain": "preflop",
   "description": "Facing limper(s): isolate-raise / over-limp(call) / fold, by limper count + hero position. Iso ranges value-skewed; over-limp reserved for speculative hands in multiway. BB entries (M3, RES-G Slice B) are the check-or-iso option node: raise/check only, never fold — checking is free. Live-specific.",
   "entries": [
