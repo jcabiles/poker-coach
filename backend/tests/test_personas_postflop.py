@@ -1367,6 +1367,12 @@ def test_stickiness_forbidden_when_both_split_levers_authored():
         PersonaPostflop.model_validate(
             {**_STICKY_BASE, "stickiness": 1.4, "call_looseness": 0.42, "size_elasticity": 1.3}
         )
+    # Key PRESENCE is the contract — an explicitly-authored null is still an
+    # authored key (review C-1: value-only checking would let it slip through).
+    with pytest.raises(ValidationError, match="stickiness"):
+        PersonaPostflop.model_validate(
+            {**_STICKY_BASE, "stickiness": None, "call_looseness": 0.42, "size_elasticity": 1.3}
+        )
     # Same payload minus the dead field is valid.
     PersonaPostflop.model_validate(
         {**_STICKY_BASE, "call_looseness": 0.42, "size_elasticity": 1.3}

@@ -209,7 +209,9 @@ class PersonaPostflop(BaseModel):
                 "stickiness is required while call_looseness or size_elasticity "
                 "is unset (the engine falls back to it)"
             )
-        if split_complete and self.stickiness is not None:
+        # Key PRESENCE, not value: an explicitly-authored `"stickiness": null`
+        # is still an authored key lying about being a lever (review C-1).
+        if split_complete and "stickiness" in self.model_fields_set:
             raise ValueError(
                 "stickiness must be absent when both call_looseness and "
                 "size_elasticity are authored (it would be unread dead weight)"
