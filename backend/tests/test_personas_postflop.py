@@ -2573,6 +2573,14 @@ class NodeActions(NamedTuple):
                     (`unopened`) rates read THESE.
       `all_hits`    same key, EVERY preflop decision — the only honest
                     conditioning for the re-entry nodes `vs_3bet`/`vs_4bet`.
+
+    ⚠️ For R10-3BET (theory-review T-1): the pooled `all_hits` vs_3bet rate
+    mixes two arrival ranges — the OPENER re-entering (strong, raise-biased
+    holdings) and cold first-decision facers — and is therefore NOT
+    class-comparable to any external Fold-to-3bet figure, which conditions on
+    the opener. The opener-conditioned stratum is expressible without new
+    counters: `all_hits − first_hits` at vs_3bet = the re-entrants ≈ openers.
+    Stratify before comparing.
     """
 
     first_hits: dict  # (position, facing, action) -> count, first decision only
@@ -3488,8 +3496,10 @@ def test_preflop_node_occupancy_arrival_grid():
 
 
 # ------------------------------------------------------------------ R10-COUNT
-# Conditional action-at-node rates on top of the NodeActions counters. All of
-# it reads the ALREADY-MEMOIZED `_persona_stats_ext` runs — no second sim loop.
+# Conditional action-at-node rates on top of the NodeActions counters. The
+# helpers read whatever `_persona_stats_ext` runs exist; the cross-validation
+# test below deliberately pays for ONE cold (maniac, n=600) simulation (~4s,
+# review C-2) — everything else rides the memoized (persona, 200) runs.
 
 # The R10 corpus's EP stratum (its "EP first-in 18.3%" figure): the three
 # early seats of the 9-max ring.
@@ -3526,8 +3536,11 @@ def _format_node_actions(persona: str, actions: NodeActions) -> str:
         "",
         f"{persona}: P(action | node) — first-in `unopened` by position (arrival-",
         "conditioned), then the re-entry nodes over EVERY decision:",
-        f"{'pos':6s}{'raise':>8s}{'call':>8s}{'fold':>8s}{'n':>6s}",
+        f"{'pos':6s}{'raise':>8s}{'call':>8s}{'check':>8s}{'fold':>8s}{'n':>6s}",
     ]
+    # `check` column: reachable only via the BB walk-to-unopened edge (see
+    # `_preflop_facing`) — ~always 0, enumerated so the printed row always
+    # sums to 1 and a nonzero count can never hide (refuter R-3).
     for pos in _POSITIONS:
         den = sum(
             v for (p, f, _a), v in actions.first_hits.items()
@@ -3535,10 +3548,16 @@ def _format_node_actions(persona: str, actions: NodeActions) -> str:
         )
         if den == 0:
             continue
-        row = "".join(
-            f"{actions.first_hits.get((pos, 'unopened', a), 0) / den:8.3f}"
-            for a in ("raise", "call", "fold")
-        )
+        if den < 30:
+            # The harness's shared >=30 floor, applied to the REPORT rows the
+            # same way `_rate` applies it to the re-entry block (refuter R-1):
+            # a three-decimal rate off n=12 reads as precision it doesn't have.
+            row = "".join(f"{'--':>8s}" for _ in range(4))
+        else:
+            row = "".join(
+                f"{actions.first_hits.get((pos, 'unopened', a), 0) / den:8.3f}"
+                for a in ("raise", "call", "check", "fold")
+            )
         lines.append(f"{pos:6s}{row}{den:6d}")
     for facing in _REENTRY_FACINGS:
         parts = []
@@ -3585,12 +3604,23 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
     (the preflop sampler is categorical with an implicit-fold remainder, so
     authored JSON weight ≠ observed frequency — never certify via JSON diffs).
 
-    🔶 DIRECTIONAL-width bands (first calibration, no §5 row): centred on this
-    instrument's own n=600 seeded readings, wide enough for corpus agreement
-    to be the claim rather than digit-matching. Sanity floor: the EP rate must
-    sit BELOW the aggregate (the R10-1a collapse shape) until R10-PRE2 lands —
-    that slice widens maniac's early ladder and is EXPECTED to move these; it
-    re-records this band under its own authorization, nobody else does."""
+    🔶 DIRECTIONAL-width bands (first calibration, no §5 row), sized to ~3σ of
+    the binomial noise at this n around the span of instrument reading and
+    corpus figure (review C-1 + refuter R-2: the first-draft [0.22, 0.33] left
+    the reading 0.9σ off the floor, and reseed sweeps tripped both that floor
+    and the EP cap — 2/60 aggregate, 1/10 EP). The instrument reading (0.236
+    aggregate) sits below the corpus ≈0.27 in exactly the direction the
+    documented station-doubled, EP-heavy (74% of first-in nodes) arrival
+    weighting predicts; the composition-independent cross-validation is the EP
+    stratum (0.197 vs ≈0.18, ~1σ).
+
+    ⚠️ COUPLED TO THE WHOLE PACK SET, not just maniac: all seats draw from one
+    shared rng stream, so ANY persona/pack change that shifts rng consumption
+    ahead of maniac's rows moves these numbers with maniac's own policy
+    unchanged. A trip here means "re-read the grid", not "the maniac pack
+    regressed". Sanity shape: EP must sit BELOW the aggregate (the R10-1a
+    collapse) until R10-PRE2 lands — that slice widens maniac's early ladder,
+    is EXPECTED to move these, and is the sole authorized re-recorder."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -3601,12 +3631,13 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
     assert aggregate is not None and ep is not None, (
         f"first-in denominators below the 30 floor (agg n={agg_n}, EP n={ep_n})"
     )
-    assert 0.22 <= aggregate <= 0.33, (
-        f"maniac first-in raise {aggregate:.3f} (n={agg_n}) outside [0.22, 0.33] "
-        f"-- corpus cross-validation figure is ≈0.27"
+    assert 0.18 <= aggregate <= 0.34, (
+        f"maniac first-in raise {aggregate:.3f} (n={agg_n}) outside [0.18, 0.34] "
+        f"-- corpus cross-validation figure is ≈0.27; NOTE this reading is "
+        f"coupled to the whole pack set via the shared rng stream (docstring)"
     )
-    assert 0.13 <= ep <= 0.24, (
-        f"maniac EP first-in raise {ep:.3f} (n={ep_n}) outside [0.13, 0.24] "
+    assert 0.12 <= ep <= 0.26, (
+        f"maniac EP first-in raise {ep:.3f} (n={ep_n}) outside [0.12, 0.26] "
         f"-- corpus cross-validation figure is ≈0.18"
     )
     assert ep < aggregate, (
