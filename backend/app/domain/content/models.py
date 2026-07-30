@@ -160,7 +160,13 @@ class PersonaPostflop(BaseModel):
     here; the shared mechanics live in app/domain/personas_postflop.py."""
 
     aggression: float = Field(gt=0.0)  # scales bet/raise merit (1.0 = neutral)
-    stickiness: float = Field(gt=0.0)  # scales call merit / resistance to folding
+    # T-STICKY: `stickiness` is a FALLBACK, read only where a split lever is
+    # unset (call merit when `call_looseness` is None; the price exponent when
+    # `size_elasticity` is None). The validator below makes authorship honest:
+    # required while any fallback path is live, FORBIDDEN once both split
+    # levers are authored — a value there would be dead weight that lies about
+    # controlling behaviour.
+    stickiness: float | None = Field(default=None, gt=0.0)
     # W2-a: the `stickiness` axis split into two independent identity levers.
     # Both OPTIONAL — unset falls back to `stickiness`, keeping un-opted-in packs
     # byte-identical (default-off contract). `call_looseness` is the flat CALL-merit
@@ -189,6 +195,26 @@ class PersonaPostflop(BaseModel):
     sizing_by_node: dict[str, dict[str, float]] | None = None
     spr_commit: float = Field(gt=0.0)  # SPR at/below which strong+ hands commit
     multiway_bluff_damp: float = Field(ge=0.0, le=1.0)  # per extra opponent
+
+    @model_validator(mode="after")
+    def _stickiness_authorship(self) -> PersonaPostflop:
+        """Both directions of the fallback contract (T-STICKY):
+        (i) any unset split lever means the engine reads `stickiness` at sample
+        time — it must be authored, or the fallback dereferences None;
+        (ii) both split levers authored means `stickiness` is provably unread —
+        it must be absent, so a dead value can never masquerade as a lever."""
+        split_complete = self.call_looseness is not None and self.size_elasticity is not None
+        if not split_complete and self.stickiness is None:
+            raise ValueError(
+                "stickiness is required while call_looseness or size_elasticity "
+                "is unset (the engine falls back to it)"
+            )
+        if split_complete and self.stickiness is not None:
+            raise ValueError(
+                "stickiness must be absent when both call_looseness and "
+                "size_elasticity are authored (it would be unread dead weight)"
+            )
+        return self
 
     @field_validator("sizing")
     @classmethod
