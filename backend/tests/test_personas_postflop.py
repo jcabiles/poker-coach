@@ -2550,6 +2550,35 @@ class NodeOccupancy(NamedTuple):
     all_opps: dict  # position -> count (that position's total decisions)
 
 
+class NodeActions(NamedTuple):
+    """R10-COUNT — conditional action-at-node counters. T-ARR (above) answers
+    "how often does a seat REACH this node"; these answer "what does it DO
+    there" — P(action | persona, position, facing) — which is what the R10
+    preflop-lane exits (PRE1/PRE2/3BET) gate on. `W-ARR` occupancy cannot
+    express it and `ExtStats.pfr` is all-hand PFR, a different denominator.
+
+    Raw counts (not shares) so personas POOL by addition, same rationale as
+    `NodeOccupancy`. Keys carry the APPLIED engine action from `preflop_log`
+    (fold/call/bet/raise) — the observable the external R10 corpus was derived
+    from — NOT the persona-level action name (`3bet`/`limp`...), which the
+    harness's documented double-sample makes unreliable as an outcome record.
+
+    Denominators are NOT duplicated here: summing over the action axis of a
+    counter dict reproduces the matching `NodeOccupancy` counter EXACTLY (the
+    two are recorded from the same zipped rows; `test_node_action_counters_
+    align_with_occupancy` pins the identity), so a separate denominator field
+    could only ever drift from the truth it mirrors.
+      `first_hits`  (position, facing, action) -> count, FIRST decision per
+                    seat-hand only — the arrival-conditioned rates; first-in
+                    (`unopened`) rates read THESE.
+      `all_hits`    same key, EVERY preflop decision — the only honest
+                    conditioning for the re-entry nodes `vs_3bet`/`vs_4bet`.
+    """
+
+    first_hits: dict  # (position, facing, action) -> count, first decision only
+    all_hits: dict  # (position, facing, action) -> count, every preflop decision
+
+
 class ExtStats(NamedTuple):
     cbet_flop: float | None  # #1 — aggressor-side: P(bet | preflop aggressor's
     # first-in flop decision), theory contract §6. FIXED W5-a3-i: previously
@@ -2565,6 +2594,8 @@ class ExtStats(NamedTuple):
     turn_barrel: float | None  # #6 — reads ~flat until W3-c
     occupancy: NodeOccupancy  # T-ARR — arrival + occupancy counts, this
     # persona's seats only
+    actions: NodeActions  # R10-COUNT — action-at-node counts, same seats,
+    # recorded from the same rows (see the NamedTuple's docstring)
 
 
 _STATS_EXT_CACHE: dict[tuple[str, int], ExtStats] = {}
@@ -2720,20 +2751,33 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
     node_opps: dict[str, int] = {}
     all_node_hits: dict[tuple[str, str], int] = {}
     all_node_opps: dict[str, int] = {}
+    first_action_hits: dict[tuple[str, str, str], int] = {}
+    all_action_hits: dict[tuple[str, str, str], int] = {}
 
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
         res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
 
         # --- T-ARR: arrival (first decision) AND occupancy (every decision) ---
-        for seat, position, facing, is_first in res.preflop_nodes:
+        # R10-COUNT rides the same rows: `preflop_nodes` and `preflop_log` are
+        # appended once each per applied preflop decision in the same loop
+        # block (the alignment T-ARR's contamination guard already asserts),
+        # so zipping them attaches the APPLIED action to each node row without
+        # touching the harness or drawing rng.
+        for (seat, position, facing, is_first), (log_seat, action) in zip(
+            res.preflop_nodes, res.preflop_log, strict=True
+        ):
+            assert seat == log_seat, "preflop_nodes/preflop_log misaligned"
             if seat not in tested_seats:
                 continue
             all_node_hits[(position, facing)] = all_node_hits.get((position, facing), 0) + 1
             all_node_opps[position] = all_node_opps.get(position, 0) + 1
+            akey = (position, facing, action)
+            all_action_hits[akey] = all_action_hits.get(akey, 0) + 1
             if is_first:
                 node_hits[(position, facing)] = node_hits.get((position, facing), 0) + 1
                 node_opps[position] = node_opps.get(position, 0) + 1
+                first_action_hits[akey] = first_action_hits.get(akey, 0) + 1
 
         # --- VPIP / PFR / gap (once per tested seat-hand, applied actions) ---
         seat_hands += len(tested_seats)
@@ -2822,6 +2866,10 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
             opps=node_opps,
             all_hits=all_node_hits,
             all_opps=all_node_opps,
+        ),
+        actions=NodeActions(
+            first_hits=first_action_hits,
+            all_hits=all_action_hits,
         ),
     )
     _STATS_EXT_CACHE[key] = stats
@@ -3436,6 +3484,134 @@ def test_preflop_node_occupancy_arrival_grid():
     ladder = [grid[p]["unopened"] for p in ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")]
     assert all(a >= b for a, b in zip(ladder, ladder[1:], strict=False)), (
         f"`unopened` arrival is not monotone non-increasing UTG->BTN: {ladder}{report}"
+    )
+
+
+# ------------------------------------------------------------------ R10-COUNT
+# Conditional action-at-node rates on top of the NodeActions counters. All of
+# it reads the ALREADY-MEMOIZED `_persona_stats_ext` runs — no second sim loop.
+
+# The R10 corpus's EP stratum (its "EP first-in 18.3%" figure): the three
+# early seats of the 9-max ring.
+_EP_POSITIONS = ("UTG", "UTG1", "UTG2")
+
+
+def _node_action_rate(
+    actions: NodeActions,
+    facing: str,
+    action: str,
+    positions: tuple[str, ...] | None = None,
+    first: bool = True,
+) -> tuple[float | None, int]:
+    """P(action | facing[, position in `positions`]) plus its denominator n.
+    `first=True` reads the arrival-conditioned counters (first decision per
+    seat-hand — first-in rates); `first=False` reads every preflop decision
+    (the only honest conditioning for the re-entry nodes vs_3bet/vs_4bet).
+    Applies the harness's shared >=30 floor via `_rate`."""
+    hits = actions.first_hits if first else actions.all_hits
+    pos_set = _POSITIONS if positions is None else positions
+    num = sum(hits.get((p, facing, action), 0) for p in pos_set)
+    den = sum(
+        v for (p, f, _a), v in hits.items() if f == facing and p in pos_set
+    )
+    return _rate(num, den), den
+
+
+def _format_node_actions(persona: str, actions: NodeActions) -> str:
+    """The per-persona conditional grid, rendered. Like the T-ARR grid, pytest
+    swallows this on a PASS — run with `-s` to read it:
+        python -m pytest tests/test_personas_postflop.py -k node_action -q -s
+    """
+    lines = [
+        "",
+        f"{persona}: P(action | node) — first-in `unopened` by position (arrival-",
+        "conditioned), then the re-entry nodes over EVERY decision:",
+        f"{'pos':6s}{'raise':>8s}{'call':>8s}{'fold':>8s}{'n':>6s}",
+    ]
+    for pos in _POSITIONS:
+        den = sum(
+            v for (p, f, _a), v in actions.first_hits.items()
+            if p == pos and f == "unopened"
+        )
+        if den == 0:
+            continue
+        row = "".join(
+            f"{actions.first_hits.get((pos, 'unopened', a), 0) / den:8.3f}"
+            for a in ("raise", "call", "fold")
+        )
+        lines.append(f"{pos:6s}{row}{den:6d}")
+    for facing in _REENTRY_FACINGS:
+        parts = []
+        for a in ("fold", "call", "raise"):
+            r, den = _node_action_rate(actions, facing, a, first=False)
+            parts.append(f"{a} {r:.3f}" if r is not None else f"{a} --")
+        lines.append(f"{facing}*: " + " · ".join(parts) + f"  (n={den})")
+    lines.append("* over every preflop decision (re-entry nodes; >=30 floor)")
+    return "\n".join(lines)
+
+
+def test_node_action_counters_align_with_occupancy():
+    """🔴 HARD structural identity, not a band: NodeActions rows are recorded
+    from the same zipped (node, action) rows as NodeOccupancy, so summing the
+    action axis must reproduce the occupancy counters EXACTLY — for both the
+    first-decision and every-decision pairs, for every persona. Any daylight
+    means the two instruments have drifted apart and every conditional rate
+    is on an untrusted denominator."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    for persona in ALL_PERSONAS:
+        ext = _persona_stats_ext(packs, persona, _ARRIVAL_N)
+        occ, acts = ext.occupancy, ext.actions
+        for hits, action_hits in (
+            (occ.hits, acts.first_hits),
+            (occ.all_hits, acts.all_hits),
+        ):
+            summed: dict[tuple[str, str], int] = {}
+            for (pos, facing, _action), v in action_hits.items():
+                summed[(pos, facing)] = summed.get((pos, facing), 0) + v
+            assert summed == hits, (
+                f"{persona}: action counters do not sum back to occupancy"
+            )
+
+
+def test_node_action_first_in_raise_cross_validates_r10_corpus():
+    """R10-COUNT's done-condition: the instrument reproduces the R10 corpus's
+    externally-derived maniac first-in figures on a seeded run — the 756-hand
+    review measured maniac P(raise | first-in) ≈27% aggregate and ≈18%
+    EP-stratified (the archetype-collapse headline: tightest of the four from
+    EP). A real cross-validation against an independent derivation; after it,
+    these counters are the live instrument PRE1/PRE2/3BET certify against
+    (the preflop sampler is categorical with an implicit-fold remainder, so
+    authored JSON weight ≠ observed frequency — never certify via JSON diffs).
+
+    🔶 DIRECTIONAL-width bands (first calibration, no §5 row): centred on this
+    instrument's own n=600 seeded readings, wide enough for corpus agreement
+    to be the claim rather than digit-matching. Sanity floor: the EP rate must
+    sit BELOW the aggregate (the R10-1a collapse shape) until R10-PRE2 lands —
+    that slice widens maniac's early ladder and is EXPECTED to move these; it
+    re-records this band under its own authorization, nobody else does."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    acts = _persona_stats_ext(packs, "maniac", 600).actions
+    print(_format_node_actions("maniac", acts))
+    aggregate, agg_n = _node_action_rate(acts, "unopened", "raise")
+    ep, ep_n = _node_action_rate(acts, "unopened", "raise", positions=_EP_POSITIONS)
+    assert aggregate is not None and ep is not None, (
+        f"first-in denominators below the 30 floor (agg n={agg_n}, EP n={ep_n})"
+    )
+    assert 0.22 <= aggregate <= 0.33, (
+        f"maniac first-in raise {aggregate:.3f} (n={agg_n}) outside [0.22, 0.33] "
+        f"-- corpus cross-validation figure is ≈0.27"
+    )
+    assert 0.13 <= ep <= 0.24, (
+        f"maniac EP first-in raise {ep:.3f} (n={ep_n}) outside [0.13, 0.24] "
+        f"-- corpus cross-validation figure is ≈0.18"
+    )
+    assert ep < aggregate, (
+        f"EP first-in raise {ep:.3f} not below aggregate {aggregate:.3f} -- the "
+        f"R10-1a collapse shape this instrument exists to expose"
     )
 
 
