@@ -20,6 +20,7 @@ from app.domain.evaluation import (
     Coverage,
     EvaluationResult,
     FeedbackTiers,
+    ReasoningParts,
 )
 from app.domain.spot import Spot
 
@@ -129,12 +130,21 @@ def _verdict(result: EvaluationResult, decision: Decision | None) -> str:
     return f"{label} — you chose {decision.action.value}; {_fmt(best)} earns more here."
 
 
-def _reasoning(spot: Spot, result: EvaluationResult) -> str:
+def _reasoning_parts(spot: Spot, result: EvaluationResult) -> ReasoningParts:
     """Authored, hand-specific rationale is always sentence 1 (the lede) — in
     the postflop tag-branch, the preflop shape-branch, AND the exploit-villain
-    branch — with the tag-derived mechanism template following (F2.7/R3)."""
+    branch — with the tag-derived mechanism template following (F2.7/R3).
+
+    Structured contract: one clause per list element (the NODE/ADV/CAT/WET
+    mechanism is deliberately decomposed, never bundled), lead = first element,
+    points = the rest. The flat `reasoning` string is ALWAYS the " ".join of
+    lead + points — never the other way around (no prose parsing)."""
     if result.coverage == Coverage.NOT_FOUND:
-        return "No reasoning is available — this spot is outside the current strategy content."
+        # Early-out branches bypass clause assembly: synthetic lead, no points.
+        return ReasoningParts(
+            lead="No reasoning is available — this spot is outside the current strategy content.",
+            points=[],
+        )
     tags = result.rationale_tags
     parts: list[str] = []
     exploit = "exploit" in tags and spot.villain_type is not None
@@ -155,13 +165,16 @@ def _reasoning(spot: Spot, result: EvaluationResult) -> str:
         parts.append(result.authored_rationale)
     if tags and tags[0] in _NODE and len(tags) >= 4:
         node, adv, cat, wet = tags[0], tags[1], tags[2], tags[3]
+        # One clause per element (not one bundled blob) so the structured
+        # renderers get real bullets; the flat join reproduces the old string.
         parts.append(
             f"{_NODE[node]} on a {wet} board: "
-            f"{_ADV.get(adv, 'range advantage unclear')}. "
-            f"{_CAT.get(cat, 'Hand category unclear')}. "
-            f"{_WET.get(wet, '')}".rstrip()
-            + "."
+            f"{_ADV.get(adv, 'range advantage unclear')}."
         )
+        parts.append(f"{_CAT.get(cat, 'Hand category unclear')}.")
+        wet_clause = _WET.get(wet, "")
+        if wet_clause:
+            parts.append(f"{wet_clause}.")
         # 5th tag (turn_class) — turn AND river nodes; names the scare card so
         # the reasoning is non-tautological about what changed on the turn.
         if (
@@ -191,7 +204,15 @@ def _reasoning(spot: Spot, result: EvaluationResult) -> str:
                 f"The chart's line here is essentially pure: "
                 f"{_fmt(best)} at {_pct(best.frequency)}."
             )
-    return " ".join(parts)
+    return ReasoningParts(lead=parts[0], points=parts[1:])
+
+
+def _flat_reasoning(parts: ReasoningParts) -> str:
+    """The flat `reasoning` string: deterministic join of lead + points.
+
+    Sources are deliberately excluded (they render as a muted footer / in the
+    deep-dive, never in the readable text)."""
+    return " ".join([parts.lead, *parts.points])
 
 
 def _deep_dive(result: EvaluationResult, decision: Decision | None) -> str:
@@ -214,9 +235,15 @@ def _deep_dive(result: EvaluationResult, decision: Decision | None) -> str:
 def compose_tiers(
     spot: Spot, result: EvaluationResult, decision: Decision | None = None
 ) -> FeedbackTiers:
-    """Compose the verdict/reasoning/deep-dive tiers for a graded result."""
+    """Compose the verdict/reasoning/deep-dive tiers for a graded result.
+
+    `reasoning` is always the flat join of `reasoning_parts` (lead + points) —
+    the structured form is the source of truth, the flat string the derivation.
+    """
+    parts = _reasoning_parts(spot, result)
     return FeedbackTiers(
         verdict=_verdict(result, decision),
-        reasoning=_reasoning(spot, result),
+        reasoning=_flat_reasoning(parts),
         deep_dive=_deep_dive(result, decision),
+        reasoning_parts=parts,
     )

@@ -173,3 +173,47 @@ def test_optimal_call_still_populates_tiers():
     _assert_tiers_distinct(res)
     assert res.chosen_eval is None
     assert "Best play" in res.tiers.verdict
+
+
+# --- structured reasoning_parts (feedback-prose-readability T1) ---
+
+
+def test_reasoning_parts_present_and_flat_string_is_the_join():
+    """The flat `reasoning` is ALWAYS the deterministic join of lead + points —
+    the structured form is the source of truth, never parsed from prose."""
+    p = get_provider()
+    spot = make_rfi_spot(hole_cards=("Ah", "Ad"), position=Position.UTG)
+    res = _run(p.evaluate(spot, Decision(action=ActionType.FOLD)))
+    parts = res.tiers.reasoning_parts
+    assert parts is not None
+    assert parts.lead
+    assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
+
+
+def test_postflop_mistake_parts_have_real_bullets():
+    """The tag-template mechanism is decomposed one clause per element (ledger
+    R1/C5): even with no authored entry in the mix, a graded postflop mistake
+    yields a lead plus at least one bullet — never an empty bullet list."""
+    p = get_provider()
+    res = _run(p.evaluate(make_cbet_spot(), Decision(action=ActionType.CHECK)))
+    parts = res.tiers.reasoning_parts
+    assert parts is not None
+    assert parts.lead
+    assert len(parts.points) >= 1
+    assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
+
+
+def test_not_found_parts_are_synthetic_lead_only():
+    """Early-return branches (Coverage.NOT_FOUND) emit a synthetic lead with an
+    empty bullet list (ledger R7/C6) — parts exist whenever tiers exist."""
+    p = get_provider()
+    spot = make_rfi_spot(position=Position.CO).model_copy(
+        update={"street": Street.TURN, "board": ["As", "Kd", "2c", "7h"], "node_context": []}
+    )
+    res = _run(p.evaluate(spot, Decision(action=ActionType.FOLD)))
+    assert res.coverage == Coverage.NOT_FOUND
+    parts = res.tiers.reasoning_parts
+    assert parts is not None
+    assert parts.lead
+    assert parts.points == []
+    assert res.tiers.reasoning == parts.lead

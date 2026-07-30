@@ -45,6 +45,22 @@ class ChosenEval(BaseModel):
     ev_bb: float
 
 
+class ReasoningParts(BaseModel):
+    """Structured reasoning: one lead sentence + supporting bullet points.
+
+    Additive beside the flat `reasoning` string — which stays the deterministic
+    " ".join of lead + points so every legacy consumer (coach prompt, persisted
+    rows, FE flat fallback) keeps working. Never parsed out of prose: the parts
+    come from compose_tiers' clause assembly, one clause per element. `sources`
+    carries doc citations demoted out of the readable text (rendered as a muted
+    footer / inside the deep-dive, never in lead or points).
+    """
+
+    lead: str
+    points: list[str] = Field(default_factory=list)
+    sources: str | None = None
+
+
 class FeedbackTiers(BaseModel):
     """Tiered teaching feedback: verdict -> reasoning -> deep-dive.
 
@@ -56,6 +72,10 @@ class FeedbackTiers(BaseModel):
     verdict: str  # what happened: chosen action's freq/EV vs the best action
     reasoning: str  # why: composed from rationale_tags + authored rationale
     deep_dive: str  # the numbers: full per-action mix, mixedness, coverage
+    # Structured form of `reasoning` (lead + bullets). `reasoning` is always
+    # the flat join of lead + points; renderers prefer this and fall back to
+    # the flat string when absent (old persisted rows).
+    reasoning_parts: ReasoningParts | None = None
 
 
 class EvaluationResult(BaseModel):
@@ -78,4 +98,8 @@ class EvaluationResult(BaseModel):
     # one for this spot. Raw material for the tier composer — providers set it;
     # only compose_tiers reads it (avoids re-parsing `explanation`).
     authored_rationale: str | None = None
+    # Structured authored rationale (Entry.rationale_parts), when the content
+    # pack carries one. Same carrier rule as authored_rationale: providers set
+    # it, only compose_tiers reads it — the provider seam stays one interface.
+    authored_rationale_parts: ReasoningParts | None = None
     tiers: FeedbackTiers | None = None  # set by the TieredFeedbackProvider wrapper
