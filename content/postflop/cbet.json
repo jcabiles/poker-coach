@@ -9,21 +9,39 @@
       "position": "BTN",
       "facing": "BB",
       "actions": [],
-      "rationale": "As the preflop aggressor acting last, BTN keeps both the range and positional edge into the flop: BTN's wide opening range plus being in position lets it c-bet a broad mix of hands, sizing small on dry/high boards where BB's calling range struggles to continue and bigger on wet boards where BTN still holds the stronger top-end."
+      "rationale_parts": {
+        "lead": "As the button raiser you keep both edges into this flop — the stronger range AND position — so c-betting (continuing to bet as the raiser) is your default.",
+        "points": [
+          "On dry, high boards, bet small and often: the big blind's calling range mostly missed and struggles to continue.",
+          "On wet boards (lots of possible draws), size up — you still hold the stronger strong hands, and draws will pay more to chase."
+        ]
+      }
     },
     {
       "node_context": "cbet",
       "position": "CO",
       "facing": "BB",
       "actions": [],
-      "rationale": "CO's opening range is a notch tighter than BTN's, so the range edge into the flop is a little smaller, but the in-position c-bet is still the default: c-bet frequency stays high on dry/high boards where CO's tighter range still out-flops BB's calling range, and comes down on low, connected, wet boards where BB's continue range catches up."
+      "rationale_parts": {
+        "lead": "From the cutoff your range edge over the big blind is a notch smaller than the button's, but the in-position c-bet is still the default play.",
+        "points": [
+          "Keep the c-bet frequency high on dry, high boards — your tighter range still hits them harder than the big blind's calls.",
+          "Slow down on low, connected, wet boards: that's where the big blind's wide calling range catches up."
+        ]
+      }
     },
     {
       "node_context": "cbet",
       "position": "UTG",
       "facing": "BB",
       "actions": [],
-      "rationale": "UTG opens the strongest, narrowest range of the three pairings, so its range advantage is largest on high, dry boards (loaded with the pairs and broadways UTG opens) but thins out fastest on low, connected boards where BB's much wider calling range hits harder — size and frequency should track that texture split more aggressively than from CO/BTN."
+      "rationale_parts": {
+        "lead": "Your UTG range is the strongest and narrowest of the raising seats, so track the board texture harder than any other seat would.",
+        "points": [
+          "High, dry boards are yours — they're full of the big pairs and Broadways you raised with — so bet them confidently.",
+          "Low, connected boards favor the big blind's much wider calling range: cut the c-bet frequency fastest there."
+        ]
+      }
     }
   ]
 }
