@@ -54,7 +54,7 @@ def test_preflop_mistake_reasoning_is_non_tautological():
     res = _run(p.evaluate(spot, Decision(action=ActionType.FOLD)))
     reasoning = res.tiers.reasoning
     assert "is the play" not in reasoning  # more than the old tautology
-    assert "range's edge" in reasoning  # the over_fold mechanism phrase
+    assert "gives up money" in reasoning  # the over_fold mechanism phrase (plain voice)
     assert "Blunder" in res.tiers.verdict or "Mistake" in res.tiers.verdict
 
 

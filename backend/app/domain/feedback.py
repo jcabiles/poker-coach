@@ -38,26 +38,34 @@ _VILLAIN_DESC = {
 }
 
 # --- Preflop mistake-shape tags (grading.py::_tags) -> mechanism phrases ---
+# Voice (feedback-prose-readability): plain language for a smart adult who
+# knows the rules and positions but not pro vocabulary — poker terms stay,
+# explained inline in parentheses on first use. Short sentences.
 _PRE_SHAPE = {
-    "correct": "This matches the chart's line for this hand at this node.",
-    "chart": "The chart drives this node — the recommended mix is range-based, not read-based.",
+    "correct": "This matches what the chart plays here.",
+    "chart": (
+        "The chart decides this spot from the full range of hands, "
+        "not from a read on one opponent."
+    ),
     "over_fold": (
-        "Folding surrenders a hand the chart plays here — it sits above the "
-        "range's edge, so the fold gives up EV outright."
+        "Folding here gives up money: this hand is inside the range the chart "
+        "plays, so playing it earns over time — folding takes that to zero."
     ),
     "over_aggressive": (
-        "Raising puts money in with a hand outside the raising range at this "
-        "node — the aggression isn't backed by enough value or fold equity."
+        "Raising puts in money with a hand that isn't strong enough to raise "
+        "here — not enough value (better hands call you) and not enough fold "
+        "equity (worse hands rarely fold)."
     ),
     "under_aggressive": (
-        "Playing passively misses value: the chart prefers raising this hand, "
-        "and the passive line lets the opponent realize equity cheaply."
+        "Playing it safe costs value here: the chart raises this hand, and the "
+        "quiet line lets opponents see cheap cards with hands that would have "
+        "paid you."
     ),
     "loose_call": (
-        "Calling with a hand below the edge of the continuing range loses "
-        "money against this opening range."
+        "Calling with a hand this weak loses money against the range your "
+        "opponent is playing — the call bleeds chips over time."
     ),
-    "off_chart": "This action isn't part of the chart's mix at this node.",
+    "off_chart": "This action isn't in the chart's mix here at all.",
 }
 
 # --- Postflop 4-wide tags [node, adv, cat, wetness] (postflop.py) -> clauses ---
@@ -67,53 +75,84 @@ _PRE_SHAPE = {
 # River nodes emit a 6-wide tag [node, adv, cat_effective, wetness, turn_class,
 # river_class] — both the turn-card AND river-card sentences surface (S7).
 _NODE = {
-    "cbet": "You're the preflop aggressor deciding whether to c-bet",
-    "vs_cbet": "You're defending against a c-bet",
-    "vs_check_raise": "Your c-bet just got check-raised — fresh strength information",
-    "turn_barrel": "You're the flop aggressor deciding whether to barrel the turn",
-    "vs_turn_bet": "You called the flop and are now facing a turn bet",
-    "river_barrel": "You're the flop+turn aggressor deciding whether to barrel the river",
-    "vs_river_bet": "You called the flop and turn and are now facing a river bet",
+    "cbet": (
+        "You raised before the flop, so the choice is whether to c-bet "
+        "(keep betting as the raiser)"
+    ),
+    "vs_cbet": (
+        "Your opponent raised preflop and now bets again — you're facing "
+        "a c-bet (continuation bet)"
+    ),
+    "vs_check_raise": (
+        "Your c-bet just got check-raised (they checked, then raised your bet) — "
+        "that usually means real strength"
+    ),
+    "turn_barrel": (
+        "You bet the flop; the choice is whether to barrel "
+        "(fire a second bet) on the turn"
+    ),
+    "vs_turn_bet": "You called on the flop and now face a second bet on the turn",
+    "river_barrel": (
+        "You bet flop and turn; the choice is whether to fire the last bet "
+        "on the river"
+    ),
+    "vs_river_bet": "You called flop and turn and now face the final bet on the river",
 }
 _ADV = {
-    "hero": "the range advantage is yours, so betting pressure is credible",
-    "villain": "this board favors your opponent's range, so tread carefully",
-    "neutral": "neither range has a clear edge on this board",
-    "defender": "your calling range connects with this board better than the bettor's",
-    "aggressor": "the bettor's range hits this board harder than yours",
+    "hero": (
+        "the range advantage is yours (this board helps your likely hands more "
+        "than theirs), so your bets are believable"
+    ),
+    "villain": "this board fits your opponent's likely hands better than yours, so slow down",
+    "neutral": "neither player's likely hands get a clear boost from this board",
+    "defender": "your calling range connects with this board better than the bettor's does",
+    "aggressor": "the bettor's range hits this board harder than yours does",
 }
 _CAT = {
-    "strong": "A strong hand wants to build the pot while worse hands can pay",
+    "strong": "A strong hand wants to grow the pot while weaker hands are still willing to pay",
     "weak_made": (
-        "A marginal made hand plays best by controlling the pot and bluff-catching selectively"
+        "A marginal made hand (beats some hands, loses to any real strength) "
+        "plays best by keeping the pot small and calling selectively"
     ),
-    "draw": "A draw has real equity to realize and can double as a semi-bluff",
-    "air": "With no pair and no draw, avoid bloating the pot without fold equity",
+    "draw": (
+        "A draw has real chances to improve, so betting it works as a "
+        "semi-bluff (it can win the pot now or hit later)"
+    ),
+    "air": (
+        "With no pair and no draw, don't build a pot you can only win by "
+        "making better hands fold"
+    ),
 }
 _WET = {
-    "dry": "Dry boards change little on later streets, favoring small, frequent bets",
-    "medium": "This medium texture leaves both ranges live, so balance matters",
-    "wet": "Wet boards shift fast — sizing polarizes and raises demand respect",
+    "dry": (
+        "Dry boards (few draws possible) rarely change on later cards, "
+        "which favors small, frequent bets"
+    ),
+    "medium": "This medium texture keeps both players' ranges alive, so balance matters",
+    "wet": (
+        "Wet boards (many draws possible) can change on every card — "
+        "bets get bigger and raises mean real strength"
+    ),
 }
 # tags[4] on turn AND river nodes: the turn card's class vs the flop
 # (texture.turn_card_class). River nodes keep this sentence too — a river
 # barrel through a scare turn keeps that context alongside the river-card
 # sentence below.
 _TURN_CLASS = {
-    "pairing": "The turn paired the board, adding trips/full-house possibilities",
-    "flush": "The turn completed a flush draw, a genuine scare card",
-    "straight": "The turn completed a straight draw, a genuine scare card",
-    "over": "The turn brought an overcard to the flop, shifting range equities",
-    "blank": "The turn is a blank that changes little about either range",
+    "pairing": "The turn paired the board, so trips and full houses are now possible",
+    "flush": "The turn completed a possible flush — a genuine scare card",
+    "straight": "The turn completed a possible straight — a genuine scare card",
+    "over": "The turn is higher than every flop card, which shifts whose likely hands it helps",
+    "blank": "The turn is a blank — it changes little for either player",
 }
 # tags[5] on river nodes only: the river card's class vs the first four cards
 # (texture.river_card_class).
 _RIVER_CLASS = {
-    "pairing": "The river paired the board, adding trips/full-house possibilities",
-    "flush": "The river completed a flush, a genuine scare card",
-    "straight": "The river completed a straight, a genuine scare card",
-    "over": "The river brought an overcard to the earlier streets, shifting range equities",
-    "blank": "The river is a blank that changes little about either range",
+    "pairing": "The river paired the board, so trips and full houses are now possible",
+    "flush": "The river completed a possible flush — a genuine scare card",
+    "straight": "The river completed a possible straight — a genuine scare card",
+    "over": "The river is higher than the earlier cards, which shifts whose likely hands it helps",
+    "blank": "The river is a blank — it changes little for either player",
 }
 
 
@@ -138,7 +177,7 @@ def _verdict(result: EvaluationResult, decision: Decision | None) -> str:
     if decision is None or result.chosen_eval is None:
         return f"Best play: {_fmt(best)}."
     if result.correctness == Correctness.OPTIMAL:
-        return f"Optimal — {decision.action.value} is the best line here."
+        return f"Optimal — {decision.action.value} is the best play here."
     label = (result.correctness or Correctness.ACCEPTABLE).value.capitalize()
     return f"{label} — you chose {decision.action.value}; {_fmt(best)} earns more here."
 
@@ -180,8 +219,8 @@ def _reasoning_parts(spot: Spot, result: EvaluationResult) -> ReasoningParts:
             parts.append(f"Versus a {villain}: {result.authored_rationale}")
         else:
             parts.append(
-                f"This is an exploit adjustment versus a {villain}, "
-                f"shifted from the baseline chart."
+                f"This is an exploit (a deliberate shift away from baseline "
+                f"strategy) against a {villain}."
             )
     elif authored is not None:
         # Structured authored content (rewritten packs): lead + bullets flow in
@@ -222,15 +261,15 @@ def _reasoning_parts(spot: Spot, result: EvaluationResult) -> ReasoningParts:
             parts.append(_PRE_SHAPE[shape])
         if result.is_mixed:
             parts.append(
-                "This is a genuinely mixed node — the chart plays more than one "
-                "action at meaningful frequency, so the overall mix matters more "
-                "than any single rep."
+                "This is a genuinely mixed spot — the chart plays more than one "
+                "action here on purpose, so the overall mix matters more than "
+                "any single decision."
             )
         else:
             best = result.best_action
             parts.append(
-                f"The chart's line here is essentially pure: "
-                f"{_fmt(best)} at {_pct(best.frequency)}."
+                f"The chart isn't mixing here — it plays "
+                f"{_fmt(best)} {_pct(best.frequency)} of the time."
             )
     return ReasoningParts(lead=parts[0], points=parts[1:], sources=sources)
 
