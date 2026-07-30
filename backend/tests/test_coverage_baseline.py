@@ -128,6 +128,16 @@ persona realism (the mapper is untouched; realistic villains simply route hero i
 different mix of spots). Fewer total hero decision points is the expected direction —
 wider opens end more hands preflop. Flagged for the mapper-coverage track, not a
 persona-realism regression. Seeded-fixture re-record; bands stay frozen to W4-b.
+
+RE-RECORDED for R10-PRE1 (persona-realism-r10-pre1, 2026-07-30 — slice-authorized): the
+maniac's premium unopened carve-out ("TT+, AQs+, AKo" → raise 1.0; was raise 0.7-0.85
+with explicit fold) stops it folding premiums first-in. PURE preflop content — no engine
+code changed — but more pots now open raised, so the seeded stream drifts →
+total 1215 → 1176, graded 336 → 329. Graded ratio 27.6% → 28.0% (UP slice-over-slice).
+Cumulative vs the IMMUTABLE persona-realism-start snapshot: 28.0% (329/1176) vs 28.3%
+(349/1233) — still the same pre-existing mapper-track DIP first flagged at W3-b/c/d,
+improved and no worse in character; not a persona-realism regression. Seeded-fixture
+re-record; bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

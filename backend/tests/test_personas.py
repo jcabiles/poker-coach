@@ -312,27 +312,35 @@ _PREMIUM_CLASSES = ("TT", "JJ", "QQ", "KK", "AA", "AQs", "AKs", "AKo")
 
 def _premium_unopened_fold_weight(pack: PersonaPack) -> dict[tuple[str, str], float]:
     """Authored fold weight (explicit + implicit remainder) for each premium
-    class at each explicit unopened node, via the SAME first-match-in-list-
-    order semantics `sample_preflop_action` uses. A class no mix covers is
-    fold 1.0 (the sampler's no-match rule)."""
+    class at EVERY seat, resolved with the SAME semantics as
+    `sample_preflop_action`: first matching node in list order (explicit
+    positions or wildcard), first matching mix within it, and fold 1.0 when
+    no node or mix covers the class. Iterating seats — not authored nodes —
+    means a deleted seat node reads as fold 1.0 instead of silently vanishing
+    from the gate (review C-1)."""
     from app.domain.personas import _combos
 
     out: dict[tuple[str, str], float] = {}
-    for node in pack.preflop:
-        if node.facing != "unopened":
-            continue
-        positions = node.positions or ["*"]
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
         for cls in _PREMIUM_CLASSES:
-            for mix in node.mixes:
-                if cls in _combos(mix.combos):
-                    fold = mix.weights.get("fold", 0.0) + max(
-                        0.0, 1.0 - sum(mix.weights.values())
-                    )
-                    break
-            else:
-                fold = 1.0
-            for pos in positions:
-                out[(str(pos), cls)] = fold
+            fold = 1.0  # the sampler's no-node / no-mix rule
+            if node is not None:
+                for mix in node.mixes:
+                    if cls in _combos(mix.combos):
+                        fold = mix.weights.get("fold", 0.0) + max(
+                            0.0, 1.0 - sum(mix.weights.values())
+                        )
+                        break
+            out[(pos.value, cls)] = fold
     return out
 
 
