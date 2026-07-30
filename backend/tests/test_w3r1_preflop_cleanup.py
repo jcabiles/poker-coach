@@ -124,26 +124,35 @@ def test_maniac_suited_ace_control_still_opens(packs, position):
 
 
 # Byte-identical EP/BB opening ranges (untouched by the offsuit-ace trims).
+# RE-PINNED for R10-PRE1 (slice-authorized): the premium carve-out mix
+# ("TT+, AQs+, AKo" -> raise 1.0) is prepended to EVERY unopened node so the
+# maniac stops folding premiums first-in (R10-1b). The wide mixes below it
+# are byte-identical to the W3R-1 pins.
 _MANIAC_UNTOUCHED_OPENS = {
     Position.UTG: [
+        ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
         ("55+, A6s+, K9s+, QTs+, J9s+, T9s, A9o+, KJo+", {"raise": 0.85, "fold": 0.15}),
         ("33, 44, A4s, A5s, K8s, QTo", {"raise": 0.85, "fold": 0.15}),
     ],
     Position.UTG1: [
+        ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
         ("44+, A4s+, K7s+, Q9s+, J8s+, T8s+, 98s, A8o+, KTo+, QJo", {"raise": 0.85, "fold": 0.15}),
         ("22, 33, A2s, A3s, K6s, JTo", {"raise": 0.85, "fold": 0.15}),
     ],
     Position.UTG2: [
+        ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
         ("33+, A2s+, K5s+, Q8s+, J7s+, T7s+, 97s+, 87s, A6o+, K9o+, QTo+, JTo",
          {"raise": 0.8, "fold": 0.2}),
         ("22, K4s, Q7s, J6s, 76s, A5o", {"raise": 0.85, "fold": 0.15}),
     ],
     Position.LJ: [
+        ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
         ("22+, A2s+, K3s+, Q6s+, J6s+, T6s+, 86s+, 75s+, 64s+, A4o+, K7o+, Q9o+, J9o+, T9o",
          {"raise": 0.8, "fold": 0.2}),
         ("K2s, Q5s, J5s, 54s, A3o, K6o, Q8o", {"raise": 0.85, "fold": 0.15}),
     ],
     Position.BB: [
+        ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
         ("33+, A3s+, K6s+, Q9s+, J8s+, T8s+, 98s, A7o+, K9o+, QTo+, JTo",
          {"raise": 0.8, "fold": 0.2}),
         ("22, A2s, K5s, Q8s, J7s, 87s, A6o, K8o", {"raise": 0.85, "fold": 0.15}),

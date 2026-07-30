@@ -297,6 +297,76 @@ def _stats(pack: PersonaPack) -> tuple[float, float, float, float]:
     return tuple(100.0 * c / n for c in (opened, first_in_raised, threebet, continued))
 
 
+# ------------------------------------------------ R10-PRE1 — premium no-fold
+# The 756-hand R10 review's most basic correctness defect (R10-1b): the
+# maniac's unopened mixes carried explicit fold 0.15-0.30 on classes that
+# INCLUDE the premiums, so it folded AK/JJ first-in (minimal repros h318/h713).
+# No archetype folds AA unopened; this is not an identity dial, it is a bug.
+# Fixed by a premium carve-out mix ("TT+, AQs+, AKo" -> raise 1.0) prepended
+# to every unopened node — first-match-wins peels exactly these classes off
+# the wide mixes and changes nothing else.
+
+# The exact premium set the roadmap enumerates: TT+, AK, AQs.
+_PREMIUM_CLASSES = ("TT", "JJ", "QQ", "KK", "AA", "AQs", "AKs", "AKo")
+
+
+def _premium_unopened_fold_weight(pack: PersonaPack) -> dict[tuple[str, str], float]:
+    """Authored fold weight (explicit + implicit remainder) for each premium
+    class at EVERY seat, resolved with the SAME semantics as
+    `sample_preflop_action`: first matching node in list order (explicit
+    positions or wildcard), first matching mix within it, and fold 1.0 when
+    no node or mix covers the class. Iterating seats — not authored nodes —
+    means a deleted seat node reads as fold 1.0 instead of silently vanishing
+    from the gate (review C-1)."""
+    from app.domain.personas import _combos
+
+    out: dict[tuple[str, str], float] = {}
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
+        for cls in _PREMIUM_CLASSES:
+            fold = 1.0  # the sampler's no-node / no-mix rule
+            if node is not None:
+                for mix in node.mixes:
+                    if cls in _combos(mix.combos):
+                        fold = mix.weights.get("fold", 0.0) + max(
+                            0.0, 1.0 - sum(mix.weights.values())
+                        )
+                        break
+            out[(pos.value, cls)] = fold
+    return out
+
+
+def test_maniac_premium_unopened_never_folds():
+    """🔴 R10-PRE1 defect gate (failed at pre-fix HEAD: fold 0.15-0.30 at
+    every seat). Deterministic authored-shape assertion — no sampling."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    folds = _premium_unopened_fold_weight(packs[VillainType.MANIAC])
+    assert folds, "maniac has no unopened nodes?"
+    bad = {k: v for k, v in folds.items() if v > 0.0}
+    assert not bad, f"maniac folds premiums unopened: {bad}"
+
+
+def test_lag_premium_unopened_never_folds_preservation():
+    """PRESERVATION, not a defect gate (R9-3 rule: label what already passed).
+    LAG's premium unopened fold weight was already 0 at HEAD — pinned so the
+    maniac fix can never be 'balanced' by loosening the LAG."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    folds = _premium_unopened_fold_weight(packs[VillainType.LAG])
+    assert folds and not {k: v for k, v in folds.items() if v > 0.0}
+
+
 def test_all_six_persona_packs_load():
     packs = load_persona_packs()
     missing = set(VillainType) - set(packs)
