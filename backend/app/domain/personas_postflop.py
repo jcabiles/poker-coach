@@ -824,9 +824,21 @@ def sample_postflop_decision(
             entries.append((ActionType.RAISE, raise_merit))
     else:  # unopened (CHECK+BET) or matched-with-option (CHECK+RAISE)
         agg_action = ActionType.BET if ActionType.BET in by_kind else ActionType.RAISE
+        # W3-b (B1, F1): position tilts the aggressor-side BET frequency (c-bet/
+        # barrel/lead). Multiplicative on the whole aggressive candidate; a floored
+        # 0 stays 0. The matched-with-option check-RAISE is out of scope, hence the
+        # BET gate. Resolved here (not post-hoc) because the bluff cell must
+        # multiply BEFORE it forms its check complement — see below.
+        pos_mult = _position_agg_mult(pf, context) if agg_action is ActionType.BET else 1.0
         if bluff_cell:  # bluff_freq SETS the air bet/raise mass (rule 1)
-            agg_merit = bluff_mass
-            check_merit = max(1.0 - bluff_mass, 0.0)
+            # T-ANCHOR: multiply THEN complement. The air cell is an exact-frequency
+            # cell — its two merits sum to 1, so P(bet) == the composed bluff mass.
+            # Applying position after the complement was formed (the W3-b bug) left
+            # CHECK at 1 − bluff_mass while BET became mult·bluff_mass, compressing
+            # the IP:OOP bet-rate ratio and breaking `bluff_freq` as a frequency lever.
+            bluff_bet_mass = bluff_mass * pos_mult
+            agg_merit = bluff_bet_mass
+            check_merit = max(1.0 - bluff_bet_mass, 0.0)
         else:
             # W3-c: the draw's semi-bluff BET bonus decays by street (value
             # _AGG_BASE unchanged); flop/None → ×1.0.
@@ -862,11 +874,9 @@ def sample_postflop_decision(
                 and bucket in _RIVER_BET_FLOOR
             ):
                 agg_merit = 0.0  # middle pair never value-bets the river
-        # W3-b (B1, F1): position tilts the aggressor-side BET frequency (c-bet/
-        # barrel/lead). Multiplicative on the whole aggressive candidate; a floored
-        # 0 stays 0. The matched-with-option check-RAISE is out of scope.
-        if agg_action is ActionType.BET:
-            agg_merit *= _position_agg_mult(pf, context)
+            # W3-b on the non-bluff path only — the bluff path already applied
+            # `pos_mult` above (pre-complement). Exactly once on each path.
+            agg_merit *= pos_mult
         entries.append((ActionType.CHECK, check_merit))
         entries.append((agg_action, agg_merit))
 

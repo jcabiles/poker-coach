@@ -136,10 +136,20 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # rises. Every _WANT_* coverage shape still fires (verified: UTG2¹ 109, LJ¹ 112,
 # HJ¹ 98, SB¹ 90, CO² 38, SB² 47, BB¹ 58, BB² 35, BB³ 7) — stream displacement
 # plus the intended range widening, not a coverage regression.
+# RE-PINNED for T-ANCHOR (persona-realism-wave-a, 2026-07-29 — slice-authorized):
+# the unopened air cell now applies the W3-b position multiplier BEFORE forming its
+# CHECK complement, so nit/tag/lag c-bet/barrel air MORE in position and LESS out of
+# position (exact-frequency anchor restored). Those villains' postflop decisions flip
+# on a small share of nodes, so hands end differently and the shared-rng organic
+# stream drifts at this seed (old post-W5-b1 counts: UTG2¹ 109, LJ¹ 112, HJ¹ 98,
+# CO¹ 102, CO² 38, SB¹ 90, SB² 47, BTN¹ 93, BTN² 30). No preflop content changed;
+# every _WANT_* coverage shape still fires (verified: UTG2¹ 111, LJ¹ 117, HJ¹ 88,
+# SB¹ 89, CO² 40, SB² 46, BB¹ 55, BB² 34, BB³ 6) — stream displacement, not a
+# coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 109, ("LJ", 1): 112, ("HJ", 1): 98, ("CO", 1): 102,
-    ("CO", 2): 38, ("SB", 1): 90, ("SB", 2): 47, ("BTN", 1): 93,
-    ("BTN", 2): 30,
+    ("UTG2", 1): 111, ("LJ", 1): 117, ("HJ", 1): 88, ("CO", 1): 103,
+    ("CO", 2): 40, ("SB", 1): 89, ("SB", 2): 46, ("BTN", 1): 92,
+    ("BTN", 2): 29,
 }
 
 
