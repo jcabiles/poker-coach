@@ -135,6 +135,41 @@ _CAT = {
         "making better hands fold"
     ),
 }
+# Facing-a-wager variants (vs_caller_raise, limped_vs_lead): hero is reacting
+# to a bet or raise, so the shared _ADV/_CAT phrasing above — written for
+# nodes where hero is the one betting ("your bets are believable", "betting it
+# works as a semi-bluff") — would be a non-sequitur (PR #133 review, refuter
+# HIGH + Codex MED). These nodes emit adv/edge in {hero, villain, neutral}.
+_ADV_FACING = {
+    "hero": (
+        "this board helps your likely hands more than the bettor's, "
+        "so you can continue more often"
+    ),
+    "villain": (
+        "this board fits the bettor's likely hands better than yours, "
+        "so continue only with real strength"
+    ),
+    "neutral": "neither player's likely hands get a clear boost from this board",
+}
+_CAT_FACING = {
+    "strong": "A strong hand is happy to get more money in — continuing beats folding",
+    "weak_made": (
+        "A marginal made hand (beats some hands, loses to any real strength) "
+        "continues only at a good price — fold to real pressure"
+    ),
+    "draw": (
+        "A draw has real chances to improve, so continuing at a fair price "
+        "works — and a raise can double as a semi-bluff (win now or hit later)"
+    ),
+    "air": "With no pair and no draw, folding loses the least",
+}
+_FACING_NODES = ("vs_caller_raise", "limped_vs_lead")
+# limped_lead offers check/bet only — there is no calling line to recommend,
+# so the marginal-made-hand clause steers to checking instead (Codex MED).
+_CAT_LEAD_WEAK_MADE = (
+    "A marginal made hand (beats some hands, loses to any real strength) "
+    "plays best by checking and keeping the pot small"
+)
 _WET = {
     "dry": (
         "Dry boards (few draws possible) rarely change on later cards, "
@@ -244,13 +279,20 @@ def _reasoning_parts(spot: Spot, result: EvaluationResult) -> ReasoningParts:
         parts.append(result.authored_rationale)
     if tags and tags[0] in _NODE and len(tags) >= 4:
         node, adv, cat, wet = tags[0], tags[1], tags[2], tags[3]
+        facing = node in _FACING_NODES
+        adv_clause = (_ADV_FACING if facing else _ADV).get(
+            adv, _ADV.get(adv, "range advantage unclear")
+        )
+        if facing:
+            cat_clause = _CAT_FACING.get(cat, _CAT.get(cat, "Hand category unclear"))
+        elif node == "limped_lead" and cat == "weak_made":
+            cat_clause = _CAT_LEAD_WEAK_MADE
+        else:
+            cat_clause = _CAT.get(cat, "Hand category unclear")
         # One clause per element (not one bundled blob) so the structured
         # renderers get real bullets; the flat join reproduces the old string.
-        parts.append(
-            f"{_NODE[node]} on a {wet} board: "
-            f"{_ADV.get(adv, 'range advantage unclear')}."
-        )
-        parts.append(f"{_CAT.get(cat, 'Hand category unclear')}.")
+        parts.append(f"{_NODE[node]} on a {wet} board: {adv_clause}.")
+        parts.append(f"{cat_clause}.")
         wet_clause = _WET.get(wet, "")
         if wet_clause:
             parts.append(f"{wet_clause}.")

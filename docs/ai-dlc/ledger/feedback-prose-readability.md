@@ -21,3 +21,16 @@ Every finding verified against HEAD before adjudication. 4 findings converged (b
 
 Rejected/downgraded findings: none — all 11 distinct findings verified true at HEAD and folded.
 No reviewer conflicts to surface (where both spoke, they agreed).
+
+---
+
+## PR #133 diff review (2026-07-30, dual: Claude refuter PASS-WITH-ISSUES + Codex gpt-5.6-sol)
+
+| ID | Sev | Claim | Adjudication |
+|---|---|---|---|
+| 133-R-H1 / 133-C2 | HIGH/MED | Facing-a-wager nodes (`vs_caller_raise`, `limped_vs_lead`) inherited aggressor-oriented `_ADV`/`_CAT` prose — "your bets are believable" / "betting it works as a semi-bluff" rendered to a player who is reacting to a bet (refuter reproduced end-to-end: limped lead vs hero's K2o air → non-sequitur clause) | **ACCEPTED — fixed** in the same PR: `_ADV_FACING`/`_CAT_FACING` variants selected for `_FACING_NODES` |
+| 133-C1 | MED | `limped_lead` (check/bet only — no CALL exists) could render `_CAT["weak_made"]`'s "calling selectively" recommendation | **ACCEPTED — fixed**: `_CAT_LEAD_WEAK_MADE` steers to checking |
+| 133-R-L1 / 133-C3 | LOW | New test used one tag combo + an impossible action shape for `limped_lead`, so it couldn't catch the prose defects above | **ACCEPTED — fixed**: test sweeps all 3 nodes × 3 adv × 4 cat with per-node legal action shapes + prose-coherence assertions |
+| 133-R-L2 | LOW | 6 preflop packs' version bumps are outside this PR's node-dispatch scope | **ACCEPTED as intended** — they are the retroactive C9 fix for #132's unbumped rewrite; verified version-only diffs, nothing pins the integers |
+
+Verified safe by both reviewers: the three `_NODE` scene-setting clauses match the mappers' actual game states (incl. `vs_caller_raise`'s single-non-blind-caller gate); no fixture/test pinned the old fall-through output; pack versions read nowhere (`spot_signature()` decoupled, pinned by test_signature.py); the new test fails on origin/main (pins the fix).
