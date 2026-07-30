@@ -5585,3 +5585,27 @@ kbd {
 .hrt-stage-col .hr-verdict {
   margin-top: 0;
 }
+
+/* ── Structured feedback prose (feedback-prose-readability T4) ──────────────
+   Shared by ReasoningText across all five prose surfaces. The wrapper keeps
+   each surface's existing class (.sim-recap-why / .hr-verdict-why /
+   .tier-reasoning / .sim-chart-exploit-rationale) so its chrome — rules,
+   indents, measures — carries over; these rules only add the internal
+   lead/bullets/sources hierarchy. */
+.reasoning-parts .reasoning-lead {
+  margin: 0;
+  font-weight: 600;
+}
+.reasoning-parts .reasoning-points {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  list-style: disc;
+}
+.reasoning-parts .reasoning-points li {
+  margin-top: var(--space-1);
+}
+.reasoning-parts .reasoning-sources {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}

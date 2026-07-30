@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getPreflopChart } from "../../api/client";
 import type { PreflopChartView } from "../../api/types";
 import { RANK_ORDER, handClass } from "../../lib/poker";
+import ReasoningText from "../ReasoningText";
 
 // Simulate preflop range chart (C2) — a sim-owned COPY of Practice's
 // RangeGrid collapsible-plate idiom (SimTable↔PokerTable precedent). It renders
@@ -209,10 +210,14 @@ export default function SimRangeChart({
             </div>
 
             {note && (
-              <p className="sim-chart-exploit">
+              <div className="sim-chart-exploit">
                 <span className="sim-chart-exploit-villain">vs {note.villain_label}</span>
-                <span className="sim-chart-exploit-rationale">{note.rationale}</span>
-              </p>
+                <ReasoningText
+                  parts={note.rationale_parts}
+                  flat={note.rationale}
+                  className="sim-chart-exploit-rationale"
+                />
+              </div>
             )}
 
             <div className="gridlegend">
