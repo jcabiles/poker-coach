@@ -3117,13 +3117,24 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # and tag WTSD (0.5696 -> 0.5556) moved at this seed; lag/maniac/nit/fish are
 # byte-identical, incl. the maniac itself (its N200 sample hits no changed cell).
 # Exact tripwire re-record; population bands stay frozen to W4-b.
+# RE-RECORDED for R10-PRE2 (persona-realism-r10-pre2, 2026-07-30 — slice-
+# authorized): the maniac `unopened` ladder widened above the LAG's at every
+# seat (authored seat-avg first-in raise 0.245 sampled -> 0.518 authored /
+# 0.410 sampled). PURE preflop content — no engine or postflop code changed —
+# but the maniac now opens roughly twice as often, which reshapes every pot
+# the shared table plays (more raised pots, fewer limp-fests, different flop
+# arrivals), so ALL six rows move at this seed via environment + rng-stream
+# displacement. Directionally coherent: maniac WTSD falls 0.532 -> 0.442
+# (it now arrives postflop with far more junk and bluff-folds more of it) and
+# fish FtC re-crosses the >=30 floor -> None. Exact tripwire re-record;
+# population bands stay frozen to W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.2784090909090909, 0.21875, 0.6643598615916955),
-    "lag": (3.0476190476190474, None, 0.6055045871559633),
-    "maniac": (3.5, 0.34375, 0.5316455696202531),
-    "nit": (1.0, None, 0.5774647887323944),
-    "passive_fish": (0.9491525423728814, 0.46153846153846156, 0.5272727272727272),
-    "tag": (2.4210526315789473, None, 0.5555555555555556),
+    "calling_station": (0.303125, 0.15517241379310345, 0.6906474820143885),
+    "lag": (3.0625, None, 0.44696969696969696),
+    "maniac": (3.5, 0.4634146341463415, 0.4421052631578947),
+    "nit": (0.8936170212765957, None, 0.6515151515151515),
+    "passive_fish": (0.816, None, 0.5643564356435643),
+    "tag": (2.676470588235294, None, 0.5357142857142857),
 }
 
 
@@ -3612,23 +3623,28 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
     (the preflop sampler is categorical with an implicit-fold remainder, so
     authored JSON weight ≠ observed frequency — never certify via JSON diffs).
 
-    🔶 DIRECTIONAL-width bands (first calibration, no §5 row), sized to ~3σ of
-    the binomial noise at this n around the span of instrument reading and
-    corpus figure (review C-1 + refuter R-2: the first-draft [0.22, 0.33] left
-    the reading 0.9σ off the floor, and reseed sweeps tripped both that floor
-    and the EP cap — 2/60 aggregate, 1/10 EP). The instrument reading (0.236
-    aggregate) sits below the corpus ≈0.27 in exactly the direction the
-    documented station-doubled, EP-heavy (74% of first-in nodes) arrival
-    weighting predicts; the composition-independent cross-validation is the EP
-    stratum (0.197 vs ≈0.18, ~1σ).
+    🔶 DIRECTIONAL-width bands, RE-RECORDED for R10-PRE2 (the pre-declared
+    sole authorized re-recorder — that slice widened maniac's whole first-in
+    ladder above the LAG's, so the pre-PRE2 corpus anchors ≈0.27 aggregate /
+    ≈0.18 EP describe a behavior that no longer exists). The anchor is now the
+    AUTHORED ladder: exact combo-weighted first-in raise 34.2/37.4/40.4% at
+    the EP seats (37.3% 3-seat avg), rising to 73.3% at BTN, seat-avg 51.8%.
+    Across a 20-reseed sweep the instrument reads aggregate 0.410 (sd 0.021,
+    span 0.381-0.444) and EP 0.367 (sd 0.022, span 0.336-0.404); bands =
+    sweep span ± ~3σ, the same sizing rule as the original calibration
+    (review C-1 + refuter R-2). The composition-light cross-check is the EP
+    stratum: sampled 0.367 vs authored 0.373. The aggregate sits BELOW its
+    authored 0.518 because arrival is EP-heavy (later seats usually face an
+    open and never reach the unopened node) — the documented conversion
+    direction, measured stronger here at the wider widths.
 
     ⚠️ COUPLED TO THE WHOLE PACK SET, not just maniac: all seats draw from one
     shared rng stream, so ANY persona/pack change that shifts rng consumption
     ahead of maniac's rows moves these numbers with maniac's own policy
     unchanged. A trip here means "re-read the grid", not "the maniac pack
-    regressed". Sanity shape: EP must sit BELOW the aggregate (the R10-1a
-    collapse) until R10-PRE2 lands — that slice widens maniac's early ladder,
-    is EXPECTED to move these, and is the sole authorized re-recorder."""
+    regressed". Sanity shape: EP still sits below the aggregate post-PRE2 —
+    the authored ladder rises toward the button, so its arrival-weighted
+    shadow keeps the same ordering (held in all 20 reseeds, min gap ~0.03)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -3639,18 +3655,20 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
     assert aggregate is not None and ep is not None, (
         f"first-in denominators below the 30 floor (agg n={agg_n}, EP n={ep_n})"
     )
-    assert 0.18 <= aggregate <= 0.34, (
-        f"maniac first-in raise {aggregate:.3f} (n={agg_n}) outside [0.18, 0.34] "
-        f"-- corpus cross-validation figure is ≈0.27; NOTE this reading is "
-        f"coupled to the whole pack set via the shared rng stream (docstring)"
+    assert 0.32 <= aggregate <= 0.51, (
+        f"maniac first-in raise {aggregate:.3f} (n={agg_n}) outside [0.32, 0.51] "
+        f"-- R10-PRE2 re-record (authored seat-avg 0.518, sweep 0.381-0.444); "
+        f"NOTE this reading is coupled to the whole pack set via the shared "
+        f"rng stream (docstring)"
     )
-    assert 0.12 <= ep <= 0.26, (
-        f"maniac EP first-in raise {ep:.3f} (n={ep_n}) outside [0.12, 0.26] "
-        f"-- corpus cross-validation figure is ≈0.18"
+    assert 0.27 <= ep <= 0.47, (
+        f"maniac EP first-in raise {ep:.3f} (n={ep_n}) outside [0.27, 0.47] "
+        f"-- R10-PRE2 re-record (authored EP 3-seat avg 0.373, sweep 0.336-0.404)"
     )
     assert ep < aggregate, (
         f"EP first-in raise {ep:.3f} not below aggregate {aggregate:.3f} -- the "
-        f"R10-1a collapse shape this instrument exists to expose"
+        f"authored ladder rises toward the button, so its arrival-weighted "
+        f"shadow must keep EP below the aggregate"
     )
 
 

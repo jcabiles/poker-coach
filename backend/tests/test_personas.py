@@ -245,13 +245,20 @@ BANDS = {
     # vs_rfi-continue all stayed inside their existing bands).
     # W5-b1 supersedes rows 1-2 of that anchor with the authored width 43.15.
     "lag": ((41, 45), (41, 45), (8, 12), (25, 42)),
+    # maniac rows 1-2 RE-ANCHORED by R10-PRE2 (2026-07-30): the ladder-separation
+    # slice widened every maniac `unopened` node so the authored per-seat RFI
+    # sits above the LAG's at every seat (R10-1a defect: it sat BELOW at all 9).
+    # Exact combo-weighted authored first-in raise, seat-averaged: 51.78 (core
+    # mixes raise 0.9, fringe 0.7, premium carve-out 1.0; every unopened mix is
+    # raise/fold-only, so `_stats` open-freq == first-in-raise). Both rows =
+    # exact +-2.0pp per the tolerance note above.
     # maniac vs_rfi-continue re-anchored (W3R-1): the old (45, 70) codified the
     # deleted any-two `vs_rfi "*"` cold-call. The `vs_rfi` node is now the
     # 3-tier legit loose-flat range (premium 3bet / strong 3bet-or-flat /
     # wide-marginal flat); continue-rate measured at 45.99% on the pinned seed
     # (hash-stable). Snug window around the measured value. The 3bet band stays
     # [12,20] (restored via tier-2 3bet:0.45, measured 12.59%) — NOT re-anchored.
-    "maniac": ((30, 45), (30, 40), (12, 20), (44, 48)),
+    "maniac": ((49.8, 53.8), (49.8, 53.8), (12, 20), (44, 48)),
 }
 
 DEALS = 1112  # pinned: 1,112 deals x 9 seats ~= 10k samples per facing
@@ -365,6 +372,100 @@ def test_lag_premium_unopened_never_folds_preservation():
         pytest.skip("no persona packs")
     folds = _premium_unopened_fold_weight(packs[VillainType.LAG])
     assert folds and not {k: v for k, v in folds.items() if v > 0.0}
+
+
+# ------------------------------------------- R10-PRE2 — maniac ladder separation
+# R10-1a: the maniac's authored first-in ladder sat BELOW the LAG's at every
+# seat (and below TAG at UTG/BTN/SB) — measured EP first-in 18.3%, tightest of
+# the four. The roster's DEFINITIONAL archetype ordering (theory contract 1:
+# idealized-distinct caricatures, same basis as the pinned cross-persona
+# bluff_freq ordering) puts the maniac's raise-first-in above the LAG's at
+# every seat tier. Only maniac-vs-lag is gated here: the nit>tag inversion at
+# UTG1/UTG2/LJ belongs to W5-b3 (nit-scoped), and the full nit<tag<lag<maniac
+# chain becomes assertable only after that slice lands.
+#
+# This is an AUTHORED-shape gate (deterministic, no sampling): the exact
+# combo-weighted first-in raise probability of the resolved `unopened` node
+# per seat, resolved with sampler semantics. Sampled first-in rates are the
+# R10-COUNT instrument's job and stay REPORTED-not-gated until R9-SEATPROV.
+
+_CLASS_COMBOS = {
+    cls: (6 if len(cls) == 2 else 4 if cls[2] == "s" else 12)
+    for cls in (
+        r1 + r2 + s
+        for i, r1 in enumerate("23456789TJQKA")
+        for j, r2 in enumerate("23456789TJQKA")
+        if i > j
+        for s in ("s", "o")
+    )
+} | {r + r: 6 for r in "23456789TJQKA"}
+
+
+def _authored_first_in_raise(pack: PersonaPack) -> dict[str, float]:
+    """Exact combo-weighted P(raise | first-in) per seat from the authored
+    pack, resolved with the SAME semantics as `sample_preflop_action`: first
+    matching `unopened` node in list order, first mix containing the class,
+    no-node/no-mix => fold (contributes 0 raise). Deterministic — this is the
+    quantity the R10-PRE2 ladder gate compares across personas."""
+    from app.domain.personas import _combos
+
+    out: dict[str, float] = {}
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
+        raised = 0.0
+        for cls, ncombos in _CLASS_COMBOS.items():
+            if node is None:
+                break
+            for mix in node.mixes:
+                if cls in _combos(mix.combos):
+                    raised += ncombos * mix.weights.get("raise", 0.0)
+                    break
+        out[pos.value] = raised / 1326.0
+    return out
+
+
+def test_maniac_first_in_ladder_above_lag():
+    """🔴 R10-PRE2 defect gate (failed at pre-fix HEAD: maniac below LAG at
+    all 9 seats, e.g. UTG 16.5% vs 25.1%). Authored per-seat RFI must be
+    strictly above the LAG's at every seat."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    maniac = _authored_first_in_raise(packs[VillainType.MANIAC])
+    lag = _authored_first_in_raise(packs[VillainType.LAG])
+    bad = {
+        pos: (round(maniac[pos], 4), round(lag[pos], 4))
+        for pos in maniac
+        if maniac[pos] <= lag[pos]
+    }
+    assert not bad, f"maniac authored RFI not above LAG (maniac, lag): {bad}"
+
+
+def test_maniac_first_in_ladder_monotone_to_button():
+    """🔴 R10-PRE2 defect gate #2 (review finding, failed at pre-fix HEAD:
+    authored CO 49.7% > BTN 48.3% — the button authored TIGHTER than the
+    cutoff for the loosest persona in the roster). The non-blind ladder must
+    be non-decreasing UTG -> BTN; blinds are excluded (SB/BB are structurally
+    different first-in spots and sit off the positional ladder)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    rfi = _authored_first_in_raise(packs[VillainType.MANIAC])
+    ladder = ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN"]
+    bad = [
+        f"{a} {rfi[a]:.4f} > {b} {rfi[b]:.4f}"
+        for a, b in zip(ladder, ladder[1:], strict=False)
+        if rfi[a] > rfi[b]
+    ]
+    assert not bad, f"maniac authored RFI ladder not monotone to the button: {bad}"
 
 
 def test_all_six_persona_packs_load():
