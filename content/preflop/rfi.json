@@ -9,56 +9,102 @@
       "position": "UTG",
       "actions": [{ "action": "raise", "combos": "77+, A7s+, A5s, KJs+, QJs, JTs, AJo+", "frequency": 1.0 }],
       "sizing_bb": 3.0,
-      "rationale": "With 7-8 players still to act, UTG opens the tightest range at the table: only pairs 77+, strong broadways, and suited aces down to A5s carry enough raw equity and playability to survive that many potential callers — offsuit broadways like KJo and small pairs are excluded because they get dominated or need to fold too often against this many opponents."
+      "rationale_parts": {
+        "lead": "From UTG (first to act), open only a tight, strong range: 77+, big suited aces, KJs+, QJs, JTs and AJo+ at 3bb.",
+        "points": [
+          "With 7–8 players still to act behind you, someone often has a real hand — only strong pairs, big suited aces and the best Broadways survive that much traffic.",
+          "Offsuit Broadways like KJo and the small pairs stay out: they get dominated (beaten by similar-but-better hands) or have to fold too often when the table fights back."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "UTG1",
       "actions": [{ "action": "raise", "combos": "66+, A7s+, A5s, KTs+, QTs+, JTs, T9s, AJo+", "frequency": 1.0 }],
       "sizing_bb": 3.0,
-      "rationale": "One seat later than UTG with 6-7 players still to act, UTG+1 loosens only slightly off the tightest EP range: it adds 66 (marginally better set-mining odds with one fewer player behind), the suited broadways KTs/QTs, and the suited connectors down to T9s, whose straight/flush potential now clears the equity-realization bar that UTG's fuller field denied them. It stays strictly EP — no offsuit KQ, no small pairs below 66 — because a raise from here still runs into 6-7 potential wake-ups and gets dominated too often when called."
+      "rationale_parts": {
+        "lead": "From UTG+1, open just slightly wider than UTG — add 66, KTs/QTs and connectors down to T9s — still at 3bb.",
+        "points": [
+          "One fewer player behind you means 66's set-mining odds and the suited connectors' straight/flush chances now just clear the bar.",
+          "It's still an early seat: no offsuit KQ, no pairs below 66 — a raise here still runs into 6–7 possible wake-ups and gets dominated too often when called."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "UTG2",
       "actions": [{ "action": "raise", "combos": "66+, A7s+, A5s, KTs+, QTs+, JTs, T9s, 98s, AJo+, KQo", "frequency": 1.0 }],
       "sizing_bb": 3.0,
-      "rationale": "The EP-to-MP transition seat: with 5-6 players left, UTG+2 adds 98s (extending the suited-connector floor one more notch) and KQo, the first offsuit broadway to enter, because now few enough players remain that KQo's top-pair value and blockers outweigh its domination risk. It still holds the EP pair floor at 66 (small pairs' implied odds stay thin here) and the A7s+/A5s suited-ace convention, leaving LJ its A6s step so LJ remains the widest of the early seats."
+      "rationale_parts": {
+        "lead": "UTG+2 is the bridge from early to middle position: add 98s and KQo — the first offsuit Broadway — and keep everything else early-position tight.",
+        "points": [
+          "With 5–6 players left to act, KQo's top-pair value and blockers now outweigh its domination risk.",
+          "The pair floor stays at 66: small pairs still don't get the right price to set-mine (call hoping to flop three of a kind) with this many players behind."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "LJ",
       "actions": [{ "action": "raise", "combos": "66+, A5s+, KTs+, QTs+, JTs, T9s, 98s, AJo+, KQo", "frequency": 1.0 }],
       "sizing_bb": 3.0,
-      "rationale": "One seat later than UTG with only 4-5 players left to act, LJ adds 66/55-type pairs (better implied odds with fewer opponents behind) and KQo, whose top-pair value and blockers hold up now that fewer players can wake up with a monster."
+      "rationale_parts": {
+        "lead": "From the lojack, open 66+, suited aces, suited Broadways, connectors down to 98s, plus AJo+ and KQo at 3bb.",
+        "points": [
+          "Only 4–5 players remain behind, so the medium pairs gain implied odds (bigger payoffs when they hit) and KQo holds up — fewer players can wake up with a monster."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "HJ",
       "actions": [{ "action": "raise", "combos": "55+, A4s+, KTs+, QTs+, J9s+, T9s, 98s, ATo+, KJo+", "frequency": 1.0 }],
       "sizing_bb": 2.5,
-      "rationale": "HJ's shorter field lets the range extend down to 55 and add suited connectors from J9s: fewer players behind means less multiway risk, so these hands can realize their straight/flush potential instead of folding to preserve equity."
+      "rationale_parts": {
+        "lead": "From the hijack, extend the range down to 55 and add suited connectors from J9s, opening at 2.5bb.",
+        "points": [
+          "A shorter field means fewer multiway pots, so the drawing hands can actually realize their straight and flush potential instead of getting squeezed out."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "CO",
       "actions": [{ "action": "raise", "combos": "22+, A2s+, K9s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, 65s, A9o+, KTo+, QTo+, JTo", "frequency": 1.0 }],
       "sizing_bb": 2.5,
-      "rationale": "With only 2-3 players left to act, CO opens any pocket pair (set-mining pays off with so few opponents), suited connectors down to 65s for straight/flush potential, and offsuit broadways like QTo/JTo that can now steal the blinds and dominate weaker calling ranges."
+      "rationale_parts": {
+        "lead": "From the cutoff, open wide: any pair, suited connectors down to 65s, and offsuit Broadways like QTo/JTo at 2.5bb.",
+        "points": [
+          "Only 2–3 players act after you, so set-mining pays with any pair.",
+          "The offsuit Broadways can now steal the blinds outright and dominate the weaker hands that call them."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "BTN",
       "actions": [{ "action": "raise", "combos": "22+, A2s+, K5s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, A2o+, K9o+, Q9o+, J9o+, T9o", "frequency": 1.0 }],
       "sizing_bb": 2.5,
-      "rationale": "Facing only the two blinds, BTN opens the widest range at the table: weak suited aces, suited connectors down to 54s, and any pair all carry enough steal equity and positional advantage to show a profit even though most fold outright to a 3-bet."
+      "rationale_parts": {
+        "lead": "On the button, open the widest range at the table — any pair, weak suited aces, suited connectors down to 54s, and offsuit hands down to K9o/T9o at 2.5bb.",
+        "points": [
+          "Only the two blinds are left, and you're guaranteed position (acting last) on every street — that edge turns marginal cards into profitable opens.",
+          "Most of these hands still fold to a 3-bet (a re-raise); the profit comes from stealing blinds and outplaying the blinds after the flop."
+        ]
+      }
     },
     {
       "node_context": "RFI",
       "position": "SB",
       "actions": [{ "action": "raise", "combos": "22+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, 65s, 54s, A8o+, KTo+, QTo+, JTo", "frequency": 1.0 }],
       "sizing_bb": 3.0,
-      "rationale": "SB acts last preflop but first on every postflop street, so the range stays raise-or-fold: hands with real showdown value (pairs, suited aces, suited broadways) can justify playing every street OOP, while marginal offsuit hands that need position to realize their equity are folded rather than limped."
+      "rationale_parts": {
+        "lead": "From the small blind it's raise or fold: open pairs, suited aces, suited Broadways and connectors at 3bb, and don't limp.",
+        "points": [
+          "You act last before the flop but FIRST on every street after it, so only hands with real showdown value justify playing the whole hand out of position.",
+          "Marginal offsuit hands need position to be worth playing — fold them rather than limp into a bad spot."
+        ]
+      }
     }
   ]
 }
