@@ -146,10 +146,17 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # every _WANT_* coverage shape still fires (verified: UTG2¹ 111, LJ¹ 117, HJ¹ 88,
 # SB¹ 89, CO² 40, SB² 46, BB¹ 55, BB² 34, BB³ 6) — stream displacement, not a
 # coverage regression.
+# RE-PINNED for R10-PRE1 (persona-realism-r10-pre1, 2026-07-30 — slice-
+# authorized): the maniac's premium unopened carve-out (TT+/AQs+/AKo raise 1.0,
+# was raise 0.7-0.85 with explicit fold) opens more pots, so the shared-rng
+# organic stream drifts at this seed (old post-T-ANCHOR counts: UTG2¹ 111,
+# LJ¹ 117, HJ¹ 88, CO¹ 103, CO² 40, SB¹ 89, SB² 46, BTN¹ 92, BTN² 29). No
+# limper-belt content changed — stream displacement, not a coverage regression
+# (BB¹ 56, BB² 30, BB³ 5 still fire).
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 111, ("LJ", 1): 117, ("HJ", 1): 88, ("CO", 1): 103,
-    ("CO", 2): 40, ("SB", 1): 89, ("SB", 2): 46, ("BTN", 1): 92,
-    ("BTN", 2): 29,
+    ("UTG2", 1): 105, ("LJ", 1): 121, ("HJ", 1): 106, ("CO", 1): 108,
+    ("CO", 2): 38, ("SB", 1): 83, ("SB", 2): 41, ("BTN", 1): 96,
+    ("BTN", 2): 32,
 }
 
 

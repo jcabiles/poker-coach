@@ -26,6 +26,7 @@
       "facing": "unopened",
       "positions": ["UTG"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         { "combos": "55+, A6s+, K9s+, QTs+, J9s+, T9s, A9o+, KJo+", "weights": { "raise": 0.85, "fold": 0.15 } },
         { "combos": "33, 44, A4s, A5s, K8s, QTo", "weights": { "raise": 0.85, "fold": 0.15 } }
       ]
@@ -34,6 +35,7 @@
       "facing": "unopened",
       "positions": ["UTG1"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         { "combos": "44+, A4s+, K7s+, Q9s+, J8s+, T8s+, 98s, A8o+, KTo+, QJo", "weights": { "raise": 0.85, "fold": 0.15 } },
         { "combos": "22, 33, A2s, A3s, K6s, JTo", "weights": { "raise": 0.85, "fold": 0.15 } }
       ]
@@ -42,6 +44,7 @@
       "facing": "unopened",
       "positions": ["UTG2"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         { "combos": "33+, A2s+, K5s+, Q8s+, J7s+, T7s+, 97s+, 87s, A6o+, K9o+, QTo+, JTo", "weights": { "raise": 0.8, "fold": 0.2 } },
         { "combos": "22, K4s, Q7s, J6s, 76s, A5o", "weights": { "raise": 0.85, "fold": 0.15 } }
       ]
@@ -50,6 +53,7 @@
       "facing": "unopened",
       "positions": ["LJ"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22+, A2s+, K3s+, Q6s+, J6s+, T6s+, 86s+, 75s+, 64s+, A4o+, K7o+, Q9o+, J9o+, T9o",
           "weights": { "raise": 0.8, "fold": 0.2 }
@@ -61,6 +65,7 @@
       "facing": "unopened",
       "positions": ["HJ"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22+, A2s+, K2s+, Q4s+, J5s+, T5s+, 85s+, 74s+, 63s+, 53s+, A7o+, K5o+, Q7o+, J8o+, T8o+",
           "weights": { "raise": 0.85, "fold": 0.15 }
@@ -72,6 +77,7 @@
       "facing": "unopened",
       "positions": ["CO"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 84s+, 73s+, 63s+, 53s+, 43s, A5o+, K3o+, Q6o+, J8o+, T8o+, 98o",
           "weights": { "raise": 0.85, "fold": 0.15 }
@@ -83,6 +89,7 @@
       "facing": "unopened",
       "positions": ["BTN"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T3s+, 83s+, 72s+, 62s+, 52s+, 42s, A5o+, K2o+, Q4o+, J7o+, T7o+, 97o+, 87o",
           "weights": { "raise": 0.7, "fold": 0.3 }
@@ -94,6 +101,7 @@
       "facing": "unopened",
       "positions": ["SB"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22+, A2s+, K2s+, Q4s+, J5s+, T5s+, 85s+, 74s+, 63s+, 53s+, A3o+, K5o+, Q7o+, J9o+, T9o",
           "weights": { "raise": 0.85, "fold": 0.15 }
@@ -105,6 +113,7 @@
       "facing": "unopened",
       "positions": ["BB"],
       "mixes": [
+        { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         { "combos": "33+, A3s+, K6s+, Q9s+, J8s+, T8s+, 98s, A7o+, K9o+, QTo+, JTo", "weights": { "raise": 0.8, "fold": 0.2 } },
         { "combos": "22, A2s, K5s, Q8s, J7s, 87s, A6o, K8o", "weights": { "raise": 0.85, "fold": 0.15 } }
       ]

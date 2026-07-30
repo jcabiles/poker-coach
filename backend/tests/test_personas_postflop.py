@@ -3109,13 +3109,21 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # 0.747 -> 0.651 because it now faces genuine raised pots instead of limp-fests.
 # Exact tripwire re-record; population bands stay frozen to W4-b, and metric #3
 # (VPIP/PFR/gap) is REPORTED not gated for this slice.
+# RE-RECORDED for R10-PRE1 (persona-realism-r10-pre1, 2026-07-30 — slice-
+# authorized): the maniac's premium unopened carve-out (TT+/AQs+/AKo raise 1.0)
+# stops it folding premiums first-in, so a small share of hands now open raised
+# instead of folding around — shared-table rng-stream displacement. Only the
+# station row (AF 0.2829 -> 0.2784, FtC 0.2090 -> 0.2188, WTSD 0.6507 -> 0.6644)
+# and tag WTSD (0.5696 -> 0.5556) moved at this seed; lag/maniac/nit/fish are
+# byte-identical, incl. the maniac itself (its N200 sample hits no changed cell).
+# Exact tripwire re-record; population bands stay frozen to W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.28291316526610644, 0.208955223880597, 0.6506849315068494),
+    "calling_station": (0.2784090909090909, 0.21875, 0.6643598615916955),
     "lag": (3.0476190476190474, None, 0.6055045871559633),
     "maniac": (3.5, 0.34375, 0.5316455696202531),
     "nit": (1.0, None, 0.5774647887323944),
     "passive_fish": (0.9491525423728814, 0.46153846153846156, 0.5272727272727272),
-    "tag": (2.4210526315789473, None, 0.569620253164557),
+    "tag": (2.4210526315789473, None, 0.5555555555555556),
 }
 
 
