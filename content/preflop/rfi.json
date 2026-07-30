@@ -1,6 +1,6 @@
 {
   "id": "preflop-rfi",
-  "version": 1,
+  "version": 2,
   "domain": "preflop",
   "description": "Simplified RFI (open-raise-first-in) ranges by position, 9-handed live $1/$2-$2/$3. Source: docs/research/01-preflop-strategy.md.",
   "entries": [

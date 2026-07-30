@@ -97,6 +97,18 @@ _NODE = {
         "on the river"
     ),
     "vs_river_bet": "You called flop and turn and now face the final bet on the river",
+    "vs_caller_raise": (
+        "You c-bet (kept betting as the raiser) and the preflop caller raised "
+        "you — that usually means a strong hand or a big draw"
+    ),
+    "limped_lead": (
+        "Nobody raised before the flop (a limped pot), so the choice is "
+        "whether to bet first"
+    ),
+    "limped_vs_lead": (
+        "Nobody raised before the flop (a limped pot), and your opponent "
+        "bets into you"
+    ),
 }
 _ADV = {
     "hero": (

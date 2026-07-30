@@ -208,6 +208,45 @@ def test_postflop_mistake_parts_have_real_bullets():
     assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
 
 
+def test_caller_raise_and_limped_nodes_dispatch_into_node_branch():
+    """The three remaining postflop families (vs_caller_raise, limped_lead,
+    limped_vs_lead) must compose board/hand-category bullets like every other
+    postflop node — not fall through to the preflop else-branch and render
+    only the generic chart-mix sentence (spec-review finding R-H3/C5)."""
+    from app.domain.evaluation import (
+        ActionEval,
+        ChosenEval,
+        Correctness,
+        EvaluationResult,
+        ProviderKind,
+    )
+    from app.domain.feedback import _NODE, compose_tiers
+
+    spot = make_cbet_spot()  # villain_type is None — the exploit branch stays off
+    for node in ("vs_caller_raise", "limped_lead", "limped_vs_lead"):
+        fold = ActionEval(action=ActionType.FOLD, frequency=0.8, ev_bb=0.0)
+        call = ActionEval(action=ActionType.CALL, frequency=0.2, ev_bb=-0.4)
+        result = EvaluationResult(
+            per_action=[fold, call],
+            best_action=fold,
+            chosen_eval=ChosenEval(frequency=0.2, ev_bb=-0.4),
+            correctness=Correctness.MISTAKE,
+            rationale_tags=[node, "villain", "weak_made", "wet"],
+            provider=ProviderKind.HEURISTIC,
+        )
+        tiers = compose_tiers(spot, result, Decision(action=ActionType.CALL))
+        parts = tiers.reasoning_parts
+        assert parts is not None, node
+        # the node's own scene-setting clause leads (dict-value import pattern,
+        # like test_river_graders — survives future prose rewrites)
+        assert _NODE[node] in tiers.reasoning, node
+        # decomposed mechanism bullets follow (category + wetness clauses)
+        assert len(parts.points) >= 2, node
+        assert tiers.reasoning == " ".join([parts.lead, *parts.points])
+        # and the preflop else-branch's generic mix sentence is gone
+        assert "isn't mixing here" not in tiers.reasoning, node
+
+
 def test_structured_entry_parts_flow_through_provider_seam():
     """T2: an Entry carrying `rationale_parts` (no flat rationale) flows its
     lead + points into tiers.reasoning_parts as separate clauses, its sources

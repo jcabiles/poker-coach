@@ -1,6 +1,6 @@
 {
   "id": "postflop-limped",
-  "version": 1,
+  "version": 2,
   "domain": "postflop",
   "description": "M5 (Epic 5, RES-G Slice C): HU limped-pot flop thresholds + authored rationale. The RES-G §4b directions live in sizing_rules as DATA (small polar lead; mostly-check OOP; big limped-pot bets are over-repped by value; texture decides the edge from a score=0 no-baseline start) — the graders (backend/app/domain/postflop.py::grade_limped_lead / grade_limped_vs_lead) read every direction-shaping number from here, never hardcode it. All values are [DERIVED-ASSUMPTION] design targets per RES-G; EVs stay approximate (heuristic, no solver).",
   "entries": [

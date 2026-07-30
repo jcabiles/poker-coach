@@ -1,6 +1,6 @@
 {
   "id": "postflop-river",
-  "version": 1,
+  "version": 2,
   "domain": "postflop",
   "description": "Authored rationale for the HU single-raised-pot river nodes (S7): the third-barrel/value-bet decision (hero = flop+turn aggressor) and facing a river bet (hero = flop+turn caller). Keyed by hero/counterpart pairing; scoring itself lives in backend/app/domain/postflop.py (grade_river_barrel / grade_vs_river_bet). Source: docs/research/02-postflop-strategy.md §5.",
   "entries": [

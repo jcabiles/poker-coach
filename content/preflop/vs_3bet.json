@@ -1,6 +1,6 @@
 {
   "id": "preflop-vs-3bet",
-  "version": 1,
+  "version": 2,
   "domain": "preflop",
   "description": "You opened and face a 3-bet: 4-bet (value+bluff) / call / fold, keyed by hero position x 3-bettor position. Value-heavy per low-stakes research; IP continues wider than OOP.",
   "entries": [

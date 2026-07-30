@@ -1,6 +1,6 @@
 {
   "id": "postflop-turn",
-  "version": 1,
+  "version": 2,
   "domain": "postflop",
   "description": "Authored rationale for the HU single-raised-pot turn nodes (S6): the 2nd-barrel decision (hero = flop c-bettor) and facing a turn barrel (hero = flop caller). Keyed by hero/counterpart pairing; scoring itself lives in backend/app/domain/postflop.py (grade_turn_barrel / grade_vs_turn_bet). Source: docs/research/02-postflop-strategy.md §5.1-5.2, 5.4.",
   "entries": [

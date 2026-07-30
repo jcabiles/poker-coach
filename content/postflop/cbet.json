@@ -1,6 +1,6 @@
 {
   "id": "postflop-cbet",
-  "version": 1,
+  "version": 2,
   "domain": "postflop",
   "description": "Authored rationale for the flop c-bet decision (HU single-raised pot, hero = preflop aggressor in position vs BB). Keyed by opener/caller pairing; texture/hand-category scoring itself is unchanged (backend/app/domain/postflop.py::grade_cbet). Source: docs/research/02-postflop-strategy.md §2-3, 06-postflop-reference-tables.md.",
   "entries": [
