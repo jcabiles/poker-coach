@@ -1027,6 +1027,83 @@ def test_bluff_ordering_across_personas_at_fixed_size():
     )
 
 
+class _SeededCaptureRng(random.Random):
+    """Seeded rng that ALSO captures the sampler's first choices() distribution.
+    The seed is defensive determinism only: today the sampler makes NO rng draw
+    before the action `choices()` call (`noise` is a fixed default argument,
+    not a draw), so `_CaptureWeights` would behave identically — seeding just
+    keeps the capture valid if a pre-action draw is ever added."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dist = None
+
+    def choices(self, population, weights=None, k=1):
+        if self.dist is None:
+            self.dist = dict(zip(population, weights, strict=True))
+        return [population[0]]
+
+
+# T-ANCHOR: the authored IP:OOP bet-rate ratio is (1 + s·δ)/(1 − s·δ) for
+# `position_sensitivity` s and _POSITION_AGG_DELTA δ = 0.25 — nit/tag (s=1.0)
+# → 1.25/0.75 = 5/3, lag (s=0.6) → 1.15/0.85. The other three packs author no
+# `position_sensitivity`, so their multiplier is exactly 1.0 on both sides and
+# their bet probability must be BIT-identical, not merely close.
+_AIR_BET_IP_OOP_RATIOS = [
+    ("nit", 5 / 3),
+    ("tag", 5 / 3),
+    ("lag", 1.15 / 0.85),
+    ("passive_fish", 1.0),
+    ("calling_station", 1.0),
+    ("maniac", 1.0),
+]
+
+
+def _air_bet_prob_by_position(persona: str, *, in_position: bool) -> float:
+    """Normalized BET probability for the pinned pure-air unopened c-bet node
+    (7h5d on Kc9s3h — bluff cell, no draw), varying ONLY `in_position`."""
+    from app.domain.table.postflop_context import PostflopContext
+
+    rng = _SeededCaptureRng(1)
+    sample_postflop_decision(
+        _pack(persona),
+        ("7h", "5d"),
+        ["Kc", "9s", "3h"],
+        [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 60.0)],
+        4.0,
+        100.0,
+        1,
+        rng,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=0.0,
+        is_aggressor=True,
+        street=Street.FLOP,
+        context=PostflopContext(
+            in_position=in_position, bet_prev_street=False, busted_draw=0
+        ),
+    )
+    return rng.dist[ActionType.BET] / sum(rng.dist.values())
+
+
+@pytest.mark.parametrize(("persona", "expected_ratio"), _AIR_BET_IP_OOP_RATIOS)
+def test_air_bet_rate_ip_oop_ratio_equals_authored_position_multiplier(
+    persona, expected_ratio
+):
+    """T-ANCHOR: the air cell is an exact-frequency cell — its BET/CHECK merits
+    sum to 1, so P(bet) IS the composed bluff mass and the observed IP:OOP
+    bet-rate ratio must equal the authored position-multiplier ratio exactly.
+    W3-b applied the multiplier AFTER the check complement was formed, which
+    compressed this ratio (nit read 1.6373, tag 1.5156, lag 1.2258) and cost
+    `bluff_freq` its status as an exact-frequency lever."""
+    ip = _air_bet_prob_by_position(persona, in_position=True)
+    oop = _air_bet_prob_by_position(persona, in_position=False)
+    assert abs(ip / oop - expected_ratio) < 1e-9, (
+        f"{persona}: IP/OOP={ip / oop!r} (IP={ip!r}, OOP={oop!r}) "
+        f"!= authored {expected_ratio!r}"
+    )
+    if expected_ratio == 1.0:
+        assert ip == oop, f"{persona} is position-blind — must be bit-identical"
+
+
 def test_bluff_raise_path_scales_with_chosen_size():
     """The _BLUFF_RAISE_FACTOR path (air facing a bet, RAISE legal) is wired
     through the same size factor: forced-overbet raise weight strictly above
@@ -2970,17 +3047,35 @@ def test_persona_stats_byte_identical_after_log_refactor():
 
 
 def test_street_aggressions_effect_visible_to_af_gate():
-    """A `street_aggressions`-dependent effect (facing_raise = street_
-    aggressions >= 2 gates `_ONE_PAIR_RAISE_DAMP`/`_ACE_HIGH_FLOAT_RAISE_
-    DAMP`, cutting one-pair RAISE / ace-high CALL merit when tag faces a
-    flop/turn raise) is now VISIBLE to the AF gate once the sampler threads
-    real context — it was invisible before this slice (the sampler never
-    passed `facing_raise` at all, so these damps never fired in `_persona_
-    stats`). `tag` at n=300 clears the >=30 occurrence floor on BOTH sides
-    and shows a large, consistently-directioned (measured stable across
-    n=250..500) AF drop when context-aware. This does NOT move any CI-
-    frozen band: both calls are a NEW cache entry (`context_aware=True`),
-    never read by `test_persona_postflop_bands` or the golden test above.
+    """C30 guard, REDESIGNED 2026-07-29 (owner decision at the T-ANCHOR
+    fan-in): the previous form asserted a DIRECTIONAL drop in aggregate AF
+    (`af_on < af_off - 0.05`), an instrument all three fan-in reviewers found
+    sign-unsound by construction — `_ONE_PAIR_RAISE_DAMP` cuts AF's numerator
+    (AF down) while `_ACE_HIGH_FLOAT_RAISE_DAMP` cuts its denominator (AF up),
+    so the aggregate direction depends on the seed's node mix, with noise
+    (±0.15 across trivially-different streams) larger than the effect (~0.1).
+    T-ANCHOR's legitimate stream perturbation flipped it (pre-fix drop +0.164
+    at n=1000, post-fix −0.060; identical at n=250..700: 0.005/0.132/0.230/
+    0.170/0.096 at seed 20260710). Retuning the threshold/n was forbidden
+    (band-laundering); this spot-level redesign is what the old test's own
+    W4-b flag prescribed. Any AGGREGATE-level question stays with W4-b.
+
+    Leg 1 (plumbing): `context_aware=True` must change the seeded AF reading
+    at all. Because `context_aware` also switches position/sizing-node/
+    aggressor-contribution context, that alone cannot isolate `facing_raise`
+    (Sol review 2 finding 1), so leg 1b re-runs the SAME seeded harness with
+    both damps monkeypatched to 1.0 and asserts the reading changes — the
+    damps only fire through `facing_raise`, so a difference proves the wire.
+    No direction asserted anywhere.
+    Leg 2 (mechanism, zero variance): captured merit vectors at a pinned tag
+    facing-a-raise flop spot per damp. The sampler normalizes weights before
+    `choices()`, so the assertions use the normalization-invariant ODDS RATIO
+    against an untargeted merit: `facing_raise=True` multiplies the one-pair
+    RAISE:CALL odds by exactly `_ONE_PAIR_RAISE_DAMP` and the naked ace-high
+    CALL:FOLD odds by exactly `_ACE_HIGH_FLOAT_RAISE_DAMP`, while the odds
+    between the two untargeted merits are unchanged. The exactness
+    self-verifies the spot preconditions: any draw bonus (draw != NONE) would
+    break the exact scaling. Neither leg reads a CI-frozen band or golden.
     """
     packs = load_persona_packs()
     n = 1000
@@ -2990,31 +3085,88 @@ def test_street_aggressions_effect_visible_to_af_gate():
         f"occurrence floor not cleared (call_off={call_off}, call_on={call_on}) "
         "-- not a valid demonstration"
     )
-    # RE-CALIBRATED by W5-b1 (2026-07-25, slice-authorized). Original: AF 2.769
-    # (off) -> 1.667 (on) at n=300, a 1.10 drop, so the gate was `- 0.5`.
-    # Widening the nit/tag/lag `unopened` ladders to 9-max full-ring widths
-    # DILUTED that effect ~7x. It is not broken and it is not a plumbing
-    # regression — the DIRECTION still holds at every n measured — but tag now
-    # plays far more hands, so one-pair-facing-a-raise and ace-high-facing-a-
-    # raise spots (the only nodes `_ONE_PAIR_RAISE_DAMP` /
-    # `_ACE_HIGH_FLOAT_RAISE_DAMP` touch) are a much smaller share of its total
-    # bet/raise/call volume, and an AGGREGATE ratio like AF averages the damp
-    # away. Post-slice drops (off - on) at seed 20260710:
-    #     n=250 0.005 · n=300 0.132 · n=400 0.230 · n=500 0.170
-    #     n=700 0.096 · n=1000 0.164
-    # n moved 300 -> 1000 (costs ~4.5s) because the small-n readings are now
-    # unstable enough that n=250 nearly vanishes; at n=1000 both sides clear the
-    # occurrence floor by ~6x (call_off 189 / call_on 211). Threshold 0.5 -> 0.05
-    # is ~3x margin under the smallest drop seen at n>=300.
-    # ⚠ FLAG FOR W4-b: this C30 demonstration is now WEAK. A 0.05 aggregate-AF
-    # delta is a thin basis for claiming the band sampler is context-visible. If
-    # W4-b needs a strong visibility proof it should assert on a spot-level
-    # count (one-pair raises while facing a raise), not on aggregate AF, which
-    # dilutes with range width by construction.
-    assert af_on < af_off - 0.05, (
-        f"street_aggressions effect not visible: AF off={af_off:.3f} on={af_on:.3f} "
-        "(expected a drop once facing-raise damps can fire)"
+    assert af_on != af_off, (
+        "context_aware=True changed nothing: no context reached the sampler at all"
     )
+
+    # Leg 1b: differential with both damps neutralized — isolates the
+    # facing_raise wire from the other context features `context_aware`
+    # switches on. The cache is keyed (persona, n, context_aware); pop the
+    # real entry first and restore it after so the patched run neither reads
+    # a stale result nor poisons later tests.
+    key = ("tag", n, True)
+    cached_on = _STATS_CACHE.pop(key)
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(personas_postflop, "_ONE_PAIR_RAISE_DAMP", 1.0)
+            mp.setattr(personas_postflop, "_ACE_HIGH_FLOAT_RAISE_DAMP", 1.0)
+            af_neutral, *_ = _persona_stats(packs, "tag", n, context_aware=True)
+    finally:
+        _STATS_CACHE[key] = cached_on
+    assert af_neutral != af_on, (
+        "neutralizing both facing-raise damps changed nothing: facing_raise "
+        "never reached the sampler through _play_hand"
+    )
+
+    # The damp VALUES are pinned literally: a retune must consciously trip
+    # this test and be re-anchored (W4-b owns aggregate-level questions) —
+    # it must never slide through by moving expected and actual together
+    # (Sol review 2 finding 2).
+    assert personas_postflop._ONE_PAIR_RAISE_DAMP == 0.35
+    assert personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP == 0.55
+
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(5.0),
+        personas_postflop_legal_raise(10.0, 100.0),
+    ]
+
+    def faced_dist(hole, board, facing_raise):
+        cap = _CaptureWeights()
+        sample_postflop_decision(
+            _pack("tag"),
+            hole,
+            board,
+            legal,
+            10.0,
+            100.0,
+            1,
+            cap,  # type: ignore[arg-type]
+            current_bet_to=5.0,
+            is_aggressor=False,
+            street=Street.FLOP,
+            facing_raise=facing_raise,
+        )
+        return cap.dist
+
+    # Top pair, no draw (Kh9d on Ks7c2h): facing_raise damps the RAISE merit by
+    # exactly _ONE_PAIR_RAISE_DAMP — asserted as RAISE:CALL odds (CALL is
+    # untargeted here); FOLD:CALL odds are unchanged.
+    off = faced_dist(("Kh", "9d"), ["Ks", "7c", "2h"], False)
+    on = faced_dist(("Kh", "9d"), ["Ks", "7c", "2h"], True)
+    assert on[ActionType.RAISE] / on[ActionType.CALL] == pytest.approx(
+        personas_postflop._ONE_PAIR_RAISE_DAMP
+        * (off[ActionType.RAISE] / off[ActionType.CALL]),
+        rel=1e-12,
+    ), f"one-pair RAISE damp did not fire exactly (off={off}, on={on})"
+    assert on[ActionType.FOLD] / on[ActionType.CALL] == pytest.approx(
+        off[ActionType.FOLD] / off[ActionType.CALL], rel=1e-12
+    ), "untargeted FOLD:CALL odds moved — damp hit more than the RAISE merit"
+
+    # Naked ace-high, no draw (AhQd on Ks7c2h): facing_raise damps the CALL
+    # merit by exactly _ACE_HIGH_FLOAT_RAISE_DAMP — asserted as CALL:FOLD odds;
+    # RAISE:FOLD odds unchanged (the fold SHARE rises purely through
+    # normalization, per W3R-6).
+    off = faced_dist(("Ah", "Qd"), ["Ks", "7c", "2h"], False)
+    on = faced_dist(("Ah", "Qd"), ["Ks", "7c", "2h"], True)
+    assert on[ActionType.CALL] / on[ActionType.FOLD] == pytest.approx(
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP
+        * (off[ActionType.CALL] / off[ActionType.FOLD]),
+        rel=1e-12,
+    ), f"ace-high CALL damp did not fire exactly (off={off}, on={on})"
+    assert on[ActionType.RAISE] / on[ActionType.FOLD] == pytest.approx(
+        off[ActionType.RAISE] / off[ActionType.FOLD], rel=1e-12
+    ), "untargeted RAISE:FOLD odds moved — damp hit more than the CALL merit"
 
 
 def test_persona_stats_ext_all_metrics_compute():
