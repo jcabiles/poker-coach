@@ -44,11 +44,13 @@ class HeuristicProvider:
             result.coverage = Coverage.NOT_FOUND  # no content; heuristic fold-default applied
         elif spot.villain_type is not None:
             self._enrich_exploit(spot, entry, result)
-        elif entry.rationale:
+        elif entry.rationale_text:
             # Baseline (non-exploit) entry with authored prose (N3) — the exploit
-            # branch above already sets this field for exploit spots, so this
-            # never double-writes.
-            result.authored_rationale = entry.rationale
+            # branch above already sets these fields for exploit spots, so this
+            # never double-writes. `rationale_text` covers both entry generations
+            # (flat `rationale` and structured `rationale_parts`).
+            result.authored_rationale = entry.rationale_text
+            result.authored_rationale_parts = entry.rationale_parts
         return result
 
     def _enrich_exploit(self, spot: Spot, entry: Entry, result: EvaluationResult) -> None:
@@ -60,9 +62,10 @@ class HeuristicProvider:
             base_top = grade(spot, baseline, None).best_action.action.value
             if base_top != result.best_action.action.value:
                 parts.append(f"(baseline: {base_top})")
-        if entry.rationale:
-            parts.append(entry.rationale)
-            # Raw material for the tier composer (compose_tiers reads this field
+        if entry.rationale_text:
+            parts.append(entry.rationale_text)
+            # Raw material for the tier composer (compose_tiers reads these fields
             # instead of re-parsing the flat explanation — no double-append).
-            result.authored_rationale = entry.rationale
+            result.authored_rationale = entry.rationale_text
+            result.authored_rationale_parts = entry.rationale_parts
         result.explanation = " ".join(parts)

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { explainDecision } from "../../api/client";
 import type { CoachExplainRequest, GradeView } from "../../api/types";
+import ReasoningText from "../ReasoningText";
 import { fmtEvLoss, isMiss, streetLabel, tierOf } from "./simGrade";
 
 // Simulate S10 — the coach's margin ledger. Mounts beside SimShowdown on
@@ -157,11 +158,15 @@ export default function SimRecap({
                   <span className="sim-recap-ev num">{fmtEvLoss(g.ev_loss_bb)}</span>
                 )}
               </div>
-              {/* The teaching moment: only misses expand their "why", and only
-                  when the reasoning text survived (live path — a reload drops
-                  it and the row degrades to the verdict line above). */}
-              {miss && g.reasoning && (
-                <p className="sim-recap-why">{g.reasoning}</p>
+              {/* The teaching moment: only misses expand their "why" —
+                  structured lead+bullets when parts survived (live path or
+                  0014-persisted rows), flat paragraph fallback otherwise. */}
+              {miss && (g.reasoning_parts || g.reasoning) && (
+                <ReasoningText
+                  parts={g.reasoning_parts}
+                  flat={g.reasoning}
+                  className="sim-recap-why"
+                />
               )}
               {/* N6: on-demand coach. Available on every row (a good play's
                   "why it's standard" is as useful as a leak's fix). */}

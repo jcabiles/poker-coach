@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from app.domain.evaluation import ReasoningParts
 from app.domain.spot import Hero, LegalAction
 
 
@@ -55,6 +56,10 @@ class GradeView(BaseModel):
     coverage: str  # full / partial / not_found / unmappable
     verdict: str | None  # FeedbackTiers.verdict; None when no baseline
     reasoning: str | None  # FeedbackTiers.reasoning; recap expands for mistakes+
+    # Structured reasoning (lead + bullets + demoted citations). None when the
+    # row predates migration 0014 or was never graded — FE falls back to the
+    # flat `reasoning` paragraph.
+    reasoning_parts: ReasoningParts | None = None
     # N5 spot dims (persisted on sim_decision) surfaced for the N6 coach prompt:
     # position always present; facing/node None on unmappable spots.
     node_context: str | None = None
@@ -171,7 +176,10 @@ class ExploitNoteView(BaseModel):
     the mapped Spot's facing position, never guessed (spec med-1)."""
 
     villain_label: str
-    rationale: str
+    rationale: str  # flat authored line (join of parts for rewritten entries)
+    # Structured authored rationale (lead + bullets + demoted citations);
+    # None for legacy flat-only entries — FE falls back to `rationale`.
+    rationale_parts: ReasoningParts | None = None
 
 
 class PreflopChartView(BaseModel):
@@ -336,6 +344,9 @@ class ReplayStepView(BaseModel):
     coverage: str | None = None
     verdict: str | None = None  # persisted tier verdict text; None if not persisted
     reasoning: str | None = None  # persisted reasoning text; None if not persisted
+    # Structured reasoning from the 0014 column; None on pre-0014/ungraded rows
+    # — the replayer then falls back to the flat `reasoning` paragraph.
+    reasoning_parts: ReasoningParts | None = None
 
 
 class HandReplayView(BaseModel):

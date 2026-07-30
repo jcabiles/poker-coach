@@ -15,7 +15,15 @@
         { "action": "call", "combos": "A5s, A4s", "frequency": 0.5 }
       ],
       "sizing_bb": 11.0,
-      "rationale": "Closing the action from the BB you get roughly 30% pot odds, so you defend very wide against the BTN's steal: flat the whole suited/connected region plus most pairs and offsuit Broadways, 3-bet TT+/AQs/AK for value, and split A5s/A4s 50/50 between value-3-bet and call — the wheel aces block AA/AK and carry enough equity to profitably do both (doc 01 §8)."
+      "rationale_parts": {
+        "lead": "The button raised and you're in the big blind: defend very wide — folding too much here just hands over the blind you already paid.",
+        "points": [
+          "You close the action and get roughly 30% pot odds (you call 1 to win about 3), so wide calls are cheap: flat the suited and connected hands, most pairs and offsuit Broadways.",
+          "3-bet (re-raise) TT+, AQs and AK for value.",
+          "A5s/A4s split 50/50 between 3-betting and calling — the wheel aces block AA/AK (holding an ace makes those less likely) and are strong enough to play either way."
+        ],
+        "sources": "doc 01 §8"
+      }
     },
     {
       "node_context": "blind_defense",
@@ -26,7 +34,15 @@
         { "action": "call", "combos": "22-TT, ATs, AJs, A9s, KTs, KJs, KQs, QTs, QJs, JTs, T9s, 98s, 87s, 76s, 65s, AQo, KQo", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "The CO opens tighter than the BTN, so you shade your BB defense down a notch — a narrower value 3-bet (JJ+/AQs/AK, one wheel bluff) and a flat that drops the weakest connectors — while still calling wide on your ~30% pot odds, because over-folding the BB surrenders blinds you've already partly invested (doc 01 §8)."
+      "rationale_parts": {
+        "lead": "The cutoff raised — a tighter range than a button raise — so defend your big blind one notch narrower.",
+        "points": [
+          "3-bet JJ+, AQs and AK for value, with A5s as the one bluff.",
+          "Still call wide (pairs, suited aces/Broadways, connectors down to 65s, AQo/KQo): your ~30% pot odds haven't changed, and over-folding the big blind gives up money you've already partly invested.",
+          "Only the very weakest connectors drop out compared to defending against the button."
+        ],
+        "sources": "doc 01 §8"
+      }
     },
     {
       "node_context": "blind_defense",
@@ -37,7 +53,14 @@
         { "action": "call", "combos": "22-TT, ATs, AJs, A9s, KTs, KJs, KQs, QTs, QJs, JTs, T9s, 98s, 87s, 76s, AQo, KQo", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "The HJ opens one seat earlier — and thus slightly tighter — than the CO, so BB defense sits one hair inside the CO line: the same JJ+/AQs+/A5s value-and-blocker 3-bet, a flat that keeps the pairs and suited connectors but trims 65s, adding AJo only because the HJ range is still wide enough to dominate less often (N5 interpolation between the v1 UTG and CO anchors, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "The hijack raised — one seat earlier and slightly tighter than the cutoff — so shade your big-blind defense one hair inside the cutoff line.",
+        "points": [
+          "Same value 3-bet: JJ+, AQs+, AK, with the A5s blocker bluff.",
+          "The calls keep the pairs and suited connectors but trim the bottom (65s drops).",
+          "AQo and KQo still defend — the hijack's range is wide enough that they aren't dominated too often."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -50,7 +73,14 @@
         { "action": "call", "combos": "A5s", "frequency": 0.5 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "Against the lojack the value 3-bet stays JJ+/AQs+/AK but A5s downgrades to a 50/50 split — the earlier open means the blocker bluff gets called by a stronger range more often. The flat keeps all pairs (set-mining odds hold) and the suited-Broadway core, dropping 76s/65s whose implied odds thin out vs a tighter, uncapped range (N5 interpolation, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "The lojack raised: keep the same value 3-bet but downgrade the bluff, and trim the lowest connectors from your calls.",
+        "points": [
+          "3-bet JJ+, AQs+ and AK for value; A5s now splits 50/50 between 3-bet and call — an earlier-seat raiser calls your bluff with a stronger range more often.",
+          "Keep calling all pairs (set-mining odds still hold) and the suited-Broadway core.",
+          "76s/65s fold now: their implied odds (winning big when they hit) thin out against a tighter, stronger range."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -61,7 +91,13 @@
         { "action": "call", "combos": "77-JJ, AQs, AJs, ATs, A9s, A5s, KTs, KJs, KQs, QJs, JTs, T9s, 98s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+2 is still an early-position open, so the 3-bet stays at the tight QQ+/AK family core — light 3-bets burn money into a range this strong. The flat widens a measured notch over the UTG anchor: 77-88 join for set value, A9s/A5s and KTs/98s add suited playability that flops well multiway (N5 interpolation, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "UTG+2's raise is still an early-position range, so 3-bet only the top and call with hands that flop well.",
+        "points": [
+          "3-bet only QQ+ and AK — light 3-bets burn money into a range this strong.",
+          "Call with 77–JJ (sets win big pots), the suited aces down to A9s/A5s, and suited Broadways plus KTs/98s that play well after the flop."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -72,7 +108,13 @@
         { "action": "call", "combos": "99-JJ, AQs, AJs, ATs, A5s, KQs, KJs, QJs, JTs, T9s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "One seat off UTG the open is nearly as strong, so BB defense is nearly the UTG anchor: QQ+/AK 3-bet only, and a tight high-equity flat that adds just A5s (wheel-ace playability) and T9s over the UTG line (N5 interpolation, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "One seat off UTG the raise is nearly as strong, so defend nearly as tight as against UTG itself.",
+        "points": [
+          "3-bet only QQ+ and AK.",
+          "Call a tight, high-quality band: 99–JJ, AQs–ATs, suited Broadways, JTs, plus A5s and T9s for playability."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -83,7 +125,15 @@
         { "action": "call", "combos": "99-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs, TT", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG's open is the strongest at the table, so 3-betting light gets punished — you 3-bet only QQ+/AK for value and flat a tight, high-equity band (99–JJ, AQs–ATs, suited Broadways, JTs) that flops well enough to continue; small pairs and suited gappers fold because their implied odds collapse against such a strong, uncapped range (doc 01 §8)."
+      "rationale_parts": {
+        "lead": "UTG's raise is the strongest range at the table: 3-bet only premiums and call with a tight band of hands that flop well.",
+        "points": [
+          "3-bet QQ+ and AK for value only — bluffing into this range gets punished.",
+          "Call with 99–JJ, AQs–ATs, suited Broadways and JTs: strong enough to continue when the flop cooperates.",
+          "Small pairs and suited gappers fold — their big-payoff potential collapses against a range this strong."
+        ],
+        "sources": "doc 01 §8"
+      }
     },
     {
       "node_context": "blind_defense",
@@ -93,7 +143,15 @@
         { "action": "raise", "combos": "55+, A8s+, KTs+, QTs+, J9s+, T9s, AJo+, KQo, A5s, A4s", "frequency": 1.0 }
       ],
       "sizing_bb": 11.0,
-      "rationale": "From the SB you'd play every postflop street out of position, so flatting is a losing proposition — you go 3-bet-or-fold with a merged range (55+, suited Broadways/aces, J9s+, T9s, plus A5s/A4s blockers) wide enough to punish a BTN steal but strong enough to play a raised pot OOP; everything else folds rather than call into positional disadvantage (doc 01 §8)."
+      "rationale_parts": {
+        "lead": "The button raised and you're in the small blind: it's 3-bet or fold — calling just signs you up to play the whole hand out of position with a capped hand.",
+        "points": [
+          "3-bet a merged range (strong hands plus good-but-not-premium ones): 55+, suited aces from A8s, suited Broadways, J9s+/T9s, AJo+/KQo, and A5s/A4s as blockers.",
+          "That's wide enough to punish a button steal, strong enough to play a raised pot out of position.",
+          "Everything else folds rather than calling into a positional disadvantage."
+        ],
+        "sources": "doc 01 §8"
+      }
     },
     {
       "node_context": "blind_defense",
@@ -103,7 +161,14 @@
         { "action": "raise", "combos": "77+, ATs+, KJs+, QJs, AQo+, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "Same 3-bet-or-fold logic as versus the BTN, tightened because the CO opens a stronger range: you lift the pair threshold to 77+ and the suited-ace floor to ATs, keeping A5s as the lone blocker-bluff — merged rather than polarized so you're never flatting out of position against a range that already dominates you (doc 01 §8)."
+      "rationale_parts": {
+        "lead": "Same 3-bet-or-fold rule against a cutoff raise, tightened one notch because the cutoff opens stronger than the button.",
+        "points": [
+          "3-bet 77+, ATs+, KJs+, QJs, AQo+ with A5s as the lone bluff.",
+          "The range stays merged (value plus strong playable hands, not just premiums-and-bluffs) — you never want to flat out of position against a range that already beats yours."
+        ],
+        "sources": "doc 01 §8"
+      }
     },
     {
       "node_context": "blind_defense",
@@ -113,7 +178,13 @@
         { "action": "raise", "combos": "88+, ATs+, KQs, AQo+, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "One seat earlier than the CO, one notch tighter: pair floor lifts to 88, the suited-Broadway tail (KJs/QJs) drops, A5s stays as the lone blocker-bluff. Still strictly 3-bet-or-fold — the SB never flats out of position (N5 interpolation inside the v1 SB anchors, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "Against a hijack raise, tighten the small-blind 3-bet another notch — and still never just call.",
+        "points": [
+          "3-bet 88+, ATs+, KQs, AQo+ with the A5s blocker bluff.",
+          "The suited-Broadway tail (KJs/QJs) drops out — the earlier raiser's range dominates it too often."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -123,7 +194,13 @@
         { "action": "raise", "combos": "99+, AJs+, KQs, AQo+, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "Versus a lojack open the merged 3-bet tightens again — 99+, AJs+, KQs, AQo+ with the A5s blocker — because the opening range is strong enough that dominated suited aces and mid pairs shift from profitable 3-bets to folds (N5 interpolation, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "Against a lojack raise the small blind tightens again: 3-bet a strong merged core or fold.",
+        "points": [
+          "3-bet 99+, AJs+, KQs, AQo+ with the A5s blocker.",
+          "Mid pairs and dominated suited aces shift from profitable 3-bets to folds — the opening range is simply too strong now."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -133,7 +210,13 @@
         { "action": "raise", "combos": "TT+, AJs+, KQs, AKo, AQo, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "An early-position open pushes the SB toward premiums: TT+ pairs, AJs+/KQs suited, AQo+ offsuit, and the A5s blocker as the only bluff. Anything weaker either folds or is dominated too often to 3-bet into an EP range (N5 interpolation, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "An early-position raise pushes the small blind toward premiums: 3-bet the top or fold.",
+        "points": [
+          "3-bet TT+, AJs+, KQs, AQo+ with A5s as the only bluff.",
+          "Anything weaker is either an outright fold or gets dominated too often to 3-bet into an early-position range."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -143,7 +226,13 @@
         { "action": "raise", "combos": "TT+, AQs+, AKo, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "One off UTG, the defend narrows to TT+/AQs+/AKo plus the A5s blocker — AJs and AQo shift to folds because UTG+1's range dominates them too frequently to 3-bet out of position (N5 interpolation, RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "One seat off UTG, the small-blind defense narrows to near-premiums only.",
+        "points": [
+          "3-bet TT+, AQs+, AKo plus the A5s blocker.",
+          "AJs and AQo become folds — UTG+1's range dominates them too frequently to re-raise out of position."
+        ]
+      }
     },
     {
       "node_context": "blind_defense",
@@ -153,7 +242,13 @@
         { "action": "raise", "combos": "QQ+, AQs, AKs, AKo, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "Versus the table's strongest range, from the worst seat, the SB defend collapses to premiums-or-fold: QQ+/AQs+/AKo plus the single A5s blocker (~2.6% of hands). This thinness is the honest answer, not a gap — nearly everything is a fold here (N5, corroborated by 3-bet-or-fold doctrine; RES-A §4 method)."
+      "rationale_parts": {
+        "lead": "The table's strongest range raised and you're in the worst seat: premiums or fold — nearly everything folds here, and that's correct.",
+        "points": [
+          "3-bet only QQ+, AQs+, AKo plus the single A5s blocker — about 2.6% of hands.",
+          "The thinness is the honest answer, not a gap in the chart: against UTG from the small blind, folding is usually the money-saving play."
+        ]
+      }
     }
   ]
 }

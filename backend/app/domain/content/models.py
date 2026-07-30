@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.domain.archetypes import VillainType
 from app.domain.content.notation import parse_range
+from app.domain.evaluation import ReasoningParts
 from app.domain.spot import ActionType, NodeContext, Position
 
 # The 8 frontend drill Mode values (frontend/src/api/types.ts::Mode /
@@ -44,9 +45,24 @@ class Entry(BaseModel):
     facing: Position | None = None  # opener / 3-bettor position when relevant
     limper_count: int | None = None  # for vs_limpers entries
     villain_type: VillainType | None = None  # set for exploit-overlay entries
-    rationale: str | None = None  # one-line "why" for exploit entries
+    rationale: str | None = None  # flat one-paragraph "why" (legacy authored prose)
+    # Structured authored "why" (feedback-prose-readability): lead sentence +
+    # supporting bullet points + demoted doc citations. When present it WINS
+    # over the flat `rationale` — rewritten entries carry only this field.
+    # Consumers never read `rationale` directly; they go through
+    # `rationale_text` / `rationale_parts` so both entry generations work.
+    rationale_parts: ReasoningParts | None = None
     actions: list[ActionRange]
     sizing_bb: float | None = None
+
+    @property
+    def rationale_text(self) -> str | None:
+        """The flat authored prose: the join of the structured parts when
+        present (sources excluded — they never enter the readable text),
+        else the legacy flat `rationale`."""
+        if self.rationale_parts is not None:
+            return " ".join([self.rationale_parts.lead, *self.rationale_parts.points])
+        return self.rationale
 
 
 class ContentPack(BaseModel):

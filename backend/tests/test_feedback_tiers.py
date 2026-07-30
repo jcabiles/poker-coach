@@ -54,7 +54,7 @@ def test_preflop_mistake_reasoning_is_non_tautological():
     res = _run(p.evaluate(spot, Decision(action=ActionType.FOLD)))
     reasoning = res.tiers.reasoning
     assert "is the play" not in reasoning  # more than the old tautology
-    assert "range's edge" in reasoning  # the over_fold mechanism phrase
+    assert "gives up money" in reasoning  # the over_fold mechanism phrase (plain voice)
     assert "Blunder" in res.tiers.verdict or "Mistake" in res.tiers.verdict
 
 
@@ -85,32 +85,33 @@ def test_exploit_reasoning_carries_authored_rationale():
 
 
 def test_rfi_baseline_authored_rationale_reaches_tiers():
-    """N3: a non-exploit RFI entry's authored `rationale` populates
-    `authored_rationale` and lands in tiers.reasoning as real strategic prose,
-    not the tautological action restated."""
+    """N3: a non-exploit RFI entry's authored content (now structured
+    `rationale_parts`, feedback-prose T6) populates `authored_rationale` and
+    lands in tiers.reasoning as real strategic prose, not the tautological
+    action restated."""
     p = get_provider()
     entry = _IDX[(NodeContext.RFI, Position.CO, None, 0, None)]
-    assert entry.rationale  # sanity: the CO RFI entry is authored (N3 tranche)
+    assert entry.rationale_parts  # sanity: the CO RFI entry is authored + structured
     spot = build_spot(entry, random.Random(1))
     res = _run(p.optimal(spot))
     _assert_tiers_distinct(res)
-    assert res.authored_rationale == entry.rationale
-    assert entry.rationale in res.tiers.reasoning
-    assert "is the play" not in entry.rationale
+    assert res.authored_rationale == entry.rationale_text
+    assert entry.rationale_parts.lead in res.tiers.reasoning
+    assert "is the play" not in entry.rationale_text
 
 
 def test_vs_rfi_baseline_authored_rationale_reaches_tiers():
-    """N3: a non-exploit vs-RFI entry's authored `rationale` populates
+    """N3: a non-exploit vs-RFI entry's structured authored content populates
     `authored_rationale` and lands in tiers.reasoning."""
     p = get_provider()
     entry = _IDX[(NodeContext.VS_RFI, Position.HJ, Position.UTG, 0, None)]
-    assert entry.rationale
+    assert entry.rationale_parts
     spot = build_spot(entry, random.Random(1))
     res = _run(p.optimal(spot))
     _assert_tiers_distinct(res)
-    assert res.authored_rationale == entry.rationale
-    assert entry.rationale in res.tiers.reasoning
-    assert "is the play" not in entry.rationale
+    assert res.authored_rationale == entry.rationale_text
+    assert entry.rationale_parts.lead in res.tiers.reasoning
+    assert "is the play" not in entry.rationale_text
 
 
 def test_postflop_cbet_authored_rationale_reaches_tiers():
@@ -146,13 +147,17 @@ def test_authored_rationale_leads_postflop_tag_branch():
 
 
 def test_exploit_villain_sentence_leads_exploit_branch():
+    # T6: exploit content is structured, so the lede carries the villain name
+    # + plain inline descriptor, then the authored lead (ledger C7 rule).
     p = get_provider()
     entry = _IDX[(NodeContext.VS_RFI, Position.BTN, Position.CO, 0, VillainType.CALLING_STATION)]
     res = _run(p.optimal(build_spot(entry, random.Random(1))))
     assert res.authored_rationale
-    assert res.tiers.reasoning.startswith(f"Versus a calling station: {res.authored_rationale}")
-    # authored prose is consumed by the lede — not repeated later in the tier
-    assert res.tiers.reasoning.count(res.authored_rationale) == 1
+    lead = res.tiers.reasoning_parts.lead
+    assert lead.startswith("Versus a calling station (calls far too often and rarely folds): ")
+    assert lead.endswith(entry.rationale_parts.lead)
+    # authored lead is consumed by the lede — not repeated later in the tier
+    assert res.tiers.reasoning.count(entry.rationale_parts.lead) == 1
 
 
 def test_not_found_tiers_degrade_gracefully():
@@ -173,3 +178,110 @@ def test_optimal_call_still_populates_tiers():
     _assert_tiers_distinct(res)
     assert res.chosen_eval is None
     assert "Best play" in res.tiers.verdict
+
+
+# --- structured reasoning_parts (feedback-prose-readability T1) ---
+
+
+def test_reasoning_parts_present_and_flat_string_is_the_join():
+    """The flat `reasoning` is ALWAYS the deterministic join of lead + points —
+    the structured form is the source of truth, never parsed from prose."""
+    p = get_provider()
+    spot = make_rfi_spot(hole_cards=("Ah", "Ad"), position=Position.UTG)
+    res = _run(p.evaluate(spot, Decision(action=ActionType.FOLD)))
+    parts = res.tiers.reasoning_parts
+    assert parts is not None
+    assert parts.lead
+    assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
+
+
+def test_postflop_mistake_parts_have_real_bullets():
+    """The tag-template mechanism is decomposed one clause per element (ledger
+    R1/C5): even with no authored entry in the mix, a graded postflop mistake
+    yields a lead plus at least one bullet — never an empty bullet list."""
+    p = get_provider()
+    res = _run(p.evaluate(make_cbet_spot(), Decision(action=ActionType.CHECK)))
+    parts = res.tiers.reasoning_parts
+    assert parts is not None
+    assert parts.lead
+    assert len(parts.points) >= 1
+    assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
+
+
+def test_structured_entry_parts_flow_through_provider_seam():
+    """T2: an Entry carrying `rationale_parts` (no flat rationale) flows its
+    lead + points into tiers.reasoning_parts as separate clauses, its sources
+    into parts.sources + the deep-dive, and NEVER into the readable text."""
+    from app.domain.evaluation import ReasoningParts
+    from app.domain.providers import HeuristicProvider, TieredFeedbackProvider
+
+    key = (NodeContext.RFI, Position.CO, None, 0, None)
+    entry = _IDX[key].model_copy(
+        update={
+            "rationale": None,
+            "rationale_parts": ReasoningParts(
+                lead="Raise here — this hand opens from the cutoff every time.",
+                points=[
+                    "It is comfortably inside the opening range.",
+                    "Folding gives up a profitable open.",
+                ],
+                sources="Upswing RFI; doc 01 §2",
+            ),
+        }
+    )
+    p = TieredFeedbackProvider(HeuristicProvider({key: entry}))
+    res = _run(p.optimal(build_spot(entry, random.Random(1))))
+    parts = res.tiers.reasoning_parts
+    assert parts.lead.startswith("Raise here — this hand opens")
+    assert "It is comfortably inside the opening range." in parts.points
+    assert parts.sources == "Upswing RFI; doc 01 §2"
+    # flat fields carry the joined text (back-compat for coach / old rows)
+    assert res.authored_rationale == entry.rationale_text
+    assert res.tiers.reasoning == " ".join([parts.lead, *parts.points])
+    # citations demoted: deep-dive only, never the readable text
+    assert "§" not in res.tiers.reasoning
+    assert "Sources: Upswing RFI; doc 01 §2." in res.tiers.deep_dive
+
+
+def test_structured_exploit_entry_keeps_villain_prefix():
+    """T2 (ledger C7): structured exploit content keeps the `Versus a
+    {villain} ({plain descriptor}):` lede so exploit feedback never reads
+    like baseline advice."""
+    from app.domain.evaluation import ReasoningParts
+    from app.domain.providers import HeuristicProvider, TieredFeedbackProvider
+
+    key = (NodeContext.VS_RFI, Position.BTN, Position.CO, 0, VillainType.CALLING_STATION)
+    entry = _IDX[key].model_copy(
+        update={
+            "rationale": None,
+            "rationale_parts": ReasoningParts(
+                lead="Call wider — this player pays off too often to fold against.",
+                points=["Value bets earn extra streets; bluffs lose their point."],
+            ),
+        }
+    )
+    p = TieredFeedbackProvider(HeuristicProvider({key: entry}))
+    res = _run(p.optimal(build_spot(entry, random.Random(1))))
+    parts = res.tiers.reasoning_parts
+    assert parts.lead.startswith(
+        "Versus a calling station (calls far too often and rarely folds): Call wider"
+    )
+    assert "Value bets earn extra streets; bluffs lose their point." in parts.points
+    # the authored prose is consumed by the lede — not repeated later
+    assert res.tiers.reasoning.count("Call wider") == 1
+
+
+def test_not_found_parts_are_synthetic_lead_only():
+    """Early-return branches (Coverage.NOT_FOUND) emit a synthetic lead with an
+    empty bullet list (ledger R7/C6) — parts exist whenever tiers exist."""
+    p = get_provider()
+    spot = make_rfi_spot(position=Position.CO).model_copy(
+        update={"street": Street.TURN, "board": ["As", "Kd", "2c", "7h"], "node_context": []}
+    )
+    res = _run(p.evaluate(spot, Decision(action=ActionType.FOLD)))
+    assert res.coverage == Coverage.NOT_FOUND
+    parts = res.tiers.reasoning_parts
+    assert parts is not None
+    assert parts.lead
+    assert parts.points == []
+    assert res.tiers.reasoning == parts.lead

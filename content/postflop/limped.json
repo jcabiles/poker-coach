@@ -9,28 +9,52 @@
       "position": "BB",
       "facing": "BTN",
       "actions": [],
-      "rationale": "Nobody raised preflop, so neither range is condensed: there is no aggressor edge to lean on and the board texture decides who this flop favors. When you do lead a limped pot, bet small and polar — real strength plus some air — and check the medium made hands, especially out of position, since a big bet into a limped field only gets action from the hands that beat you."
+      "rationale_parts": {
+        "lead": "Nobody raised before the flop, so neither player has a range edge — the board itself decides who this flop favors.",
+        "points": [
+          "When you do lead (bet first into the limped pot), bet small and polar: real strength plus some air.",
+          "Check the medium-strength hands, especially out of position — a big bet into a limped field only gets action from hands that beat you."
+        ]
+      }
     },
     {
       "node_context": "limped_lead",
       "position": "SB",
       "facing": "BB",
       "actions": [],
-      "rationale": "After completing the small blind you play the whole hand out of position with a capped range against a capped range: mostly check, and when you lead, keep it small and polar — strong hands and some air — because medium strength bloating a limped pot out of position is the classic way to lose a big pot with a small hand."
+      "rationale_parts": {
+        "lead": "You completed the small blind, so you'll play the whole hand out of position with a capped range (no premium hands) against another capped range: mostly check.",
+        "points": [
+          "When you lead, keep it small and polar — strong hands and some air.",
+          "Building a limped pot out of position with a medium hand is the classic way to lose a big pot with a small hand."
+        ]
+      }
     },
     {
       "node_context": "limped_vs_lead",
       "position": "BB",
       "facing": "BTN",
       "actions": [],
-      "rationale": "A limper who bets the flop is polarized around a capped range — limpers rarely hold the true top of the deck, but a BIG bet in a limped pot is over-represented by real strength. Continue with made hands and draws at a good price, fold the air, and tighten the marginal bluff-catch as the lead gets bigger."
+      "rationale_parts": {
+        "lead": "A limper who bets this flop is polarized within a capped range — they rarely have the true top of the deck, but a BIG bet in a limped pot usually means real strength.",
+        "points": [
+          "Continue with made hands and draws getting a fair price; fold the air.",
+          "Tighten the marginal calls as the bet gets bigger — size tells the truth in limped pots."
+        ]
+      }
     },
     {
       "node_context": "limped_vs_lead",
       "position": "SB",
       "facing": "BB",
       "actions": [],
-      "rationale": "When the big blind stabs at a limped flop it is whoever-bets-first aggression, not a preflop-range edge: defend made hands and draws getting a price, but respect large sizings — in limped pots the big bets are value-heavy — and let the marginal one-pair hands fold more as the bet grows."
+      "rationale_parts": {
+        "lead": "When the big blind stabs at a limped flop, it's first-to-bet aggression, not a strong preflop range — defend accordingly.",
+        "points": [
+          "Call with made hands and draws that are getting a price.",
+          "Respect large bets — in limped pots the big sizings are heavy with value — and fold marginal one-pair hands more as the bet grows."
+        ]
+      }
     }
   ],
   "sizing_rules": {

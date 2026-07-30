@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import type { ReplayStepView, HandReplayView, ShowdownSeatView } from "../../api/types";
 import Card from "../Card";
+import ReasoningText from "../ReasoningText";
 import { fmtBb, fmtEvLoss, streetLabel, tierOf } from "./simGrade";
 import { buildReplayModel, deriveSeats } from "./replaySeats";
 import type { RevealScope } from "./revealRequest";
@@ -384,8 +385,12 @@ function HeroVerdict({ step }: { step: ReplayStepView }) {
         {step.coverage && <span className="hr-verdict-cov">coverage: {step.coverage}</span>}
         {graded && <span className="hr-verdict-approx"> · EV ≈ approximate</span>}
       </p>
-      {step.reasoning ? (
-        <p className="hr-verdict-why">{step.reasoning}</p>
+      {step.reasoning_parts || step.reasoning ? (
+        <ReasoningText
+          parts={step.reasoning_parts}
+          flat={step.reasoning}
+          className="hr-verdict-why"
+        />
       ) : (
         <p className="hr-verdict-nobaseline">
           {graded

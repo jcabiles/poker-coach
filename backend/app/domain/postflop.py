@@ -16,6 +16,7 @@ from pathlib import Path
 
 from app.domain.action import Decision
 from app.domain.content.loader import load_pack_file
+from app.domain.content.models import Entry
 from app.domain.equity import combos_for_range, equity_vs_range, fold_equity_ev
 from app.domain.evaluation import (
     ActionEval,
@@ -41,32 +42,41 @@ from app.domain.texture import Texture, classify, river_card_class, turn_card_cl
 # --- N3: authored postflop rationale (content path) ---
 # backend/app/domain/postflop.py -> parents[3] == repo root
 _POSTFLOP_CONTENT_DIR = Path(__file__).resolve().parents[3] / "content" / "postflop"
-_POSTFLOP_RATIONALE_INDEX: dict[tuple, str] | None = None
+_POSTFLOP_RATIONALE_INDEX: dict[tuple, Entry] | None = None
 
 
-def _postflop_rationale_index() -> dict[tuple, str]:
-    """Authored postflop rationale, keyed by (node_context, hero_position,
-    counterpart_position). Additive teaching content (N3) — reuses the SAME
-    Entry/ContentPack model as the preflop packs (only `.rationale` is read;
-    `.actions` is unused here since postflop scoring stays texture/category-
-    driven, not a content-pack range lookup). Lazily loaded once."""
+def _postflop_rationale_index() -> dict[tuple, Entry]:
+    """Authored postflop rationale entries, keyed by (node_context,
+    hero_position, counterpart_position). Additive teaching content (N3) —
+    reuses the SAME Entry/ContentPack model as the preflop packs (only the
+    rationale fields are read; `.actions` is unused here since postflop scoring
+    stays texture/category-driven, not a content-pack range lookup). The index
+    stores the Entry so both the flat text and the structured
+    `rationale_parts` reach the composer. Lazily loaded once."""
     global _POSTFLOP_RATIONALE_INDEX
     if _POSTFLOP_RATIONALE_INDEX is None:
-        idx: dict[tuple, str] = {}
+        idx: dict[tuple, Entry] = {}
         if _POSTFLOP_CONTENT_DIR.is_dir():
             for path in sorted(_POSTFLOP_CONTENT_DIR.glob("*.json")):
                 pack = load_pack_file(path)
                 for e in pack.entries:
-                    if e.rationale:
-                        idx[(e.node_context, e.position, e.facing)] = e.rationale
+                    if e.rationale_text:
+                        idx[(e.node_context, e.position, e.facing)] = e
         _POSTFLOP_RATIONALE_INDEX = idx
     return _POSTFLOP_RATIONALE_INDEX
 
 
 def _postflop_rationale(
     node_context: NodeContext, hero_pos: Position, counterpart_pos: Position
-) -> str | None:
+) -> Entry | None:
     return _postflop_rationale_index().get((node_context, hero_pos, counterpart_pos))
+
+
+def _set_authored(result: EvaluationResult, entry: Entry) -> None:
+    """Attach an authored entry's prose to the result — flat text + structured
+    parts together, so every grader stays a one-line call site."""
+    result.authored_rationale = entry.rationale_text
+    result.authored_rationale_parts = entry.rationale_parts
 
 _RIDX = {r: i for i, r in enumerate("23456789TJQKA")}
 
@@ -567,7 +577,7 @@ def grade_cbet(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = _match(evals, decision, small, big)
@@ -608,7 +618,7 @@ def grade_cbet(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -920,7 +930,7 @@ def grade_vs_cbet(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = next((e for e in evals if e.action == decision.action), None)
@@ -959,7 +969,7 @@ def grade_vs_cbet(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -1114,7 +1124,7 @@ def grade_vs_check_raise(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     # RAISE matches by ActionType alone (one raise option), like grade_vs_cbet.
@@ -1157,7 +1167,7 @@ def grade_vs_check_raise(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -1336,7 +1346,7 @@ def grade_turn_barrel(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = _match(evals, decision, small, big)
@@ -1376,7 +1386,7 @@ def grade_turn_barrel(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -1452,7 +1462,7 @@ def grade_vs_turn_bet(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = next((e for e in evals if e.action == decision.action), None)
@@ -1491,7 +1501,7 @@ def grade_vs_turn_bet(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -1677,7 +1687,7 @@ def grade_river_barrel(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = _match(evals, decision, small, big)
@@ -1717,7 +1727,7 @@ def grade_river_barrel(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -1795,7 +1805,7 @@ def grade_vs_river_bet(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = next((e for e in evals if e.action == decision.action), None)
@@ -1834,7 +1844,7 @@ def grade_vs_river_bet(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -2010,7 +2020,7 @@ def grade_vs_caller_raise(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     # RAISE matches by ActionType alone (one raise option), like grade_vs_check_raise.
@@ -2053,7 +2063,7 @@ def grade_vs_caller_raise(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -2252,7 +2262,7 @@ def grade_limped_lead(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = _match(evals, decision, small, big)
@@ -2292,7 +2302,7 @@ def grade_limped_lead(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result
 
 
@@ -2357,7 +2367,7 @@ def grade_limped_vs_lead(
             ),
         )
         if rationale:
-            result.authored_rationale = rationale
+            _set_authored(result, rationale)
         return result
 
     chosen = next((e for e in evals if e.action == decision.action), None)
@@ -2399,5 +2409,5 @@ def grade_limped_vs_lead(
         explanation=why,
     )
     if rationale:
-        result.authored_rationale = rationale
+        _set_authored(result, rationale)
     return result

@@ -182,11 +182,12 @@ def test_exploit_note_villain_is_the_live_opponent_seat(db):
     rows = {r.seat_index: r for r in db.exec(select(SimSeat)).all()}
     assert note.villain_label == rows[btn_seat].persona_type == "nit"
     # Rationale is the authored content line, verbatim — never generated.
+    # (rationale_text covers flat and structured entry generations alike.)
     entry = _find_entry(NodeContext.BLIND_DEFENSE, Position.BB, Position.BTN)
     spot = build_spot(entry, random.Random(0), eff_bb=100.0)
     exploit = lookup(_INDEX, spot, villain_type="nit")
     assert exploit is not None
-    assert note.rationale == exploit.rationale
+    assert note.rationale == exploit.rationale_text
 
 
 def test_missing_exploit_pair_keeps_grid_and_omits_note(db):

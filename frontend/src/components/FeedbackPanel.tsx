@@ -4,6 +4,7 @@ import { matchCard } from "../api/client";
 import type { ConceptCard as ConceptCardData, Decision, EvaluationResult } from "../api/types";
 import ConceptCardView from "./ConceptCard";
 import RationaleTags from "./RationaleTags";
+import ReasoningText from "./ReasoningText";
 
 const TONE: Record<string, string> = {
   optimal: "good",
@@ -134,7 +135,15 @@ export default function FeedbackPanel({
       {/* N1 tier 2 — reasoning: why, composed from tags + authored rationale
           (backend now leads with the hand-specific sentence). */}
       <RationaleTags tags={result.rationale_tags} />
-      {result.tiers && <p className="tier-reasoning">{result.tiers.reasoning}</p>}
+      {/* Sources are omitted here — the deep-dive below already carries them. */}
+      {result.tiers && (
+        <ReasoningText
+          parts={result.tiers.reasoning_parts}
+          flat={result.tiers.reasoning}
+          className="tier-reasoning"
+          showSources={false}
+        />
+      )}
       {/* N1 tier 3 — deep dive: the full numbers, collapsed by default. */}
       <details className="tier-deepdive">
         <summary>Deep dive — full action mix</summary>

@@ -17,6 +17,25 @@ def test_all_hands_count():
     assert len(all_hands()) == 169  # 13 pairs + 78 suited + 78 offsuit
 
 
+def test_checked_in_schema_matches_model():
+    """The committed contentpack.schema.json must equal the live Pydantic
+    schema — nothing else enforces regeneration, so drift was silent until
+    this test (feedback-prose-readability ledger R6)."""
+    import json
+    from pathlib import Path
+
+    from app.domain.content import content_pack_json_schema
+
+    committed = json.loads(
+        (Path(__file__).resolve().parents[2] / "content" / "schema" / "contentpack.schema.json")
+        .read_text()
+    )
+    assert committed == content_pack_json_schema(), (
+        "content/schema/contentpack.schema.json is stale — regenerate it from "
+        "content_pack_json_schema() and commit the result"
+    )
+
+
 def test_pair_plus():
     assert parse_range("77+") == {"77", "88", "99", "TT", "JJ", "QQ", "KK", "AA"}
 

@@ -13,7 +13,15 @@
         { "action": "call",  "combos": "22-88, ATs, KJs, QJs, JTs, T9s, 98s", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "First to act with the whole table behind, isolate only hands that dominate a weak limper AND fare well if a player behind wakes up (99+, AJs+, AQo+); the medium pairs and suited Broadways/connectors over-limp to see a cheap multiway flop where implied odds beat thin isolation from out of position (Upswing vs-limpers; doc 01 §9)."
+      "rationale_parts": {
+        "lead": "Against one limper from UTG+2, raise only premium hands and call along with the speculative ones.",
+        "points": [
+          "Raise 99+, AJs+, KQs and AQo+ to 5bb: these dominate a limper's weak range and survive when a player behind wakes up with a real hand.",
+          "The whole table still acts behind you, so thin raises are asking for trouble — keep the raising range tight.",
+          "Medium pairs and suited connectors (22–88, ATs, KJs, QJs, JTs, T9s, 98s) over-limp (call the 1bb behind the limper) to see a cheap flop with several players in — hitting a set or a straight there wins a big pot for a small price."
+        ],
+        "sources": "Upswing vs-limpers; doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -24,7 +32,15 @@
         { "action": "call",  "combos": "22-77, A5s, KTs, QTs, JTs, T9s, 98s, 87s", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "One off EP: widen the iso slightly (88+, suited Broadways, AJo/KQo) as fewer players remain behind, while small pairs and suited connectors over-limp for set/straight equity in a likely multiway pot (Upswing vs-limpers; doc 01 §9)."
+      "rationale_parts": {
+        "lead": "Against one limper from the lojack, raise a slightly wider range than the early seats would, and call with small pairs and suited connectors.",
+        "points": [
+          "Raise 88+, ATs+, KJs+, QJs, AJo+ and KQo to 5bb — fewer players left behind you means fewer chances someone is sitting on a monster.",
+          "Raising here isolates the limper: you aim to play the pot heads-up, in position, against a player who has already shown weakness by limping.",
+          "Small pairs and suited connectors (22–77, A5s, KTs, QTs, JTs and friends) over-limp instead — they want a cheap, multiway flop where a hidden set or straight gets paid off."
+        ],
+        "sources": "Upswing vs-limpers; doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -35,7 +51,15 @@
         { "action": "call",  "combos": "22-66, 54s, 65s, 76s, 87s, 98s, K9s, Q9s", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "Mirror the CO iso one seat earlier and marginally tighter: value-skewed isolation (77+, suited aces/Broadways, ATo+/KJo+) to play a heads-up pot in position against a capped limper, with the small pairs and suited connectors over-limping for cheap multiway equity (Upswing vs-limpers; doc 01 §9)."
+      "rationale_parts": {
+        "lead": "Against one limper in the hijack, raise strong hands to isolate the limper, and just call with small pairs and suited connectors.",
+        "points": [
+          "Raise 77+, suited aces and Broadways (A9s+, KTs+, QTs+, JTs) and ATo+/KJo+ to 5bb — the goal is to isolate the limper (raise to get the pot heads-up) while you have position on them.",
+          "A limper's range is capped (limping in usually means no premium hand), so a value-leaning raise often wins outright and dominates them when called.",
+          "Small pairs (22–66) and suited connectors (54s–98s) over-limp — call the 1bb behind the limper — for a cheap multiway flop: hit a set or a straight and you win a big pot for the smallest possible price."
+        ],
+        "sources": "Upswing vs-limpers; doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -46,7 +70,15 @@
         { "action": "call", "combos": "22-55, 54s, 65s, 76s, 87s, 98s", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "Never limp behind — isolate to play heads-up in position with hands that dominate a weak limping range (66+, suited aces/Broadways, ATo+), sizing up to punish the dead money; the small pairs and suited connectors instead over-limp, taking cheap multiway flops where their set/straight implied odds beat trying to isolate (doc 01 §9)."
+      "rationale_parts": {
+        "lead": "Against one limper in the cutoff, raise a wide value range to isolate the limper, and over-limp the small speculative hands.",
+        "points": [
+          "Raise 66+, suited aces and Broadways, and ATo+/KJo+ — sized up to 5bb to punish the dead money the limper left in the pot.",
+          "Isolating (raising to get the pot heads-up) works especially well here: you'll have position for the whole hand against a capped, weak range.",
+          "Small pairs (22–55) and low suited connectors over-limp for a cheap multiway flop — their profit comes from hitting hidden monsters and getting paid (implied odds), not from winning raises."
+        ],
+        "sources": "doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -57,7 +89,15 @@
         { "action": "call",  "combos": "22-55, 54s, 65s, 76s, 87s, 98s, K9s, Q9s, J9s", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "From the small blind you close only to the big blind but play every street out of position, so isolate a value-heavy range that wants a heads-up pot (66+, suited aces/Broadways, ATo+); complete (over-limp) with speculative hands rather than fold, since the discounted 0.5bb price prices in set/straight draws even out of position (Upswing vs-limpers; doc 01 §9)."
+      "rationale_parts": {
+        "lead": "In the small blind against one limper, raise only a value-heavy range and complete with the speculative hands — you'll be out of position all hand, so choose carefully.",
+        "points": [
+          "Raise 66+, suited aces and Broadways, and ATo+/KJo+ to 5bb: strong hands still want a heads-up pot even when out of position.",
+          "With speculative hands, complete (call the extra half-blind) rather than fold — the discounted price makes chasing sets and straights worth it.",
+          "Being out of position (acting first every street) is a real handicap, so skip thin raises that build a pot you can't control."
+        ],
+        "sources": "Upswing vs-limpers; doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -68,7 +108,15 @@
         { "action": "call", "combos": "22-44, 54s, 65s, 76s, A2s, A3s, A4s, K8s, Q8s, J8s", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "The Button is the best seat to isolate from, so you widen the iso considerably (55+, suited gappers, offsuit Broadways) because guaranteed position lets you realize equity against a capped limper; the tiny pairs and weak suited hands over-limp instead, keeping the pot small and multiway where their implied odds — not raw equity — pay off (doc 01 §9)."
+      "rationale_parts": {
+        "lead": "On the button against one limper, raise your widest isolation range of any seat — guaranteed position makes almost every decent hand a raise.",
+        "points": [
+          "Raise 55+, most suited hands down to 87s (A7s+, K9s+, Q9s+, J9s+, T9s, 98s), and A9o+/KJo+ to 5bb.",
+          "Acting last on every street lets you win pots your cards alone wouldn't — that's why the button isolates hands other seats would fold.",
+          "The tiny pairs and weakest suited hands still prefer to over-limp: a small multiway pot is where their hidden-monster payoff (implied odds) lives."
+        ],
+        "sources": "doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -79,7 +127,14 @@
         { "action": "call",  "combos": "22-77, 54s, 65s, 76s, 87s, 98s", "frequency": 1.0 }
       ],
       "sizing_bb": 6.0,
-      "rationale": "Two limpers means the pot likely stays multiway even after a raise, so tighten to hands that hold up against several callers (88+, suited aces/Broadways) and size to 4bb+2 (6bb); speculative pairs and connectors over-limp, since 3-way-plus pots reward set-mining and drawing over thin isolation (Upswing vs-limpers; doc 01 §9, §11)."
+      "rationale_parts": {
+        "lead": "Against two limpers in the cutoff, tighten the raising range and size up — this pot is going multiway whether you like it or not.",
+        "points": [
+          "Raise 88+, ATs+, KTs+, QJs and AJo+ to 6bb (4bb plus 1 per limper): with two callers likely, your raising hands must play well against several opponents.",
+          "Speculative pairs and connectors over-limp — a pot with three or more players is exactly where set-mining and drawing beat thin raising."
+        ],
+        "sources": "Upswing vs-limpers; doc 01 §9, §11"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -90,7 +145,14 @@
         { "action": "call",  "combos": "22-77, 54s, 65s, 76s, 87s, 98s, A2s, A3s, A4s, A5s", "frequency": 1.0 }
       ],
       "sizing_bb": 6.0,
-      "rationale": "Out of position against two limpers, isolate only a tight value core (88+, suited Broadways, AJo+) and complete the rest, leaning on the cheap SB price to set-mine and draw in a guaranteed-multiway pot rather than bloating it out of position with marginal iso hands (Upswing vs-limpers; doc 01 §9, §11)."
+      "rationale_parts": {
+        "lead": "In the small blind against two limpers, raise only a tight value core and complete everything else that's playable.",
+        "points": [
+          "Raise 88+, suited Broadways and AJo+ to 6bb — out of position against two callers, only genuinely strong hands want a big pot.",
+          "Complete (call the discounted half-blind) with the pairs, connectors and small suited aces: in a guaranteed-multiway pot, cheap set-mining and drawing beat bloating the pot from the worst seat."
+        ],
+        "sources": "Upswing vs-limpers; doc 01 §9, §11"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -101,7 +163,15 @@
         { "action": "call", "combos": "22-66, 54s, 65s, 76s, 87s, 98s", "frequency": 1.0 }
       ],
       "sizing_bb": 6.0,
-      "rationale": "With two limpers the pot likely goes multiway even after a raise, so you tighten the isolation to hands that fare well against several callers (77+, suited aces/Broadways) and size larger (4bb + 1bb per limper); more speculative pairs and connectors shift to over-limping, since 3-way-plus pots reward set-mining and drawing over thin isolation (doc 01 §9, §11)."
+      "rationale_parts": {
+        "lead": "On the button against two limpers, tighten up and size up: raise hands that play well multiway and over-limp the rest.",
+        "points": [
+          "Raise 77+, ATs+, KTs+, QJs, AJo+ and A5s to 6bb — 4bb plus 1 per limper.",
+          "Even a raise often gets called in two places here, so the raising hands must hold up against several opponents, not just one.",
+          "Speculative pairs and connectors over-limp: pots with three or more players reward hitting sets and straights more than thin isolation."
+        ],
+        "sources": "doc 01 §9, §11"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -112,7 +182,14 @@
         { "action": "check", "combos": "22-44, A2s, A3s, A4s, A6s, A7s, K9s, Q9s, J9s, T8s, 97s, 87s, 76s, 65s, 54s, A9o, KTo, QJo, JTo", "frequency": 1.0 }
       ],
       "sizing_bb": 5.0,
-      "rationale": "You close the action with a free flop on offer, so NEVER fold — iso-raise a wide value+equity range (55+, suited aces/Broadways, ATo+) to punish the limper's dead money and thin the field, and check everything else: the BB arrives with a weaker range and should mostly take its free flop rather than bloat a pot out of position (GTO Wizard BB-in-limped-pots; doc 01 §9)."
+      "rationale_parts": {
+        "lead": "In the big blind against one limper you never fold — checking is free — so the only question is which hands raise.",
+        "points": [
+          "Raise a wide value-plus-equity range (55+, suited aces and Broadways, T9s/98s, ATo+/KJo+) to 5bb: punish the limper's dead money and thin the field.",
+          "Everything else checks and takes the free flop — the big blind's range is weaker overall, and building a pot out of position with a marginal hand helps your opponent, not you."
+        ],
+        "sources": "GTO Wizard BB-in-limped-pots; doc 01 §9"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -123,7 +200,14 @@
         { "action": "check", "combos": "22-66, A2s, A3s, A4s, A6s, A7s, A8s, A9s, K9s, QTs, Q9s, J9s, T9s, 98s, 87s, 76s, 65s, 54s, ATo, KJo, QJo", "frequency": 1.0 }
       ],
       "sizing_bb": 6.0,
-      "rationale": "Two limpers means an iso likely still gets called somewhere, so tighten to a value core that plays well multiway (77+, suited aces/Broadways, AJo+) and size 4bb+1 per limper; everything else checks its option — the free flop with speculative and marginal hands beats folding or bloating the pot out of position (GTO Wizard BB-in-limped-pots; doc 01 §9, §11)."
+      "rationale_parts": {
+        "lead": "In the big blind against two limpers, raise a tighter value core and check everything else — the free flop is yours either way.",
+        "points": [
+          "Raise 77+, suited aces and Broadways, and AJo+/KQo to 6bb (4bb plus 1 per limper): a raise here still gets called somewhere, so the raising hands must play well multiway.",
+          "Every other hand checks its option — a free look at the flop with a speculative hand beats folding, and beats building a pot you'd have to play out of position."
+        ],
+        "sources": "GTO Wizard BB-in-limped-pots; doc 01 §9, §11"
+      }
     },
     {
       "node_context": "vs_limpers",
@@ -134,7 +218,14 @@
         { "action": "check", "combos": "22-88, ATs, A9s, A5s, A4s, A3s, A2s, KJs, KTs, QJs, QTs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, ATo, AJo, KJo, KQo", "frequency": 1.0 }
       ],
       "sizing_bb": 7.0,
-      "rationale": "Against three limpers fold equity is at its lowest and the pot goes multiway almost regardless, so iso only the premium top (99+, AJs+, AQo+) at 4bb+1 per limper for pure value; every other hand — including medium pairs and suited connectors that love a cheap 4-way flop — checks the free option (GTO Wizard BB-in-limped-pots; doc 01 §9, §11)."
+      "rationale_parts": {
+        "lead": "Against three limpers in the big blind, raise only the premium top for pure value and check everything else.",
+        "points": [
+          "Raise 99+, AJs+, KQs and AQo+ to 7bb (4bb plus 1 per limper): with three callers in, bluffs and thin raises have nowhere to go — this raise is for value only.",
+          "Every other hand — including the medium pairs and suited connectors that love a cheap four-way flop — checks the free option."
+        ],
+        "sources": "GTO Wizard BB-in-limped-pots; doc 01 §9, §11"
+      }
     }
   ]
 }

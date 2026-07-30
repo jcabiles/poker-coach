@@ -1,0 +1,23 @@
+# Finding ledger — feedback-prose-readability (spec review, 2026-07-29)
+
+Reviewers: Claude `refuter` (7 findings) + Codex `gpt-5.6-sol` (8 findings), run in parallel over
+`specs/feedback-prose-readability.md` + `contracts/feedback-prose-readability.md`.
+Every finding verified against HEAD before adjudication. 4 findings converged (both reviewers).
+
+| # | Source | Sev | Finding | Adjudication | Spec action |
+|---|--------|-----|---------|--------------|-------------|
+| R1 | refuter | HIGH | `_reasoning()` appends are NOT one-clause-per-element — `feedback.py:158-164` bundles NODE/ADV/CAT/WET into one multi-sentence element; naive `parts[0]`/`parts[1:]` split can't produce the approved sample shape | **ACCEPTED** (verified: single f-string append with 3 internal sentences) | §1: decompose bundled appends into one element per clause |
+| R2 | refuter + Codex(2) | HIGH | No carrier for structured authored content — `EvaluationResult` has only flat `authored_rationale: str\|None` (`evaluation.py:80`); `compose_tiers(spot, result)` can't see `Entry.rationale_parts` | **ACCEPTED** (converged; verified) | §3: add `EvaluationResult.authored_rationale_parts` |
+| R3 | refuter + Codex(4 partial) | HIGH | `test_exploits.py:38` asserts flat `e.rationale` truthy for all exploit entries — not in the spec's test list; parts-only rewritten entries would fail it | **ACCEPTED** (verified) | §6: re-point at `rationale_text`; flat-field policy defined in §3 |
+| R4 | refuter + Codex(3) | HIGH | 4th prose surface missed by contracts map: `sim_session.py::_exploit_note` (`:1113`) → `ExploitNoteView.rationale` (non-optional) → `SimRangeChart.tsx` — rewritten exploit entries would silently lose the live chart note (or keep old jargon forever) | **ACCEPTED** (converged; verified incl. pinned `test_sim_preflop_chart.py:169`) | §3+§5: `ExploitNoteView.rationale_parts` added; flat = `rationale_text`; `SimRangeChart.tsx` in scope |
+| R5 | refuter | MED | `heuristic.py:47`/`postflop.py:60` gate on flat `entry.rationale` only — all 93 rewritten entries would silently fall back to tag-template boilerplate | **ACCEPTED** (verified) | §3: every `entry.rationale` consumer switches to `rationale_text` |
+| R6 | refuter | MED | Nothing enforces `contentpack.schema.json` regeneration — acceptance criterion unenforceable | **ACCEPTED** (contracts map corroborates) | §3: add schema-diff test vs `content_pack_json_schema()` |
+| R7 | refuter + Codex(6) | LOW/MED | `Coverage.NOT_FOUND` early-returns bypass the parts list (`feedback.py:136-137`) yet tiers are still composed — "lead non-empty whenever tiers exist" unsatisfiable under the stated rule | **ACCEPTED** (converged) | §1: synthetic `ReasoningParts(lead=msg, points=[])`; §6 assertion scoped to `coverage != NOT_FOUND` |
+| C1 | Codex | HIGH | FIFTH renderer missed by spec AND contracts map: History route mounts `HandReplayTable.tsx` (`HistoryView.tsx:5`), whose `HeroVerdict` is a deliberate replica of `HandReplay`'s — History would keep flat prose | **ACCEPTED** (verified: replica comment at `HandReplayTable.tsx:362-366`) | §5: `HandReplayTable.tsx` added to scope + files list |
+| C4 | Codex | HIGH | Legacy exploit `explanation` also consumes `entry.rationale` (`heuristic.py:54-68` `_enrich_exploit`); `test_grading.py:242` pins it — "explanation untouched" claim was too strong | **ACCEPTED** (verified) | §4: `_enrich_exploit` switches to `rationale_text`; test re-pointed; field stays, content updates |
+| C5 | Codex | HIGH | Tag-template-only postflop mistakes (e.g. vs flop c-bet, no authored entry) append exactly ONE combined clause → empty `points`, violating the spec's own `points ≥ 1` assertion | **ACCEPTED — resolved by R1's decomposition** (verified: single append at `feedback.py:156-164`; splitting yields ≥2 elements) | §6 notes the guarantee explicitly |
+| C7 | Codex | MED | No replacement rule for the pinned `Versus a {villain}:` exploit-lede prefix (`feedback.py:147`, `test_feedback_tiers.py:148,153`) under structured authored leads — exploit feedback could read like baseline advice | **ACCEPTED** (verified) | §4: villain-prefix rule for structured leads + new pinning test |
+| C8 | Codex | MED | Reload gap: `restore_session()` (`sim_session.py:825`) rebuilds recap with `tiers=None` and `_grade_view()` (`:299`) never reads the persisted 0013 columns — reloaded sessions lose ALL recap prose (docstring stale: predates migration 0013) | **ACCEPTED — scope addition** (verified: docstring admits gap, columns exist) | §5: `_grade_view` falls back to persisted columns |
+
+Rejected/downgraded findings: none — all 11 distinct findings verified true at HEAD and folded.
+No reviewer conflicts to surface (where both spoke, they agreed).

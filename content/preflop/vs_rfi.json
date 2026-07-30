@@ -13,7 +13,14 @@
         { "action": "call", "combos": "TT, JJ, AQs, AJs, KQs, KJs, QJs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG opens the strongest range at the table and UTG+1 sits directly behind it with the whole field still to act, so this is the tightest vs-RFI spot in the pack: 3-bet only genuine value (QQ+, AK) plus the A5s blocker-bluff, and flat a narrow high-equity band (TT-JJ, AQs-AJs, suited Broadways) — dominated offsuit hands and thin suited hands can't continue profitably against a range this strong, and cold-calling with 5+ players still to act invites a squeeze, so the flat stays disciplined."
+      "rationale_parts": {
+        "lead": "UTG raised — the strongest range at the table — and you're right behind with the whole field still to act: this is the tightest continue in the pack.",
+        "points": [
+          "3-bet (re-raise) only real value — QQ+ and AK — plus A5s as the one bluff (its ace blocks their AA/AK).",
+          "Call only a narrow, high-quality band: TT/JJ, AQs/AJs and the suited Broadways.",
+          "Everything else folds: weaker hands get dominated, and calling with 5+ players still behind invites a squeeze (a big re-raise behind you)."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -24,7 +31,13 @@
         { "action": "call", "combos": "99, TT, JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+2 sits one seat closer to the button than UTG+1, so its continuing range widens a touch: the pair floor drops to 99 and the call range picks up ATs/JTs, since one fewer player behind means less squeeze exposure — the 3-bet range stays the same genuine-value-plus-blocker shape because UTG's open is still the strongest range at the table."
+      "rationale_parts": {
+        "lead": "Facing UTG's raise from UTG+2, continue tight — just a touch wider than UTG+1 would.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker bluff — UTG's raise is still the strongest range at the table.",
+          "The calls widen slightly to 99 and pick up ATs/JTs: one fewer player behind you means less risk of a squeeze (a big re-raise behind)."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -35,7 +48,13 @@
         { "action": "call", "combos": "99, TT, JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+1's open is only a hair wider than UTG's and still EP-strong, so UTG+2 re-values essentially as it does facing UTG: 3-bet QQ+/AK plus the A5s blocker, flat the same 99-JJ/suited-Broadway band — the one-notch-wider opener doesn't justify loosening further against a value-heavy pool that rarely opens EP light."
+      "rationale_parts": {
+        "lead": "UTG+1's raise is barely wider than UTG's and still early-position strong, so play it exactly like a UTG raise.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker; call the same 99–JJ and suited-Broadway band.",
+          "A one-notch-wider raiser doesn't justify looser calls — live players rarely open light from early seats."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -46,7 +65,14 @@
         { "action": "call", "combos": "77-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG's range is the strongest at the table, so HJ 3-bets only genuine value (QQ+, AK) plus the A5s blocker bluff and calls a tight set of pairs and suited broadways — dominated offsuit hands and thin suited hands don't have enough equity to continue profitably against a range this strong."
+      "rationale_parts": {
+        "lead": "UTG raised and you're in the hijack: 3-bet only real value and call a tight set of pairs and suited Broadways.",
+        "points": [
+          "3-bet QQ+ and AK, plus A5s as the blocker bluff.",
+          "Call 77–JJ, AQs–ATs and the suited Broadways — hands with genuine equity against a strong range.",
+          "Offsuit hands and thin suited hands fold: they're dominated too often to continue profitably here."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -57,7 +83,13 @@
         { "action": "call", "combos": "66-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs, T9s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "CO's extra seat of position over HJ lets the calling range widen down to 66 and add T9s: the players who could squeeze behind CO have already folded, so speculative suited hands can realize more of their equity in position against UTG's tight range."
+      "rationale_parts": {
+        "lead": "Facing a UTG raise from the cutoff, continue like the hijack does — plus a little extra width your position pays for.",
+        "points": [
+          "3-bet QQ+ and AK with the A5s blocker.",
+          "The calls widen down to 66 and add T9s: the players who could squeeze behind you have mostly folded, so speculative suited hands keep more of their value in position."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -68,7 +100,13 @@
         { "action": "call", "combos": "66-TT, AJs, ATs, KQs, KJs, QJs, JTs, AQo", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "HJ opens wider than UTG, so CO's continuing range loosens to match: the 3-bet threshold drops to JJ/AQs and the call range picks up AQo, since a looser opener makes offsuit broadway hands profitable to continue with in position."
+      "rationale_parts": {
+        "lead": "The hijack raises wider than UTG, so loosen your cutoff continue to match.",
+        "points": [
+          "The 3-bet threshold drops to JJ+/AQs (plus AK and the A5s blocker).",
+          "AQo joins the calls — against a looser raiser, the offsuit Broadway is no longer dominated often enough to fold, especially in position."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -79,7 +117,14 @@
         { "action": "call", "combos": "22-99, AJs, ATs, A9s, KJs, KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo, KQo", "frequency": 1.0 }
       ],
       "sizing_bb": 8.0,
-      "rationale": "CO's open is wide enough that BTN can 3-bet down to TT and call with any pair down to 22 plus offsuit broadways like AJo/KQo — BTN's positional advantage lets these speculative and dominated-adjacent hands realize their equity postflop that they couldn't from an earlier seat."
+      "rationale_parts": {
+        "lead": "The cutoff's raise is wide and you have the button: continue wide — position turns marginal hands into money.",
+        "points": [
+          "3-bet TT+, AQs+ and AK for value, with A5s/A4s as bluffs.",
+          "Call any pair down to 22 (set-mining pays with guaranteed position) plus the suited hands and offsuit Broadways like AJo/KQo.",
+          "From an earlier seat these calls wouldn't work — acting last every street is what makes them profitable."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -90,7 +135,13 @@
         { "action": "call", "combos": "22-TT, AJs, ATs, KJs, QJs, JTs, T9s, AQo", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "HJ's open is tighter than CO's, so BTN's continuing range shrinks accordingly: the 3-bet threshold rises to JJ+ and the weakest suited connectors drop out of the call range, since a stronger opening range makes those speculative calls less profitable even in position."
+      "rationale_parts": {
+        "lead": "The hijack raises tighter than the cutoff, so shrink your button continue accordingly.",
+        "points": [
+          "The 3-bet threshold rises to JJ+ (with AQs, AK and the A5s blocker).",
+          "The weakest suited connectors drop out of the calls — a stronger raising range makes those speculative calls unprofitable even in position."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -101,7 +152,14 @@
         { "action": "call", "combos": "99-JJ, AQs, AJs, KQs", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "Facing the tightest possible open, BTN's continuing range is its narrowest vs-RFI spot: only QQ+/AK 3-bet for value and a handful of pairs plus AQs/AJs/KQs call, because UTG's range is strong enough that even BTN's positional edge doesn't rescue weaker holdings."
+      "rationale_parts": {
+        "lead": "UTG's raise is the tightest range in the game — even on the button, this is your narrowest continue.",
+        "points": [
+          "3-bet only QQ+ and AK for value.",
+          "Call just 99–JJ, AQs, AJs and KQs.",
+          "Position helps, but it can't rescue weaker hands against a range this strong — fold them."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -112,7 +170,14 @@
         { "action": "call", "combos": "88-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "LJ sits between UTG+2 and HJ, so facing UTG's tightest-at-the-table open its continuing range interpolates exactly between them: 3-bet only genuine value (QQ+, AK) plus the A5s blocker-bluff, and call the pair floor 88 — one notch wider than UTG+2's 99 and one tighter than HJ's 77 — plus the same AQs-ATs/suited-Broadway band, because each seat closer to the button faces one fewer potential squeezer behind. Doc 05 §3.3 gap-fill, copied verbatim; monotonic with the authored UTG1/UTG2/HJ-vs-UTG chain."
+      "rationale_parts": {
+        "lead": "UTG raised and you're in the lojack: continue tight — between UTG+2's and the hijack's lines.",
+        "points": [
+          "3-bet only QQ+ and AK, plus the A5s blocker bluff.",
+          "Call 88–JJ and the AQs–ATs/suited-Broadway band: the pair floor sits one notch wider than UTG+2's (99) and one tighter than the hijack's (77) — each seat closer to the button faces one fewer possible squeezer."
+        ],
+        "sources": "doc 05 §3.3"
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -123,7 +188,13 @@
         { "action": "call", "combos": "88-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+1's open is only a hair wider than UTG's and still EP-strong, so LJ re-values exactly as it does facing UTG: 3-bet QQ+/AK plus the A5s blocker, call the 88-JJ/suited-Broadway band — the one-notch-wider opener doesn't justify loosening further against a value-heavy pool that rarely opens EP light (the same equal-shape treatment the authored UTG2-vs-UTG1 entry uses)."
+      "rationale_parts": {
+        "lead": "UTG+1's raise is barely wider than UTG's, so the lojack plays it exactly like a UTG raise.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker; call 88–JJ and the suited Broadways.",
+          "Live players rarely open light from early seats — a hair-wider raiser doesn't earn looser calls."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -134,7 +205,13 @@
         { "action": "call", "combos": "88-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+2 is the widest of the three EP opens but still a value-lean EP range (its only additions over UTG+1 are 98s and KQo), so LJ keeps the same disciplined continue it uses against UTG/UTG+1: 3-bet QQ+/AK plus the A5s blocker, call 88-JJ and the suited Broadways — loosening past this vs a range that's ~95% the same hands would just add dominated calls."
+      "rationale_parts": {
+        "lead": "UTG+2 opens the widest of the early seats, but it's still a strong range — keep the same disciplined continue.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker; call 88–JJ and the suited Broadways.",
+          "Their extra width is only 98s and KQo (~95% the same range) — loosening for that just adds dominated calls."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -145,7 +222,13 @@
         { "action": "call", "combos": "77-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+1 opens essentially the same strength tier as UTG (one hand class wider), so HJ continues exactly as it does facing UTG: 3-bet only genuine value (QQ+, AK) plus the A5s blocker bluff and call the tight 77-JJ/suited-Broadway set — mirrors the authored HJ-vs-UTG entry, per the UTG2-vs-UTG1 equal-shape precedent for near-identical EP openers."
+      "rationale_parts": {
+        "lead": "UTG+1 opens essentially the same strength as UTG, so the hijack continues exactly as it would against UTG.",
+        "points": [
+          "3-bet only QQ+ and AK plus the A5s blocker bluff.",
+          "Call the tight 77–JJ and suited-Broadway set."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -156,7 +239,13 @@
         { "action": "call", "combos": "77-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+2's open is the EP-MP transition range but still value-lean, so HJ keeps its vs-UTG shape: 3-bet QQ+/AK plus the A5s blocker, call 77-JJ and the suited Broadways — the marginal extra width of the UTG+2 open (98s, KQo) doesn't make any new HJ hand a profitable continue with four players still behind."
+      "rationale_parts": {
+        "lead": "UTG+2's raise is the early-to-middle transition range but still value-lean — the hijack keeps its vs-UTG shape.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker; call 77–JJ and the suited Broadways.",
+          "The raiser's small extra width (98s, KQo) doesn't make any new hand profitable with four players still behind you."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -167,7 +256,14 @@
         { "action": "call", "combos": "77-TT, AJs, ATs, KQs, KJs, QJs, JTs, AQo", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "LJ's open is meaningfully wider than the EP seats', so HJ's continuing range loosens to match: the 3-bet threshold drops to JJ/AQs and AQo enters the call range, mirroring the authored CO-vs-HJ shape one opener earlier. It stays a touch tighter than CO-vs-LJ (no 66, no T9s) because HJ still has three seats plus the blinds behind it. Doc 05 §3.3's optional fourth entry (mirror CO-vs-LJ, a touch tighter)."
+      "rationale_parts": {
+        "lead": "The lojack opens meaningfully wider than the early seats, so the hijack loosens to match.",
+        "points": [
+          "The 3-bet threshold drops to JJ+/AQs (plus AK and the A5s blocker), and AQo enters the calls.",
+          "It stays a touch tighter than the cutoff's version of this defense (no 66, no T9s) — the hijack still has three seats plus the blinds behind it."
+        ],
+        "sources": "doc 05 §3.3"
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -178,7 +274,13 @@
         { "action": "call", "combos": "66-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs, T9s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+1's open is a near-copy of UTG's, so CO continues exactly as it does facing UTG: 3-bet QQ+/AK plus the A5s blocker, call down to 66 and add T9s — CO's late-position edge (only BTN and the blinds behind) lets the speculative suited hands realize their equity against an EP range. Mirrors the authored CO-vs-UTG entry, per the UTG2-vs-UTG1 equal-shape precedent."
+      "rationale_parts": {
+        "lead": "UTG+1's raise is a near-copy of UTG's, so the cutoff continues exactly as it does against UTG.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker.",
+          "Call down to 66 and keep T9s — with only the button and blinds behind, speculative suited hands hold their value in position."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -189,7 +291,13 @@
         { "action": "call", "combos": "66-JJ, AQs, AJs, ATs, KQs, KJs, QJs, JTs, T9s", "frequency": 1.0 }
       ],
       "sizing_bb": 10.0,
-      "rationale": "UTG+2 opens the widest of the EP seats but still a value-lean range, so CO keeps its vs-UTG continue: 3-bet QQ+/AK plus the A5s blocker, call 66-JJ with the suited Broadways and T9s — the opener's marginal extra width doesn't shift any CO hand across the profitability line, and squeeze exposure from BTN and the blinds is unchanged."
+      "rationale_parts": {
+        "lead": "UTG+2 opens the widest of the early seats but still a value-lean range — the cutoff keeps its vs-UTG continue.",
+        "points": [
+          "3-bet QQ+ and AK plus the A5s blocker; call 66–JJ with the suited Broadways and T9s.",
+          "The raiser's marginal extra width doesn't move any cutoff hand across the profit line."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -200,7 +308,14 @@
         { "action": "call", "combos": "66-TT, AJs, ATs, KQs, KJs, QJs, JTs, T9s, AQo", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "LJ opens wider than the EP seats, so CO's continuing range loosens the way the authored CO-vs-HJ entry does — 3-bet threshold down to JJ/AQs, AQo enters the call — while keeping T9s from its vs-UTG call (positional continuation of a speculative suited hand). Doc 05 §3.3 gap-fill, copied verbatim; sits between CO-vs-UTG (tighter 3-bets) and CO-vs-HJ (drops nothing) exactly as LJ sits between those openers."
+      "rationale_parts": {
+        "lead": "The lojack opens wider than the early seats, so the cutoff loosens the way it does against the hijack.",
+        "points": [
+          "The 3-bet threshold drops to JJ+/AQs (plus AK and the A5s blocker), and AQo joins the calls.",
+          "T9s stays in the calls from the vs-UTG line — position keeps the speculative suited hand worth playing."
+        ],
+        "sources": "doc 05 §3.3"
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -211,7 +326,13 @@
         { "action": "call", "combos": "99-JJ, AQs, AJs, KQs", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "UTG+1's open is essentially UTG's range one hand class wider, so BTN treats it identically to the authored BTN-vs-UTG entry: only QQ+/AK 3-bet for value and the narrow 99-JJ/AQs/AJs/KQs band calls — even BTN's positional edge doesn't rescue weaker holdings against an EP range this strong. Equal-shape treatment per the UTG2-vs-UTG1 precedent."
+      "rationale_parts": {
+        "lead": "UTG+1's raise is essentially UTG's range one notch wider — the button treats it identically to a UTG raise.",
+        "points": [
+          "3-bet only QQ+ and AK; call the narrow 99–JJ, AQs, AJs, KQs band.",
+          "Even the button's positional edge doesn't rescue weaker hands against an early-position range this strong."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -222,7 +343,13 @@
         { "action": "call", "combos": "99-JJ, AQs, AJs, KQs", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "UTG+2's open is still a value-lean EP range (its width over UTG+1 is just 98s and KQo), so BTN keeps the same narrow vs-UTG continue: 3-bet QQ+/AK, call 99-JJ/AQs/AJs/KQs — the marginally wider opener doesn't make BTN's next-best hands (88, ATs, KJs) profitable continues against a range that is still ~14% and value-heavy."
+      "rationale_parts": {
+        "lead": "UTG+2's raise is still a strong early-position range, so the button keeps the same narrow continue as against UTG.",
+        "points": [
+          "3-bet QQ+ and AK; call 99–JJ, AQs, AJs and KQs.",
+          "Their small extra width (98s, KQo) doesn't make your next-best hands (88, ATs, KJs) profitable against a range that's still tight and value-heavy."
+        ]
+      }
     },
     {
       "node_context": "vs_RFI",
@@ -233,7 +360,14 @@
         { "action": "call", "combos": "22-TT, AJs, ATs, KQs, KJs, QJs, JTs, T9s, AQo", "frequency": 1.0 }
       ],
       "sizing_bb": 9.0,
-      "rationale": "LJ's open is wide enough that BTN plays it like a slightly tighter HJ open: 3-bet down to JJ/AQs with the A5s blocker, and call any pair (22-TT set-mines profitably in position with no squeeze risk behind but the blinds) plus the suited-Broadway/T9s/AQo band. Doc 05 §3.3 gap-fill, copied verbatim; nests between the authored BTN-vs-UTG (much tighter) and BTN-vs-HJ (adds KQs here vs the wider LJ-defense) rows."
+      "rationale_parts": {
+        "lead": "The lojack's raise is wide enough that the button plays it like a slightly tighter hijack raise: continue wide.",
+        "points": [
+          "3-bet JJ+/AQs and AK with the A5s blocker.",
+          "Call any pair 22–TT — set-mining pays in position with only the blinds behind — plus the suited Broadways, T9s and AQo."
+        ],
+        "sources": "doc 05 §3.3"
+      }
     }
   ]
 }
