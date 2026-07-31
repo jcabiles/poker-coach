@@ -386,3 +386,74 @@ def test_barrel_run_is_seat_specific():
     ]
     assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 2
     assert aggressor_barrel_run(hist, Street.RIVER, Position.BB) == 0
+
+
+# --------------------- R9-SIGNAL review fold — call-site wiring capture test
+# Codex + refuter (convergent): the kwarg is deliberately dead, so no
+# behavioral test can prove `bot_decision` derives and forwards it — deleting
+# the derivation, hardcoding False, or using the whole-hand aggressor would
+# all pass the rest of the suite. This test monkeypatches the capture point
+# and replays organic seeded hands, asserting three properties of every
+# captured postflop decision:
+#   (a) PARITY — the forwarded flag equals an independent recomputation from
+#       the same history (current-street last aggressor -> barrel run >= 1),
+#   (b) UNOPENED-FALSE — no current-street aggressor => flag is False,
+#   (c) NON-VACUOUS — both True and False are observed in the sample (a
+#       hardcoded value or dead derivation fails here).
+
+
+def test_bot_decision_forwards_the_barrel_flag(monkeypatch):
+    import random
+
+    from app.domain.personas import load_persona_packs
+    from app.domain.table import play as play_mod
+    from app.domain.table.deck import deal_hand
+    from app.domain.table.engine import apply, start_hand
+    from app.domain.table.play import bot_decision
+
+    packs = load_persona_packs()
+    if not packs:
+        import pytest
+
+        pytest.skip("no persona packs")
+    pack_list = sorted(packs.values(), key=lambda p: p.persona.value)
+
+    captured = []
+    real = play_mod._postflop_decision
+
+    def spy(*args):
+        # positional signature: ... street=args[10]-ish; capture by name via
+        # the wrapper's knowledge of the tuple: last arg is the flag.
+        captured.append((args[10], list(args_state.action_history), args[-1]))
+        return real(*args)
+
+    monkeypatch.setattr(play_mod, "_postflop_decision", spy)
+
+    from app.domain.table.sizing import last_aggressor_position
+
+    rng = random.Random(20260731)
+    seen_true = seen_false = 0
+    for hand_no in range(120):
+        dealt = deal_hand(rng)
+        state = start_hand(dealt, button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
+        args_state = state
+        guard = 0
+        while not state.hand_over and state.to_act_seat is not None:
+            guard += 1
+            assert guard <= 500
+            seat = state.to_act_seat
+            args_state = state
+            dec = bot_decision(state, seat, pack_list[seat % len(pack_list)], rng)
+            state = apply(state, dec)
+    for street, history, flag in captured:
+        street_actions = [h for h in history if h.street is street]
+        aggr = last_aggressor_position(street_actions)
+        expect = aggr is not None and aggressor_barrel_run(history, street, aggr) >= 1
+        assert flag == expect, (street, aggr, flag, expect)
+        if aggr is None:
+            assert flag is False
+        seen_true += flag
+        seen_false += not flag
+    assert seen_true > 0 and seen_false > 0, (
+        f"vacuous capture: true={seen_true} false={seen_false} n={len(captured)}"
+    )

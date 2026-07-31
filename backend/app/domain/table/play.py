@@ -233,6 +233,11 @@ def bot_decision(
     # about the wager actually outstanding; on an unopened street there is none
     # and the run is 0. Flat flag like `faced_raise`, and READ BY NOBODY yet —
     # no sampler branch consults it, so every decision is byte-identical.
+    # ⚠️ Consumer note (review, R9-SIGNAL): the flag is derived for EVERY
+    # postflop node, including matched-with-option shapes (legal CHECK+RAISE)
+    # where the seat owes nothing — there "the wager I am facing" does not
+    # exist. R9-DEFENCE must gate its mechanic on facing-chips nodes (its §Q3
+    # scope), not on this flag alone.
     street_aggressor = last_aggressor_position(
         [h for h in state.action_history if h.street is state.street]
     )

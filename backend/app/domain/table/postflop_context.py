@@ -170,10 +170,15 @@ def aggressor_barrel_run(
       balanced-villain alpha fixture's node class), and it is why `_PREV_STREET`
       / `bet_prev_street` are NOT reused: that pair maps FLOP -> PREFLOP on
       purpose and stays the separate OWN-initiative signal.
-    * **CONSECUTIVE, not cumulative.** Bet flop, check turn, bet river is a
-      delayed stab, not a third barrel: the walk STOPS at the first preceding
-      street the seat did not bet/raise, so that line scores 1 at the river,
-      never 2.
+    * **CONSECUTIVE, not cumulative.** The walk counts PRECEDING streets only
+      and STOPS at the first one the seat did not bet/raise. So bet flop,
+      check turn, bet river scores **0** at the river (the turn check broke
+      the run — the river's own bet is the wager being FACED, never part of
+      its own run), and the delayed stab — check flop, bet turn, bet river —
+      scores **1** at the river. A cumulative count would score the first
+      line 1 (or 2 counting the live bet) and over-punish it; the design
+      report's pin 2 and `test_barrel_run_is_consecutive_not_cumulative` both
+      encode the 0.
 
     Derivation only this slice — `sample_postflop_decision` takes the `>= 1`
     boolean as a dead kwarg and no branch reads it; the consumer is R9-DEFENCE.
