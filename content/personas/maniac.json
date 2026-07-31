@@ -1,6 +1,44 @@
 {
   "id": "persona_maniac",
-  "version": "1.3.0",
+  "version": "1.4.0",
+  "_doc": [
+    "1.4.0 (N-M4BET, 2026-07-31) — the `vs_4bet` node REPLACED (one change;",
+    "nothing else in the pack is touched).",
+    "THE DEFECT (theory finding T-R2): the node covered 18 of the 169 hand",
+    "classes, and `sample_preflop_action` folds an uncovered class 1.0 with no",
+    "fall-through — so weighted by the range the maniac actually ARRIVES with",
+    "(its own vs_rfi 3-bet mass, 284.4 combos = 21.45% of hands) the node",
+    "answered a 4-bet fold 0.814 / call 0.041 / jam 0.145. 73.6% of arriving",
+    "mass (AQo, KQo, KJo, QJo, JTo, ATo, AJo, A9o, AJs, 44-22 and the whole",
+    "light-3-bet tail) was an INVISIBLE fold. The 1.3.0 fix (99/88/77) was the",
+    "one hole a contiguity lint could see; the offsuit coverage gap was the",
+    "disease.",
+    "THE FIT: every class the maniac 3-bets now hits an explicit mix, and the",
+    "arrival-weighted aggregate is fold 0.261 / call 0.336 / jam 0.403 against",
+    "the dossier's online row 25/35/40 (playstyle-research/maniac.md, `Facing",
+    "a 4-bet after 3-betting`), gated to +-0.05 per leg by",
+    "test_nm4bet_maniac_arrival_weighted_vs_4bet_matches_dossier.",
+    "WHY SO LITTLE FOLDING: a 25% fold aggregate over a 21%-of-hands 3-bet",
+    "range is the archetype, not a slip — this bot 3-bets junk and then",
+    "refuses to be pushed off it. The fold budget is spent where it reads",
+    "true: the any-two light-3-bet tail (11.8% of arriving mass) folds 0.65,",
+    "weak offsuit aces fold 0.45, and the tiers above them mostly continue.",
+    "COMPOSITION LAWS the tiers keep:",
+    "(1) Pairs are JAM-OR-FOLD, no call leg — at ~100bb a 4-bet pot leaves SPR",
+    "1-2, so 22-99 have no set-mining price (the 1.3.0 / theory-R3 ruling,",
+    "preserved in SHAPE; only the jam LEVEL moves, 0.40 -> 0.65-0.75).",
+    "(2) Wheel aces A5s-A2s stay a jam-or-fold blocker block and jam strictly",
+    "more (0.7) than the middle suited aces (0.3) — the polar construction",
+    "RR-LINT used to record as an As-row coverage gap, now expressed in",
+    "weights and pinned by test_nm4bet_..._suited_ace_construction_is_pinned.",
+    "(3) Air (the `*` tier) prefers the RE-BLUFF to the call: jam 0.20 > call",
+    "0.15 — a hand with no showdown value does not call a 4-bet out of",
+    "position, it shoves or it goes away.",
+    "(4) Mixes are ordered strongest-first, dominant non-fold weights only",
+    "descending, so RR-LINT's weight-interleaving lint stays clean apart from",
+    "the frozen AA/KK -> QQ entry (AA/KK trap at 0.3 while QQ/AK, which want",
+    "no showdown, jam 1.0)."
+  ],
   "domain": "persona",
   "persona": "maniac",
   "display_name": "Maniac",
@@ -243,10 +281,32 @@
       "mixes": [
         { "combos": "AA, KK", "weights": { "5bet_shove": 0.7, "call": 0.3 } },
         { "combos": "QQ, AKs, AKo", "weights": { "5bet_shove": 1.0 } },
-        { "combos": "A5s, A4s, A3s, A2s", "weights": { "5bet_shove": 0.5, "fold": 0.5 } },
-        { "combos": "55, 66, KQs", "weights": { "5bet_shove": 0.4, "fold": 0.6 } },
-        { "combos": "77, 88, 99", "weights": { "5bet_shove": 0.4, "fold": 0.6 } },
-        { "combos": "TT, JJ, AQs", "weights": { "call": 0.5, "fold": 0.5 } }
+        {
+          "combos": "JJ, TT, AQs, AJs, KQs",
+          "weights": { "call": 0.55, "5bet_shove": 0.45 }
+        },
+        { "combos": "AQo", "weights": { "call": 0.5, "5bet_shove": 0.4, "fold": 0.1 } },
+        { "combos": "77, 88, 99", "weights": { "5bet_shove": 0.75, "fold": 0.25 } },
+        { "combos": "A5s, A4s, A3s, A2s", "weights": { "5bet_shove": 0.7, "fold": 0.3 } },
+        { "combos": "55, 66", "weights": { "5bet_shove": 0.7, "fold": 0.3 } },
+        { "combos": "22, 33, 44", "weights": { "5bet_shove": 0.65, "fold": 0.35 } },
+        {
+          "combos": "ATs, A9s, A8s, A7s, A6s, KJs, KTs, K9s, QJs, QTs, Q9s, JTs, J9s, T9s, 98s, 87s, 76s, 65s, AJo, ATo, KQo",
+          "weights": { "call": 0.5, "5bet_shove": 0.3, "fold": 0.2 }
+        },
+        {
+          "combos": "KJo, QJo, JTo, A9o, K8s, K7s, K6s, K5s, K4s, K3s, K2s, Q8s, Q7s, Q6s, Q5s, Q4s, J8s, J7s, J6s, T8s, T7s, T6s, 97s, 96s, 95s, 86s, 85s, 75s, 74s, 64s, 63s, 54s, 53s, 52s, 43s",
+          "weights": { "call": 0.5, "5bet_shove": 0.25, "fold": 0.25 }
+        },
+        {
+          "combos": "A8o, A7o, A6o, A5o, A4o, A3o, A2o",
+          "weights": { "5bet_shove": 0.35, "call": 0.2, "fold": 0.45 }
+        },
+        {
+          "combos": "KTo, K9o, K8o, QTo, Q9o, Q8o, J9o, J8o, T9o, T8o, 98o, 87o, 76o",
+          "weights": { "call": 0.45, "5bet_shove": 0.2, "fold": 0.35 }
+        },
+        { "combos": "*", "weights": { "5bet_shove": 0.2, "call": 0.15, "fold": 0.65 } }
       ]
     }
   ]

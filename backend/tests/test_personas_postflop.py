@@ -3927,9 +3927,18 @@ def test_r10_3bet_passive_identity_freeze():
 # the jam at 0.40 fixes both and keeps the archetype's push/fold identity.
 # The FLAT continue level 0.40 (equal to 55/66, below TT/JJ's 0.50) is
 # theory-endorsed and deliberate, not a rounding artifact.
-
-
-_MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
+#
+# N-M4BET RE-FIT (2026-07-31, maniac.json 1.4.0 — provenance for the changed
+# pin below). T-F3's SHAPE survives verbatim: 99/88/77 remain PUSH/FOLD with
+# NO call leg, exactly the no-set-mining-price ruling above, and the jam leg
+# is still level across the three. Only the LEVEL moved, 0.40 -> 0.75, and it
+# moved for a reason T-F3 could not see: the arrival-weighted aggregate
+# (N-M4BET below) says this bot folds 25% of the range it 3-bets, so a 60%
+# fold on middle pairs was spending 14.4 of a 71.1-combo fold budget on 8.4%
+# of the arriving mass. The pair row now reads jam 0.65 (22-44) / 0.70 (55-66)
+# / 0.75 (77-99), still non-decreasing up the row and still under the 1.00
+# continue of TT+.
+_MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.75, "fold": 0.25}
 
 
 def _vs_4bet_policy(pack) -> dict[str, dict[str, float]]:
@@ -3981,7 +3990,20 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
     non-decreasing UP the row, 55 -> 99. That is the assertion the first draft
     violated — it continued 77-99 at the right total (0.40) while jamming them
     less than the weaker 55/66 — and continue-monotonicity alone could never
-    have caught it, because the inversion lived inside the split."""
+    have caught it, because the inversion lived inside the split.
+
+    N-M4BET (2026-07-31) EXTENDS both ladders to the bottom of the row rather
+    than replacing them: 44/33/22 were uncovered (continue 0.0, fold 1.0) when
+    this gate was written, so the continue ladder stopped at 55 and the jam
+    ladder started there. Both now run the full pair row — continue
+    non-increasing AA -> 22, jam non-decreasing 22 -> 99 — which is strictly
+    more than the old gate asserted.
+
+    JJ/TT and up are deliberately OUTSIDE the jam ladder: those tiers are
+    call-capable (continue 1.00, split call 0.55 / jam 0.45), and QQ/AK jam
+    1.00 because they most want no showdown, so jam mass is NOT monotone
+    across the top of the row. Continue mass is, and that is the leg that
+    carries the strength claim."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -3993,14 +4015,14 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
     def cont(cls: str) -> float:
         return leg(cls, "call") + leg(cls, "5bet_shove")
 
-    ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55"]
+    ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22"]
     bad = [
         f"{a} {cont(a):.2f} < {b} {cont(b):.2f}"
         for a, b in zip(ladder, ladder[1:], strict=False)
         if cont(a) < cont(b)
     ]
     assert not bad, f"maniac vs_4bet pair continue ladder inverted: {bad}"
-    jam_ladder = ["55", "66", "77", "88", "99"]
+    jam_ladder = ["22", "33", "44", "55", "66", "77", "88", "99"]
     jam_bad = [
         f"{a} {leg(a, '5bet_shove'):.2f} > {b} {leg(b, '5bet_shove'):.2f}"
         for a, b in zip(jam_ladder, jam_ladder[1:], strict=False)
@@ -4023,6 +4045,152 @@ def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
         for vt in (VillainType.MANIAC, VillainType.LAG, VillainType.TAG, VillainType.NIT)
     }
     assert shares == {"maniac": 15.16, "lag": 2.33, "tag": 1.81, "nit": 0.41}, shares
+
+
+# ------------------------- N-M4BET — the maniac's ARRIVAL-WEIGHTED 4-bet response
+# Theory finding T-R2 (HIGH, wave-3 lane B): T-F3 above fixed the ONE pair-row
+# hole RR-LINT could see, but the node's behaviour is not a per-class ordering
+# question — it is the AGGREGATE the bot actually produces, and that aggregate
+# is set by which classes ARRIVE at the node and with how much mass.
+#
+# ARRIVAL DERIVATION (deterministic, no sampling). The maniac reaches `vs_4bet`
+# by 3-betting an RFI and getting 4-bet, so the arriving range is exactly its
+# own `vs_rfi` 3-bet mass under first-match-wins: for each of the 169 classes,
+# combos(class) x P(3bet | class). Summed that is 284.4 combos = 21.45% of all
+# 1326 — the figure T-R2 measured. Weighting the `vs_4bet` policy by that mass
+# (uncovered class => fold 1.0, weight remainder => fold, exactly as
+# `sample_preflop_action` resolves it) gives the response triple this gate
+# compares against the dossier.
+#
+# TARGET: docs/.../playstyle-research/maniac.md, "Facing a 4-bet after
+# 3-betting", ONLINE row — fold 25% / call 35% / 5-bet jam 40%. TOLERANCE
+# +-0.05 per leg: the dossier row is quoted at 5pp granularity (25/35/40) and
+# is a DIRECTIONAL population band, not a measured point estimate, so a
+# tighter tolerance would be pinning noise in the source; +-0.05 is also small
+# enough that the HEAD defect (fold 0.814, 0.564 past the ceiling) fails it by
+# more than an order of magnitude.
+_M4BET_DOSSIER = {"fold": 0.25, "call": 0.35, "5bet_shove": 0.40}
+_M4BET_TOL = 0.05
+
+
+def _vs_rfi_threebet_arrival(pack) -> dict[str, float]:
+    """class -> combo mass this pack ARRIVES at `vs_4bet` with, i.e. its own
+    `vs_rfi` 3-bet mass under first-match-wins (later mentions are dead)."""
+    from app.domain.content.notation import parse_range
+
+    node = next(n for n in pack.preflop if n.facing == "vs_rfi")
+    seen: set[str] = set()
+    arrival: dict[str, float] = {}
+    for mix in node.mixes:
+        w = mix.weights.get("3bet", 0.0)
+        for cls in parse_range(mix.combos):
+            if cls in seen:
+                continue
+            seen.add(cls)
+            if w > 0.0:
+                arrival[cls] = _combo_count(cls) * w
+    return arrival
+
+
+def _vs_4bet_arrival_weighted(pack) -> dict[str, float]:
+    """The pack's `vs_4bet` response averaged over its OWN arriving 3-bet mass.
+    Resolves weights exactly as `sample_preflop_action` does: the remainder of
+    a mix is an implicit fold, and a class no mix covers folds 1.0."""
+    policy = _vs_4bet_policy(pack)
+    arrival = _vs_rfi_threebet_arrival(pack)
+    agg = {"fold": 0.0, "call": 0.0, "5bet_shove": 0.0}
+    for cls, mass in arrival.items():
+        weights = dict(policy.get(cls, {}))
+        remainder = 1.0 - sum(weights.values())
+        if remainder > 1e-9:
+            weights["fold"] = weights.get("fold", 0.0) + remainder
+        for act, w in weights.items():
+            agg[act] += mass * w
+    total = sum(arrival.values())
+    return {act: v / total for act, v in agg.items()}
+
+
+def test_nm4bet_maniac_arrival_weighted_vs_4bet_matches_dossier():
+    """🔴 N-M4BET defect gate (deterministic, no sampling): the maniac's
+    arrival-weighted `vs_4bet` response is within +-0.05 per leg of its
+    dossier's online row, fold 0.25 / call 0.35 / jam 0.40.
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule): fold 0.8143 /
+    call 0.0408 / jam 0.1449 — ALL THREE legs outside tolerance, fold by
+    0.564. The cause is coverage, not weights: 73.63% of the arriving mass
+    (151 of the 169 classes — AQo, KQo, KJo, QJo, JTo, ATo, AJo, A9o, AJs,
+    44-22 and the whole light-3-bet tail) matched NO mix and folded 1.0."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    got = _vs_4bet_arrival_weighted(packs[VillainType.MANIAC])
+    print(
+        "maniac arrival-weighted vs_4bet: "
+        + " ".join(f"{a} {got[a]:.4f}" for a in ("fold", "call", "5bet_shove"))
+    )
+    bad = {
+        act: round(got[act], 4)
+        for act, target in _M4BET_DOSSIER.items()
+        if abs(got[act] - target) > _M4BET_TOL
+    }
+    assert not bad, (
+        f"maniac arrival-weighted vs_4bet response off dossier "
+        f"{_M4BET_DOSSIER} by more than {_M4BET_TOL}: {bad}"
+    )
+
+
+def test_nm4bet_maniac_vs_4bet_covers_its_own_arriving_3bet_range():
+    """🔴 N-M4BET coverage gate (the disease T-R2 named, gated directly):
+    EVERY class the maniac 3-bets must hit an explicit `vs_4bet` mix. An
+    uncovered class is not a policy choice — `sample_preflop_action` folds it
+    1.0 with no fall-through, which is how 73.63% of the arriving mass became
+    an invisible fold. FAILED at pre-slice HEAD on 151 classes.
+
+    Weakest-link form on purpose: the aggregate gate above can be satisfied
+    with holes left in (over-continuing elsewhere to compensate), so the two
+    assertions are not redundant."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.MANIAC]
+    policy = _vs_4bet_policy(pack)
+    arrival = _vs_rfi_threebet_arrival(pack)
+    total = sum(arrival.values())
+    uncovered = {cls: round(m / total, 5) for cls, m in arrival.items() if cls not in policy}
+    assert not uncovered, (
+        f"maniac 3-bets {len(uncovered)} classes it has no vs_4bet mix for "
+        f"({sum(uncovered.values()):.4f} of arriving mass): {sorted(uncovered)}"
+    )
+
+
+def test_nm4bet_maniac_vs_4bet_suited_ace_construction_is_pinned():
+    """🔴 REPLACEMENT gate for the RR-LINT row-gap entry this slice retires
+    (red at pre-slice HEAD, where the wheel tier read {5bet_shove 0.5, fold
+    0.5} and the middle suited aces were uncovered, i.e. jam 0.0 — it fails
+    HEAD on both halves).
+
+    RR-LINT recorded ("maniac", "vs_4bet", "*", "As", (AJs..A6s)) as a
+    DELIBERATE polar/blocker construction: the node continued AKs and the
+    wheel aces A5s-A2s while the middle suited aces were unplayed. N-M4BET
+    covers every class explicitly, so that gap is no longer visible to a
+    coverage-based lint — the construction now lives in the WEIGHTS. This pin
+    keeps it watched: the wheel-ace tier stays a jam-or-fold block (no call
+    leg, the card-removal story), and it jams STRICTLY more than the middle
+    suited aces do, which is the whole content of the old entry."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+    for cls in ("A5s", "A4s", "A3s", "A2s"):
+        assert policy.get(cls, {}) == {"5bet_shove": 0.7, "fold": 0.3}, (
+            f"wheel-ace blocker tier moved off jam-or-fold on {cls}: {policy.get(cls, {})}"
+        )
+    for cls in ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s"):
+        jam = policy.get(cls, {}).get("5bet_shove", 0.0)
+        assert 0.0 < jam < 0.7, (
+            f"middle suited ace {cls} jams {jam} — the wheel-ace blockers must "
+            f"jam strictly more, and no arriving class may be a silent fold"
+        )
 
 
 def _wilson95(k: int, n: int) -> tuple[float, float]:

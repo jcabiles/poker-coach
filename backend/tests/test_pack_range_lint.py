@@ -175,7 +175,21 @@ _ROW_GAPS = {
     # review: lag authors AKs + A5s only; maniac authors AKs + A5s-A2s).
     # DECLARED INTENTIONAL, not fixed.
     ("lag", "vs_4bet", "*", "As", ("AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
-    ("maniac", "vs_4bet", "*", "As", ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
+    # (The MANIAC half of that pair — ("maniac", "vs_4bet", "*", "As",
+    # ("AJs".."A6s")) — was RETIRED by N-M4BET (2026-07-31, maniac.json 1.4.0).
+    # Not "fixed" in the typo sense and not silently laundered either: the
+    # slice authored the node's FULL 169-class coverage (its defect was that
+    # 73.6% of the range the maniac 3-bets reached this node with no mix and
+    # folded 1.0), so no row of this node has a coverage gap left to record.
+    # The polar/blocker construction the entry protected survives in the
+    # WEIGHTS — A5s-A2s jam 0.7 with no call leg, the middle suited aces jam
+    # 0.3 — and is now pinned by an assertion instead of by absence:
+    # test_personas_postflop.py::
+    # test_nm4bet_maniac_vs_4bet_suited_ace_construction_is_pinned. That pin
+    # is STRICTER than this entry was: this one only recorded that the classes
+    # were unplayed and explicitly "does not judge intent", while the pin fixes
+    # the wheel tier's exact mix and the strict jam ordering between the two
+    # tiers.)
     # (The maniac vs_4bet pair-row gap — 99/88/77 dead between TT/JJ at call
     # 0.5 and 55/66 at 5bet_shove 0.4, RR-HOLES finding T-F3 — was FIXED by
     # T-M2/T-F3, the EV-scale pass RR-HOLES routed it to: the three classes
