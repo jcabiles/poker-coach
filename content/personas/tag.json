@@ -1,6 +1,6 @@
 {
   "id": "persona_tag",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "domain": "persona",
   "persona": "tag",
   "display_name": "TAG",
@@ -77,7 +77,7 @@
       "positions": ["BTN"],
       "mixes": [
         { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T5s+, 96s+, 87s, 76s, 65s, A2o+, K3o+, Q4o+, J6o+, T8o+", "weights": { "raise": 1.0 } },
-        { "combos": "J2s, T3s, 95s, 86s, K2o, Q3o, J5o, T7o, 97o+", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "J2s, T4s, T3s, 95s, 86s, K2o, Q3o, J5o, T7o, 97o+", "weights": { "raise": 0.5, "fold": 0.5 } }
       ]
     },
     {
@@ -93,7 +93,7 @@
       "positions": ["BB"],
       "mixes": [
         { "combos": "33+, A3s+, K5s+, Q7s+, J8s+, T9s, A6o+, K8o+, QTo+, JTo", "weights": { "raise": 1.0 } },
-        { "combos": "A2s, K3s, Q5s, J7s, T8s, A5o, K7o, Q9o", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "A2s, K4s, K3s, Q6s, Q5s, J7s, T8s, A5o, K7o, Q9o", "weights": { "raise": 0.5, "fold": 0.5 } }
       ]
     },
     {
@@ -113,9 +113,9 @@
           "combos": "JJ, TT, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
           "weights": { "3bet": 0.8, "fold": 0.2 }
         },
-        { "combos": "99, 88, ATs, KJs, QTs, JTs, T9s, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
+        { "combos": "99, 88, AQs, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
         {
-          "combos": "22-66, A9s, A8s, A7s, A6s, KTs, 87s, KQo, KTo",
+          "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
           "weights": { "call": 0.68, "fold": 0.32 }
         }
       ]

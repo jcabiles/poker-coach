@@ -1,6 +1,6 @@
 {
   "id": "persona_lag",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "domain": "persona",
   "persona": "lag",
   "display_name": "LAG",
@@ -111,7 +111,7 @@
       "mixes": [
         { "combos": "JJ+, AQs+, AKo", "weights": { "3bet": 1.0 } },
         {
-          "combos": "TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QJs, JTs, AJo, ATo, KQo, KJo",
+          "combos": "TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, JTs, AQo, AJo, ATo, KQo, KJo",
           "weights": { "3bet": 0.6, "fold": 0.4 }
         },
         {
