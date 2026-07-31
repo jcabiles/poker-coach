@@ -3184,12 +3184,21 @@ _GOLDEN_STATS_N200 = {
     # composition (folds-to-overbet leave its aggressive actions over a smaller
     # call base), consistent with the pre-rebase review reading (3.30 -> 3.58).
     # Exact tripwire re-record; population bands stay frozen to W4-b.
-    "calling_station": (0.35333333333333333, 0.13333333333333333, 0.7220338983050848),
-    "lag": (2.8684210526315788, None, 0.45714285714285713),
-    "maniac": (3.8048780487804876, None, 0.4892086330935252),
-    "nit": (0.8157894736842105, None, 0.64),
-    "passive_fish": (0.8032786885245902, 0.5384615384615384, 0.45045045045045046),
-    "tag": (None, None, 0.6388888888888888),
+    # RE-RECORDED for N-3BSTRATA (2026-07-31, slice-authorized): maniac + lag
+    # now CONTINUE most 3-bet pots they open (opener tables), so every re-
+    # raised pot plays out differently and the shared rng stream displaces
+    # from the first stratified vs_3bet decision onward — all six rows move
+    # at this seed. maniac AF 3.80 -> 3.33 at n=200 is the expected
+    # composition (it now calls 3-bets with its whole junk-continue tier and
+    # reaches more passive postflop nodes); population bands still gate it
+    # at stable n. Exact tripwire re-record; population bands stay frozen to
+    # W4-b.
+    "calling_station": (0.340625, 0.15254237288135594, 0.7024221453287197),
+    "lag": (2.608695652173913, None, 0.43902439024390244),
+    "maniac": (3.328767123287671, 0.16326530612244897, 0.45454545454545453),
+    "nit": (None, None, 0.6304347826086957),
+    "passive_fish": (1.0, 0.5384615384615384, 0.507537688442211),
+    "tag": (2.3255813953488373, None, 0.6590909090909091),
 }
 
 
