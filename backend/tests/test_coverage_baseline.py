@@ -202,17 +202,23 @@ immutable persona-realism-start snapshot (349/1233 = 28.3%): 331/1252 =
 26.4%, −1.9pp — further recovery within the adjudicated mapper-track dip
 (T-cover owns the ratio), reported not silent. Seeded-fixture re-record;
 population bands stay frozen to W4-b.
-RE-RECORDED for T-M2 + T-F3 (persona-realism-wave3, 2026-07-31 —
-wave-authorized): nit small-pair opens at CO/BTN (raise 0.3 from fold mass)
-+ maniac vs_4bet 99/88/77 {5bet_shove 0.4, fold 0.6}. PURE preflop content —
-the nit now open-raises pots it used to limp-or-fold behind, so the seeded
-stream displaces: 1252/331 → 1179/328 (26.4% → 27.8%). ⚠️ DISCLOSED (refuter
-L2, wave-3 ledger): this re-record moves the graded RATCHET DOWN 331 → 328 —
-not a pure stream refresh — while the RATIO rises +1.4pp slice-over-slice.
-CUMULATIVE vs the immutable persona-realism-start snapshot (349/1233 =
-28.3%): 328/1179 = 27.8%, −0.5pp — the mapper-track dip largely recovered
-(T-cover owns the ratio), reported not silent. Seeded-fixture re-record;
-population bands stay frozen to W4-b.
+RE-RECORDED for WAVE 3 COMBINED (persona-realism-wave3, 2026-07-31 —
+wave-authorized, recorded ONCE on the combined lane-B + lane-A tip): lane B =
+T-M2 nit small-pair opens at CO/BTN (raise 0.3 from fold mass) + T-F3 maniac
+vs_4bet 99/88/77 {5bet_shove 0.4, fold 0.6}; lane A = N-LAGLADDER lag
+offsuit→suited composition swap at constant width + AQo fold→call + opener
+vs_3bet call trim. PURE preflop content; the two lanes' stream displacements
+COMPOUND: 1252/331 → 1314/322 (26.4% → 24.5%). Intermediate readings for
+attribution: lane B alone 1179/328 = 27.8%, lane A alone 1242/328 = 26.4% —
+the combined 24.5% is worse than either, i.e. mostly cross-lane rng
+displacement, not a monotone behavioral trend. ⚠️ DISCLOSED (refuter L2 +
+wave-3 ledger): the graded RATCHET moves DOWN 331 → 322. CUMULATIVE vs the
+immutable persona-realism-start snapshot (349/1233 = 28.3%): 322/1314 =
+24.5%, −3.8pp — the LARGEST cumulative dip so far, same adjudicated
+mapper-track class (T-cover owns the ratio; suited-heavier lag opens + nit
+late raises route hero into more non-HU-SRP shapes the mapper rejects),
+reported not silent and flagged to the owner in the wave-3 ledger. Seeded-
+fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

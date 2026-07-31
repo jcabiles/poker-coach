@@ -3193,23 +3193,21 @@ _GOLDEN_STATS_N200 = {
     # reaches more passive postflop nodes); population bands still gate it
     # at stable n. Exact tripwire re-record; population bands stay frozen to
     # W4-b.
-    # RE-RECORDED for T-M2 + T-F3 (persona-realism-wave3, 2026-07-31 —
-    # wave-authorized): nit small-pair opens at CO/BTN (raise 0.3 out of fold
-    # mass) + maniac vs_4bet 99/88/77 {5bet_shove 0.4}. PURE preflop content —
-    # the nit now open-raises pots it used to limp-or-fold behind, displacing
-    # the shared rng stream from the first affected first-in decision onward.
-    # Only maniac (AF 3.3288 -> 3.2319, junk-continue composition) and tag
-    # (AF 2.3256 -> 2.7353) move materially at this n=200 seed; station /
-    # lag / nit / fish rows are byte-identical (their samples hit no displaced
-    # cell). The R-3 maniac vs_4bet refit itself moved NO row (verified both
-    # sides of that edit). Exact tripwire re-record; population bands stay
-    # frozen to W4-b.
-    "calling_station": (0.340625, 0.15254237288135594, 0.7024221453287197),
-    "lag": (2.608695652173913, None, 0.43902439024390244),
-    "maniac": (3.2318840579710146, 0.18, 0.45263157894736844),
-    "nit": (None, None, 0.6304347826086957),
-    "passive_fish": (1.0, 0.5384615384615384, 0.507537688442211),
-    "tag": (2.735294117647059, None, 0.6511627906976745),
+    # RE-RECORDED for WAVE 3 COMBINED (persona-realism-wave3, 2026-07-31 —
+    # wave-authorized, recorded once on the combined lane-B + lane-A tip):
+    # T-M2 nit CO/BTN pair opens + T-F3 maniac vs_4bet middle pairs (lane B)
+    # + N-LAGLADDER lag composition swap + AQo fold→call + opener vs_3bet
+    # trim (lane A). PURE preflop content; the two lanes' displacements
+    # compound so ALL six rows move at this n=200 seed (lane B alone moved
+    # only maniac + tag; the lag content change re-deals every pot the lag
+    # enters). Exact tripwire re-record; population bands stay frozen to
+    # W4-b.
+    "calling_station": (0.38636363636363635, 0.10869565217391304, 0.7250859106529209),
+    "lag": (2.2711864406779663, None, 0.5294117647058824),
+    "maniac": (3.272727272727273, 0.25, 0.5555555555555556),
+    "nit": (None, None, 0.6296296296296297),
+    "passive_fish": (1.125984251968504, 0.5, 0.4484304932735426),
+    "tag": (2.8666666666666667, None, 0.5185185185185185),
 }
 
 
