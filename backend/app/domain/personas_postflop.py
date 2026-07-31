@@ -655,6 +655,7 @@ def sample_postflop_decision(
     latest_aggressor_contribution_bb: float | None = None,
     context: PostflopContext | None = None,
     facing_raise: bool = False,
+    aggressor_bet_prev_street: bool = False,
 ) -> Decision:
     """Draw a frequency-mixed postflop decision from the pack's levers.
 
@@ -674,6 +675,14 @@ def sample_postflop_decision(
     FLAT kwarg, not a `PostflopContext` field — the range estimator opts into
     this signal alone, and building a context there would newly activate W3-b's
     `in_position=False` position damp. Default `False` is byte-identical.
+
+    R9-SIGNAL: `aggressor_bet_prev_street` (the `>= 1` threshold of
+    `table.postflop_context.aggressor_barrel_run`) is the opponent-LINE signal —
+    did the seat whose wager I face also bet/raise the previous POSTFLOP street?
+    It is accepted and READ BY NOBODY this slice: no branch consults it, it is
+    stored nowhere, and every call is byte-identical with it True or False. The
+    consumer is R9-DEFENCE. Also a FLAT kwarg for `facing_raise`'s reason (the
+    estimator must opt into this signal alone), never a `PostflopContext` field.
 
     Facing state is derived from the `legal` shapes (unopened: CHECK+BET;
     matched-with-option: CHECK+RAISE; facing chips: FOLD+CALL[+RAISE]).

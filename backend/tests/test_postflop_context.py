@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from app.domain.spot import ActionType, HistoryAction, PlayerStatus, Position, Street
 from app.domain.table.postflop_context import (
     BustedDraw,
+    aggressor_barrel_run,
     bet_prev_street,
     busted_draw_kind,
     derive_in_position,
@@ -267,3 +268,121 @@ def test_derive_postflop_context_bundles_all_three():
     assert ctx.in_position is True
     assert ctx.bet_prev_street is True
     assert ctx.busted_draw is BustedDraw.FLUSH
+
+
+# --------------------------------------------------- R9-SIGNAL barrel run
+
+# `aggressor_barrel_run` = the CONSECUTIVE run of POSTFLOP bet/raise aggressions
+# by one seat on the streets immediately BEFORE the one being acted on. Read by
+# nobody this slice; these tests pin the two semantics R9-DEFENCE depends on.
+
+
+def test_barrel_run_flop_is_zero_even_when_the_aggressor_raised_preflop():
+    # The trap case: BTN raises preflop, BB calls, BTN c-bets the flop. The
+    # preflop raise must NEVER count, so the modal c-bet node is run 0 — and
+    # `bet_prev_street` (the separate OWN-initiative signal) disagrees on
+    # purpose. If these two ever agree here, the postflop-only pin is broken.
+    hist = [
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BTN, action=ActionType.RAISE, amount_bb=3.0
+        ),
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=2.0
+        ),
+        _bet(Street.FLOP, Position.BTN),
+    ]
+    assert aggressor_barrel_run(hist, Street.FLOP, Position.BTN) == 0
+    assert bet_prev_street(hist, Street.FLOP, Position.BTN) is True  # the contrast
+
+
+def test_barrel_run_flop_is_zero_with_an_empty_history():
+    assert aggressor_barrel_run([], Street.FLOP, Position.CO) == 0
+
+
+def test_barrel_run_preflop_street_is_zero():
+    hist = [_bet(Street.PREFLOP, Position.CO)]
+    assert aggressor_barrel_run(hist, Street.PREFLOP, Position.CO) == 0
+
+
+def test_barrel_run_turn_is_one_after_a_flop_cbet():
+    hist = [_bet(Street.FLOP, Position.CO), _check(Street.FLOP, Position.BB)]
+    assert aggressor_barrel_run(hist, Street.TURN, Position.CO) == 1
+    # the seat that only checked the flop is stabbing, not barrelling
+    assert aggressor_barrel_run(hist, Street.TURN, Position.BB) == 0
+
+
+def test_barrel_run_river_is_two_after_flop_and_turn_barrels():
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _check(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.CO),
+        _check(Street.TURN, Position.BB),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 2
+
+
+def test_barrel_run_river_is_one_when_only_the_turn_was_bet():
+    # Checked flop, turn stab, now the river: the run is 1, not 2 — the checked
+    # flop is not credited.
+    hist = [
+        _check(Street.FLOP, Position.CO),
+        _check(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.CO),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 1
+
+
+def test_barrel_run_is_consecutive_not_cumulative():
+    # Bet the flop, CHECK the turn: at the river the run is broken, so it is 0.
+    # A cumulative COUNT of postflop aggressions would score this 1 (or 2 once
+    # the river stab lands) and over-punish a delayed stab as a barrel.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _check(Street.FLOP, Position.BB),
+        _check(Street.TURN, Position.CO),
+        _check(Street.TURN, Position.BB),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 0
+
+
+def test_barrel_run_zero_when_the_aggressor_never_bet_postflop():
+    hist = [
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.CO, action=ActionType.RAISE, amount_bb=3.0
+        ),
+        _check(Street.FLOP, Position.CO),
+        HistoryAction(
+            street=Street.TURN, position=Position.CO, action=ActionType.CALL, amount_bb=4.0
+        ),
+    ]
+    assert aggressor_barrel_run(hist, Street.TURN, Position.CO) == 0
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 0
+
+
+def test_barrel_run_counts_raises_as_aggression():
+    # A check-raise on the flop and a raise on the turn are both aggressions.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _raise(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.CO),
+        _raise(Street.TURN, Position.BB),
+    ]
+    assert aggressor_barrel_run(hist, Street.TURN, Position.BB) == 1
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.BB) == 2
+
+
+def test_barrel_run_is_seat_specific():
+    # CO barrels flop+turn; BB only called. The run is asked of ONE seat, so
+    # another seat's aggression never counts toward it.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        HistoryAction(
+            street=Street.FLOP, position=Position.BB, action=ActionType.CALL, amount_bb=2.0
+        ),
+        _bet(Street.TURN, Position.CO),
+        HistoryAction(
+            street=Street.TURN, position=Position.BB, action=ActionType.CALL, amount_bb=4.0
+        ),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 2
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.BB) == 0

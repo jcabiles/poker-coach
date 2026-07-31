@@ -555,3 +555,55 @@ def test_river_depth_estimate_under_150ms(packs):
     elapsed = time.perf_counter() - t0
     assert res.exact is False
     assert elapsed < 0.15, f"river-depth estimate took {elapsed * 1000:.1f}ms"
+
+
+# ------------------------------------------------ R9-SIGNAL estimator parity
+
+
+def test_estimator_unchanged_by_the_barrel_run_signal(packs):
+    """R9-SIGNAL estimator parity: the opponent-LINE signal is derived, plumbed
+    and READ BY NOBODY, so the villain-range reveal cannot have moved.
+
+    On a replayed TURN node where the aggressor really did barrel (bet the flop,
+    bet the turn) the derivation says `run == 1` — and the estimator's recovered
+    distribution equals the live sampler with `aggressor_bet_prev_street` BOTH
+    True and False. Equality on the True leg is the dead-kwarg proof (contrast
+    `test_estimator_facing_raise_parity_with_live_sampler`, where the live
+    signal makes the two legs differ); when R9-DEFENCE lands its consumer, this
+    leg is the RED-FIRST failure that proves the mechanic is wired.
+    """
+    from app.domain.table.postflop_context import aggressor_barrel_run
+
+    tag = packs[VillainType.TAG]
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c", "9s", "3h"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _CALL)]
+    moves += [(2, _CHECK), (3, _bet(3.0)), (2, _CALL)]  # flop c-bet
+    moves += [(2, _CHECK), (3, _bet(7.0))]  # turn barrel — seat 2 faces it
+    state = _script(state, moves)
+    assert state.to_act_seat == 2 and state.street is Street.TURN
+
+    aggressor = state.seats[3].position
+    assert aggressor_barrel_run(state.action_history, Street.TURN, aggressor) == 1
+    # ...and 0 at the flop node of the SAME hand: the preflop raise never counts.
+    assert aggressor_barrel_run(state.action_history, Street.FLOP, aggressor) == 0
+
+    state = _script(state, [(2, _CALL)])
+    hist = _project(state)
+    ctx = _replay_contexts(hist, seat=2, n=len(hist.actions))[-1]
+    assert ctx.street is Street.TURN
+    legal = [LegalAction(action=k) for k in sorted(ctx.kinds)]
+
+    for hole in (("9c", "4d"), ("7s", "5s")):
+        estimator = _postflop_action_dist(tag, hole, ctx)
+        for flag in (False, True):
+            live = _CaptureFirstChoices()
+            sample_postflop_decision(
+                tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+                live,  # type: ignore[arg-type] — duck-typed capture rng
+                current_bet_to=ctx.current_bet_to, street=Street.TURN,
+                facing_raise=ctx.facing_raise, aggressor_bet_prev_street=flag,
+            )
+            assert estimator == live.dist, (hole, flag)
