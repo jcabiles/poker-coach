@@ -110,10 +110,10 @@
       "mixes": [
         { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
         {
-          "combos": "JJ, TT, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
+          "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
           "weights": { "3bet": 0.8, "fold": 0.2 }
         },
-        { "combos": "99, 88, AQs, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
+        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
         {
           "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
           "weights": { "call": 0.68, "fold": 0.32 }

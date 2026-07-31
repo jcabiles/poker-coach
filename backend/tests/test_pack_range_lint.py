@@ -151,20 +151,22 @@ _ROW_GAPS = {
     # blocker/polar reading applies to plain rank domination): calling_station
     # vs_limpers/vs_rfi 5s+4s holes (loose-caller character, low-risk widen),
     # tag vs_rfi pair/As/Ao holes (77 folded into 22-66→22-77; AQo slotted
-    # next to AJo/ATo in the call mix; AQs slotted into the call mix rather
-    # than next to AJs in the 3bet-0.8 mix, to keep tag's snug (6,7)% 3-bet
-    # authored-width band intact — see test_personas.py::_stats), and lag
+    # next to AJo/ATo in the call mix; AQs slotted next to AJs in the
+    # 3bet-0.8 mix — theory review F1: exact combo-weighted 3-bet width with
+    # AQs@0.8 is 6.91%, INSIDE the (6,7) band; the band edge only trips via
+    # Monte Carlo noise, so the range goes where the archetype plays it and
+    # the noisy pin was re-tolerated in test_personas.py), and lag
     # vs_rfi Ao/Qs holes (AQo, QTs slotted next to their same-tier
     # neighbors). Entries removed post-fix. (maniac QJo/43s holes, K2o inert
     # token and 4 interleavings were fixed by R10-PRE2's ladder rewrite
     # (#138) — entries removed post-merge.)
     #
     # --- response-layer gaps left in place (RR-HOLES adjudication) ----------
-    # lag & maniac vs_4bet As-row: AJs-A6s unplayed while AKs (mix2) and the
-    # wheel A5s-A2s (mix3) are — this is the docstring's own canonical
-    # polar/blocker example (wheel-ace blockers continue vs a 4-bet, thin
-    # suited aces fold) applied identically to both personas. DECLARED
-    # INTENTIONAL, not fixed.
+    # lag & maniac vs_4bet As-row: thin suited aces unplayed while AKs and
+    # wheel-ace blockers continue — the docstring's own canonical
+    # polar/blocker construction. Same CONCEPT, different ranges (Codex
+    # review: lag authors AKs + A5s only; maniac authors AKs + A5s-A2s).
+    # DECLARED INTENTIONAL, not fixed.
     ("lag", "vs_4bet", "*", "As", ("AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
     ("maniac", "vs_4bet", "*", "As", ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
     # maniac vs_4bet pair-row: 99/88/77 unplayed between TT/JJ (call 0.5) and

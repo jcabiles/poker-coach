@@ -185,12 +185,12 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # (station/fish/tag/lag preflop membership additions) displaces the shared-rng
 # organic stream at this seed (old post-R10-3BET counts: UTG2¹ 101, LJ¹ 105,
 # HJ¹ 114, CO¹ 85, CO² 26, SB¹ 54, SB² 41, BTN¹ 86, BTN² 38). Every _WANT_*
-# coverage shape still fires (verified: BB¹ 37, BB² 27, BB³ 6) — stream
+# coverage shape still fires (verified: BB¹ 40, BB² 28, BB³ 5) — stream
 # displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 76, ("LJ", 1): 115, ("HJ", 1): 113, ("CO", 1): 105,
-    ("CO", 2): 33, ("SB", 1): 56, ("SB", 2): 45, ("BTN", 1): 71,
-    ("BTN", 2): 37,
+    ("UTG2", 1): 96, ("LJ", 1): 98, ("HJ", 1): 99, ("CO", 1): 101,
+    ("CO", 2): 30, ("SB", 1): 68, ("SB", 2): 40, ("BTN", 1): 73,
+    ("BTN", 2): 36,
 }
 
 
