@@ -176,15 +176,12 @@ _ROW_GAPS = {
     # DECLARED INTENTIONAL, not fixed.
     ("lag", "vs_4bet", "*", "As", ("AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
     ("maniac", "vs_4bet", "*", "As", ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
-    # maniac vs_4bet pair-row: 99/88/77 unplayed between TT/JJ (call 0.5) and
-    # 55/66 (5bet_shove 0.4). No blocker/card-removal story distinguishes 77
-    # from 66 the way ace-blockers do — plausibly a dominated typo, but fixing
-    # it means widening the maniac's 4-bet-shove range across three whole pair
-    # classes (a real strategy-EV change, not typo-scale), and maniac.json's
-    # push/fold ladder was the deliberate subject of R10-PRE1/PRE2. FLAGGED
-    # for a dedicated R10-4BET-style slice rather than fixed here (RR-HOLES
-    # scope is typo-scale edits).
-    ("maniac", "vs_4bet", "*", "pair", ("99", "88", "77")),
+    # (The maniac vs_4bet pair-row gap — 99/88/77 dead between TT/JJ at call
+    # 0.5 and 55/66 at 5bet_shove 0.4, RR-HOLES finding T-F3 — was FIXED by
+    # T-M2/T-F3, the EV-scale pass RR-HOLES routed it to: the three classes
+    # now continue as {5bet_shove 0.25, call 0.15, fold 0.6}, below TT/JJ's
+    # 0.5 continue and beside 55/66's 0.4. Entry removed in that commit; the
+    # pair row is now contiguous AA-55.)
     # nit vs_limpers pair-row: nit.json is out of scope for this ticket
     # (owned by another ticket) — left untouched, FLAGGED for whoever next
     # rewrites nit.json's vs_limpers node.

@@ -3897,6 +3897,97 @@ def test_r10_3bet_passive_identity_freeze():
     )
 
 
+# ------------------------------- T-F3 — maniac vs_4bet middle-pair dead band --
+# RR-HOLES finding T-F3 (MED, routed to "a future vs_4bet pass" — this one):
+# the maniac's `vs_4bet` node covered TT/JJ (call 0.5) and 55/66 (5bet_shove
+# 0.4) but NOTHING on 99/88/77, and an uncovered class at a matched node folds
+# 1.0 (`sample_preflop_action` has no fall-through). RR-LINT recorded it as a
+# pair-row gap and explicitly declined the ace-blocker reading that makes the
+# As-row gaps intentional: no card-removal story distinguishes 77 from 66.
+#
+# EV-scale judgment at ~100bb (the roadmap's phrasing, not a solver claim): a
+# 4-bet pot leaves an SPR around 1-2, so 77-99 have no set-mining equity to
+# call on and no blocker equity to jam on — but the maniac is the one
+# archetype whose identity is applying pressure with exactly that kind of
+# hand. Authored as a mostly-fold mix with a jam-heavy continue leg
+# ({5bet_shove 0.25, call 0.15, fold 0.6}): total continue 0.40 sits BELOW
+# TT/JJ's 0.50 and level with 55/66's 0.40, so the repair adds no strength
+# inversion of its own.
+
+
+def _vs_4bet_policy(pack) -> dict[str, dict[str, float]]:
+    """Authored vs_4bet weights per class, sampler semantics (first matching
+    mix wins; classes no mix covers are absent = fold 1.0)."""
+    from app.domain.content.notation import parse_range
+
+    node = next(n for n in pack.preflop if n.facing == "vs_4bet")
+    policy: dict[str, dict[str, float]] = {}
+    for mix in node.mixes:
+        for cls in parse_range(mix.combos):
+            policy.setdefault(cls, dict(mix.weights))
+    return policy
+
+
+def test_tf3_maniac_vs_4bet_middle_pairs_continue():
+    """🔴 T-F3 defect gate (deterministic, no sampling): the maniac's authored
+    vs_4bet continue mass (call + 5bet_shove) on 99, 88 and 77 is > 0.
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule): all three
+    classes were absent from every mix of the node, i.e. continue 0.0 and fold
+    1.0 — this assertion FAILED at HEAD on all three."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+    dead = {
+        cls: policy.get(cls, {})
+        for cls in ("99", "88", "77")
+        if policy.get(cls, {}).get("call", 0.0)
+        + policy.get(cls, {}).get("5bet_shove", 0.0)
+        <= 0.0
+    }
+    assert not dead, f"maniac vs_4bet still folds these pairs 100%: {dead}"
+
+
+def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
+    """🟢 PRESERVATION-shaped companion to the gate above (it could not pass at
+    HEAD, where 99/88/77 read 0.0 between TT/JJ's 0.5 and 66/55's 0.4): the
+    repair must not out-continue a stronger pair. Continue mass is
+    non-increasing down the pair row AA -> 55."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+
+    def cont(cls: str) -> float:
+        w = policy.get(cls, {})
+        return w.get("call", 0.0) + w.get("5bet_shove", 0.0)
+
+    ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55"]
+    bad = [
+        f"{a} {cont(a):.2f} < {b} {cont(b):.2f}"
+        for a, b in zip(ladder, ladder[1:], strict=False)
+        if cont(a) < cont(b)
+    ]
+    assert not bad, f"maniac vs_4bet pair continue ladder inverted: {bad}"
+
+
+def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
+    """🟢 PRESERVATION (passes at HEAD and after — the point is that it reads
+    the SAME number both times): the archetype 4-bet share is a `vs_3bet`
+    quantity, so adding continue mass to a `vs_4bet` node cannot move it.
+    Pinned to the R10-3BET-authored values so a later slice cannot smuggle a
+    4-bet-frequency change in through the vs_4bet node."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    shares = {
+        vt.value: round(_fourbet_share(packs[vt]) * 100, 2)
+        for vt in (VillainType.MANIAC, VillainType.LAG, VillainType.TAG, VillainType.NIT)
+    }
+    assert shares == {"maniac": 15.16, "lag": 2.33, "tag": 1.81, "nit": 0.41}, shares
+
+
 def _wilson95(k: int, n: int) -> tuple[float, float]:
     """Wilson score 95% interval — the spec's named CI method for the
     report-only fold-to-3-bet grid (well-behaved at the tiny n these strata
@@ -5225,3 +5316,113 @@ def test_w5b3_nit_vpip_pfr_reported_not_gated():
         f"{s.gap:.3f} (n=600, REPORTED — band anchor is W4-b)"
     )
     assert s.vpip is not None and s.pfr is not None
+
+
+# ================== T-M2 — nit late-position pair opens (AUTHORED, n-free) ====
+#
+# W5-b3 review finding T-M2 (MED): the nit "never open-raises 22-66 anywhere,
+# and 77 only from UTG" — an INVERSION (the one seat that opens 77 is the
+# tightest) against a dossier that has the nit opening small pairs in late
+# position. W5-b3 could not fix it: the pairs band was locked by W5-b1's
+# verbatim-limp law, and the named follow-up was "convert pair FOLD mass (not
+# limp mass) to raise at CO/BTN".
+#
+# That is exactly what these gates assert, in both directions:
+#   - the band EXISTS at CO/BTN (fails at pre-slice HEAD: raise weight 0.0 on
+#     every pair class below the core band, at every seat),
+#   - the limp leg is BYTE-IDENTICAL at all nine seats (0.4 on every pair
+#     class in the band) — the conversion came out of fold, not out of limp,
+#   - and it did NOT leak to the seven other seats (over-widening guard: the
+#     T-M2 finding is about LATE position; an early-position nit opening 22 is
+#     a different, unauthorized change).
+
+_NIT_PAIR_OPEN_SEATS = {
+    "CO": ("77", "66", "55"),
+    "BTN": ("77", "66", "55", "44", "33", "22"),
+}
+_NIT_ALL_PAIRS = tuple(r + r for r in "AKQJT98765432")
+
+
+def _nit_pair_policy(pack, seat: str) -> dict[str, dict[str, float]]:
+    """Authored weights per PAIR class at one seat, resolved with sampler
+    semantics (first matching mix in the node's list order wins; a class no
+    mix covers folds 1.0)."""
+    from app.domain.content.notation import parse_range
+
+    node = _unopened_node(pack, seat)
+    out: dict[str, dict[str, float]] = {}
+    for cls in _NIT_ALL_PAIRS:
+        weights: dict[str, float] = {}
+        if node is not None:
+            for mix in node.mixes:
+                if cls in parse_range(mix.combos):
+                    weights = dict(mix.weights)
+                    break
+        out[cls] = weights
+    return out
+
+
+def test_tm2_nit_opens_small_pairs_from_late_position():
+    """🔴 T-M2 defect gate (deterministic, no sampling).
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule): CO and BTN
+    authored raise weight was 0.0 on 77, 66, 55, 44, 33 and 22 — the pairs
+    below the `88+` core band were limp 0.4 / fold 0.6 at every seat, so this
+    assertion FAILED at HEAD on all nine classes.
+
+    POST-SLICE (this commit): CO opens 55-77 and BTN opens 22-77, each at
+    raise 0.3 (limp 0.4 unchanged, fold 0.6 -> 0.3)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    dead = {
+        (seat, cls): _nit_pair_policy(pack, seat)[cls]
+        for seat, band in _NIT_PAIR_OPEN_SEATS.items()
+        for cls in band
+        if _nit_pair_policy(pack, seat)[cls].get("raise", 0.0) <= 0.0
+    }
+    assert not dead, f"nit has no late-position open on these pairs: {dead}"
+
+
+def test_tm2_nit_pair_limp_weight_is_verbatim_at_every_seat():
+    """🟢 PRESERVATION (passes at HEAD — labeled, not sold as a defect gate).
+
+    W5-b1's verbatim-limp law: the authored limp weights ARE the nit's
+    identity and this slice may not spend them. Every pair class that carries
+    limp mass carries EXACTLY 0.4 of it, at all nine seats — so the CO/BTN
+    raise band can only have come out of the fold leg. (UTG's band starts one
+    class lower: it raises 77 outright, so its limp band is 22-66.)"""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    bad = {}
+    for seat in _LADDER_SEATS:
+        for cls, w in _nit_pair_policy(pack, seat).items():
+            limp = w.get("limp", 0.0)
+            if limp and limp != 0.4:
+                bad[(seat, cls)] = limp
+    assert not bad, f"nit pair limp weight moved off the verbatim 0.4: {bad}"
+    utg = _nit_pair_policy(pack, "UTG")
+    assert [c for c, w in utg.items() if w.get("limp", 0.0)] == list(_NIT_ALL_PAIRS[8:])
+
+
+def test_tm2_nit_pair_opens_did_not_leak_to_the_other_seven_seats():
+    """🟢 PRESERVATION / over-widening guard (passes at HEAD): outside CO and
+    BTN, a pair class either sits in the core raise band (raise 1.0) or has NO
+    raise mass at all. This is what keeps T-M2 a late-position fix — an
+    early-position nit that open-raises 22 would satisfy the defect gate above
+    and be a worse bot."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    leaked = {
+        (seat, cls): w
+        for seat in _LADDER_SEATS
+        if seat not in _NIT_PAIR_OPEN_SEATS
+        for cls, w in _nit_pair_policy(pack, seat).items()
+        if 0.0 < w.get("raise", 0.0) < 1.0
+    }
+    assert not leaked, f"nit pair opens leaked outside CO/BTN: {leaked}"

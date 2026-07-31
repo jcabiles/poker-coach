@@ -10,10 +10,12 @@ treatment", not "did the text match", so a legitimate difference in token
 spelling can never be mistaken for a behaviour change (and, equally, identical
 text can never hide a semantic one).
 
-`content/personas/nit.json` is NOT edited by this slice, and neither is any
-engine module: the gate is evidence that the spec is a lossless re-encoding of
-what already ships, not a target to force. It fails if the spec drifts from the
-pack in either direction.
+The gate is evidence that the spec and the pack say the SAME thing, not a
+target to force: it fails if either drifts from the other. RR-EMIT authored it
+against an untouched `content/personas/nit.json`; T-M2 (2026-07-31) is the
+first slice to move both TOGETHER — the CO/BTN pair-open band is authored in
+the spec's tiers and hand-mirrored into the pack, and this gate is what proves
+the two edits agree class-by-class and weight-by-weight.
 
 The remaining tests pin the properties that make the emitter usable as an
 authoring surface: its output satisfies the RR-LINT structural belt with ZERO
@@ -121,7 +123,12 @@ def test_proving_gate_covers_every_shipped_hand_class(emitted, shipped):
     played = union(shipped)
     assert len(played) == 57, "shipped nit unopened corpus changed size"
     assert union(emitted) == played
-    assert sum(len(n["mixes"]) for n in emitted) == 27  # 9 seats x 3 tiers
+    # T-M2: 28, not 27 — seven seats emit three mixes (the pair-open tier is
+    # width 0 there and drops out), CO emits four (pair-open 55-77 AND the
+    # 22-44 remainder) and BTN three (its pair-open band swallows the whole
+    # 22-77 remainder, so the limp-only mix drops out). The corpus above is
+    # unchanged: no pair class gained or lost a treatment, three changed tier.
+    assert sum(len(n["mixes"]) for n in emitted) == 28
 
 
 # ================================================== STRUCTURE / LEGALITY BELTS
@@ -221,8 +228,24 @@ def _bad(mutate):
         emit_nodes(spec)
 
 
+def _tier(spec: dict, kind: str) -> dict:
+    """First tier of `kind`. Addressing tiers by KIND, not list index (T-M2):
+    the nit spec's tier list changed shape when the pairs row was demoted from
+    `tail` to two per-seat slope tiers, and index-addressed mutations silently
+    stopped testing what they named (a `width` set on the `core` tier is simply
+    ignored, so the negative-width probe passed vacuously)."""
+    return next(t for t in spec["tiers"] if t["kind"] == kind)
+
+
+# The nit spec no longer uses a `tail` tier (T-M2), so the tail probes below
+# APPEND one rather than mutating the spec's own — the emitter still supports
+# the kind, and these are validator tests, not nit-content tests.
+def _tail(rows: list[str]) -> dict:
+    return {"kind": "tail", "rows": rows, "weights": {"fold": 1.0}}
+
+
 def test_validator_rejects_negative_slope_width():
-    _bad(lambda s: s["tiers"][2].__setitem__("width", -2))
+    _bad(lambda s: _tier(s, "slope").__setitem__("width", -2))
 
 
 def test_validator_rejects_non_unopened_facing():
@@ -230,19 +253,17 @@ def test_validator_rejects_non_unopened_facing():
 
 
 def test_validator_rejects_response_action_vocabulary():
-    _bad(lambda s: s["tiers"][1].__setitem__("weights", {"call": 1.0}))
+    _bad(lambda s: _tier(s, "core").__setitem__("weights", {"call": 1.0}))
 
 
 def test_validator_rejects_missing_tier_keys_loudly():
-    _bad(lambda s: s["tiers"][2].pop("width"))
-    _bad(lambda s: s["tiers"][1].pop("weights"))
-    _bad(lambda s: s["tiers"][0].pop("rows"))
+    _bad(lambda s: _tier(s, "slope").pop("width"))
+    _bad(lambda s: _tier(s, "core").pop("weights"))
+    _bad(lambda s: s["tiers"].append({"kind": "tail", "weights": {"fold": 1.0}}))
 
 
 def test_validator_rejects_duplicate_tail_ownership():
-    def dup(s):
-        s["tiers"].append({"kind": "tail", "rows": ["pairs"], "weights": {"fold": 1.0}})
-    _bad(dup)
+    _bad(lambda s: s["tiers"].extend([_tail(["pairs"]), _tail(["pairs"])]))
 
 
 def test_validator_rejects_overweight_mix():
