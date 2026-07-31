@@ -96,18 +96,80 @@ def _tokens(row: str, classes: list[str], lo: int, hi: int) -> list[str]:
     return list(seg)  # interior suited/offsuit segment: enumerate
 
 
+# The unopened node vocabulary. `call` is a response-node action; a spec that
+# wants it is a response-node spec sneaking past the unopened-only scope fence.
+_UNOPENED_ACTIONS = frozenset({"raise", "limp", "fold"})
+_TIER_KINDS = frozenset({"core", "slope", "tail"})
+
+
 def _validate(spec: dict[str, Any]) -> None:
-    """Authored input is a system boundary — reject a malformed spec loudly."""
-    kinds = [t["kind"] for t in spec["tiers"]]
+    """Authored input is a system boundary — reject a malformed spec loudly.
+
+    Review-hardened (RR-EMIT fan-in): the docstring's "unrepresentable defect
+    classes" claim is only true for specs this gate admits, so everything the
+    emit pass consumes is checked here — tier shape/kinds/weights, NON-NEGATIVE
+    integer widths (a negative width rolled `taken` backwards and re-claimed
+    core-owned classes into a second mix), duplicate tail ownership, and the
+    unopened-only scope fence (`facing`/action vocabulary).
+    """
+    if spec.get("facing") != "unopened":
+        raise ValueError(
+            f"facing {spec.get('facing')!r}: this emitter is unopened-only "
+            "(response nodes stay hand-authored, by design)"
+        )
+    tiers = spec.get("tiers")
+    if not isinstance(tiers, list) or not tiers:
+        raise ValueError("spec needs a non-empty 'tiers' list")
+    kinds = []
+    for i, t in enumerate(tiers):
+        kind = t.get("kind")
+        if kind not in _TIER_KINDS:
+            raise ValueError(f"tiers[{i}]: unknown kind {kind!r}")
+        kinds.append(kind)
+        weights = t.get("weights")
+        if not isinstance(weights, dict) or not weights:
+            raise ValueError(f"tiers[{i}]: 'weights' must be a non-empty dict")
+        bad = set(weights) - _UNOPENED_ACTIONS
+        if bad:
+            raise ValueError(f"tiers[{i}]: non-unopened action(s) {sorted(bad)}")
+        for a, w in weights.items():
+            if not isinstance(w, (int, float)) or not 0 < w <= 1:
+                raise ValueError(f"tiers[{i}].weights[{a!r}]: {w!r} not in (0, 1]")
+        if sum(weights.values()) > 1 + 1e-9:
+            raise ValueError(f"tiers[{i}]: weights sum {sum(weights.values())} > 1")
+        if kind == "slope":
+            width = t.get("width")
+            if not isinstance(width, int) or isinstance(width, bool) or width < 0:
+                raise ValueError(f"tiers[{i}]: slope 'width' must be an int >= 0")
+        if kind == "tail":
+            rows = t.get("rows")
+            if not isinstance(rows, list) or not rows:
+                raise ValueError(f"tiers[{i}]: tail 'rows' must be a non-empty list")
     if kinds.count("core") != 1:
         raise ValueError("spec needs exactly one 'core' tier")
-    tail_rows = {r for t in spec["tiers"] if t["kind"] == "tail" for r in t["rows"]}
+    tail_rows: set[str] = set()
+    for t in tiers:
+        if t["kind"] != "tail":
+            continue
+        for r in t["rows"]:
+            if r not in ROW_CLASSES:
+                raise ValueError(f"tail row {r!r} unknown")
+            if r in tail_rows:
+                raise ValueError(f"tail row {r!r} owned by two tail tiers")
+            tail_rows.add(r)
     n_slope = kinds.count("slope")
-    for seat, sd in spec["seats"].items():
-        depths = sd["depths"]
+    seats = spec.get("seats")
+    if not isinstance(seats, dict) or not seats:
+        raise ValueError("spec needs a non-empty 'seats' dict")
+    for seat, sd in seats.items():
+        depths = sd.get("depths")
+        if not isinstance(depths, dict) or not depths:
+            raise ValueError(f"{seat}: 'depths' must be a non-empty dict")
         for row, depth in depths.items():
             if row not in ROW_CLASSES:
                 raise ValueError(f"{seat}: unknown row {row!r}")
+            if not isinstance(depth, int) or isinstance(depth, bool):
+                raise ValueError(f"{seat}.{row}: depth {depth!r} must be an int")
             if not 0 <= depth <= len(ROW_CLASSES[row]):
                 raise ValueError(f"{seat}.{row}: depth {depth} out of range")
         for row in tail_rows:
@@ -118,6 +180,9 @@ def _validate(spec: dict[str, Any]) -> None:
                 raise ValueError(f"{seat}: slope override for unplayed row {row!r}")
             if len(widths) != n_slope:
                 raise ValueError(f"{seat}.{row}: expected {n_slope} slope widths")
+            for w in widths:
+                if not isinstance(w, int) or isinstance(w, bool) or w < 0:
+                    raise ValueError(f"{seat}.{row}: slope width {w!r} must be an int >= 0")
 
 
 def emit_seat_mixes(spec: dict[str, Any], seat: str) -> list[dict[str, Any]]:
@@ -166,9 +231,16 @@ def emit_seat_mixes(spec: dict[str, Any], seat: str) -> list[dict[str, Any]]:
 
 
 def emit_nodes(spec: dict[str, Any]) -> list[dict[str, Any]]:
-    """The full `unopened` node list, one node per seat, in spec seat order."""
+    """The full `unopened` node list, one node per seat, in spec seat order.
+
+    Every emitted node is round-tripped through the real `PersonaNode` model
+    (review-hardened: the CLI path previously emitted unvalidated dicts), so
+    the tool cannot print JSON the pack loader would reject.
+    """
     _validate(spec)
-    return [
+    from app.domain.content.models import PersonaNode  # tool -> domain is fine
+
+    nodes = [
         {
             "facing": spec["facing"],
             "positions": [seat],
@@ -176,6 +248,9 @@ def emit_nodes(spec: dict[str, Any]) -> list[dict[str, Any]]:
         }
         for seat in spec["seats"]
     ]
+    for node in nodes:
+        PersonaNode.model_validate(node)
+    return nodes
 
 
 def emit_json(spec: dict[str, Any]) -> str:

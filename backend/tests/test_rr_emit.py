@@ -39,7 +39,10 @@ from tools.rr_emit import emit_json, emit_nodes
 
 CONTENT = Path(__file__).resolve().parents[2] / "content"
 SPEC_PATH = CONTENT / "personas" / "ladders" / "nit.unopened.json"
-PACK_PATH = CONTENT / "personas" / "nit.json"
+# Review fold (Codex L3): the pack path is derived from the spec's own `emits`
+# declaration, so the metadata is audited by the gate instead of being dead —
+# repointing `emits` at another pack now fails the proving tests.
+PACK_PATH = CONTENT.parent / json.loads(SPEC_PATH.read_text(encoding="utf-8"))["emits"]
 
 def _combos(cls: str) -> int:
     """Combos in a starting-hand class: 6 for a pair, 4 suited, 12 offsuit."""
@@ -201,3 +204,46 @@ def test_authored_raise_pct_annotations_match_emitted_widths(emitted):
         assert _raise_width_pct(node) == pytest.approx(
             spec["seats"][seat]["raise_pct"], abs=0.005
         ), seat
+
+
+# --- validator hardening (RR-EMIT fan-in review folds) ----------------------
+# The module docstring claims three defect classes are UNREPRESENTABLE. That
+# claim is only as strong as the input gate, so the gate is negatively tested:
+# each spec below was a reproduced escape (refuter: negative slope width rolled
+# `taken` backwards and re-claimed core-owned classes; Codex: a vs_rfi spec
+# sailed through the unopened-only fence) or a raw-KeyError crash path.
+
+
+def _bad(mutate):
+    spec = _load_spec()
+    mutate(spec)
+    with pytest.raises(ValueError):
+        emit_nodes(spec)
+
+
+def test_validator_rejects_negative_slope_width():
+    _bad(lambda s: s["tiers"][2].__setitem__("width", -2))
+
+
+def test_validator_rejects_non_unopened_facing():
+    _bad(lambda s: s.__setitem__("facing", "vs_rfi"))
+
+
+def test_validator_rejects_response_action_vocabulary():
+    _bad(lambda s: s["tiers"][1].__setitem__("weights", {"call": 1.0}))
+
+
+def test_validator_rejects_missing_tier_keys_loudly():
+    _bad(lambda s: s["tiers"][2].pop("width"))
+    _bad(lambda s: s["tiers"][1].pop("weights"))
+    _bad(lambda s: s["tiers"][0].pop("rows"))
+
+
+def test_validator_rejects_duplicate_tail_ownership():
+    def dup(s):
+        s["tiers"].append({"kind": "tail", "rows": ["pairs"], "weights": {"fold": 1.0}})
+    _bad(dup)
+
+
+def test_validator_rejects_overweight_mix():
+    _bad(lambda s: s["tiers"][2].__setitem__("weights", {"raise": 0.7, "fold": 0.7}))
