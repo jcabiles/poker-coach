@@ -142,20 +142,20 @@
           "weights": { "call": 0.6, "fold": 0.4 }
         },
         {
-          "combos": "KTo, QTo, T9o, A9o, A8o, A7o, K9o, Q9o, J9o",
-          "weights": { "call": 0.55, "fold": 0.45 }
-        },
-        {
           "combos": "22-66, K9s, K8s, Q9s, Q8s, J9s, J8s, T8s, 97s, 87s, 76s, 65s, 54s, KQo, ATo, KJo, QJo, JTo",
           "weights": { "4bet": 0.1, "call": 0.5, "fold": 0.4 }
         },
         {
+          "combos": "KTo, QTo, T9o, A9o, A8o, A7o, K9o, Q9o, J9o",
+          "weights": { "call": 0.25, "fold": 0.75 }
+        },
+        {
           "combos": "A6o, A5o, A4o, A3o, A2o, K8o, K7o, Q8o, J8o, T8o, 98o, 87o",
-          "weights": { "call": 0.4, "fold": 0.6 }
+          "weights": { "call": 0.15, "fold": 0.85 }
         },
         {
           "combos": "K6o, K5o, Q7o, Q6o, J7o, T7o, 97o, 86o, 76o, 65o, J7s, T7s, Q7s, 96s, 86s, 75s, 64s, 53s, 43s",
-          "weights": { "call": 0.2, "fold": 0.8 }
+          "weights": { "fold": 1.0 }
         },
         { "combos": "*", "weights": { "fold": 1.0 } }
       ]

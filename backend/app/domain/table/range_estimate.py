@@ -104,7 +104,8 @@ class _Ctx(NamedTuple):
     # N-3BSTRATA: did this seat make the FIRST preflop raise of the hand (it is
     # the OPENER, now acting again)? Mirrors play._preflop_opener; selects the
     # role-tagged persona node so the estimator reads the same table the bot
-    # actually sampled from. False postflop (unused there).
+    # actually sampled from. Like the live path it stays set postflop (the
+    # postflop sampler ignores it) — parity-tested per street.
     is_opener: bool = False
 
 

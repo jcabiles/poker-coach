@@ -81,8 +81,12 @@ def sample_preflop_action(
     None, so a pack with no `role` anywhere behaves EXACTLY as before for
     every caller — the default-off contract. A role-TAGGED node matches only
     when the caller passes the matching stratum; a caller that passes None
-    never selects one (so a stratified pack must be read by a stratum-aware
-    caller — fail-loud rather than silently serving the wrong table).
+    never selects one. ⚠️ That fallback is fail-SAFE, not fail-loud (triple-
+    review convergent finding): a role-unaware caller reading a stratified
+    pack at a fully-tagged facing degrades to the implicit-fold path (an
+    all-fold table) — conservative and detectable, but silent. Both
+    production callers (play.bot_decision, range_estimate) always pass a real
+    boolean; any NEW caller must too.
     """
     hand = hole_cards_to_class(*hole_cards)
     want_role = None if is_opener is None else ("opener" if is_opener else "cold")

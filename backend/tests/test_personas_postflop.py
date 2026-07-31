@@ -4027,18 +4027,24 @@ def test_n3bstrata_defect_gates_fail_at_pre_slice_head():
 
 
 def test_n3bstrata_opener_fold_to_3bet_targets():
-    """🔴 N-3BSTRATA defect gate: with the role split live, the OPENER stratum
-    folds at its dossier rate — maniac ~0.30 (band [0.25, 0.35] around the
-    target; a maniac barely folds after opening) and lag inside its measured
-    43-53% band. Deterministic (authored content only)."""
+    """🔴 N-3BSTRATA authored-COMPONENT pins (fan-in fold, Codex HIGH): the
+    unopened-weighted figure is NOT the production opener population — the
+    live opener also includes ISOLATION raises over limpers, whose range is
+    far stronger and folds far less. The dossier bands are gated on the
+    production-signal blend (test_n3bstrata_production_opener_blend_in_
+    dossier_band); THIS test pins the unopened COMPONENT as an exact authored
+    shape so a pack edit can't silently reshape it. Measured post-fit:
+    maniac 0.3073 (its iso range is close to its open range, so component ≈
+    blend 0.2801); lag 0.6034 (the wide junky OPEN range folds a lot; the
+    strong iso component pulls the live blend to 0.4735, mid-band)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     maniac = _opener_fold_to_3bet(packs[VillainType.MANIAC])
     lag = _opener_fold_to_3bet(packs[VillainType.LAG])
-    print(f"N-3BSTRATA opener fold-to-3bet: maniac {maniac:.4f} lag {lag:.4f}")
-    assert 0.25 <= maniac <= 0.35, f"maniac opener fold-to-3bet {maniac:.4f} outside [0.25, 0.35]"
-    assert 0.43 <= lag <= 0.53, f"lag opener fold-to-3bet {lag:.4f} outside [0.43, 0.53]"
+    print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.4f} lag {lag:.4f}")
+    assert maniac == pytest.approx(0.3073, abs=0.02), f"maniac component {maniac:.4f} moved"
+    assert lag == pytest.approx(0.6034, abs=0.02), f"lag component {lag:.4f} moved"
 
 
 def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
@@ -4071,6 +4077,76 @@ def test_n3bstrata_only_maniac_and_lag_are_stratified():
     for vt in (VillainType.MANIAC, VillainType.LAG):
         roles = [n.role for n in packs[vt].preflop if n.facing == "vs_3bet"]
         assert roles == ["opener", "cold"], f"{vt.value} vs_3bet roles are {roles}"
+
+
+# Fan-in fold (Codex HIGH): the deterministic proxy above weights the opener
+# stratum by the `unopened` nodes ONLY, but production's opener is the FIRST
+# RAISER — which includes ISOLATION raises over limpers, and the iso range is
+# far stronger than the open range (lag isos "66+, A9s+, KJs+, ATo+, KQo" at
+# 1.0), so the LIVE opener population folds less than the unopened-weighted
+# figure. The dossier band is therefore gated HERE, on the production-signal
+# blend measured over seeded organic play; the unopened-weighted figure stays
+# as an authored-COMPONENT shape pin only.
+_OPENER_BLEND_CACHE: dict[tuple[str, int], tuple[int, int]] = {}
+
+
+def _production_opener_fold_counts(packs, persona: str, n: int) -> tuple[int, int]:
+    """(folds, decisions) for `persona` seats at vs_3bet in the OPENER stratum,
+    where opener = the seat of the hand's FIRST preflop raise (the exact
+    production signal `play._preflop_opener` derives), over the same seeded
+    lineup as `_persona_stats_ext`."""
+    key = (persona, n)
+    if key in _OPENER_BLEND_CACHE:
+        return _OPENER_BLEND_CACHE[key]
+    rng = random.Random(20260710)
+    fillers = [p for p in ALL_PERSONAS if p != persona]
+    lineup = ([persona] * 3 + [fillers[i % len(fillers)] for i in range(6)])[:9]
+    persona_by_seat = {i: lineup[i] for i in range(9)}
+    tested_seats = {i for i, p in persona_by_seat.items() if p == persona}
+    folds = decisions = 0
+    for i in range(n):
+        hand_seed = rng.randrange(1_000_000_000)
+        res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
+        opener_seat = next(
+            (seat for seat, action in res.preflop_log if action == "raise"), None
+        )
+        if opener_seat is None:
+            continue
+        for (seat, _position, facing, _is_first), (log_seat, action) in zip(
+            res.preflop_nodes, res.preflop_log, strict=True
+        ):
+            assert seat == log_seat, "preflop_nodes/preflop_log misaligned"
+            if facing != "vs_3bet" or seat != opener_seat or seat not in tested_seats:
+                continue
+            decisions += 1
+            if action == "fold":
+                folds += 1
+    _OPENER_BLEND_CACHE[key] = (folds, decisions)
+    return folds, decisions
+
+
+def test_n3bstrata_production_opener_blend_in_dossier_band():
+    """🔴 THE N-3BSTRATA gate (production population): fold-to-3-bet of the
+    seat that made the hand's FIRST preflop raise — unopened opens AND iso
+    raises over limpers, exactly what the live `is_opener` signal serves the
+    opener table to. maniac ~0.30 target → band [0.25, 0.35]; lag inside its
+    dossier band [0.43, 0.53] ("above 60% makes light 3-betting
+    insufficiently defended"; pre-slice measured 0.72-0.83)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    for persona, lo, hi in (("maniac", 0.25, 0.35), ("lag", 0.43, 0.53)):
+        folds, n = _production_opener_fold_counts(packs, persona, 4000)
+        rate = folds / n
+        wlo, whi = _wilson95(folds, n)
+        print(
+            f"{persona} production opener fold-to-3bet {rate:.4f} "
+            f"(n={n}, CI [{wlo:.3f},{whi:.3f}])"
+        )
+        assert n >= 200, f"{persona}: opener sample n={n} too small to gate"
+        assert lo <= rate <= hi, (
+            f"{persona} production opener fold-to-3bet {rate:.4f} (n={n}) outside [{lo},{hi}]"
+        )
 
 
 def test_maniac_vpip_pfr_gap_back_under_ten():
