@@ -679,9 +679,11 @@ def test_maniac_first_in_ladder_monotone_to_button():
 _LAG_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
 
 # OFFSUIT-ONLY ceilings — the named mechanism of the finding. Gated at the six
-# seats where the move is decisive (≥3.8pp below pre-slice); CO/BTN/SB moved
-# only -0.90/-0.36/-0.90 and are covered by the ≥TAG preservation gate instead
-# of a ceiling too thin to be meaningful.
+# seats where the move is decisive (≥3.8pp below pre-slice); CO/BTN moved only
+# -0.90/-0.36 and are covered by the ≥TAG preservation gate instead of a
+# ceiling too thin to be meaningful. SB (-0.90) is gated by NEITHER mechanism
+# (not in this dict, not in _LAG_OFFSUIT_GE_TAG_SEATS) — ungated by scope,
+# delta-review L2.
 #   pre-slice -> post   UTG 12.49->8.69 · UTG1 13.39->8.69 · UTG2 17.38->12.31
 #                       LJ 19.55->15.38 · HJ 26.61->22.62 · BB 24.80->20.81
 # Suited width rose at the SAME seats (UTG 7.90->10.50, UTG1 9.11->12.79,
