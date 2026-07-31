@@ -4762,3 +4762,187 @@ def test_ace_high_with_a_draw_facing_raise_is_byte_identical():
 def test_w3r6_damp_constants_inside_their_fitted_ranges():
     assert 0.25 <= personas_postflop._ONE_PAIR_RAISE_DAMP <= 0.55
     assert 0.35 <= personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP <= 0.65
+
+
+# ============ W5-b3 / W5-b3b — `unopened` seat ladder (AUTHORED, n-free) ======
+#
+# These gates read pack JSON only — no simulation, no rng, no sample-size
+# requirement. Realized RFI is arrival-confounded (that is the whole point of
+# the W-ARR wave), so the assertion is on AUTHORED width, per the roadmap
+# W5-b3 line "Assert AUTHORED width, not realized RFI".
+#
+# WIDTH DEFINITION (pinned by roadmap W5-b3 (a), R9-c5): combo-weighted
+# `raise` + `3bet` legs over all 1326 combos under first-match-wins —
+# NEVER `1 - fold`, which would fold open-limps into the number and make a
+# limp-heavy node read as a wide opener. The nit's `unopened` nodes each open
+# with an open-limp mix (`22-66` UTG / `22-77` elsewhere at limp 0.4), so the
+# two measures differ materially here.
+
+_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB")
+
+
+def _unopened_node(pack, seat: str):
+    """The `unopened` node the engine would select for `seat`, using the same
+    first-match-in-list-order rule as `sample_preflop_action`: the first node
+    whose facing matches AND whose positions is None (wildcard) or contains
+    the seat."""
+    for node in pack.preflop:
+        if node.facing != "unopened":
+            continue
+        if node.positions is None or any(p.value == seat for p in node.positions):
+            return node
+    return None
+
+
+def _authored_raise_width(node) -> float:
+    """Combo-weighted authored first-in RAISE width of one node, as a fraction
+    of 1326 combos. First-match-wins: a class already claimed by an earlier
+    mix contributes nothing to a later one."""
+    from app.domain.content.notation import parse_range
+
+    if node is None:
+        return 0.0
+    covered: set[str] = set()
+    total = 0.0
+    for mix in node.mixes:
+        claimed = parse_range(mix.combos) - covered
+        w = mix.weights.get("raise", 0.0) + mix.weights.get("3bet", 0.0)
+        total += w * sum(_combo_count(c) for c in claimed)
+        covered |= claimed
+    return total / 1326.0
+
+
+def _seat_ladder(pack) -> dict[str, float]:
+    return {s: _authored_raise_width(_unopened_node(pack, s)) for s in _LADDER_SEATS}
+
+
+def test_w5b3_nit_unopened_authored_width_strictly_increases():
+    """🔴 W5-b3 defect gate (a), deterministic and n-free.
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule) — the nit
+    shipped ONE step, UTG vs everywhere-else:
+        UTG 13.57 · UTG1..BB 29.11 (all seven later seats identical)
+    so `LJ < CO` and `CO < BTN` were 29.11 < 29.11 — FALSE. This test FAILS
+    at pre-slice HEAD, which is what makes it a gate rather than a decoration.
+
+    POST-SLICE reading (this commit):
+        UTG 7.54 · UTG1 8.45 · UTG2 9.95 · LJ 12.22 · HJ 13.42 · CO 15.99 ·
+        BTN 21.42 · SB 16.59 · BB 12.52
+    """
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    ladder = _seat_ladder(packs[VillainType.NIT])
+    print(
+        "nit authored unopened raise width by seat: "
+        + " · ".join(f"{s} {ladder[s] * 100:.2f}%" for s in _LADDER_SEATS)
+    )
+    for lo, hi in (("UTG", "LJ"), ("LJ", "CO"), ("CO", "BTN")):
+        assert ladder[lo] < ladder[hi], (
+            f"nit authored unopened width must strictly increase {lo}->{hi}: "
+            f"{lo} {ladder[lo] * 100:.2f}% !< {hi} {ladder[hi] * 100:.2f}%"
+        )
+
+
+def test_w5b3_nit_unopened_utg_width_has_a_ceiling():
+    """🔴 W5-b3 defect gate (b): an early-position CEILING exists on the nit's
+    authored UTG width. Monotonicity alone can never pull the early end down —
+    a ladder that is uniformly too wide is still monotone — so (a) without (b)
+    only covers half the defect. PRE-SLICE HEAD read UTG 13.57%, which fails
+    the cap below; post-slice it reads 7.54%.
+
+    ⚠️ DIRECTIONAL, not a level gate. The roadmap explicitly FORBIDS gating on
+    either circulating target (this file's own `~4% UTG -> 15-18% BTN` and the
+    250-hand review's `~6-8% -> 18-22%`): RFI-by-seat is contract-flagged
+    format-sensitive (6-max vs 9-max) and the seat-ordering claim is
+    [UNVERIFIED], and §5a forbids a HARD gate on an UNVERIFIED row. The 10%
+    cap below is therefore a loose directional bound chosen to sit clear of
+    BOTH circulating targets while still failing HEAD — it asserts the
+    ceiling's EXISTENCE as a committed shape, never its level. The NUMBER's
+    future source is the `R9-SEATPROV` research item in NEXT (9-max full-ring
+    RFI-by-seat provenance); when that lands, this cap is re-derived, not
+    loosened.
+    """
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    utg = _authored_raise_width(_unopened_node(packs[VillainType.NIT], "UTG"))
+    assert utg <= 0.10, (
+        f"nit authored UTG unopened width {utg * 100:.2f}% exceeds the "
+        f"DIRECTIONAL 10% early-position ceiling (see R9-SEATPROV)"
+    )
+
+
+def test_w5b3_nit_is_the_tightest_raising_persona_at_every_seat():
+    """W5-b3 character check: narrowing the nit must not cost it its place in
+    the roster ordering. Against the three other RAISE-first archetypes the nit
+    stays the tightest authored opener at all nine seats.
+
+    Station and fish are deliberately EXCLUDED: they are limp-first, so their
+    authored RAISE width (0.6% / 3.8%) is below the nit's by construction and
+    says nothing about overall looseness (their VPIP is far higher). Comparing
+    a limper's raise leg to a raiser's would invert the archetype ordering."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    nit = _seat_ladder(packs[VillainType.NIT])
+    for other in (VillainType.TAG, VillainType.LAG, VillainType.MANIAC):
+        wider = _seat_ladder(packs[other])
+        for seat in _LADDER_SEATS:
+            assert nit[seat] < wider[seat], (
+                f"nit {seat} {nit[seat] * 100:.2f}% is not tighter than "
+                f"{other.value} {wider[seat] * 100:.2f}%"
+            )
+
+
+def test_w5b3b_station_and_fish_unopened_width_stays_flat_across_seats():
+    """W5-b3b — EXEMPT preservation guard (it is SUPPOSED to pass at HEAD;
+    that is its job). A recreational archetype does not tighten up under the
+    gun — flat positional width is what makes it recreational — so W5-b3's
+    strict ladder must never be extended to these two packs. This guard exists
+    so a later slice cannot quietly ladder them.
+
+    Asserted against what the packs ACTUALLY ship today (measured, not
+    aspirational): the station is one flat level across all nine seats; the
+    fish has a single UTG step and is then flat across the other eight.
+    Neither pack's content is touched by this slice."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+
+    station = _seat_ladder(packs[VillainType.CALLING_STATION])
+    assert len({round(v, 12) for v in station.values()}) == 1, (
+        f"calling_station unopened width is no longer flat across seats: {station}"
+    )
+    assert station["UTG"] == pytest.approx(0.0060, abs=5e-4)
+
+    fish = _seat_ladder(packs[VillainType.PASSIVE_FISH])
+    later = [fish[s] for s in _LADDER_SEATS if s != "UTG"]
+    assert len({round(v, 12) for v in later}) == 1, (
+        f"passive_fish unopened width is no longer flat across the eight "
+        f"non-UTG seats: {fish}"
+    )
+    assert fish["UTG"] == pytest.approx(0.0256, abs=5e-4)
+    assert later[0] == pytest.approx(0.0377, abs=5e-4)
+    # No ladder: at most a single authored step for either pack.
+    assert len({round(v, 12) for v in fish.values()}) <= 2
+
+
+def test_w5b3_nit_vpip_pfr_reported_not_gated():
+    """REPORT-ONLY (roadmap W5-b3 pass/fail (c)): metric #3 VPIP/PFR for the
+    nit, MEASURED and PRINTED against §5, never asserted. The single
+    population-band anchor is W4-b — committing an RP6 number as a gate here
+    is a §5 / §11 item-7 auto-FAIL. Run with `-s` to read it.
+
+    Dossier envelope for context only (playstyle-research/nit.md §19,
+    'Format-level targets'): VPIP 8-13 online / 10-16 live, PFR 6-11 / 5-10.
+    """
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    s = _persona_stats_ext(packs, "nit", 600)
+    print(
+        f"nit VPIP {s.vpip:.3f} PFR {s.pfr:.3f} gap "
+        f"{s.gap:.3f} (n=600, REPORTED — band anchor is W4-b)"
+    )
+    assert s.vpip is not None and s.pfr is not None
