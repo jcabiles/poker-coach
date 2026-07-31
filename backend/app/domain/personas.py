@@ -64,6 +64,7 @@ def sample_preflop_action(
     facing: str,
     hole_cards: tuple[Card, Card],
     rng: random.Random,
+    is_opener: bool | None = None,
 ) -> PersonaAction:
     """Draw a frequency-mixed preflop action for (position, facing, hand class).
 
@@ -71,12 +72,26 @@ def sample_preflop_action(
     whose facing matches AND whose positions is None (wildcard) or contains
     `position` wins. Within the node, first mix containing the hand class
     wins; weight remainder is an implicit fold; no matching node/mix => fold.
+
+    N-3BSTRATA — role matching (third filter, same first-match-wins scan):
+    `is_opener` is the caller's ARRIVAL STRATUM for this decision — True when
+    this seat made the FIRST preflop raise of the hand (it opened and is now
+    acting again), False when it did not, None when the caller does not track
+    it. An UNTAGGED node (`role is None`) matches every stratum including
+    None, so a pack with no `role` anywhere behaves EXACTLY as before for
+    every caller — the default-off contract. A role-TAGGED node matches only
+    when the caller passes the matching stratum; a caller that passes None
+    never selects one (so a stratified pack must be read by a stratum-aware
+    caller — fail-loud rather than silently serving the wrong table).
     """
     hand = hole_cards_to_class(*hole_cards)
+    want_role = None if is_opener is None else ("opener" if is_opener else "cold")
     for node in pack.preflop:
         if node.facing != facing:
             continue
         if node.positions is not None and position not in node.positions:
+            continue
+        if node.role is not None and node.role != want_role:
             continue
         for mix in node.mixes:
             if hand not in _combos(mix.combos):

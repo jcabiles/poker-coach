@@ -49,6 +49,22 @@
           "default": null,
           "title": "Positions"
         },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "opener",
+                "cold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
         "mixes": {
           "items": {
             "$ref": "#/$defs/PersonaActionMix"

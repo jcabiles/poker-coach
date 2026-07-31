@@ -1,6 +1,6 @@
 {
   "id": "persona_maniac",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "domain": "persona",
   "persona": "maniac",
   "display_name": "Maniac",
@@ -204,6 +204,25 @@
     {
       "facing": "vs_3bet",
       "positions": null,
+      "role": "opener",
+      "mixes": [
+        { "combos": "QQ+, AKs", "weights": { "4bet": 1.0 } },
+        { "combos": "JJ, TT, AQs, AJs, AKo", "weights": { "4bet": 0.65, "call": 0.35 } },
+        {
+          "combos": "99, 88, ATs, A9s, A5s, A4s, A3s, A2s, KQs, KJs, QJs, JTs, AQo, AJo, KQo",
+          "weights": { "4bet": 0.35, "call": 0.6, "fold": 0.05 }
+        },
+        {
+          "combos": "77, 66, 55, A8s, A7s, A6s, KTs, K9s, QTs, Q9s, J9s, T9s, T8s, 98s, 97s, 87s, 76s, 65s, ATo, A9o, KJo, KTo, QJo, QTo, JTo",
+          "weights": { "4bet": 0.2, "call": 0.5, "fold": 0.3 }
+        },
+        { "combos": "*", "weights": { "4bet": 0.15, "call": 0.45, "fold": 0.4 } }
+      ]
+    },
+    {
+      "facing": "vs_3bet",
+      "positions": null,
+      "role": "cold",
       "mixes": [
         { "combos": "QQ+, AKs", "weights": { "4bet": 1.0 } },
         { "combos": "JJ, TT, AQs, AJs, AKo, AQo", "weights": { "4bet": 0.6, "call": 0.4 } },

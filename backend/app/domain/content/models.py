@@ -114,6 +114,14 @@ class PersonaActionMix(BaseModel):
 class PersonaNode(BaseModel):
     facing: PersonaFacing
     positions: list[Position] | None = None  # None = wildcard (any position)
+    # N-3BSTRATA: the ARRIVAL STRATUM this node serves. One `vs_3bet` node
+    # historically served two different situations — the OPENER (this seat
+    # raised, got 3-bet, acts again) and a COLD facer (never raised; faces an
+    # open AND a 3-bet on its first decision) — whose ranges are not
+    # comparable, so one weight table cannot fold cold junk without
+    # over-folding the opener. `None` = serves BOTH strata (every untagged
+    # pack keeps today's behaviour exactly; see personas.sample_preflop_action).
+    role: Literal["opener", "cold"] | None = None
     mixes: list[PersonaActionMix]  # FIRST MATCH WINS; unmatched hand-class => fold 1.0
 
     @model_validator(mode="after")
@@ -247,22 +255,38 @@ class PersonaPack(BaseModel):
 
     @model_validator(mode="after")
     def _node_ordering(self) -> PersonaPack:
-        """Per facing: explicit-position nodes BEFORE the (at most one) wildcard,
-        and explicit-position nodes may not overlap positions (lookup is
-        first-match-in-list-order; see personas.sample_preflop_action)."""
-        seen_positions: dict[str, set[Position]] = {}
-        wildcard_seen: set[str] = set()
+        """Per (facing, role): explicit-position nodes BEFORE the (at most one)
+        wildcard, and explicit-position nodes may not overlap positions (lookup is
+        first-match-in-list-order; see personas.sample_preflop_action).
+
+        N-3BSTRATA: the laws above hold INDEPENDENTLY per role stratum — an
+        `opener` and a `cold` node may both be position-wildcards for the same
+        facing, which is the whole point of the split. One law crosses strata:
+        a role-tagged node may not FOLLOW an untagged node of the same facing,
+        because an untagged node serves both strata and would shadow it dead.
+        """
+        seen_positions: dict[tuple[str, str | None], set[Position]] = {}
+        wildcard_seen: set[tuple[str, str | None]] = set()
+        untagged_seen: set[str] = set()
         for node in self.preflop:
+            key = (node.facing, node.role)
+            if node.role is None:
+                untagged_seen.add(node.facing)
+            elif node.facing in untagged_seen:
+                raise ValueError(
+                    f"role-tagged node after untagged node facing {node.facing!r} "
+                    f"(the untagged node serves both roles and shadows it)"
+                )
             if node.positions is None:
-                if node.facing in wildcard_seen:
+                if key in wildcard_seen:
                     raise ValueError(f"more than one wildcard node facing {node.facing!r}")
-                wildcard_seen.add(node.facing)
+                wildcard_seen.add(key)
                 continue
-            if node.facing in wildcard_seen:
+            if key in wildcard_seen:
                 raise ValueError(
                     f"explicit-position node after wildcard facing {node.facing!r}"
                 )
-            prior = seen_positions.setdefault(node.facing, set())
+            prior = seen_positions.setdefault(key, set())
             overlap = prior & set(node.positions)
             if overlap:
                 raise ValueError(

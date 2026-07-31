@@ -98,10 +98,26 @@ def _preflop_facing(state: HandState) -> str:
     return "vs_4bet"  # n >= 3 (4bet, 5bet_shove, ...)
 
 
+def _preflop_opener(state: HandState) -> Position | None:
+    """N-3BSTRATA: the position that made the FIRST preflop raise of the hand,
+    i.e. whoever opened the pot (None while the pot is unopened/limped).
+
+    This is the production arrival signal the `role` split needs: a seat is the
+    OPENER stratum at `vs_3bet` iff it is this position. Positions are unique
+    per hand, so comparing positions is comparing seats. (The stratified test
+    instrument approximates the same stratum as `all_hits − first_hits`, i.e.
+    "any re-entrant"; that also catches a limper who later faces open+3-bet,
+    which this exact signal correctly routes to the COLD table.)"""
+    for h in state.action_history:
+        if h.street is Street.PREFLOP and h.action is ActionType.RAISE:
+            return h.position
+    return None
+
+
 def _preflop_decision(
-    pack, position, facing, hole, legal, rng, current_bet_to, limpers
+    pack, position, facing, hole, legal, rng, current_bet_to, limpers, is_opener=None
 ) -> Decision:
-    act = sample_preflop_action(pack, position, facing, hole, rng)
+    act = sample_preflop_action(pack, position, facing, hole, rng, is_opener=is_opener)
     kinds = {la.action for la in legal}
     if act.action not in kinds:
         # Persona wants an action the engine doesn't offer here (e.g. raise
@@ -208,6 +224,7 @@ def bot_decision(
             rng,
             state.current_bet_bb,
             limpers,
+            is_opener=_preflop_opener(state) == seat_state.position,
         )
     pot_bb = sum(s.invested_total_bb for s in state.seats)
     opponents = _live_opponents(state, seat)

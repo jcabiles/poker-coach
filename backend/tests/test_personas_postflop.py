@@ -1855,8 +1855,8 @@ def _preflop_facing(state) -> str:
     return "vs_4bet"  # n >= 3 (4bet, 5bet_shove, ...)
 
 
-def _preflop_decision(pack, position, facing, hole, legal, rng) -> Decision:
-    act = sample_preflop_action(pack, position, facing, hole, rng)
+def _preflop_decision(pack, position, facing, hole, legal, rng, is_opener=None) -> Decision:
+    act = sample_preflop_action(pack, position, facing, hole, rng, is_opener=is_opener)
     kinds = {la.action for la in legal}
     if act.action not in kinds:
         # Persona wants an action the engine doesn't offer here (e.g. raise
@@ -1885,6 +1885,7 @@ _STREET_BY_BOARD_LEN = {3: Street.FLOP, 4: Street.TURN, 5: Street.RIVER}
 
 # W5-a3-iii (C30): the reference derivation for the band sampler's/parity
 # mirror's context kwargs — the SAME helpers `play.bot_decision` uses.
+from app.domain.table.play import _preflop_opener  # noqa: E402
 from app.domain.table.postflop_context import (  # noqa: E402
     derive_postflop_context,
     street_aggression_count,
@@ -2070,13 +2071,20 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
             preflop_nodes.append((seat, seat_state.position.value, facing, is_first))
             if facing == "vs_limpers":
                 had_limper = True
+            # N-3BSTRATA: the arrival stratum, from the SAME production helper
+            # `play.bot_decision` uses (`_preflop_opener`) — the harness must
+            # not re-approximate it (the stratified report's
+            # `all_hits − first_hits` is a coarser proxy; see its docstring).
+            is_opener = _preflop_opener(state) == seat_state.position
             act = sample_preflop_action(
-                pack, seat_state.position, facing, seat_state.hole_cards, rng
+                pack, seat_state.position, facing, seat_state.hole_cards, rng,
+                is_opener=is_opener,
             )
             if act.name in ("3bet", "4bet", "5bet_shove"):
                 had_3bet_plus = True
             decision = _preflop_decision(
-                pack, seat_state.position, facing, seat_state.hole_cards, legal, rng
+                pack, seat_state.position, facing, seat_state.hole_cards, legal, rng,
+                is_opener=is_opener,
             )
             # Log the APPLIED preflop decision only — no new rng draw, no
             # "cleanup" of the existing double-sample (would shift the stream).
@@ -3760,10 +3768,16 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
 # (roadmap R10-3BET pass/fail ③; gate-design rule).
 
 
-def _vs_3bet_effective_policy(pack) -> dict[str, dict[str, float]]:
+def _vs_3bet_effective_policy(pack, role: str = "cold") -> dict[str, dict[str, float]]:
     """Per-class EFFECTIVE weights at the pack's wildcard vs_3bet node under
     first-match-wins (`sample_preflop_action`): the first mix whose combos
     contain the class owns it outright; later mentions are dead tokens.
+
+    N-3BSTRATA: `role` picks the ARRIVAL STRATUM exactly as the sampler does —
+    the first vs_3bet node that is untagged (serves both) or carries this role.
+    Default "cold" keeps every pre-N-3BSTRATA caller reading the table it
+    always read (untagged packs have one node; maniac/lag's cold node is
+    byte-identical to their pre-slice shared node).
 
     Two deliberate simplifications vs the live sampler (Codex build review
     C-2 — both are no-ops for every consumer in this file): the implicit-fold
@@ -3772,7 +3786,11 @@ def _vs_3bet_effective_policy(pack) -> dict[str, dict[str, float]]:
     (`.get(cls, {})` reads them as zero continue, which is the same thing)."""
     from app.domain.content.notation import parse_range
 
-    node = next(n for n in pack.preflop if n.facing == "vs_3bet")
+    node = next(
+        n
+        for n in pack.preflop
+        if n.facing == "vs_3bet" and n.role in (None, role)
+    )
     policy: dict[str, dict[str, float]] = {}
     for mix in node.mixes:
         for cls in parse_range(mix.combos):
@@ -3784,14 +3802,15 @@ def _combo_count(cls: str) -> int:
     return 6 if len(cls) == 2 else (4 if cls.endswith("s") else 12)
 
 
-def _fourbet_share(pack) -> float:
+def _fourbet_share(pack, role: str = "cold") -> float:
     """Combo-weighted authored 4-bet share: sum over 169 classes of
     (combo_count x effective first-match 4bet probability) / 1326 — the spec's
-    pinned formula (overlapping tiers must never be double-counted)."""
+    pinned formula (overlapping tiers must never be double-counted).
+    `role` selects the arrival stratum (N-3BSTRATA), default "cold"."""
     return (
         sum(
             _combo_count(c) * w.get("4bet", 0.0)
-            for c, w in _vs_3bet_effective_policy(pack).items()
+            for c, w in _vs_3bet_effective_policy(pack, role).items()
         )
         / 1326.0
     )
@@ -3893,7 +3912,13 @@ def test_r10_3bet_fold_to_3bet_stratified_report():
     ranges and is class-incomparable). Wilson 95% CIs printed per cell; n at
     the memoized _ARRIVAL_N runs sits far below any committable floor, which
     is exactly why this stays a report. Structural assertion only: the opener
-    stratum is non-negative (all_hits >= first_hits cell-wise)."""
+    stratum is non-negative (all_hits >= first_hits cell-wise).
+
+    ⚠️ N-3BSTRATA: this "opener" column is ANY RE-ENTRANT, a PROXY — a seat
+    that limped and then faced open+3-bet is a re-entrant but NOT the opener,
+    and the engine correctly serves it the COLD table. The exact stratum is
+    `play._preflop_opener`; the committed opener gates are the deterministic
+    `test_n3bstrata_*` ones below, never these cells."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -3923,6 +3948,129 @@ def test_r10_3bet_fold_to_3bet_stratified_report():
                     cells.append(f"{action} --")
             lines.append(f"    {name:7s}(n={n:4d}): " + " · ".join(cells))
     print("\n".join(lines))
+
+
+# --------------------------------------------------------------- N-3BSTRATA
+# The OPENER stratum, measured DETERMINISTICALLY. The sampled grid above can
+# never gate it (n ≈ 20-60 at _ARRIVAL_N), but the quantity is exactly
+# computable from content: the opener's holdings at vs_3bet are, up to card
+# removal, its own OPENING range, and the 3-bettor's range is independent of
+# them. So
+#     fold-to-3bet(opener) = Σ_class open_mass(class) × fold_weight(class)
+#                            / Σ_class open_mass(class)
+# with open_mass = combo_count × P(raise | class, position) summed over the
+# nine `unopened` nodes (uniform position weight — the opener arrives from
+# every seat, and a position's own raise width already weights it).
+#
+# CALIBRATION (why this proxy is trusted): at pre-slice HEAD it reproduces the
+# harness's sampled opener stratum on the two personas this slice retunes —
+# maniac 0.609 proxy vs 0.630 sampled, lag 0.829 proxy vs 0.821 sampled (the
+# 756-hand corpus figures quoted in the roadmap). Deterministic, so no CI.
+
+
+def _open_range_mass(pack) -> dict[str, float]:
+    """class -> combo-weighted mass this pack OPENS the pot with, summed over
+    the nine `unopened` nodes (first-match-wins per position)."""
+    from app.domain.content.notation import parse_range
+
+    out: dict[str, float] = {}
+    for pos in Position:
+        node = next(
+            n
+            for n in pack.preflop
+            if n.facing == "unopened" and (n.positions is None or pos in n.positions)
+        )
+        policy: dict[str, dict[str, float]] = {}
+        for mix in node.mixes:
+            for cls in parse_range(mix.combos):
+                policy.setdefault(cls, dict(mix.weights))
+        for cls, w in policy.items():
+            raise_w = w.get("raise", 0.0)
+            if raise_w > 0.0:
+                out[cls] = out.get(cls, 0.0) + _combo_count(cls) * raise_w
+    return out
+
+
+def _opener_fold_to_3bet(pack, role: str = "opener") -> float:
+    """Fold-to-3-bet over the OPENER stratum: the pack's `role` vs_3bet table
+    applied to its own opening-range mass (1 - call - 4bet, per class)."""
+    policy = _vs_3bet_effective_policy(pack, role)
+    mass = _open_range_mass(pack)
+    num = sum(
+        m * (1.0 - policy.get(cls, {}).get("call", 0.0) - policy.get(cls, {}).get("4bet", 0.0))
+        for cls, m in mass.items()
+    )
+    return num / sum(mass.values())
+
+
+def test_n3bstrata_defect_gates_fail_at_pre_slice_head():
+    """🔴 NON-VACUITY (the R9-3 lesson): pre-slice HEAD is reproducible in-test
+    because the retained `cold` node IS the pre-slice shared node, byte for
+    byte. Feeding the opener stratum through it must MISS both targets —
+    maniac ~0.61 (target ~0.30) and lag ~0.83 (target 0.43-0.53) — which is
+    exactly the defect this slice fixes: one weight table cannot fold cold
+    junk without over-folding the opener."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    maniac_head = _opener_fold_to_3bet(packs[VillainType.MANIAC], role="cold")
+    lag_head = _opener_fold_to_3bet(packs[VillainType.LAG], role="cold")
+    print(f"pre-slice HEAD opener fold-to-3bet: maniac {maniac_head:.3f} lag {lag_head:.3f}")
+    assert maniac_head > 0.40, (
+        f"maniac's cold table folds only {maniac_head:.3f} of its opening range — "
+        f"the pre-slice defect (0.609) is gone, so this gate no longer demonstrates it"
+    )
+    assert lag_head > 0.53, (
+        f"lag's cold table folds only {lag_head:.3f} of its opening range — "
+        f"the pre-slice defect (0.829) is gone, so this gate no longer demonstrates it"
+    )
+
+
+def test_n3bstrata_opener_fold_to_3bet_targets():
+    """🔴 N-3BSTRATA defect gate: with the role split live, the OPENER stratum
+    folds at its dossier rate — maniac ~0.30 (band [0.25, 0.35] around the
+    target; a maniac barely folds after opening) and lag inside its measured
+    43-53% band. Deterministic (authored content only)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    maniac = _opener_fold_to_3bet(packs[VillainType.MANIAC])
+    lag = _opener_fold_to_3bet(packs[VillainType.LAG])
+    print(f"N-3BSTRATA opener fold-to-3bet: maniac {maniac:.4f} lag {lag:.4f}")
+    assert 0.25 <= maniac <= 0.35, f"maniac opener fold-to-3bet {maniac:.4f} outside [0.25, 0.35]"
+    assert 0.43 <= lag <= 0.53, f"lag opener fold-to-3bet {lag:.4f} outside [0.43, 0.53]"
+
+
+def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
+    """🔴 N-3BSTRATA carry-along: lag's authored 4-bet share in the OPENER
+    table sits in its 3.0-5.5% dossier band (the shared table carried 2.33%,
+    below the band, and stays there for the cold stratum — a cold 4-bet is a
+    squeeze, a different and rarer action)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    share = _fourbet_share(packs[VillainType.LAG], "opener") * 100.0
+    cold = _fourbet_share(packs[VillainType.LAG], "cold") * 100.0
+    print(f"lag 4-bet share: opener {share:.2f}% cold {cold:.2f}%")
+    assert 3.0 <= share <= 5.5, f"lag opener 4-bet share {share:.2f}% outside 3.0-5.5%"
+
+
+def test_n3bstrata_only_maniac_and_lag_are_stratified():
+    """🟢 Scope freeze (owner decision 2): exactly maniac + lag carry role-split
+    vs_3bet nodes; the other four packs stay single-table, and every stratified
+    pack keeps a `cold` node whose behaviour is unchanged."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    stratified = {
+        vt.value
+        for vt, pack in packs.items()
+        if any(n.role is not None for n in pack.preflop)
+    }
+    assert stratified == {"maniac", "lag"}, f"unexpected stratified packs: {sorted(stratified)}"
+    for vt in (VillainType.MANIAC, VillainType.LAG):
+        roles = [n.role for n in packs[vt].preflop if n.facing == "vs_3bet"]
+        assert roles == ["opener", "cold"], f"{vt.value} vs_3bet roles are {roles}"
 
 
 def test_maniac_vpip_pfr_gap_back_under_ten():
