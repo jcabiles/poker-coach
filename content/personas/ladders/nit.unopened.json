@@ -1,0 +1,105 @@
+{
+  "id": "ladder_nit_unopened",
+  "version": "1.0.0",
+  "domain": "persona_ladder",
+  "_doc": [
+    "RR-EMIT reference curve spec. NOT loaded at runtime: app/domain/personas.py",
+    "globs content/personas/*.json non-recursively, so this subdirectory is",
+    "invisible to the pack loader. It is read only by backend/tools/rr_emit.py,",
+    "which emits the `unopened` nodes of the file named in `emits`.",
+    "",
+    "`depths[row]` = how many classes down that row the CORE tier plays, with",
+    "rows ordered strongest-kicker-first (As = AKs, AQs, ...). Rows absent from",
+    "`depths` are not played at all; a row present with depth 0 is played by the",
+    "slope tier only (the curve's leading edge spilling into a fresh row).",
+    "`slopes[row]` overrides the slope tier widths for one row (one width per",
+    "slope tier) — the nit's curve stops one class short in exactly five rows.",
+    "",
+    "`raise_pct` is an ASSERTED ANNOTATION, never an emitter input: the combo-",
+    "weighted raise width the emitted node actually produces, cross-checked by",
+    "test_rr_emit.py. Floors are authored; they are never fitted to a target.",
+    "There is deliberately nowhere in this file to put a percentile or width",
+    "parameter (range-representation-design.md sec.1)."
+  ],
+  "persona": "nit",
+  "facing": "unopened",
+  "emits": "content/personas/nit.json",
+  "tiers": [
+    {
+      "name": "limp_pairs",
+      "kind": "tail",
+      "rows": ["pairs"],
+      "weights": { "limp": 0.4, "fold": 0.6 }
+    },
+    {
+      "name": "core",
+      "kind": "core",
+      "weights": { "raise": 1.0 }
+    },
+    {
+      "name": "edge",
+      "kind": "slope",
+      "width": 1,
+      "weights": { "raise": 0.5, "fold": 0.5 }
+    }
+  ],
+  "monotone_seats": ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN"],
+  "seats": {
+    "UTG": {
+      "raise_pct": 7.54,
+      "depths": { "pairs": 8, "As": 3, "Ks": 1, "Qs": 0, "Ao": 2 }
+    },
+    "UTG1": {
+      "raise_pct": 8.45,
+      "depths": { "pairs": 7, "As": 4, "Ks": 2, "Qs": 1, "Js": 0, "Ao": 2, "Ko": 0 },
+      "slopes": { "Qs": [0] }
+    },
+    "UTG2": {
+      "raise_pct": 9.95,
+      "depths": { "pairs": 7, "As": 4, "Ks": 3, "Qs": 1, "Js": 1, "Ao": 3, "Ko": 0 },
+      "slopes": { "Js": [0] }
+    },
+    "LJ": {
+      "raise_pct": 12.22,
+      "depths": {
+        "pairs": 7, "As": 5, "Ks": 3, "Qs": 1, "Js": 1, "Ts": 0, "Ao": 4, "Ko": 1
+      },
+      "slopes": { "Js": [0] }
+    },
+    "HJ": {
+      "raise_pct": 13.42,
+      "depths": {
+        "pairs": 7, "As": 6, "Ks": 4, "Qs": 2, "Js": 1, "Ts": 1, "Ao": 4, "Ko": 1
+      },
+      "slopes": { "Ts": [0] }
+    },
+    "CO": {
+      "raise_pct": 15.99,
+      "depths": {
+        "pairs": 7, "As": 7, "Ks": 4, "Qs": 3, "Js": 2, "Ts": 1, "9s": 0,
+        "Ao": 4, "Ko": 2, "Qo": 0
+      }
+    },
+    "BTN": {
+      "raise_pct": 21.42,
+      "depths": {
+        "pairs": 7, "As": 9, "Ks": 5, "Qs": 4, "Js": 3, "Ts": 2, "9s": 1, "8s": 0,
+        "Ao": 5, "Ko": 3, "Qo": 1, "Jo": 0
+      }
+    },
+    "SB": {
+      "raise_pct": 16.59,
+      "depths": {
+        "pairs": 7, "As": 9, "Ks": 4, "Qs": 3, "Js": 2, "Ts": 1, "9s": 0,
+        "Ao": 4, "Ko": 2, "Qo": 0
+      }
+    },
+    "BB": {
+      "raise_pct": 12.52,
+      "depths": {
+        "pairs": 7, "As": 5, "Ks": 3, "Qs": 2, "Js": 1, "Ts": 0, "Ao": 4, "Ko": 1
+      },
+      "slopes": { "Js": [0] }
+    }
+  }
+}
