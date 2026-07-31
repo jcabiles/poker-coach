@@ -4816,12 +4816,29 @@ def _seat_ladder(pack) -> dict[str, float]:
     return {s: _authored_raise_width(_unopened_node(pack, s)) for s in _LADDER_SEATS}
 
 
+def test_w5b3_nit_unopened_nodes_cover_all_nine_seats_explicitly():
+    """🔴 Structural coverage gate (Codex fan-in MED): the W5-b3 ladder deleted
+    the wildcard `unopened` node, so a dropped seat would silently fold 100%
+    at first-in (`sample_preflop_action` has no fall-through) — and a width-0
+    seat would still satisfy the tightest-persona check. Assert exactly nine
+    single-position `unopened` nodes covering every seat, no wildcard left."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    nodes = [n for n in packs[VillainType.NIT].preflop if n.facing == "unopened"]
+    assert all(n.positions is not None for n in nodes), "wildcard unopened node reappeared"
+    assert all(len(n.positions) == 1 for n in nodes), "multi-seat unopened node"
+    seats = sorted(n.positions[0].value for n in nodes)
+    assert seats == sorted(_LADDER_SEATS), f"seat coverage broken: {seats}"
+    assert len(nodes) == 9
+
+
 def test_w5b3_nit_unopened_authored_width_strictly_increases():
     """🔴 W5-b3 defect gate (a), deterministic and n-free.
 
     PRE-SLICE HEAD reading (recorded per the gate-design rule) — the nit
     shipped ONE step, UTG vs everywhere-else:
-        UTG 13.57 · UTG1..BB 29.11 (all seven later seats identical)
+        UTG 13.57 · UTG1..BB 29.11 (all eight later seats identical)
     so `LJ < CO` and `CO < BTN` were 29.11 < 29.11 — FALSE. This test FAILS
     at pre-slice HEAD, which is what makes it a gate rather than a decoration.
 
