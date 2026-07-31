@@ -4177,16 +4177,20 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     blend 0.2801); lag 0.6034 (the wide junky OPEN range folds a lot; the
     strong iso component pulls the live blend to 0.4735, mid-band).
 
-    lag pin RE-DERIVED by N-LAGLADDER (2026-07-31, lag.json 1.3.0): this is a
-    COMPONENT pin over the unopened-WEIGHTED arrival mix, and that mix is
-    exactly what the ladder tighten changed — the nine `unopened` nodes were
-    re-emitted from content/personas/ladders/lag.unopened.json, dropping the
-    dominated offsuit opens whose vs_3bet weights are the fold-heavy ones. The
-    `vs_3bet` opener table itself is UNTOUCHED, so the whole movement is
-    arrival-mix re-weighting: 0.6034 -> 0.5771 (deterministic, no CI). The
-    dossier band is gated downstream on the production blend, which stayed in
-    [0.43, 0.53] on its own seed (0.4735 -> 0.4635, n=438) — no compensating
-    re-tune of the opener node was needed or made."""
+    lag pin RE-DERIVED by N-LAGLADDER (2026-07-31, lag.json 1.3.0) — TWO inputs
+    moved, so the pin is re-measured rather than re-derived from one of them:
+      (a) the nine `unopened` nodes were re-emitted from
+          content/personas/ladders/lag.unopened.json, which re-weights the
+          arrival mix (dominated offsuit out, suited in);
+      (b) the `vs_3bet` OPENER node's two middle tiers were re-tuned — the
+          suited-broadway tier 0.60->0.55 call and the speculative tier
+          0.50->0.46 call. That was not optional: (a) alone dropped the
+          PRODUCTION blend to 0.4242 at n=12000, UNDER the [0.43, 0.53] dossier
+          floor, because a suited-heavier open range meets a table that folds
+          it less. The band is the gate and must not be widened, so the opener
+          weights were brought back per the slice's own remit.
+    Component lands at 0.6166 (deterministic, no CI); pre-slice was 0.6034.
+    The `cold` node is still untouched."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4194,7 +4198,7 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     lag = _opener_fold_to_3bet(packs[VillainType.LAG])
     print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.4f} lag {lag:.4f}")
     assert maniac == pytest.approx(0.3073, abs=0.02), f"maniac component {maniac:.4f} moved"
-    assert lag == pytest.approx(0.5771, abs=0.02), f"lag component {lag:.4f} moved"
+    assert lag == pytest.approx(0.6166, abs=0.02), f"lag component {lag:.4f} moved"
 
 
 def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
@@ -4281,7 +4285,19 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     raises over limpers, exactly what the live `is_opener` signal serves the
     opener table to. maniac ~0.30 target → band [0.25, 0.35]; lag inside its
     dossier band [0.43, 0.53] ("above 60% makes light 3-betting
-    insufficiently defended"; pre-slice measured 0.72-0.83)."""
+    insufficiently defended"; pre-N-3BSTRATA measured 0.72-0.83).
+
+    ⚠️ THIS GATE'S n IS NOT ENOUGH TO SETTLE THE VALUE (N-LAGLADDER, review fold
+    6). It reads ~460-490 lag opener decisions at n=4000, whose Wilson half-
+    width is ±0.045 — wider than the distance from the band floor. Both figures
+    below are therefore quoted at n=12000 (≈1470 decisions) as well:
+        pre-slice (origin/main)  0.4667 @n=4000 (n_dec 480) · 0.4534 @n=12000
+        shipped                  0.4622 @n=4000 (n_dec 489) · 0.4452 @n=12000
+    The earlier in-tree figure "0.4735" was stale — it predates intervening
+    slices; 0.4667 is the value origin/main actually measures on this seed.
+    An intermediate N-LAGLADDER build passed HERE at 0.4366 while measuring
+    0.4242 at n=12000, i.e. under the floor: a pass at this n is necessary, not
+    sufficient, and the opener-node re-tune was driven by the n=12000 read."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -5519,24 +5535,43 @@ def test_tm2_nit_pair_opens_did_not_leak_to_the_other_seven_seats():
 def test_nlagladder_lag_vpip_pfr_reported_not_gated():
     """REPORT-ONLY (same rule as the nit row above — the single population-band
     anchor is W4-b; committing a level here would be a §5 / §11 item-7
-    auto-FAIL). N-LAGLADDER's stated aim was the lag's 21-27 VPIP identity, so
-    the number is MEASURED and PRINTED rather than assumed.
+    auto-FAIL). Prints BOTH rows against their §5 LAG bands. §5 provenance is
+    stated once in content/personas/ladders/lag.unopened.json's `_doc` (VPIP
+    21-27 / PFR 17-23, 9-max full ring, ledger #14, conf MEDIUM, edges
+    DIRECTIONAL); it is not restated as a bare number here.
 
-    ⚠️ HONEST READING (the one an adversarial reviewer should have): at pre-fix
-    HEAD the lag's measured VPIP was ALREADY 0.2394 — inside 21-27. The ladder
-    was not out of band at the population level; the defect the tighten repairs
-    is COMPOSITION (dominated offsuit opens in early seats, and the vs_3bet
-    call mass they generate), which the authored-shape gates in
-    test_personas.py assert directly. Post-fix reads 0.2217 / PFR 0.1628 (gap
-    unchanged at 0.0589), i.e. still in band but nearer its floor — a FURTHER
-    tighten of this ladder would push the lag under its own dossier VPIP."""
+    WHY THIS ROW EXISTS (review fold, fix 1). N-LAGLADDER's first cut tightened
+    the authored ladder and drove PFR to 15.77, UNDER the §5 floor. A 10-seed
+    sweep of THIS metric at n=2000 then measured:
+        pre-slice pack  VPIP 23.51 ±0.45 · PFR 17.32 ±0.34 · gap 6.19 ±0.36
+        shipped  pack   VPIP 23.88 ±0.40 · PFR 17.32 ±0.30 · gap 6.55 ±0.28
+    Two facts follow, and both are REPORTED not gated:
+      1. JOINT GEOMETRY — PFR = VPIP − gap. With the gap at its ~6 ceiling, a
+         VPIP under ~22.9 forces PFR under the 17 floor. The pre-slice pack
+         already sat ON both limits (PFR 17.32 vs floor 17, gap 6.19 vs ceiling
+         6), so there was NO headroom for a width tighten to spend. That is why
+         this slice ships a composition swap at constant width.
+      2. The gap row is ABOVE 6 on both packs. The +0.36 the shipped pack adds
+         is the AQo vs_rfi fold->call transfer (AQo is 0.905% of hands × 0.40
+         converted = 0.36pp of VPIP-without-PFR) — an intended, arithmetically
+         accounted consequence of the T-F3 fix, not drift. It was NOT
+         compensated elsewhere (that would be the compensating-lever trap).
+
+    ⚠️ INSTRUMENT CAVEAT (review fold, fix 5): metric #3's lineup is
+    3×[persona] + 6 fillers cycled from the other five archetypes — NOT the §5
+    reference pool. Roster-wide this instrument reads one-sidedly LOW against
+    §5 (nit 0.067 vs 10-14, maniac 0.390 vs 45-58, passive_fish 0.354 vs
+    40-55), so a lag reading that lands inside a §5 band is not evidence of
+    pool-level realism, and "there is no headroom" must not be inherited from
+    here as a settled fact about the persona — only as one about this harness.
+    """
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     s = _persona_stats_ext(packs, "lag", 600)
     print(
-        f"lag VPIP {s.vpip:.3f} PFR {s.pfr:.3f} gap "
-        f"{s.gap:.3f} (n=600, REPORTED — band anchor is W4-b; "
-        f"pre-N-LAGLADDER 0.239 / 0.181 / 0.059)"
+        f"lag VPIP {s.vpip:.3f} (§5 0.21-0.27) PFR {s.pfr:.3f} (§5 0.17-0.23) "
+        f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
+        f"10-seed n=2000 means: pre-slice 23.51/17.32/6.19, shipped 23.88/17.32/6.55"
     )
     assert s.vpip is not None and s.pfr is not None

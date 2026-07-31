@@ -1,6 +1,6 @@
 {
   "id": "ladder_lag_unopened",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "domain": "persona_ladder",
   "_doc": [
     "N-LAGLADDER curve spec — RR-EMIT's first PRODUCTION authoring run (the nit",
@@ -10,26 +10,40 @@
     "to the pack loader. It is read only by backend/tools/rr_emit.py, which",
     "emits the `unopened` nodes of the file named in `emits`.",
     "",
-    "WHY THIS LADDER MOVED (theory-HIGH finding T-H1, wave-2 ledger): the lag's",
-    "authored first-in ladder was uniformly too wide for its 21-27 VPIP",
-    "identity, and the excess was concentrated in DOMINATED OFFSUIT hands in",
-    "early seats — at UTG the pack opened 12.49% of all combos offsuit against",
-    "only 7.90% suited, i.e. HALF the opening range was offsuit and the lag",
-    "opened MORE offsuit than the tag from every early seat. That surplus is",
-    "what later arrives at `vs_3bet` as un-defendable call mass.",
+    "PROVENANCE OF THE IDENTITY TARGET, stated ONCE here so the tests can point",
+    "at it instead of repeating a bare number: §5 LAG VPIP 21-27 / PFR 17-23",
+    "(9-max full ring, online micro-low NL cash, ledger #14 full-ring-specialist",
+    "source; confidence MEDIUM, band edges DIRECTIONAL). Nothing in this slice",
+    "gates on those edges — they are the reason the shape moved, not a target",
+    "the content was fitted to.",
     "",
-    "The repair is a SUBSTITUTION, not a blanket trim: offsuit width comes down",
-    "hard (UTG 12.49 -> 7.78, CO 31.13 -> 25.70) while suited width goes UP",
-    "(UTG 7.90 -> 10.08, CO 16.23 -> 20.03). A loose-aggressive reg's extra",
-    "width is suited/connected and positional, not dominated offsuit broadway.",
-    "Net authored RFI falls at every seat (seat-average 43.15 -> 39.22) and the",
-    "roster ordering tag < lag < maniac still holds at all nine seats.",
+    "WHAT THIS REPAIRS (theory-HIGH finding T-H1, wave-2 ledger): the lag's",
+    "first-in ladder carried its width in DOMINATED OFFSUIT hands, worst in",
+    "early seats — at UTG it raised 12.49% of all combos offsuit against only",
+    "7.90% suited, i.e. HALF the opening range was offsuit and the lag opened",
+    "MORE offsuit than the tag from every early seat. That surplus is what",
+    "later arrives at `vs_3bet` as call mass the persona cannot defend.",
+    "",
+    "THE FIX IS A COMPOSITION SWAP AT CONSTANT WIDTH, NOT A TRIM. Offsuit width",
+    "falls at every seat (UTG 12.49 -> 8.69, UTG2 17.38 -> 12.31, HJ 26.61 ->",
+    "22.62) and suited width rises at every seat (UTG 7.90 -> 10.50, UTG2 10.92",
+    "-> 15.51, HJ 15.20 -> 19.13), while the combo-weighted TOTAL stays within",
+    "0.36pp of the pre-slice ladder at every seat (seat-average 43.15 -> 43.04).",
+    "",
+    "WHY THE TOTAL DID NOT COME DOWN — measured, not assumed (review fold, fix",
+    "1). The first cut of this slice tightened the seat-average to 39.22 and",
+    "drove measured population PFR to 15.77, UNDER the §5 floor of 17. A 10-seed",
+    "sweep of metric #3 at n=2000 then showed the pre-slice pack itself sits at",
+    "PFR 17.32 +- 0.34 — i.e. ON the floor, with no headroom to spend. Any real",
+    "width reduction therefore breaches §5, so the width was restored and the",
+    "whole deliverable is the composition. This ladder re-measures at PFR 17.32",
+    "+- 0.30, identical to pre-slice.",
     "",
     "AUTHORING RULE used for the offsuit rows (not enforced by the emitter, and",
-    "deliberately not gated — it is an authoring habit, not a law): the weakest",
-    "kicker played at full weight must not get STRONGER as the high card gets",
-    "weaker, so a row never plays K8o at the fringe weight while Q8o sits in the",
-    "core. Suited rows are exempt: 65s outranks 95s on connectedness, so the",
+    "deliberately not gated — an authoring habit, not a law): the weakest kicker",
+    "played at full weight must not get STRONGER as the high card gets weaker,",
+    "so a row never plays K8o at the fringe weight while Q8o sits in the core.",
+    "Suited rows are exempt: 65s outranks 95s on connectedness, so the",
     "same-kicker comparison is not a domination relation there.",
     "",
     "`depths[row]` = how many classes down that row the CORE tier plays, with",
@@ -64,88 +78,92 @@
   "monotone_seats": ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN"],
   "seats": {
     "UTG": {
-      "raise_pct": 22.11,
+      "raise_pct": 25.07,
       "depths": {
-        "pairs": 9, "As": 10, "Ks": 7, "Qs": 5, "Js": 3, "Ts": 2, "9s": 1,
-        "8s": 1, "7s": 1, "6s": 1,
-        "Ao": 4, "Ko": 2, "Qo": 1, "Jo": 0
-      },
-      "slopes": { "8s": [0], "7s": [0], "6s": [0] }
-    },
-    "UTG1": {
-      "raise_pct": 24.8,
-      "depths": {
-        "pairs": 10, "As": 11, "Ks": 8, "Qs": 5, "Js": 4, "Ts": 2, "9s": 2,
+        "pairs": 13, "As": 11, "Ks": 7, "Qs": 5, "Js": 3, "Ts": 2, "9s": 1,
         "8s": 1, "7s": 1, "6s": 1,
         "Ao": 4, "Ko": 3, "Qo": 1, "Jo": 0
       },
-      "slopes": { "7s": [0], "6s": [0] }
+      "slopes": { "pairs": [0], "7s": [0], "6s": [0] }
+    },
+    "UTG1": {
+      "raise_pct": 27.36,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 8, "Qs": 6, "Js": 5, "Ts": 4, "9s": 2,
+        "8s": 1, "7s": 1, "6s": 1,
+        "Ao": 5, "Ko": 2, "Qo": 1, "Jo": 0
+      },
+      "slopes": { "pairs": [0], "As": [0], "7s": [0], "6s": [0] }
     },
     "UTG2": {
-      "raise_pct": 29.17,
+      "raise_pct": 33.7,
       "depths": {
-        "pairs": 11, "As": 12, "Ks": 9, "Qs": 6, "Js": 5, "Ts": 3, "9s": 2,
-        "8s": 2, "7s": 1, "6s": 1, "5s": 1,
-        "Ao": 4, "Ko": 3, "Qo": 2, "Jo": 1
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 7, "Js": 6, "Ts": 4, "9s": 3,
+        "8s": 2, "7s": 2, "6s": 1, "5s": 1,
+        "Ao": 6, "Ko": 3, "Qo": 2, "Jo": 1
       },
-      "slopes": { "As": [0], "6s": [0], "5s": [0] }
+      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "6s": [0], "5s": [0] }
     },
     "LJ": {
-      "raise_pct": 33.09,
+      "raise_pct": 37.62,
       "depths": {
-        "pairs": 13, "As": 12, "Ks": 10, "Qs": 7, "Js": 6, "Ts": 4, "9s": 3,
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 8, "Js": 7, "Ts": 4, "9s": 3,
         "8s": 2, "7s": 2, "6s": 1, "5s": 1,
-        "Ao": 5, "Ko": 3, "Qo": 2, "Jo": 1, "To": 0
-      },
-      "slopes": { "pairs": [0], "As": [0], "5s": [0] }
-    },
-    "HJ": {
-      "raise_pct": 40.63,
-      "depths": {
-        "pairs": 13, "As": 12, "Ks": 11, "Qs": 8, "Js": 7, "Ts": 5, "9s": 4,
-        "8s": 3, "7s": 2, "6s": 2, "5s": 1,
-        "Ao": 7, "Ko": 4, "Qo": 3, "Jo": 2, "To": 1
+        "Ao": 7, "Ko": 4, "Qo": 3, "Jo": 1, "To": 0
       },
       "slopes": { "pairs": [0], "As": [0], "Ks": [0] }
     },
-    "CO": {
-      "raise_pct": 51.61,
+    "HJ": {
+      "raise_pct": 47.63,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 5,
-        "8s": 4, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
-        "Ao": 9, "Ko": 6, "Qo": 5, "Jo": 3, "To": 2, "9o": 1
-      },
-      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "4s": [0] }
-    },
-    "BTN": {
-      "raise_pct": 62.9,
-      "depths": {
-        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 8, "9s": 6,
-        "8s": 5, "7s": 4, "6s": 3, "5s": 3, "4s": 2, "3s": 1,
-        "Ao": 11, "Ko": 8, "Qo": 6, "Jo": 4, "To": 3, "9o": 2, "8o": 1
+        "8s": 4, "7s": 2, "6s": 2, "5s": 1,
+        "Ao": 8, "Ko": 5, "Qo": 4, "Jo": 3, "To": 2, "9o": 1
       },
       "slopes": {
-        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "Js": [0], "Ts": [0],
-        "5s": [0], "4s": [0], "3s": [0]
+        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "9o": [0]
+      }
+    },
+    "CO": {
+      "raise_pct": 53.12,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 7, "Ts": 4, "9s": 3,
+        "8s": 2, "7s": 2, "6s": 1, "5s": 1, "4s": 1,
+        "Ao": 11, "Ko": 7, "Qo": 5, "Jo": 4, "To": 3, "9o": 1
+      },
+      "slopes": {
+        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "4s": [0]
+      }
+    },
+    "BTN": {
+      "raise_pct": 65.97,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 7, "9s": 4,
+        "8s": 3, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
+        "Ao": 12, "Ko": 10, "Qo": 7, "Jo": 6, "To": 4, "9o": 2, "8o": 1
+      },
+      "slopes": {
+        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "Js": [0], "5s": [0],
+        "4s": [0], "Ao": [0]
       }
     },
     "SB": {
-      "raise_pct": 49.44,
+      "raise_pct": 51.86,
       "depths": {
-        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 5,
-        "8s": 4, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
-        "Ao": 9, "Ko": 6, "Qo": 4, "Jo": 3, "To": 2
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 7, "Ts": 5, "9s": 3,
+        "8s": 2, "7s": 2, "6s": 1, "5s": 1,
+        "Ao": 11, "Ko": 7, "Qo": 5, "Jo": 4, "To": 3
       },
-      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "4s": [0] }
+      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0] }
     },
     "BB": {
-      "raise_pct": 39.25,
+      "raise_pct": 45.04,
       "depths": {
-        "pairs": 13, "As": 12, "Ks": 10, "Qs": 8, "Js": 6, "Ts": 5, "9s": 4,
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 7, "Ts": 6, "9s": 4,
         "8s": 3, "7s": 2, "6s": 2, "5s": 1,
-        "Ao": 6, "Ko": 4, "Qo": 3, "Jo": 2, "To": 1
+        "Ao": 8, "Ko": 5, "Qo": 4, "Jo": 3, "To": 1
       },
-      "slopes": { "pairs": [0], "As": [0] }
+      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Qs": [0] }
     }
   }
 }

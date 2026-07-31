@@ -3,20 +3,34 @@
   "version": "1.3.0",
   "domain": "persona",
   "_doc": [
-    "1.3.0 (N-LAGLADDER, 2026-07-31) — two changes.",
+    "1.3.0 (N-LAGLADDER, 2026-07-31) — three changes.",
     "(1) All nine `unopened` nodes REPLACED. They are now EMITTED, not",
     "hand-authored: the curve spec is content/personas/ladders/lag.unopened.json",
     "and `python -m tools.rr_emit` regenerates exactly the mixes below (proved",
-    "by backend/tests/test_rr_emit.py). Authored first-in raise % per seat:",
-    "UTG 25.10->22.11, UTG1 27.48->24.80, UTG2 33.73->29.17, LJ 37.62->33.09,",
-    "HJ 47.69->40.63, CO 53.24->51.61, BTN 66.09->62.90, SB 51.98->49.44,",
-    "BB 45.40->39.25. The width comes off DOMINATED OFFSUIT hands (UTG offsuit",
-    "12.49->7.78) and part of it goes back into suited (UTG 7.90->10.08); see",
-    "the spec's `_doc` for the finding this repairs. Roster ordering",
-    "tag < lag < maniac still holds at all nine seats.",
+    "by backend/tests/test_rr_emit.py). This is a COMPOSITION swap at constant",
+    "width, NOT a trim — offsuit out, suited in, per seat:",
+    "  offsuit  UTG 12.49->8.69 · UTG1 13.39->8.69 · UTG2 17.38->12.31 ·",
+    "           LJ 19.55->15.38 · HJ 26.61->22.62 · CO 31.13->30.23 ·",
+    "           BTN 40.54->40.18 · SB 29.86->28.96 · BB 24.80->20.81",
+    "  suited   UTG 7.90->10.50 · UTG1 9.11->12.79 · UTG2 10.92->15.51 ·",
+    "           LJ 12.19->16.35 · HJ 15.20->19.13 · CO 16.23->17.01 ·",
+    "           BTN 19.67->19.91 · SB 16.23->17.01 · BB 14.72->18.34",
+    "Combo-weighted TOTAL moves <=0.36pp at every seat (seat-average 43.15 ->",
+    "43.04). The width was deliberately NOT reduced: measured population PFR",
+    "sits ON the §5 floor, so a tighten breaches it — see the spec's `_doc`.",
+    "Roster ordering tag < lag < maniac still holds at all nine seats, and lag",
+    "offsuit width stays above the tag's at every seat.",
     "(2) `vs_rfi` AQo carved out of the 3bet-0.6 mix into {3bet 0.6, call 0.4}",
     "— the fold 0.4 a lag had against a single raise (RR-HOLES T-F3 flagged",
-    "row) is now call mass. 3-bet width is unchanged by construction."
+    "row) is now call mass. 3-bet width is unchanged by construction.",
+    "(3) `vs_3bet` role=opener, two middle tiers re-tuned: suited-broadway tier",
+    "call 0.60->0.55, speculative tier call 0.50->0.46 (fold takes the",
+    "difference; 4-bet weights untouched, so the opener 4-bet share stays at",
+    "4.00%). Required, not optional: change (1) alone dropped the production",
+    "opener fold-to-3-bet to 0.4242 at n=12000, under the [0.43, 0.53] dossier",
+    "floor, because a suited-heavier opening range meets a table that folds it",
+    "less. Restores 0.4452 @n=12000 vs 0.4534 pre-slice. The role=cold node is",
+    "untouched."
   ],
   "persona": "lag",
   "display_name": "LAG",
@@ -44,72 +58,72 @@
       "facing": "unopened",
       "positions": ["UTG"],
       "mixes": [
-        { "combos": "66+, A4s+, K6s+, Q7s+, J8s+, T8s+, 98s, 87s, 76s, 65s, ATo+, KJo+, QJo", "weights": { "raise": 1.0 } },
-        { "combos": "55, A3s, K5s, Q6s, J7s, T7s, 97s, A9o, KTo, QTo, JTo", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A3s+, K6s+, Q7s+, J8s+, T8s+, 98s, 87s, 76s, 65s, ATo+, KTo+, QJo", "weights": { "raise": 1.0 } },
+        { "combos": "A2s, K5s, Q6s, J7s, T7s, 97s, 86s, A9o, K9o, QTo, JTo", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["UTG1"],
       "mixes": [
-        { "combos": "55+, A3s+, K5s+, Q7s+, J7s+, T8s+, 97s+, 87s, 76s, 65s, ATo+, KTo+, QJo", "weights": { "raise": 1.0 } },
-        { "combos": "44, A2s, K4s, Q6s, J6s, T7s, 96s, 86s, A9o, K9o, QTo, JTo", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K5s+, Q6s+, J6s+, T6s+, 97s+, 87s, 76s, 65s, A9o+, KJo+, QJo", "weights": { "raise": 1.0 } },
+        { "combos": "K4s, Q5s, J5s, T5s, 96s, 86s, A8o, KTo, QTo, JTo", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["UTG2"],
       "mixes": [
-        { "combos": "44+, A2s+, K4s+, Q6s+, J6s+, T7s+, 97s+, 86s+, 76s, 65s, 54s, ATo+, KTo+, QTo+, JTo", "weights": { "raise": 1.0 } },
-        { "combos": "33, K3s, Q5s, J5s, T6s, 96s, 85s, 75s, A9o, K9o, Q9o, J9o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q5s+, J5s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo", "weights": { "raise": 1.0 } },
+        { "combos": "Q4s, J4s, T5s, 95s, 85s, 74s, A7o, K9o, Q9o, J9o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["LJ"],
       "mixes": [
-        { "combos": "22+, A2s+, K3s+, Q5s+, J5s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo", "weights": { "raise": 1.0 } },
-        { "combos": "K2s, Q4s, J4s, T5s, 95s, 85s, 74s, 64s, A8o, K9o, Q9o, J9o, T9o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q4s+, J4s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, A7o+, K9o+, Q9o+, JTo", "weights": { "raise": 1.0 } },
+        { "combos": "Q3s, J3s, T5s, 95s, 85s, 74s, 64s, 53s, A6o, K8o, Q8o, J9o, T9o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["HJ"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q4s+, J4s+, T5s+, 95s+, 85s+, 75s+, 64s+, 54s, A7o+, K9o+, Q9o+, J9o+, T9o", "weights": { "raise": 1.0 } },
-        { "combos": "Q3s, J3s, T4s, 94s, 84s, 74s, 63s, 53s, A6o, K8o, Q8o, J8o, T8o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 75s+, 64s+, 54s, A6o+, K8o+, Q8o+, J8o+, T8o+, 98o", "weights": { "raise": 1.0 } },
+        { "combos": "J2s, T3s, 93s, 83s, 74s, 63s, A5o, K7o, Q7o, J7o, T7o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["CO"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, A5o+, K7o+, Q7o+, J8o+, T8o+, 98o", "weights": { "raise": 1.0 } },
-        { "combos": "J2s, T3s, 93s, 83s, 73s, 63s, A4o, K6o, Q6o, J7o, T7o, 97o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, 43s, A3o+, K6o+, Q7o+, J7o+, T7o+, 98o", "weights": { "raise": 1.0 } },
+        { "combos": "J3s, T5s, 95s, 85s, 74s, 64s, A2o, K5o, Q6o, J6o, T6o, 97o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["BTN"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 93s+, 83s+, 73s+, 63s+, 52s+, 42s+, 32s, A3o+, K5o+, Q6o+, J7o+, T7o+, 97o+, 87o", "weights": { "raise": 1.0 } },
-        { "combos": "92s, 82s, 72s, 62s, A2o, K4o, Q5o, J6o, T6o, 96o, 86o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, A2o+, K3o+, Q5o+, J5o+, T6o+, 97o+, 87o", "weights": { "raise": 1.0 } },
+        { "combos": "T2s, 94s, 84s, 73s, 63s, K2o, Q4o, J4o, T5o, 96o, 86o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["SB"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, A5o+, K7o+, Q8o+, J8o+, T8o+", "weights": { "raise": 1.0 } },
-        { "combos": "J2s, T3s, 93s, 83s, 73s, 63s, A4o, K6o, Q7o, J7o, T7o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T5s+, 96s+, 86s+, 75s+, 65s, 54s, A3o+, K6o+, Q7o+, J7o+, T7o+", "weights": { "raise": 1.0 } },
+        { "combos": "J3s, T4s, 95s, 85s, 74s, 64s, A2o, K5o, Q6o, J6o, T6o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["BB"],
       "mixes": [
-        { "combos": "22+, A2s+, K3s+, Q4s+, J5s+, T5s+, 95s+, 85s+, 75s+, 64s+, 54s, A8o+, K9o+, Q9o+, J9o+, T9o", "weights": { "raise": 1.0 } },
-        { "combos": "K2s, Q3s, J4s, T4s, 94s, 84s, 74s, 63s, 53s, A7o, K8o, Q8o, J8o, T8o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T4s+, 95s+, 85s+, 75s+, 64s+, 54s, A6o+, K8o+, Q8o+, J8o+, T9o", "weights": { "raise": 1.0 } },
+        { "combos": "J3s, T3s, 94s, 84s, 74s, 63s, 53s, A5o, K7o, Q7o, J7o, T8o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
@@ -156,11 +170,11 @@
         { "combos": "A5s, A4s, A3s, A2s", "weights": { "4bet": 0.45, "call": 0.1, "fold": 0.45 } },
         {
           "combos": "88, 77, ATs, A9s, A8s, A7s, A6s, KJs, KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo",
-          "weights": { "call": 0.6, "fold": 0.4 }
+          "weights": { "call": 0.55, "fold": 0.45 }
         },
         {
           "combos": "22-66, K9s, K8s, Q9s, Q8s, J9s, J8s, T8s, 97s, 87s, 76s, 65s, 54s, KQo, ATo, KJo, QJo, JTo",
-          "weights": { "4bet": 0.1, "call": 0.5, "fold": 0.4 }
+          "weights": { "4bet": 0.1, "call": 0.46, "fold": 0.44 }
         },
         {
           "combos": "KTo, QTo, T9o, A9o, A8o, A7o, K9o, Q9o, J9o",

@@ -321,6 +321,14 @@ LAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "lag.unopened.json"
 LAG_PACK_PATH = CONTENT.parent / json.loads(
     LAG_SPEC_PATH.read_text(encoding="utf-8")
 )["emits"]
+# Review fold (3-way convergent: Codex, theory, lane-B precedent): deriving the
+# pack path from the spec's own `emits` makes the metadata audited rather than
+# dead, but ONLY if the resolved target is itself pinned — otherwise repointing
+# `emits` at, say, nit.json would silently re-aim every gate below at a pack
+# this spec does not author. Assert the resolution before any fixture uses it.
+assert LAG_PACK_PATH == CONTENT / "personas" / "lag.json", (
+    f"lag spec 'emits' resolves to {LAG_PACK_PATH}, not content/personas/lag.json"
+)
 
 
 def _load_lag_spec() -> dict:
@@ -378,7 +386,7 @@ def test_lag_proving_gate_corpus_is_non_trivial(lag_emitted, lag_shipped):
         }
 
     played = union(lag_shipped)
-    assert len(played) == 133, "shipped lag unopened corpus changed size"
+    assert len(played) == 132, "shipped lag unopened corpus changed size"
     assert union(lag_emitted) == played
     assert sum(len(n["mixes"]) for n in lag_emitted) == 18  # 9 seats x 2 tiers
 
