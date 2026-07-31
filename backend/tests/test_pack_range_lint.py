@@ -161,7 +161,6 @@ _ROW_GAPS = {
     ("calling_station", "vs_rfi", "*", "4s", ("43s",)),
     ("lag", "vs_rfi", "*", "Ao", ("AQo",)),
     ("lag", "vs_rfi", "*", "Qs", ("QTs",)),
-    ("lag", "vs_3bet", "*", "As", ("A9s", "A8s", "A7s", "A6s")),
     ("lag", "vs_4bet", "*", "As", ("AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
     ("maniac", "vs_4bet", "*", "pair", ("99", "88", "77")),
     ("maniac", "vs_4bet", "*", "As", ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
@@ -170,7 +169,12 @@ _ROW_GAPS = {
     ("tag", "vs_rfi", "*", "pair", ("77",)),
     ("tag", "vs_rfi", "*", "As", ("AQs",)),
     ("tag", "vs_rfi", "*", "Ao", ("AQo",)),
-    ("tag", "vs_3bet", "*", "As", ("ATs", "A9s", "A8s", "A7s", "A6s")),
+    # R10-3BET (2026-07-31): tag's rewritten vs_3bet deliberately continues
+    # ATs and 4-bet-bluffs A5s/A4s while folding A9s-A6s — polar blocker
+    # construction, authored exception (dossier: fold-to-3bet 52-65%, 4-bet
+    # bluffs from wheel-ace blockers). Lag's old As gap was FIXED in the same
+    # rewrite (full suited-ace coverage).
+    ("tag", "vs_3bet", "*", "As", ("A9s", "A8s", "A7s", "A6s")),
 }
 
 # (maniac vs_rfi JTo inert token and the K2s-mix call interleaving were fixed
@@ -181,6 +185,9 @@ _INERT_TOKENS = {
     ("tag", "vs_rfi", "*", "22-66", "KQo"),
 }
 
+# (The four vs_3bet interleavings — nit/passive_fish KK, lag 88-JJ, tag TT-QQ —
+# were fixed by R10-3BET's node rewrites: mixes are now ordered so dominant
+# non-fold weights only descend; entries removed in that slice's commit.)
 _WEIGHT_INTERLEAVING = {
     # limp 0.5 -> 1.0 IS the station's limped-aces tell surfacing at scale —
     # deliberate character, frozen not judged (tie-revealed by the co-dominant
@@ -188,13 +195,9 @@ _WEIGHT_INTERLEAVING = {
     ("calling_station", "unopened", "*", "22+", "limp", 0.5, 1.0),
     ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 1.0),
     ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 1.0),
-    ("lag", "vs_3bet", "*", "88-JJ", "call", 0.6, 0.75),
     ("maniac", "vs_4bet", "*", "QQ", "5bet_shove", 0.7, 1.0),
-    ("nit", "vs_3bet", "*", "KK", "call", 0.5, 1.0),
     ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 1.0),
-    ("passive_fish", "vs_3bet", "*", "KK", "call", 0.5, 1.0),
     ("passive_fish", "vs_4bet", "*", "KK", "call", 0.5, 1.0),
-    ("tag", "vs_3bet", "*", "TT-QQ", "call", 0.6, 0.8),
 }
 
 

@@ -1,6 +1,6 @@
 {
   "id": "persona_nit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "domain": "persona",
   "persona": "nit",
   "display_name": "Nit",
@@ -62,8 +62,12 @@
       "facing": "vs_3bet",
       "positions": null,
       "mixes": [
+        { "combos": "KK", "weights": { "call": 0.7, "4bet": 0.3 } },
         { "combos": "AA", "weights": { "4bet": 0.5, "call": 0.5 } },
-        { "combos": "KK", "weights": { "call": 1.0 } }
+        { "combos": "QQ", "weights": { "call": 0.5, "4bet": 0.1, "fold": 0.4 } },
+        { "combos": "AKs", "weights": { "call": 0.5, "fold": 0.5 } },
+        { "combos": "JJ, AKo", "weights": { "call": 0.4, "fold": 0.6 } },
+        { "combos": "TT, AQs", "weights": { "call": 0.25, "fold": 0.75 } }
       ]
     },
     {

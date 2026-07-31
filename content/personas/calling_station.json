@@ -1,6 +1,6 @@
 {
   "id": "persona_calling_station",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "domain": "persona",
   "persona": "calling_station",
   "display_name": "Calling Station",
@@ -64,7 +64,12 @@
       "positions": null,
       "mixes": [
         { "combos": "AA, KK", "weights": { "call": 1.0 } },
-        { "combos": "QQ, AKs, AKo", "weights": { "call": 0.7, "fold": 0.3 } }
+        { "combos": "QQ, JJ, AKs, AKo", "weights": { "call": 0.8, "fold": 0.2 } },
+        { "combos": "TT, 99, AQs, AQo, AJs, ATs, KQs", "weights": { "call": 0.6, "fold": 0.4 } },
+        {
+          "combos": "22-88, A9s, A8s, A7s, A6s, A5s, A4s, A3s, A2s, KJs, KTs, QJs, QTs, JTs, T9s, 98s, AJo, ATo, KQo, KJo, QJo",
+          "weights": { "call": 0.45, "fold": 0.55 }
+        }
       ]
     },
     {
