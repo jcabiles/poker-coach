@@ -11,17 +11,30 @@ compared against a COMMITTED INVENTORY of the defects live at HEAD:
    nodes some instances are DELIBERATE polar/blocker poker (e.g. lag vs_4bet
    continues A5s-A2s but folds AQs-A6s) — the inventory records reality and
    forces any change to be a conscious one; it does not judge intent.
-2. INERT TOKENS — a comma token in a mix whose every combo class is already
-   covered by earlier mixes of the same node: text that reads as intent but
-   can never fire under first-match-wins (`sample_preflop_action`). Partial
-   overlap (e.g. the R10-PRE1 premium carve-out peeling TT+ off a wide "55+"
-   mix) is the sanctioned carve-out idiom and is NOT flagged — only tokens
-   that are fully dead.
-3. WEIGHT INTERLEAVING — within a node, a later mix whose dominant action
-   carries MORE weight than an earlier mix with the same dominant action
-   (e.g. a fringe tier raising 0.85 above a core tier's 0.7). Some instances
-   are deliberate (premium-first tiering with rising call weight); the
+2. INERT TOKENS — a comma token whose every combo class is already covered
+   by earlier mixes of the same node OR by earlier tokens of the same mix
+   (review fold: intra-mix duplicates are the same authoring failure mode):
+   text that reads as intent but can never fire under first-match-wins
+   (`sample_preflop_action`). Partial overlap (e.g. the R10-PRE1 premium
+   carve-out peeling TT+ off a wide "55+" mix) is the sanctioned carve-out
+   idiom and is NOT flagged — only tokens that are fully dead.
+3. WEIGHT INTERLEAVING — within a node, a later mix whose dominant
+   NON-FOLD action carries MORE weight than an earlier mix where that same
+   action was dominant (e.g. a fringe tier raising 0.85 above a core tier's
+   0.7). Tie semantics are explicit (review fold — `max()` over a dict is
+   JSON-key-order dependent and 22 shipped mixes are exact ties): EVERY
+   non-fold action within 1e-9 of the mix's non-fold maximum is tracked as
+   co-dominant, and `fold` is never a dominant action (a rising fold weight
+   is not an escalation). Key reordering inside a weights dict is a
+   semantic no-op for the engine and cannot move this inventory. Some
+   instances are deliberate (premium-first tiering with rising call
+   weight; the station's limp 0.5 -> 1.0 IS its limped-aces tell); the
    inventory freezes them.
+
+Entry identity is content-stable (review fold): position keys are SORTED
+seat values, and mixes are identified by their first combos token, not
+their list index — appending or reordering unrelated content does not
+reshuffle entries.
 
 TRIPWIRE SEMANTICS (this suite PASSES at HEAD by design — it is a
 PRESERVATION-plus-tripwire check, not a defect gate): the computed defect set
@@ -65,8 +78,17 @@ def _rows():
 
 
 def _node_key(persona: str, node) -> tuple[str, str, str]:
-    poskey = "*" if node.positions is None else "/".join(p.value for p in node.positions)
+    poskey = (
+        "*"
+        if node.positions is None
+        else "/".join(sorted(p.value for p in node.positions))
+    )
     return (persona, node.facing, poskey)
+
+
+def _mix_id(mix) -> str:
+    """Content-stable mix identifier: the first combos token."""
+    return mix.combos.split(",")[0].strip()
 
 
 def _scan_packs():
@@ -80,15 +102,15 @@ def _scan_packs():
         for node in pack.preflop:
             key = _node_key(vt.value, node)
             covered: set[str] = set()
-            for mi, mix in enumerate(node.mixes):
+            for mix in node.mixes:
                 for tok in mix.combos.split(","):
                     tok = tok.strip()
                     if not tok:
                         continue
                     tset = parse_range(tok) & _ALL_CLASSES
                     if tset and tset <= covered:
-                        inert.add(key + (mi, tok))
-                covered |= parse_range(mix.combos) & _ALL_CLASSES
+                        inert.add(key + (_mix_id(mix), tok))
+                    covered |= tset
             played = covered
             for rname, ordered in _rows():
                 missing_stronger = tuple(
@@ -100,14 +122,18 @@ def _scan_packs():
                 if missing_stronger:
                     gaps.add(key + (rname, missing_stronger))
             prev_weight: dict[str, float] = {}
-            for mi, mix in enumerate(node.mixes):
-                if not mix.weights:
+            for mix in node.mixes:
+                nonfold = {a: w for a, w in mix.weights.items() if a != "fold"}
+                if not nonfold:
                     continue
-                act = max(mix.weights, key=lambda a: mix.weights[a])
-                w = mix.weights[act]
-                if act in prev_weight and w > prev_weight[act] + 1e-9:
-                    interleave.add(key + (mi, act, prev_weight[act], w))
-                prev_weight[act] = w
+                peak = max(nonfold.values())
+                for act in sorted(a for a, w in nonfold.items() if w >= peak - 1e-9):
+                    w = nonfold[act]
+                    if act in prev_weight and w > prev_weight[act] + 1e-9:
+                        interleave.add(
+                            key + (_mix_id(mix), act, prev_weight[act], w)
+                        )
+                    prev_weight[act] = w
     return gaps, inert, interleave
 
 
@@ -148,24 +174,32 @@ _ROW_GAPS = {
 }
 
 _INERT_TOKENS = {
-    ("maniac", "unopened", "BTN", 2, "K2o"),
-    ("maniac", "vs_rfi", "*", 2, "JTo"),
-    ("tag", "vs_rfi", "*", 2, "ATs"),
-    ("tag", "vs_rfi", "*", 2, "KJs"),
-    ("tag", "vs_rfi", "*", 3, "KQo"),
+    ("maniac", "unopened", "BTN", "32s", "K2o"),
+    ("maniac", "vs_rfi", "*", "K2s", "JTo"),
+    ("tag", "vs_rfi", "*", "99", "ATs"),
+    ("tag", "vs_rfi", "*", "99", "KJs"),
+    ("tag", "vs_rfi", "*", "22-66", "KQo"),
 }
 
 _WEIGHT_INTERLEAVING = {
-    ("calling_station", "vs_rfi", "*", 1, "call", 0.6, 1.0),
-    ("lag", "vs_3bet", "*", 2, "call", 0.6, 0.75),
-    ("maniac", "unopened", "UTG2", 2, "raise", 0.8, 0.85),
-    ("maniac", "unopened", "LJ", 2, "raise", 0.8, 0.85),
-    ("maniac", "unopened", "BTN", 2, "raise", 0.7, 0.85),
-    ("maniac", "unopened", "BB", 2, "raise", 0.8, 0.85),
-    ("maniac", "vs_rfi", "*", 2, "call", 0.55, 0.9),
-    ("maniac", "vs_4bet", "*", 1, "5bet_shove", 0.7, 1.0),
-    ("nit", "vs_rfi", "*", 2, "call", 0.65, 1.0),
-    ("tag", "vs_3bet", "*", 2, "call", 0.6, 0.8),
+    # limp 0.5 -> 1.0 IS the station's limped-aces tell surfacing at scale —
+    # deliberate character, frozen not judged (tie-revealed by the co-dominant
+    # semantics; invisible to the earlier dict-order max()).
+    ("calling_station", "unopened", "*", "22+", "limp", 0.5, 1.0),
+    ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 1.0),
+    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 1.0),
+    ("lag", "vs_3bet", "*", "88-JJ", "call", 0.6, 0.75),
+    ("maniac", "unopened", "BB", "22", "raise", 0.8, 0.85),
+    ("maniac", "unopened", "BTN", "32s", "raise", 0.7, 0.85),
+    ("maniac", "unopened", "LJ", "K2s", "raise", 0.8, 0.85),
+    ("maniac", "unopened", "UTG2", "22", "raise", 0.8, 0.85),
+    ("maniac", "vs_4bet", "*", "QQ", "5bet_shove", 0.7, 1.0),
+    ("maniac", "vs_rfi", "*", "K2s", "call", 0.55, 0.9),
+    ("nit", "vs_3bet", "*", "KK", "call", 0.5, 1.0),
+    ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 1.0),
+    ("passive_fish", "vs_3bet", "*", "KK", "call", 0.5, 1.0),
+    ("passive_fish", "vs_4bet", "*", "KK", "call", 0.5, 1.0),
+    ("tag", "vs_3bet", "*", "TT-QQ", "call", 0.6, 0.8),
 }
 
 
