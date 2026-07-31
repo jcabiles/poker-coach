@@ -194,10 +194,18 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # post-RR-HOLES counts: UTG2¹ 96, LJ¹ 98, HJ¹ 99, CO¹ 101, CO² 30, SB¹ 68,
 # SB² 40, BTN¹ 73, BTN² 36). Every _WANT_* coverage shape still fires
 # (verified: BB¹ 56, BB² 25, BB³ 5) — not a coverage regression.
+# RE-PINNED for R10-TAIL-a1 (2026-07-31, slice-authorized): the piecewise
+# absolute-price tail (`_price_factor`: f > 1.5 ⇒ factor *= (f/1.5)**2.0)
+# makes every persona fold more vs true overbets, so overbet pots end earlier
+# and the shared-rng organic stream drifts at this seed (old post-W5-b3
+# counts: UTG2¹ 84, LJ¹ 124, HJ¹ 116, CO¹ 117, CO² 24, SB¹ 57, SB² 51,
+# BTN¹ 90, BTN² 44). No preflop or limper-belt content changed; every _WANT_*
+# coverage shape still fires (verified: BB¹ 59, BB² 25, BB³ 5) — stream
+# displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 84, ("LJ", 1): 124, ("HJ", 1): 116, ("CO", 1): 117,
-    ("CO", 2): 24, ("SB", 1): 57, ("SB", 2): 51, ("BTN", 1): 90,
-    ("BTN", 2): 44,
+    ("UTG2", 1): 75, ("LJ", 1): 128, ("HJ", 1): 117, ("CO", 1): 118,
+    ("CO", 2): 22, ("SB", 1): 54, ("SB", 2): 54, ("BTN", 1): 85,
+    ("BTN", 2): 43,
 }
 
 

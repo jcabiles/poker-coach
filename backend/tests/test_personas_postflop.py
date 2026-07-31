@@ -3163,12 +3163,22 @@ _GOLDEN_STATS_N200 = {
     # falls off the n=200 tripwire along with lag/tag (call denominators under
     # the floor at this tiny n); the population band tests still gate them.
     # Exact tripwire re-record; population bands stay frozen to W4-b.
-    "calling_station": (0.3584905660377358, 0.14285714285714285, 0.7166666666666667),
-    "lag": (None, None, 0.4375),
-    "maniac": (3.4583333333333335, 0.25, 0.436241610738255),
-    "nit": (None, None, 0.6428571428571429),
+    # RE-RECORDED for R10-TAIL-a1 (2026-07-31, slice-authorized): the piecewise
+    # absolute-price tail in `_price_factor` (f > 1.5 ⇒ factor *= (f/1.5)**2.0)
+    # makes every persona fold more vs overbets, changing hand endings and
+    # displacing the shared rng stream from the first tail-affected decision
+    # onward. All rows except fish move at this seed (fish byte-identical —
+    # its n=200 sample hits no changed cell). lag/maniac AF regain their call
+    # denominators at this stream; the maniac AF rise (3.46 -> 3.80) is
+    # composition (folds-to-overbet leave its aggressive actions over a smaller
+    # call base), consistent with the pre-rebase review reading (3.30 -> 3.58).
+    # Exact tripwire re-record; population bands stay frozen to W4-b.
+    "calling_station": (0.35333333333333333, 0.13333333333333333, 0.7220338983050848),
+    "lag": (2.8684210526315788, None, 0.45714285714285713),
+    "maniac": (3.8048780487804876, None, 0.4892086330935252),
+    "nit": (0.8157894736842105, None, 0.64),
     "passive_fish": (0.8032786885245902, 0.5384615384615384, 0.45045045045045046),
-    "tag": (None, None, 0.6285714285714286),
+    "tag": (None, None, 0.6388888888888888),
 }
 
 
@@ -4035,9 +4045,23 @@ def test_persona_postflop_bands(persona, budget):
         assert lo <= af <= hi, f"{persona} AF {af:.2f} outside [{lo},{hi}] (n_call={call_n})"
     if ftc is not None:
         lo, hi = ftc_band
-        assert lo <= ftc <= hi, (
-            f"{persona} fold-to-cbet {ftc:.2f} outside [{lo},{hi}] (n={ftc_n})"
-        )
+        # R10-TAIL-a1: FtC now escalates to the stable large-n before failing,
+        # the same remedy WTSD already uses below. The throughput-derived
+        # `per_persona_n` collapses to ~50 FtC opportunities under full-suite
+        # load (RR-HOLES ledger R-2), where 3σ ≈ ±0.20 — passive_fish's true
+        # FtC (0.464 at n=274, inside [0, 0.549]) false-trips its ceiling by
+        # sampling noise alone, and the tail intentionally moved it toward
+        # mid-band. Cheap throughput-n stays as the first pass; the band
+        # VALUES are untouched (frozen to W4-b).
+        if not (lo <= ftc <= hi):
+            _a2, ftc_stable, _w2, _c2, ftc_stable_n, _wn2 = _persona_stats(
+                packs, persona, _WTSD_ORDER_N
+            )
+            assert ftc_stable is not None and lo <= ftc_stable <= hi, (
+                f"{persona} fold-to-cbet {ftc:.2f} (n={ftc_n}) breached and the "
+                f"stable-n re-measure {ftc_stable} (n={ftc_stable_n}) confirms it "
+                f"— outside [{lo},{hi}]"
+            )
     if wtsd is not None:
         # W2 (persona-realism-w2, 2026-07-24 — owner-approved defer): the maniac
         # WTSD assertion is skipped here and reconciled at W4-b (the single

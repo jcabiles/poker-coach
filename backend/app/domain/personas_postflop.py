@@ -551,13 +551,64 @@ def _sizing_dist(pf, board: list[Card], legal: list[LegalAction], is_aggressor: 
     return pf.sizing
 
 
+# R10-TAIL-a1 (M3) — the absolute-price tail above the OVERBET representative.
+#
+# `_BUCKET_ALPHA`'s top bucket has NO upper edge, so α — the only price-carrying
+# input the facing branch has — is CONSTANT for every faced price above 1.10×
+# pot. Measured at HEAD (station, AIR/NONE, HU flop, facing a raise): a 1.11×,
+# a 2.33× and a 10× jam are one identical node, P(call) = 0.4044 at all three.
+# 100% of that flatness is the open-ended bucket, 0% is `size_elasticity` — the
+# exponent is applied to a ratio that has already saturated, so no value of it
+# creates a slope (design pass §A1-A3, `docs/ai-dlc/reports/r10-tail-design.md`).
+#
+# ANCHOR — not a fit knob. 1.5× pot is (a) the engine's own maximum AUTHORED bet
+# size (`content/personas/{maniac,lag}.json` `sizing_by_node` key "1.5") and (b)
+# the size `_BUCKET_ALPHA[OVERBET] = 0.60` represents (`:460`), i.e. the node the
+# RES-D α fold-ceiling contract was measured on. Anchoring strictly ABOVE it
+# keeps every α-measured cell byte-identical BY CONSTRUCTION — the passive fish
+# has only 0.0078 of headroom against that ceiling at a faced 1.5× (`:344-346`),
+# so an unconditional fold-merit increase there would breach it. Prices below the
+# anchor are the PLATEAU-HEIGHT defect (a `call_looseness` dial question), owned
+# by W4-b's single re-anchor — deliberately untouched here (§A6).
+#
+# K — the one new mechanic constant: the tail's steepness, ADDITIVE in the
+# exponent (`e + K` via the extra `(f/anchor)**K` factor), never multiplicative
+# (`e·k`). Additive keeps the tail's cross-persona dispersion equal to the head's;
+# `e·k` MULTIPLIES the exponent spread the W2-a elasticity split deliberately set
+# (station 1.21 vs legacy 2.41) and collapses the maniac — measured at f = 2.33,
+# its AIR raise share falls to 0.15× HEAD under `e·k` vs 0.48× under `e + K`, and
+# R10-2's specialist adjudication explicitly REFUTED the maniac's defect claim
+# (0/15). `test_price_tail.py`'s dispersion floor is what forces the additive
+# form. 2.0 is a DIRECTIONAL SEED in the range [1.5, 2.5], NOT a fitted target:
+# no sourced fold-to-overbet-raise frequency exists in the contract (§D1), so
+# this ticket is gated on monotonicity and direction only. It is the mildest
+# seed producing a non-cosmetic slope without breaching the dispersion floor
+# (K = 2.5 measures 0.0757 against a 0.0769 floor — the range top does NOT hold).
+_PRICE_TAIL_ANCHOR = 1.5
+_PRICE_TAIL_K = 2.0
+
+
 def _price_factor(faced_fraction: float, exponent: float) -> float:
     """Multiplier on the fold merit for a faced bet at `faced_fraction` of the
     pot: LEVEL * (α_bucket/α_ref) ** exponent. Monotone non-decreasing across
     SMALL→OVERBET because _BUCKET_ALPHA is (for any exponent >= 0). The exponent
-    is resolved by `_price_exponent` (W2-a)."""
+    is resolved by `_price_exponent` (W2-a).
+
+    R10-TAIL-a1: above `_PRICE_TAIL_ANCHOR` the bucketed α saturates, so the
+    factor keeps climbing with the UNBOUNDED price ratio instead —
+    `(f/anchor) ** K`. Continuous at the anchor (the factor is ×1 there),
+    byte-identical at and below it, strictly increasing in `f` above it. This
+    only ever SCALES the fold merit: no fold floor or clamp is asserted anywhere
+    (the A1 guardrail), and because the cut lands on the fold side the call mass
+    it removes is redistributed by normalization to every OTHER candidate in
+    proportion — P(raise) FALLS with price rather than inflating (the N-logit
+    pathology, which is why the call merit is deliberately left price-blind).
+    """
     alpha = _BUCKET_ALPHA[size_bucket(faced_fraction)]
-    return _PRICE_LEVEL * (alpha / _ALPHA_REF) ** exponent
+    factor = _PRICE_LEVEL * (alpha / _ALPHA_REF) ** exponent
+    if faced_fraction > _PRICE_TAIL_ANCHOR:
+        factor *= (faced_fraction / _PRICE_TAIL_ANCHOR) ** _PRICE_TAIL_K
+    return factor
 
 
 def _price_exponent(pf: PersonaPostflop) -> float:
