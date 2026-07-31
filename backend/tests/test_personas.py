@@ -263,8 +263,10 @@ BANDS = {
     # call 0.3, fold 0.5}, any-two {3bet 0.05, fold 0.95} catch-all — the
     # R10-1 73%-flat-call repair). Measured at the pinned seed: 3-bet 22.00,
     # vs_rfi-continue 38.69; both rows = measured ±2.0pp per the tolerance
-    # note above. The 3-bet row is DELIBERATELY above the full-ring 4-7% pool
-    # anchor — that anchor belongs to the other five personas, untouched here.
+    # note above. The 3-bet row is DELIBERATELY above the pool anchor
+    # ("3-bet% full ring 4-7%, online micro-low NL cash, ledger #14 / §5a
+    # conflict 3, DIRECTIONAL") — that anchor belongs to the other five
+    # personas, whose rows are untouched here.
     "maniac": ((49.8, 53.8), (49.8, 53.8), (20.0, 24.0), (36.7, 40.7)),
 }
 

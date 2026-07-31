@@ -2190,8 +2190,16 @@ def _derive_n(hands_per_s: float) -> int:
     # (60-hand probe + unit-test overhead + fixture/import cost, empirically
     # ~1.5-2s combined at this file's measured throughput)
     total_budget_hands = max(int(hands_per_s * budget_s), 900)
-    # Reserve a texture share (~30%) and split the rest across 6 persona-lineups.
-    texture_n = min(1500, int(total_budget_hands * 0.3))
+    # texture_n FIXED at W5-b4 (2026-07-31, review fold — the _WTSD_ORDER_N
+    # precedent): it was throughput-derived (min(1500, 30% of budget), i.e.
+    # 270..1500 depending on the machine), which made the table-texture guards
+    # machine-dependent — the W5-b4 refuter measured the 3-bet-pot and limper
+    # guards failing at 22 of 26 reachable n values while passing at the 1500
+    # cap, i.e. green by machine speed, not by being true (the file's own
+    # W5-b1-era comments documented this exact defect and deferred the fix).
+    # 1500 is the historical cap every documented reading was quoted at; the
+    # guards below are now deterministic at the pinned seed.
+    texture_n = 1500
     per_persona_n = max(150, (total_budget_hands - texture_n) // 6)
     return per_persona_n, texture_n
 
@@ -3142,8 +3150,12 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # stream reshapes and ALL six rows move at this seed (displacement + genuine
 # environment change). Stable-n (1200) maniac reading with only this pack
 # changed: VPIP 40.6 -> ~39.6, PFR 25.1 -> ~32, gap 15.4 -> ~7.5, vs_rfi
-# cold-call 34.2 -> ~16, 3bet 12.4 -> ~23. Exact tripwire re-record;
-# population bands stay frozen to W4-b.
+# cold-call 34.2 -> ~16, 3bet 12.4 -> ~23. ⚠️ nit's AF cell goes 0.894 ->
+# None at this seed (its n=200 sample loses the call denominator) — the
+# tripwire stops watching a HARD-today stat for nit until the stream shifts
+# back; accepted for this wave (the nit AF band test still gates it at
+# population n). Exact tripwire re-record; population bands stay frozen to
+# W4-b.
 _GOLDEN_STATS_N200 = {
     "calling_station": (0.31176470588235294, 0.1568627450980392, 0.7027972027972028),
     "lag": (3.6363636363636362, None, 0.5757575757575758),
@@ -3422,18 +3434,23 @@ def test_preflop_node_occupancy_arrival_grid():
     # finding against this one — only thin n. Tightening the denominator (or
     # retiring the cell for a wider late-position aggregate) is a Wave B call.
     #
-    # RE-DERIVED for W5-b4 (2026-07-31, slice-authorized — NOT a quiet
-    # recentre on a noise miss; the reseed-first protocol above was run): the
-    # maniac's vs_limpers/vs_rfi repair raises its VPIP and attack rate on
-    # limped pots, so FEWER hands fold around to the button — a genuine,
-    # intended arrival shift (the slice's roadmap entry names table texture as
-    # its causal surface). Measured post-slice across 6 reseeds this cell
-    # spans 0.0343..0.0637 (was 0.0417..0.1005 pre-slice), i.e. robustly
-    # below the old 0.05 floor on most seeds, not a one-seed excursion. New
-    # band = post-slice span ± the same thin-n allowance; still DIRECTIONAL.
-    assert 0.025 <= grid["BTN"]["unopened"] <= 0.10, (
-        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.025, 0.10] "
-        f"-- n~408, post-W5-b4 seed-dispersion 0.0343..0.0637, see above{report}"
+    # RE-DERIVED at W5-b4 (2026-07-31, review-corrected framing): a
+    # MIS-CALIBRATION REPAIR of an already-broken floor, NOT a slice effect.
+    # The causal analysis and a 21-seed PAIRED sweep (identical seeds, only
+    # maniac.json differing) agree the slice does not move this cell at all
+    # (paired delta -0.0023, t=-0.83; and mechanically, `unopened` arrival
+    # depends only on earlier seats' unopened folds, which W5-b4 does not
+    # touch). What the sweep DID show: the drafted [0.05, 0.12] floor was
+    # mis-calibrated from the start — 11 of 21 PARENT seeds already read
+    # below 0.05 (parent span 0.0270..0.0711, mean 0.0489 sd 0.0132); the
+    # quoted 0.0417..0.1005 dispersion in the note above understated the low
+    # tail. New band = the pooled parent+HEAD 21-seed dispersion with thin-n
+    # allowance, ceiling tightened so a genuine BTN-ladder collapse or a
+    # revert-to-narrow regression still trips. Still DIRECTIONAL, still
+    # thin-n (~408); the Wave B denominator repair remains the real fix.
+    assert 0.02 <= grid["BTN"]["unopened"] <= 0.075, (
+        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.02, 0.075] "
+        f"-- n~408, 21-seed dispersion 0.027..0.071 (slice-neutral cell), see above{report}"
     )
 
     total = sum(occ.opps.values())
@@ -3525,20 +3542,23 @@ def test_preflop_node_occupancy_arrival_grid():
     # would be sharper — but that is a different number needing its own
     # calibration, so it is a Wave B question, not a silent edit here.
     # ------------------------------------------------------------------
-    # RE-CENTRED for W5-b4 (2026-07-31, slice-authorized — the reseed-first
-    # protocol was run, this is not a noise recentre): the maniac's
-    # vs_limpers/vs_rfi repair means more limped/opened pots get attacked, so
-    # more seats arrive FACING action and fewer arrive `unopened` — a genuine,
-    # intended texture shift. Measured post-slice across 6 reseeds:
-    # 0.2907..0.3120 (mean ~0.305; the pinned seed is the low tail), vs the
-    # pre-slice calibration 0.325 +/-0.010 across seeds. New centre 0.305,
+    # RE-CENTRED at W5-b4 (2026-07-31, review-corrected framing): a
+    # RECALIBRATION from broader seed evidence, NOT a slice effect. The
+    # 21-seed PAIRED sweep (identical seeds, only maniac.json differing)
+    # shows the slice moves this statistic not at all (paired delta +0.0002,
+    # t=+0.07; parent mean 0.3109 sd 0.0083, HEAD mean 0.3111 sd 0.0080),
+    # and a parent seed already reads 0.2877 — outside the old [0.30, 0.36]
+    # band, whose 0.325 centre came from a narrower seed family than the
+    # statistic's real dispersion (the causal arrival change, where there was
+    # one, happened at R10-PRE2's unopened-ladder widening; pinned-seed luck
+    # concealed it then). New centre 0.305 per the pooled 21-seed evidence,
     # same +/-0.03 half-width and the same purpose (the only watch on the
     # UTG1/UTG2/LJ middle region).
     assert 0.275 <= roster_wide_unopened <= 0.335, (
         f"roster-wide unopened arrival {roster_wide_unopened:.4f} outside "
-        f"[0.275, 0.335] (re-centred 0.305 at W5-b4) -- read the provenance "
-        f"comment above before re-centring: this is the only check watching "
-        f"the middle positions (UTG1/UTG2/LJ), though SB+BB dilute it{report}"
+        f"[0.275, 0.335] (recalibrated 0.305 at W5-b4; slice-neutral cell) -- "
+        f"read the provenance comment above before re-centring: this is the "
+        f"only check watching the middle positions (UTG1/UTG2/LJ){report}"
     )
 
     # Arrival at `unopened` can only decay as the seat acts later: every seat
@@ -3717,13 +3737,32 @@ def test_maniac_vpip_pfr_gap_back_under_ten():
     vs_rfi tier-3 flat {call 0.9} that audit-F11 struck from the "*"
     catch-all but that survived in an enumerated mix).
 
-    The GAP (VPIP - PFR) is format-INVARIANT per W5-a1 and therefore
-    COMMITTABLE. VPIP and PFR levels are REPORTED only (printed below) —
-    the single population-band re-anchor stays W4-b's (roadmap W5-b4 no-go:
-    committing an RP6 number as a gate here is a §11 item-7 auto-FAIL).
-    Threshold margin: across a 6-reseed sweep at this n the shipped content
-    reads gap 6.4-8.8pp (mean 7.8) — the 10pp ceiling sits ~1.2pp above the
-    worst observed reading (~2σ of the sweep spread)."""
+    The GAP is format-INVARIANT ("gap | format-INVARIANT | both formats |
+    RP6 + ledger #14 | VERIFIED" — the §5a registry row, transfer explicitly
+    relied upon) and therefore COMMITTABLE. VPIP and PFR levels are REPORTED
+    only (printed below) — the single population-band re-anchor stays W4-b's
+    (roadmap W5-b4 no-go: committing an RP6 number as a gate here is a §11
+    item-7 auto-FAIL).
+
+    ⚠️ HONEST REPORT (refuter + theory, W5-b4): the roadmap's other REPORTED
+    target — VPIP toward 45-58 — went the WRONG way (40.6 -> 39.3 at n=1200;
+    ~38.8 vs ~39.7 across 40 reseeds). The gap gate is met by composition
+    (calls -> 3-bets/folds), not volume. Adjudication (theory review): the
+    only large reachable VPIP lever is the `unopened` ladder — out of scope
+    here by no-go (R10-PRE2 owns it, N9 forbids compensating) — and the
+    texture guards bounded only the substitute lever (3-bet mass); the §5
+    VPIP row is therefore NOT reopened, and W4-b inherits the specific
+    question "maniac continue-vs-open is unwatched" (a missing §5 row), not
+    a vague "VPIP didn't move". Restoring tier-3 continue mass was measured
+    INFEASIBLE under the committed gates: every call-mass restoration pushes
+    the gap sweep max over 10 AND raises the 3-bet-pot rate via squeezes
+    (grid in the slice ledger).
+
+    Threshold margin (40-reseed sweep at this n, refuter-measured): gap
+    6.83..9.56, mean 8.11, sd 0.64 — worst observed headroom 0.44pp. CI
+    itself CANNOT flake: the gate runs the single pinned seed (n=600 via the
+    shared `_persona_stats_ext` cache; the n=1200 figures above are the
+    stable-n report, not this gate's n), reading a deterministic 7.33."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4004,9 +4043,25 @@ def test_table_texture_9max_live_lineup(budget):
     # clears the whole measured span and still catches a real limps-vanished
     # regression. The proper repair is to stop deriving `texture_n` from machine
     # throughput (cf. the fixed `_WTSD_ORDER_N` precedent) — out of scope here.
-    assert 2.3 <= avg_players_to_flop <= 4.5, f"avg players-to-flop {avg_players_to_flop:.2f}"
-    assert limper_rate > 0.45, f"limper rate {limper_rate:.2%}"
-    assert threebet_pot_rate < 0.15, f"3-bet-pot rate {threebet_pot_rate:.2%}"
+    #
+    # GUARDS RE-DERIVED at W5-b4 (2026-07-31, review fold) — first calibration
+    # at the now-FIXED texture_n=1500 (the throughput-derived n above was the
+    # enabling defect: the W5-b4 refuter measured the old 0.15/0.45 guards
+    # failing at 22 of 26 machine-reachable n values post-slice and green only
+    # at the 1500 cap — machine speed, not truth). 10-seed sweep at n=1500 on
+    # the shipped roster: players-to-flop 2.374 sd 0.034 (2.325..2.430),
+    # limper 0.469 sd 0.014 (0.453..0.491 — parent-equal: 0.471), 3-bet-pot
+    # 0.162 sd 0.0085 (0.149..0.176; parent 0.133 — the +3pp IS the repaired
+    # maniac attacking opens, the slice's designed behavior; the old 0.15
+    # encoded the PRD's passive-table prose that main already violated in
+    # expectation per the W5-b1 note above). Bounds = sweep span +/- ~2-3σ:
+    # still DIRECTIONAL smoke guards — a fold-fest regression reads p2f well
+    # under 2.2, a limps-vanished regression under 0.40, and a maniac-ised
+    # ROSTER (a second+ persona going maniac-shaped) reads 3-bet-pot well
+    # above 0.20.
+    assert 2.2 <= avg_players_to_flop <= 4.5, f"avg players-to-flop {avg_players_to_flop:.2f}"
+    assert limper_rate > 0.42, f"limper rate {limper_rate:.2%}"
+    assert threebet_pot_rate < 0.20, f"3-bet-pot rate {threebet_pot_rate:.2%}"
 
 
 # =====================================================================

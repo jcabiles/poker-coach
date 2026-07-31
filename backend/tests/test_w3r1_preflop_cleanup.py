@@ -76,21 +76,37 @@ def _mix_shape(node) -> list[tuple[str, dict]]:
 # the F11 guarantee is asserted directly, not via the exact action set.
 @pytest.mark.parametrize("hand", ["J2o", "72o", "92o", "Q4o", "K5o"])
 def test_maniac_vs_rfi_offsuit_trash_folds_never_calls(packs, hand):
-    acts = _actions(packs[VillainType("maniac")], Position.CO, "vs_rfi", hand)
+    # Deterministic form (Codex, W5-b4): resolve the AUTHORED mix exactly like
+    # the sampler and assert its call weight is literally zero — a stochastic
+    # probe could miss a small reintroduced call weight.
+    from app.domain.content.notation import hole_cards_to_class, parse_range
+
+    pack = packs[VillainType("maniac")]
+    cls = hole_cards_to_class(*_cards(hand))
+    node = next(
+        n for n in pack.preflop
+        if n.facing == "vs_rfi"
+        and (n.positions is None or Position.CO in n.positions)
+    )
+    mix = next(m for m in node.mixes if cls in parse_range(m.combos))
+    assert mix.weights.get("call", 0.0) == 0.0, (
+        f"{hand} resolved to a calling mix: {mix.combos!r} -> {dict(mix.weights)}"
+    )
+    acts = _actions(pack, Position.CO, "vs_rfi", hand)
     assert "call" not in acts, f"{hand} cold-called a raise: {acts}"
     assert acts <= {"3bet", "fold"}, f"{hand} vs_rfi actions {acts}"
 
 
 @pytest.mark.parametrize("hand", ["55", "87s", "KQs"])
 def test_maniac_vs_rfi_tier2_flats_and_3bets(packs, hand):
-    # tier-2 {3bet:0.45, call:0.55}: both actions observed, never a lone fold.
+    # tier-2 (W5-b4: {3bet:0.5, call:0.5}): both actions observed, never a lone fold.
     acts = _actions(packs[VillainType("maniac")], Position.CO, "vs_rfi", hand)
     assert "call" in acts and "3bet" in acts, f"{hand} vs_rfi actions {acts}"
 
 
 @pytest.mark.parametrize("hand", ["K5s", "A5o", "T9o"])
 def test_maniac_vs_rfi_tier3_flats(packs, hand):
-    # tier-3 {call:0.9, fold:0.1}: flats (call) in >0 of N draws.
+    # tier-3 (W5-b4: {3bet:0.2, call:0.3, fold:0.5}): flats (call) in >0 of N draws.
     acts = _actions(packs[VillainType("maniac")], Position.CO, "vs_rfi", hand)
     assert "call" in acts, f"{hand} vs_rfi actions {acts}"
 
