@@ -3157,12 +3157,18 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # population n). Exact tripwire re-record; population bands stay frozen to
 # W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.31176470588235294, 0.1568627450980392, 0.7027972027972028),
-    "lag": (3.6363636363636362, None, 0.5757575757575758),
-    "maniac": (3.5625, 0.29411764705882354, 0.46710526315789475),
-    "nit": (None, None, 0.6938775510204082),
-    "passive_fish": (0.9323308270676691, 0.35135135135135137, 0.5314009661835749),
-    "tag": (2.6666666666666665, None, 0.5633802816901409),
+    # RE-RECORDED for R10-3BET (2026-07-31, slice-authorized): the six-pack
+    # vs_3bet rewrite shifts the shared rng stream from the first re-raised
+    # pot onward. Note tag's AF drops off the n=200 tripwire (None — its call
+    # denominator fell under the floor at this tiny n); the tag AF band test
+    # still gates it at population n. Exact tripwire re-record; population
+    # bands stay frozen to W4-b.
+    "calling_station": (0.32625994694960214, 0.13636363636363635, 0.7272727272727273),
+    "lag": (2.975609756097561, None, 0.45045045045045046),
+    "maniac": (3.30188679245283, 0.2972972972972973, 0.5333333333333333),
+    "nit": (None, None, 0.7288135593220338),
+    "passive_fish": (1.088235294117647, 0.4878048780487805, 0.4935064935064935),
+    "tag": (None, None, 0.6031746031746031),
 }
 
 
@@ -3731,6 +3737,171 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
     )
 
 
+# ------------------------------------------------------------------- R10-3BET
+# Deterministic AUTHORED-policy gates + the report-only stratified
+# fold-to-3-bet grid. The authored gates read pack JSON directly (no
+# simulation): every pack's vs_3bet node is a positions:null wildcard and
+# mixes are first-match-wins, so the effective per-class policy is exactly
+# computable. The sampled instrument stays REPORT-ONLY — vs_3bet occupancy at
+# the memoized _ARRIVAL_N runs is far below any honest gate denominator
+# (roadmap R10-3BET pass/fail ③; gate-design rule).
+
+
+def _vs_3bet_effective_policy(pack) -> dict[str, dict[str, float]]:
+    """Per-class EFFECTIVE weights at the pack's wildcard vs_3bet node under
+    first-match-wins (`sample_preflop_action`): the first mix whose combos
+    contain the class owns it outright; later mentions are dead tokens."""
+    from app.domain.content.notation import parse_range
+
+    node = next(n for n in pack.preflop if n.facing == "vs_3bet")
+    policy: dict[str, dict[str, float]] = {}
+    for mix in node.mixes:
+        for cls in parse_range(mix.combos):
+            policy.setdefault(cls, dict(mix.weights))
+    return policy
+
+
+def _combo_count(cls: str) -> int:
+    return 6 if len(cls) == 2 else (4 if cls.endswith("s") else 12)
+
+
+def _fourbet_share(pack) -> float:
+    """Combo-weighted authored 4-bet share: sum over 169 classes of
+    (combo_count x effective first-match 4bet probability) / 1326 — the spec's
+    pinned formula (overlapping tiers must never be double-counted)."""
+    return (
+        sum(
+            _combo_count(c) * w.get("4bet", 0.0)
+            for c, w in _vs_3bet_effective_policy(pack).items()
+        )
+        / 1326.0
+    )
+
+
+def test_r10_3bet_defect_gate_nit_continues_premiums():
+    """🔴 R10-3BET defect gate (roadmap ①, deterministic): nit's authored
+    vs_3bet continue weight (call + 4bet) on QQ / AKs / AKo each > 0. FAILED
+    at pre-slice HEAD — the node covered AA/KK only, and the 756-hand corpus
+    measured the nit 20/20 folds as opener facing a 3-bet (CI [83.9, 100])
+    with QQ, AKs, AKo x3, TT among the folded holdings."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    policy = _vs_3bet_effective_policy(pack)
+    for cls in ("QQ", "AKs", "AKo"):
+        w = policy.get(cls, {})
+        cont = w.get("call", 0.0) + w.get("4bet", 0.0)
+        assert cont > 0.0, (
+            f"nit vs_3bet continue weight on {cls} is {cont} — the R10-3BET "
+            f"defect (uncovered classes fold 1.0 at a matched node; "
+            f"`sample_preflop_action` has no fall-through)"
+        )
+
+
+def test_r10_3bet_preservation_continue_and_4bet_ordering():
+    """🟢 PRESERVATION (already passed at pre-slice HEAD — labeled per the
+    gate-design rule, NOT sold as a defect gate): AA/KK continue > 0 in every
+    pack, and the combo-weighted authored 4-bet share keeps the archetype
+    ordering maniac > lag > tag > nit (pre-slice 7.54/3.17/1.69/0.23%;
+    authored by this slice 5.66/2.33/1.81/0.41%)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    for vt, pack in packs.items():
+        policy = _vs_3bet_effective_policy(pack)
+        for cls in ("AA", "KK"):
+            w = policy.get(cls, {})
+            assert w.get("call", 0.0) + w.get("4bet", 0.0) > 0.0, (
+                f"{vt.value}: vs_3bet continue on {cls} dropped to zero"
+            )
+    shares = {
+        vt: _fourbet_share(packs[vt])
+        for vt in (VillainType.MANIAC, VillainType.LAG, VillainType.TAG, VillainType.NIT)
+    }
+    assert (
+        shares[VillainType.MANIAC]
+        > shares[VillainType.LAG]
+        > shares[VillainType.TAG]
+        > shares[VillainType.NIT]
+    ), f"4-bet share ordering broken: {[(k.value, round(v * 100, 3)) for k, v in shares.items()]}"
+
+
+def test_r10_3bet_passive_identity_freeze():
+    """🔴 Owner-frozen identities (2026-07-30, deterministic): the station
+    carries ZERO 4bet mass anywhere in its vs_3bet node, and the fish's 4bet
+    mass is EXACTLY {AA: 0.5} — their CALL tiers are authorable, their 4-bet
+    identities are not. Guards the ordering check's bottom end (the ordering
+    tuple deliberately excludes both, so only this test watches them)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    station = _vs_3bet_effective_policy(packs[VillainType.CALLING_STATION])
+    fish = _vs_3bet_effective_policy(packs[VillainType.PASSIVE_FISH])
+    station_4bets = {c: w["4bet"] for c, w in station.items() if w.get("4bet", 0.0) > 0.0}
+    assert station_4bets == {}, f"station authored 4bet mass appeared: {station_4bets}"
+    fish_4bets = {c: w["4bet"] for c, w in fish.items() if w.get("4bet", 0.0) > 0.0}
+    assert fish_4bets == {"AA": 0.5}, (
+        f"fish 4bet identity moved off AA@0.5: {fish_4bets}"
+    )
+
+
+def _wilson95(k: int, n: int) -> tuple[float, float]:
+    """Wilson score 95% interval — the spec's named CI method for the
+    report-only fold-to-3-bet grid (well-behaved at the tiny n these strata
+    actually have; a normal interval would go negative)."""
+    if n == 0:
+        return (0.0, 1.0)
+    z = 1.96
+    p = k / n
+    denom = 1 + z * z / n
+    centre = p + z * z / (2 * n)
+    margin = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5)
+    return ((centre - margin) / denom, (centre + margin) / denom)
+
+
+def test_r10_3bet_fold_to_3bet_stratified_report():
+    """REPORT-ONLY (roadmap R10-3BET ③ — never a CI gate; run with `-s` to
+    read it): six-persona vs_3bet fold/call/raise split by the two arrival
+    strata the NodeActions docstring defines — COLD (`first_hits`: the seat's
+    FIRST decision of the hand was already facing open + 3-bet) and OPENER
+    (`all_hits − first_hits`: re-entrants ≈ openers — the stratum an external
+    "Fold to 3-bet" figure conditions on; pooling them mixes two arrival
+    ranges and is class-incomparable). Wilson 95% CIs printed per cell; n at
+    the memoized _ARRIVAL_N runs sits far below any committable floor, which
+    is exactly why this stays a report. Structural assertion only: the opener
+    stratum is non-negative (all_hits >= first_hits cell-wise)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    lines = ["", "R10-3BET stratified fold-to-3-bet report (vs_3bet, Wilson 95% CI):"]
+    for persona in ALL_PERSONAS:
+        acts = _persona_stats_ext(packs, persona, _ARRIVAL_N).actions
+        strata: dict[str, dict[str, int]] = {"cold": {}, "opener": {}}
+        for (pos, facing, action), v in acts.all_hits.items():
+            if facing != "vs_3bet":
+                continue
+            f = acts.first_hits.get((pos, facing, action), 0)
+            assert v >= f, (
+                f"{persona}: all_hits < first_hits at {(pos, facing, action)}"
+            )
+            strata["cold"][action] = strata["cold"].get(action, 0) + f
+            strata["opener"][action] = strata["opener"].get(action, 0) + (v - f)
+        lines.append(f"  {persona}:")
+        for name, counts in strata.items():
+            n = sum(counts.values())
+            cells = []
+            for action in ("fold", "call", "raise"):
+                k = counts.get(action, 0)
+                if n:
+                    lo, hi = _wilson95(k, n)
+                    cells.append(f"{action} {k / n:.3f} [{lo:.3f},{hi:.3f}]")
+                else:
+                    cells.append(f"{action} --")
+            lines.append(f"    {name:7s}(n={n:4d}): " + " · ".join(cells))
+    print("\n".join(lines))
+
+
 def test_maniac_vpip_pfr_gap_back_under_ten():
     """🔴 W5-b4 defect gate (failed at pre-fix HEAD: gap 15.4pp at n=1200 —
     the roster's ONLY gap-row failure, the signature of the call-heavy
@@ -3871,6 +4042,25 @@ def test_persona_postflop_bands(persona, budget):
         # is covered by the exact-weight commit/draw-gate unit tests.
         if persona == "maniac":
             pytest.skip("maniac WTSD on the 0.50 ceiling; throughput-n noise — reconcile W4-b")
+        # R10-3BET (2026-07-31, owner-approved defer — same shape as maniac's):
+        # the roster-wide vs_3bet rewrite moved passive_fish's stable-n WTSD
+        # 0.5104 -> 0.4912 against the frozen [0.50, 0.57] floor. HONEST
+        # REPORT: attribution measured that the fish's OWN node explains only
+        # ~0.4pp of the -1.9pp move (reverting fish's vs_3bet alone still
+        # reads 0.4949); the remainder is cross-persona composition — the
+        # whole table now plays 3-bet/4-bet pots differently around the fish
+        # (single-lever probe NEGATIVE: removing maniac's junk-tier 4-bet
+        # bluffs made it WORSE, 0.4888). Trimming the fish's continue tiers
+        # far enough to clear the floor would gut the archetype (N9
+        # compensating-lever trap). Band VALUE untouched (frozen no-go);
+        # W4-b (the single authoritative re-anchor) reconciles both deferred
+        # WTSDs together. Fish AF + fold-to-cbet stay live below.
+        if persona == "passive_fish":
+            pytest.skip(
+                "passive_fish WTSD 0.4912 vs frozen 0.50 floor after the "
+                "R10-3BET roster rewrite; cross-persona composition, not a "
+                "fish-node defect — owner-deferred to W4-b (ledger)"
+            )
         # W3-b/c/d: measure the WTSD-vs-band at the stable large-n (memoized,
         # shared with the ordering test). The throughput-n estimate breaches band
         # ceilings by under-sampling noise alone — lag's true WTSD 0.55 spikes to

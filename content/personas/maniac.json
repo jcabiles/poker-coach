@@ -205,15 +205,17 @@
       "facing": "vs_3bet",
       "positions": null,
       "mixes": [
-        { "combos": "TT+, AJs+, AQo+", "weights": { "4bet": 1.0 } },
+        { "combos": "QQ+, AKs", "weights": { "4bet": 1.0 } },
+        { "combos": "JJ, TT, AQs, AJs, AKo, AQo", "weights": { "4bet": 0.6, "call": 0.4 } },
         {
-          "combos": "A2s, A3s, A4s, A5s, K9s, KTs, Q9s, JTs, A8o, A9o, KQo",
-          "weights": { "4bet": 0.5, "fold": 0.5 }
+          "combos": "99, 88, ATs, A9s, A5s, A4s, A3s, A2s, KQs, KJs, QJs, JTs, AJo, KQo",
+          "weights": { "4bet": 0.45, "call": 0.3, "fold": 0.25 }
         },
         {
-          "combos": "22-99, A6s+, K5s+, Q7s+, J8s+, T8s+, 98s, A6o+, KTo+, QTo+, JTo",
-          "weights": { "call": 0.5, "fold": 0.5 }
-        }
+          "combos": "A8s, A7s, A6s, KTs, K9s, QTs, Q9s, J9s, T9s, T8s, 98s, 97s, 87s, 76s, 65s, 77, 66, 55, ATo, A9o, KJo, KTo, QJo, QTo, JTo",
+          "weights": { "4bet": 0.1, "call": 0.25, "fold": 0.65 }
+        },
+        { "combos": "*", "weights": { "4bet": 0.1, "call": 0.15, "fold": 0.75 } }
       ]
     },
     {

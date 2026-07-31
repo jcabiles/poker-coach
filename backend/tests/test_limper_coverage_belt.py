@@ -172,10 +172,19 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # HJ¹ 122, CO¹ 97, CO² 27, SB¹ 61, SB² 41, BTN¹ 81, BTN² 40). No limper-belt
 # content changed; every _WANT_* coverage shape still fires (verified:
 # BB¹ 39, BB² 33, BB³ 5) — not a coverage regression.
+# RE-PINNED for R10-3BET (persona-realism-r10-3bet, 2026-07-31 — slice-
+# authorized): the six-pack vs_3bet rewrite changes every persona's response
+# from the first re-raised pot onward (nit/tag/lag/station/fish continue where
+# they used to auto-fold; maniac mixes calls into its old 4bet-1.0 tier), so
+# hands end differently and the shared-rng organic stream drifts at this seed
+# (old post-W5-b4 counts: UTG2¹ 89, LJ¹ 91, HJ¹ 117, CO¹ 94, CO² 36, SB¹ 65,
+# SB² 28, BTN¹ 74, BTN² 40). No limper-belt content changed; every _WANT_*
+# coverage shape still fires (verified: BB¹ 36, BB² 32, BB³ 2) — stream
+# displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 89, ("LJ", 1): 91, ("HJ", 1): 117, ("CO", 1): 94,
-    ("CO", 2): 36, ("SB", 1): 65, ("SB", 2): 28, ("BTN", 1): 74,
-    ("BTN", 2): 40,
+    ("UTG2", 1): 91, ("LJ", 1): 93, ("HJ", 1): 110, ("CO", 1): 97,
+    ("CO", 2): 20, ("SB", 1): 53, ("SB", 2): 42, ("BTN", 1): 83,
+    ("BTN", 2): 34,
 }
 
 
