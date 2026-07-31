@@ -78,11 +78,18 @@ def _rows():
 
 
 def _node_key(persona: str, node) -> tuple[str, str, str]:
+    """N-3BSTRATA: a role-tagged node (`role: opener|cold`) is a SEPARATE node
+    serving a separate arrival stratum, so its entries must not merge with (or
+    silently dedupe against) the other stratum's. The role rides in the
+    position key as a `@role` suffix, which leaves every UNTAGGED node's key —
+    i.e. every entry frozen in the inventory below — byte-identical."""
     poskey = (
         "*"
         if node.positions is None
         else "/".join(sorted(p.value for p in node.positions))
     )
+    if node.role is not None:
+        poskey = f"{poskey}@{node.role}"
     return (persona, node.facing, poskey)
 
 

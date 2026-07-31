@@ -27,7 +27,12 @@ from app.domain.spot import (
 )
 from app.domain.table.deck import DealtHand, deal_hand, positions_for_button
 from app.domain.table.engine import HandState, apply, legal_actions, start_hand
-from app.domain.table.play import _preflop_facing, assign_lineup, bot_decision
+from app.domain.table.play import (
+    _preflop_facing,
+    _preflop_opener,
+    assign_lineup,
+    bot_decision,
+)
 from app.domain.table.range_estimate import (
     PublicAction,
     PublicActionHistory,
@@ -207,6 +212,33 @@ def test_four_bet_line_strict_subset_and_hand_computed_posterior(packs):
     assert four_res.class_weights["AA"] / four_res.class_weights["QQ"] == pytest.approx(2.0)
 
 
+def test_n3bstrata_estimator_routes_opener_table_for_stratified_packs(packs):
+    """N-3BSTRATA parity (triple-review convergent MED): the estimator's replay
+    must route the OPENER-role vs_3bet table for a stratified pack when the
+    replayed seat made the hand's first raise. Discriminator: lag's OPENER
+    table 4-bets TT at 0.15 while its COLD table gives TT no 4-bet mass at
+    all — so TT appears in the open→3-bet→4-bet posterior iff the opener
+    table was selected."""
+    lag = packs[VillainType.LAG]
+    hist = _four_bet_history()
+    ctxs = _replay_contexts(hist, 3, len(hist.actions))
+    pf = [c for c in ctxs if c.street is Street.PREFLOP]
+    # At the OPEN decision no raise exists yet (flag False); at the 4-bet
+    # decision seat 3 IS the hand's first raiser (flag True).
+    assert [c.is_opener for c in pf] == [False, True]
+    assert pf[1].facing == "vs_3bet"
+    four_res = estimate_range(lag, hist, seat=3)
+    assert four_res.exact is True
+    four_set = _positive(four_res)
+    assert "TT" in four_set, (
+        "TT missing from lag's 4-bet posterior — the estimator read the COLD "
+        "vs_3bet table for an opener-stratum replay"
+    )
+    # And the non-opener 3-bettor (seat 0, BTN cold 3-bet) must NOT be opener.
+    btn_pf = [c for c in _replay_contexts(hist, 0, len(hist.actions)) if c.street is Street.PREFLOP]
+    assert [c.is_opener for c in btn_pf] == [False]
+
+
 # ------------------------------------------------------------- NO-PEEK
 
 
@@ -237,6 +269,9 @@ def _true_ctx(state: HandState, seat: int):
     """Ground-truth decision context, read the way play.bot_decision reads it."""
     kinds = frozenset(la.action for la in legal_actions(state))
     facing = _preflop_facing(state) if state.street is Street.PREFLOP else None
+    # N-3BSTRATA parity: the live opener flag, read exactly as play.bot_decision
+    # reads it — computed on EVERY street (the postflop sampler ignores it).
+    opener = _preflop_opener(state) == state.seats[seat].position
     return (
         state.street,
         tuple(state.board),
@@ -251,11 +286,12 @@ def _true_ctx(state: HandState, seat: int):
             if s.seat != seat and s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
         ),
         state.current_bet_bb,
+        opener,
     )
 
 
 def _assert_ctx_equal(ctx, truth, observed):
-    street, board, position, facing, kinds, pot, stack, opp, cur = truth
+    street, board, position, facing, kinds, pot, stack, opp, cur, opener = truth
     assert ctx.street is street
     assert ctx.board == board
     assert ctx.position is position
@@ -265,6 +301,7 @@ def _assert_ctx_equal(ctx, truth, observed):
     assert ctx.stack_bb == pytest.approx(stack, abs=1e-9)
     assert ctx.opponents == opp
     assert ctx.current_bet_to == pytest.approx(cur, abs=1e-9)
+    assert ctx.is_opener == opener
     assert ctx.observed is observed
 
 

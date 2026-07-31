@@ -120,8 +120,131 @@ def test_persona_pack_rejects_overlapping_explicit_positions():
         ])
 
 
+def test_persona_pack_allows_one_wildcard_per_role_and_rejects_tag_after_untagged():
+    """N-3BSTRATA: the wildcard/ordering laws hold PER (facing, role) — an
+    `opener` and a `cold` wildcard coexist for one facing — but a role-tagged
+    node may not FOLLOW an untagged one, which serves both roles and would
+    shadow it dead."""
+    _validate([
+        {"facing": "vs_3bet", "positions": None, "role": "opener",
+         "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
+        {"facing": "vs_3bet", "positions": None, "role": "cold",
+         "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
+    ])
+    with pytest.raises(ValidationError, match="role-tagged node after untagged"):
+        _validate([
+            {"facing": "vs_3bet", "positions": None,
+             "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
+            {"facing": "vs_3bet", "positions": None, "role": "opener",
+             "mixes": [{"combos": "AA", "weights": {"4bet": 1.0}}]},
+        ])
+    with pytest.raises(ValidationError, match="wildcard"):
+        _validate([
+            {"facing": "vs_3bet", "positions": None, "role": "opener",
+             "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
+            {"facing": "vs_3bet", "positions": None, "role": "opener",
+             "mixes": [{"combos": "KK", "weights": {"call": 1.0}}]},
+        ])
+
+
+def test_persona_pack_rejects_unknown_role():
+    with pytest.raises(ValidationError):
+        _validate([{"facing": "vs_3bet", "positions": None, "role": "squeezer",
+                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]}])
+
+
 def _validate(preflop: list[dict]) -> PersonaPack:
     return PersonaPack.model_validate(_pack(preflop))
+
+
+# ------------------------------------------------ N-3BSTRATA — role matching
+
+_ROLE_FIXTURE = PersonaPack.model_validate(
+    _pack(
+        [
+            {
+                "facing": "vs_3bet",
+                "positions": None,
+                "role": "opener",
+                "mixes": [{"combos": "AA", "weights": {"4bet": 1.0}}],
+            },
+            {
+                "facing": "vs_3bet",
+                "positions": None,
+                "role": "cold",
+                "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+            },
+            {
+                "facing": "vs_4bet",  # untagged: serves BOTH strata
+                "positions": None,
+                "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+            },
+        ]
+    )
+)
+
+
+def test_role_tagged_node_matches_only_its_stratum():
+    rng = random.Random(1)
+    assert sample_preflop_action(
+        _ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng, is_opener=True
+    ).name == "4bet"
+    assert sample_preflop_action(
+        _ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng, is_opener=False
+    ).name == "call"
+    # A caller that does not track the stratum selects NO tagged node — the
+    # documented fail-loud contract (a stratified pack needs a stratum-aware
+    # caller; both production callers pass the flag).
+    assert sample_preflop_action(
+        _ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng
+    ).name == "fold"
+
+
+def test_untagged_node_serves_every_stratum():
+    rng = random.Random(2)
+    for is_opener in (True, False, None):
+        assert sample_preflop_action(
+            _ROLE_FIXTURE, Position.BTN, "vs_4bet", AA, rng, is_opener=is_opener
+        ).name == "call"
+
+
+def test_shipped_untagged_packs_are_role_blind():
+    """The default-off contract on the SHIPPED content: for every pack with no
+    `role` anywhere (station/fish/nit/tag), node selection is identical for
+    is_opener True/False/None at every position, facing and hand class — i.e.
+    this slice cannot have moved their behaviour. Same-seed rngs make the
+    comparison exact draw-for-draw, not distributional."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    ranks = "23456789TJQKA"
+    facings = ("unopened", "vs_limpers", "vs_rfi", "vs_3bet", "vs_4bet")
+    classes = [
+        (r1 + "h", r2 + s) for i, r1 in enumerate(ranks) for j, r2 in enumerate(ranks)
+        if i > j for s in ("h", "d")
+    ] + [(r + "h", r + "d") for r in ranks]
+    untagged = [
+        vt for vt, pack in packs.items() if all(n.role is None for n in pack.preflop)
+    ]
+    assert len(untagged) == 4, f"expected 4 untagged packs, got {sorted(v.value for v in untagged)}"
+    for vt in untagged:
+        pack = packs[vt]
+        for facing in facings:
+            for pos in Position:
+                draws = []
+                for is_opener in (None, True, False):
+                    rng = random.Random(4242)
+                    draws.append(
+                        tuple(
+                            sample_preflop_action(
+                                pack, pos, facing, hole, rng, is_opener=is_opener
+                            ).name
+                            for hole in classes
+                        )
+                    )
+                assert draws[0] == draws[1] == draws[2], (
+                    f"{vt.value} {facing} {pos.value}: role argument changed the draw"
+                )
 
 
 def test_loader_raises_on_duplicate_persona(tmp_path):

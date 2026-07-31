@@ -211,10 +211,18 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # under the same change (their samples hit no changed cell). Every _WANT_*
 # coverage shape still fires (verified: BB¹ 52, BB² 25, BB³ 5) — not a
 # coverage regression.
+# RE-PINNED for N-3BSTRATA (2026-07-31, slice-authorized): the vs_3bet
+# opener/cold split makes maniac/lag DEFEND their opens instead of folding,
+# so 3-bet pots go multiway/showdown far more often and the shared-rng
+# organic stream drifts at this seed (old post-R10-TAIL-b1 counts: UTG2¹ 86,
+# LJ¹ 126, HJ¹ 115, CO¹ 119, CO² 25, SB¹ 51, SB² 47, BTN¹ 85, BTN² 41). No
+# limper-belt content changed; every _WANT_* coverage shape still fires
+# (verified: BB¹ 39, BB² 29, BB³ 5) — stream displacement plus genuinely
+# longer 3-bet hands, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 86, ("LJ", 1): 126, ("HJ", 1): 115, ("CO", 1): 119,
-    ("CO", 2): 25, ("SB", 1): 51, ("SB", 2): 47, ("BTN", 1): 85,
-    ("BTN", 2): 41,
+    ("UTG2", 1): 99, ("LJ", 1): 116, ("HJ", 1): 118, ("CO", 1): 89,
+    ("CO", 2): 36, ("SB", 1): 71, ("SB", 2): 38, ("BTN", 1): 96,
+    ("BTN", 2): 27,
 }
 
 

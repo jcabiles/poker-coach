@@ -101,6 +101,12 @@ class _Ctx(NamedTuple):
     # the flag ALONE, never a PostflopContext (whose in_position=False default
     # would newly activate W3-b's position damp here).
     facing_raise: bool = False
+    # N-3BSTRATA: did this seat make the FIRST preflop raise of the hand (it is
+    # the OPENER, now acting again)? Mirrors play._preflop_opener; selects the
+    # role-tagged persona node so the estimator reads the same table the bot
+    # actually sampled from. Like the live path it stays set postflop (the
+    # postflop sampler ignores it) — parity-tested per street.
+    is_opener: bool = False
 
 
 class RangeEstimate(NamedTuple):
@@ -123,6 +129,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     acted: set[int] = set()  # seats acted since last reopen this street
     pf_raises = 0
     pf_limped = False
+    pf_opener: int | None = None  # seat of the first preflop raise (N-3BSTRATA)
     street_aggr = 0  # BET/RAISE count on the CURRENT street (W3R-6 facing_raise)
     out: list[_Ctx] = []
 
@@ -183,6 +190,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     current_bet_to=cur,
                     observed=a.action,
                     facing_raise=street_aggr >= 2,
+                    is_opener=pf_opener == s,
                 )
             )
 
@@ -210,19 +218,27 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
             cur = new_bet
             if street is Street.PREFLOP:
                 pf_raises += 1
+                if pf_opener is None:
+                    pf_opener = s
     return out
 
 
 # ------------------------------------------------------ preflop (exact)
 
 
-def _preflop_mix(pack: PersonaPack, position: Position, facing: str, hand: str) -> dict[str, float]:
+def _preflop_mix(
+    pack: PersonaPack, position: Position, facing: str, hand: str, is_opener: bool = False
+) -> dict[str, float]:
     """Content-action distribution — mirrors personas.sample_preflop_action's
-    node/mix lookup exactly (first match in list order, implicit fold)."""
+    node/mix lookup exactly (first match in list order, role filter, implicit
+    fold)."""
+    want_role = "opener" if is_opener else "cold"
     for node in pack.preflop:
         if node.facing != facing:
             continue
         if node.positions is not None and position not in node.positions:
+            continue
+        if node.role is not None and node.role != want_role:
             continue
         for mix in node.mixes:
             if hand not in _combos(mix.combos):
@@ -345,7 +361,9 @@ def estimate_range(
             for combo in live:
                 cls = hole_cards_to_class(*combo)
                 if cls not in factor_by_class:
-                    mix = _preflop_mix(pack, ctx.position, ctx.facing, cls)
+                    mix = _preflop_mix(
+                        pack, ctx.position, ctx.facing, cls, is_opener=ctx.is_opener
+                    )
                     factor_by_class[cls] = _preflop_observed_prob(mix, ctx.kinds, ctx.observed)
                 weights[combo] *= factor_by_class[cls]
         else:
