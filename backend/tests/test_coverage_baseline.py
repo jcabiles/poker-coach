@@ -183,6 +183,15 @@ the immutable persona-realism-start snapshot (349/1233 = 28.3%): 318/1256 =
 first-in, so more multiway/limped pots the mapper's gates reject; T-cover
 owns the ratio), reported not silent. Seeded-fixture re-record; population
 bands stay frozen to W4-b.
+
+RE-RECORDED for R10-TAIL-a1 (persona-realism, 2026-07-31 — slice-authorized):
+the piecewise absolute-price tail in `_price_factor` (faced fraction > 1.5×
+pot ⇒ factor *= (f/1.5)**2.0) makes every persona fold more vs true overbets,
+so overbet pots end earlier and the seeded hand stream displaces: 1256/318 →
+1259/324 (25.3% → 25.7%). CUMULATIVE vs the immutable persona-realism-start
+snapshot (349/1233 = 28.3%): 324/1259 = 25.7%, −2.6pp — small recovery within
+the adjudicated mapper-track dip (T-cover owns the ratio), reported not
+silent. Seeded-fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
