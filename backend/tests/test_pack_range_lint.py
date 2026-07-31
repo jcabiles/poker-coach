@@ -145,9 +145,9 @@ def _scan_packs():
 
 _ROW_GAPS = {
     # --- unopened membership holes: all strictly-dominated typos (RR-HOLES) --
+    # (maniac QJo/43s holes, K2o inert token and 4 interleavings were fixed
+    # by R10-PRE2's ladder rewrite (#138) — entries removed post-merge.)
     ("calling_station", "unopened", "*", "5s", ("54s",)),
-    ("maniac", "unopened", "UTG", "Qo", ("QJo",)),
-    ("maniac", "unopened", "BTN", "4s", ("43s",)),
     ("passive_fish", "unopened", "*", "5s", ("54s",)),
     ("tag", "unopened", "BTN", "Ts", ("T4s",)),
     ("tag", "unopened", "BB", "Ks", ("K4s",)),
@@ -174,7 +174,6 @@ _ROW_GAPS = {
 }
 
 _INERT_TOKENS = {
-    ("maniac", "unopened", "BTN", "32s", "K2o"),
     ("maniac", "vs_rfi", "*", "K2s", "JTo"),
     ("tag", "vs_rfi", "*", "99", "ATs"),
     ("tag", "vs_rfi", "*", "99", "KJs"),
@@ -189,10 +188,6 @@ _WEIGHT_INTERLEAVING = {
     ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 1.0),
     ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 1.0),
     ("lag", "vs_3bet", "*", "88-JJ", "call", 0.6, 0.75),
-    ("maniac", "unopened", "BB", "22", "raise", 0.8, 0.85),
-    ("maniac", "unopened", "BTN", "32s", "raise", 0.7, 0.85),
-    ("maniac", "unopened", "LJ", "K2s", "raise", 0.8, 0.85),
-    ("maniac", "unopened", "UTG2", "22", "raise", 0.8, 0.85),
     ("maniac", "vs_4bet", "*", "QQ", "5bet_shove", 0.7, 1.0),
     ("maniac", "vs_rfi", "*", "K2s", "call", 0.55, 0.9),
     ("nit", "vs_3bet", "*", "KK", "call", 0.5, 1.0),
