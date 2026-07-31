@@ -516,8 +516,21 @@ _BLUFF_SHARE_REF = _BUCKET_BLUFF_SHARE[SizeBucket.MEDIUM]
 # 1.15 = the grader's `_MW_VALUE_LEAN` value, reused here as "value-lean"
 # framed as tightening the fold-ceiling side; kept deliberately modest (a
 # direction, not a target level).
+# R10-TAIL-b1: TOP_PAIR joined the catch class. One pair — even top pair —
+# shrinks in value with every added opponent (someone in a 4-way field has it
+# beat far more often than heads-up), yet the facing-side fold merit was flat
+# across `opponents` for it: a station called a 4-way raise with bare top pair
+# exactly as often as a heads-up one. Base stays 1.15 (directional, unsourced —
+# design pass §D1). NON-COVERAGE, deliberate: OVERPAIR_TPTK and TWO_PAIR_PLUS
+# stay outside the class — their multiway pile-up defect is W4-a's (contract §4
+# P6), and this slice must not silently claim it.
 _MW_CATCH_TIGHTEN = 1.15
-_MW_CATCH_BUCKETS = (StrengthBucket.AIR, StrengthBucket.ACE_HIGH, StrengthBucket.MIDDLE_PAIR)
+_MW_CATCH_BUCKETS = (
+    StrengthBucket.AIR,
+    StrengthBucket.ACE_HIGH,
+    StrengthBucket.MIDDLE_PAIR,
+    StrengthBucket.TOP_PAIR,
+)
 
 # W1-c (F13, RES-D §6 direction-only): the VALUE-BET side of the multiway
 # correction. `multiway_bluff_damp` already tightens bluffs and `_MW_CATCH_TIGHTEN`
