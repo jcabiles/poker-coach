@@ -179,12 +179,12 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # hands end differently and the shared-rng organic stream drifts at this seed
 # (old post-W5-b4 counts: UTG2¹ 89, LJ¹ 91, HJ¹ 117, CO¹ 94, CO² 36, SB¹ 65,
 # SB² 28, BTN¹ 74, BTN² 40). No limper-belt content changed; every _WANT_*
-# coverage shape still fires (verified: BB¹ 36, BB² 32, BB³ 2) — stream
+# coverage shape still fires (verified: BB¹ 39, BB² 26, BB³ 2) — stream
 # displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 91, ("LJ", 1): 93, ("HJ", 1): 110, ("CO", 1): 97,
-    ("CO", 2): 20, ("SB", 1): 53, ("SB", 2): 42, ("BTN", 1): 83,
-    ("BTN", 2): 34,
+    ("UTG2", 1): 101, ("LJ", 1): 105, ("HJ", 1): 114, ("CO", 1): 85,
+    ("CO", 2): 26, ("SB", 1): 54, ("SB", 2): 41, ("BTN", 1): 86,
+    ("BTN", 2): 38,
 }
 
 

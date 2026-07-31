@@ -3164,11 +3164,11 @@ _GOLDEN_STATS_N200 = {
     # still gates it at population n. Exact tripwire re-record; population
     # bands stay frozen to W4-b.
     "calling_station": (0.32625994694960214, 0.13636363636363635, 0.7272727272727273),
-    "lag": (2.975609756097561, None, 0.45045045045045046),
-    "maniac": (3.30188679245283, 0.2972972972972973, 0.5333333333333333),
+    "lag": (3.0, None, 0.44642857142857145),
+    "maniac": (3.2962962962962963, 0.3157894736842105, 0.5263157894736842),
     "nit": (None, None, 0.7288135593220338),
-    "passive_fish": (1.088235294117647, 0.4878048780487805, 0.4935064935064935),
-    "tag": (None, None, 0.6031746031746031),
+    "passive_fish": (1.0350877192982457, 0.5581395348837209, 0.511520737327189),
+    "tag": (None, None, 0.625),
 }
 
 
@@ -3750,7 +3750,13 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
 def _vs_3bet_effective_policy(pack) -> dict[str, dict[str, float]]:
     """Per-class EFFECTIVE weights at the pack's wildcard vs_3bet node under
     first-match-wins (`sample_preflop_action`): the first mix whose combos
-    contain the class owns it outright; later mentions are dead tokens."""
+    contain the class owns it outright; later mentions are dead tokens.
+
+    Two deliberate simplifications vs the live sampler (Codex build review
+    C-2 — both are no-ops for every consumer in this file): the implicit-fold
+    remainder is NOT folded into a `fold` key (the gates only read `call` +
+    `4bet`), and classes no mix covers are ABSENT rather than {"fold": 1.0}
+    (`.get(cls, {})` reads them as zero continue, which is the same thing)."""
     from app.domain.content.notation import parse_range
 
     node = next(n for n in pack.preflop if n.facing == "vs_3bet")
@@ -3804,7 +3810,11 @@ def test_r10_3bet_preservation_continue_and_4bet_ordering():
     gate-design rule, NOT sold as a defect gate): AA/KK continue > 0 in every
     pack, and the combo-weighted authored 4-bet share keeps the archetype
     ordering maniac > lag > tag > nit (pre-slice 7.54/3.17/1.69/0.23%;
-    authored by this slice 5.66/2.33/1.81/0.41%)."""
+    authored by this slice 15.16/2.33/1.81/0.41% — maniac's figure INCLUDES
+    its "*" catch-all's 4bet 0.1 over ~120 unlisted classes, i.e. the maniac
+    4-bet-bluffs any two cards 10% of the time facing a 3-bet; that junk mass
+    is ~10.2pp of the 15.16% and is deliberate archetype identity, kept
+    gap-gate-neutral because a 4-bet adds VPIP and PFR together)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4044,10 +4054,13 @@ def test_persona_postflop_bands(persona, budget):
             pytest.skip("maniac WTSD on the 0.50 ceiling; throughput-n noise — reconcile W4-b")
         # R10-3BET (2026-07-31, owner-approved defer — same shape as maniac's):
         # the roster-wide vs_3bet rewrite moved passive_fish's stable-n WTSD
-        # 0.5104 -> 0.4912 against the frozen [0.50, 0.57] floor. HONEST
+        # 0.5104 -> 0.4873 against the frozen [0.50, 0.57] floor. HONEST
         # REPORT: attribution measured that the fish's OWN node explains only
-        # ~0.4pp of the -1.9pp move (reverting fish's vs_3bet alone still
-        # reads 0.4949); the remainder is cross-persona composition — the
+        # a minor share of the move — reverting fish's vs_3bet alone reads
+        # 0.4949, trimming its call tiers 0.4912, restoring the dossier
+        # weights 0.4873: all within noise of each other, so the trim was
+        # reverted (theory review R-3). The remainder is cross-persona
+        # composition — the
         # whole table now plays 3-bet/4-bet pots differently around the fish
         # (single-lever probe NEGATIVE: removing maniac's junk-tier 4-bet
         # bluffs made it WORSE, 0.4888). Trimming the fish's continue tiers
@@ -4057,7 +4070,7 @@ def test_persona_postflop_bands(persona, budget):
         # WTSDs together. Fish AF + fold-to-cbet stay live below.
         if persona == "passive_fish":
             pytest.skip(
-                "passive_fish WTSD 0.4912 vs frozen 0.50 floor after the "
+                "passive_fish WTSD 0.4873 vs frozen 0.50 floor after the "
                 "R10-3BET roster rewrite; cross-persona composition, not a "
                 "fish-node defect — owner-deferred to W4-b (ledger)"
             )

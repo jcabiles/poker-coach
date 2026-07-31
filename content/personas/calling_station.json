@@ -1,6 +1,6 @@
 {
   "id": "persona_calling_station",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "domain": "persona",
   "persona": "calling_station",
   "display_name": "Calling Station",

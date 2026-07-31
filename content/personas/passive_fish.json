@@ -1,6 +1,6 @@
 {
   "id": "persona_passive_fish",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "domain": "persona",
   "persona": "passive_fish",
   "display_name": "Passive Fish",
@@ -64,10 +64,10 @@
       "positions": null,
       "mixes": [
         { "combos": "KK, QQ, AKs, AKo", "weights": { "call": 1.0 } },
-        { "combos": "JJ, TT, AQs, AQo, AJs, KQs", "weights": { "call": 0.8, "fold": 0.2 } },
+        { "combos": "JJ, TT, AQs, AQo, AJs, KQs", "weights": { "call": 0.85, "fold": 0.15 } },
         {
           "combos": "22-99, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, A2s, KJs, KTs, K9s, QJs, QTs, JTs, T9s, 98s, 87s, 76s, AJo, ATo, KQo, KJo, QJo, JTo",
-          "weights": { "call": 0.5, "fold": 0.5 }
+          "weights": { "call": 0.7, "fold": 0.3 }
         },
         { "combos": "AA", "weights": { "4bet": 0.5, "call": 0.5 } }
       ]
