@@ -38,11 +38,22 @@ weight. Everything else is per-persona structure:
                 0.5), a station is shallow (wider and/or more tiers, decaying
                 slowly). Rows owned by a `tail` tier are never extended by a
                 slope tier — the tail IS their edge treatment.
-      `tail`  — owns everything remaining in the rows it names (the nit's
-                small-pair limp band: raise the top pairs, limp the rest).
+      `tail`  — owns everything remaining in the rows it names. Note a tail
+                row's treatment is the SAME AT EVERY SEAT (tier weights are
+                global and slope tiers skip tail rows), so a row that needs a
+                seat-varying band cannot be a tail row — the nit's pairs row
+                stopped being one when T-M2 gave CO/BTN their own pair-open
+                band (content/personas/ladders/nit.unopened.json `_doc`).
   - a seat may override the slope widths of a single row via `slopes`
     (row -> one width per slope tier), which is how a curve stops one class
     early in a row without perturbing the rest of the ladder.
+  - `required_slopes` (optional, top level) — rows whose per-seat `slopes`
+    entry is MANDATORY. A row driven entirely by overrides (the nit's pairs
+    row: a per-seat open band above a "rest of the row" tier) silently
+    TRUNCATES if one seat forgets its entry — the tiers fall back to their
+    default widths, the row's bottom goes unplayed, and nothing downstream
+    can see it (a truncated row bottom is not a row GAP, so the RR-LINT belt
+    reads it as clean). Listing the row here makes the omission fail loud.
 
 Membership is a partition by construction, so three whole defect classes are
 UNREPRESENTABLE rather than merely detected: a row hole (a band is an
@@ -158,6 +169,12 @@ def _validate(spec: dict[str, Any]) -> None:
                 raise ValueError(f"tail row {r!r} owned by two tail tiers")
             tail_rows.add(r)
     n_slope = kinds.count("slope")
+    required_slopes = spec.get("required_slopes", [])
+    if not isinstance(required_slopes, list):
+        raise ValueError("'required_slopes' must be a list of row names")
+    for row in required_slopes:
+        if row not in ROW_CLASSES:
+            raise ValueError(f"required_slopes row {row!r} unknown")
     seats = spec.get("seats")
     if not isinstance(seats, dict) or not seats:
         raise ValueError("spec needs a non-empty 'seats' dict")
@@ -175,7 +192,15 @@ def _validate(spec: dict[str, Any]) -> None:
         for row in tail_rows:
             if row not in depths:
                 raise ValueError(f"{seat}: tail row {row!r} missing from depths")
-        for row, widths in sd.get("slopes", {}).items():
+        seat_slopes = sd.get("slopes", {})
+        for row in required_slopes:
+            if row not in seat_slopes:
+                raise ValueError(
+                    f"{seat}: row {row!r} needs explicit slope widths "
+                    f"(required_slopes) — without them its band silently "
+                    f"truncates to the tiers' default widths"
+                )
+        for row, widths in seat_slopes.items():
             if row not in depths:
                 raise ValueError(f"{seat}: slope override for unplayed row {row!r}")
             if len(widths) != n_slope:

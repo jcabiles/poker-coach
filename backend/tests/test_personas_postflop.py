@@ -3907,12 +3907,20 @@ def test_r10_3bet_passive_identity_freeze():
 #
 # EV-scale judgment at ~100bb (the roadmap's phrasing, not a solver claim): a
 # 4-bet pot leaves an SPR around 1-2, so 77-99 have no set-mining equity to
-# call on and no blocker equity to jam on — but the maniac is the one
-# archetype whose identity is applying pressure with exactly that kind of
-# hand. Authored as a mostly-fold mix with a jam-heavy continue leg
-# ({5bet_shove 0.25, call 0.15, fold 0.6}): total continue 0.40 sits BELOW
-# TT/JJ's 0.50 and level with 55/66's 0.40, so the repair adds no strength
-# inversion of its own.
+# call on — but the maniac is the one archetype whose identity is applying
+# pressure with exactly that kind of hand. Authored PUSH/FOLD, no call leg:
+# {5bet_shove 0.4, fold 0.6}.
+#
+# Theory review R-3 (MED, folded): the first draft authored {shove 0.25, call
+# 0.15, fold 0.6}, which (a) INVERTED the jam ladder — 55/66 jammed 0.40 while
+# the stronger 77-99 jammed only 0.25 — and (b) contradicted this very
+# docstring by adding a call leg to hands with no set-mining price. Levelling
+# the jam at 0.40 fixes both and keeps the archetype's push/fold identity.
+# The FLAT continue level 0.40 (equal to 55/66, below TT/JJ's 0.50) is
+# theory-endorsed and deliberate, not a rounding artifact.
+
+
+_MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
 
 
 def _vs_4bet_policy(pack) -> dict[str, dict[str, float]]:
@@ -3934,34 +3942,47 @@ def test_tf3_maniac_vs_4bet_middle_pairs_continue():
 
     PRE-SLICE HEAD reading (recorded per the gate-design rule): all three
     classes were absent from every mix of the node, i.e. continue 0.0 and fold
-    1.0 — this assertion FAILED at HEAD on all three."""
+    1.0 — this assertion FAILED at HEAD on all three.
+
+    Review fold (Codex MED): the EXACT mix is pinned, not `continue > 0`. The
+    loose form would have accepted any token weight and could not have caught
+    the jam-ladder inversion theory review R-3 found."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     policy = _vs_4bet_policy(packs[VillainType.MANIAC])
-    dead = {
+    wrong = {
         cls: policy.get(cls, {})
         for cls in ("99", "88", "77")
-        if policy.get(cls, {}).get("call", 0.0)
-        + policy.get(cls, {}).get("5bet_shove", 0.0)
-        <= 0.0
+        if policy.get(cls, {}) != _MANIAC_VS_4BET_MID_PAIR_MIX
     }
-    assert not dead, f"maniac vs_4bet still folds these pairs 100%: {dead}"
+    assert not wrong, (
+        f"maniac vs_4bet middle pairs are not the authored "
+        f"{_MANIAC_VS_4BET_MID_PAIR_MIX}: {wrong}"
+    )
 
 
 def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
     """🟢 PRESERVATION-shaped companion to the gate above (it could not pass at
     HEAD, where 99/88/77 read 0.0 between TT/JJ's 0.5 and 66/55's 0.4): the
     repair must not out-continue a stronger pair. Continue mass is
-    non-increasing down the pair row AA -> 55."""
+    non-increasing down the pair row AA -> 55.
+
+    Second direction added at review (theory R-3): JAM mass must be
+    non-decreasing UP the row, 55 -> 99. That is the assertion the first draft
+    violated — it continued 77-99 at the right total (0.40) while jamming them
+    less than the weaker 55/66 — and continue-monotonicity alone could never
+    have caught it, because the inversion lived inside the split."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     policy = _vs_4bet_policy(packs[VillainType.MANIAC])
 
+    def leg(cls: str, action: str) -> float:
+        return policy.get(cls, {}).get(action, 0.0)
+
     def cont(cls: str) -> float:
-        w = policy.get(cls, {})
-        return w.get("call", 0.0) + w.get("5bet_shove", 0.0)
+        return leg(cls, "call") + leg(cls, "5bet_shove")
 
     ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55"]
     bad = [
@@ -3970,6 +3991,13 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
         if cont(a) < cont(b)
     ]
     assert not bad, f"maniac vs_4bet pair continue ladder inverted: {bad}"
+    jam_ladder = ["55", "66", "77", "88", "99"]
+    jam_bad = [
+        f"{a} {leg(a, '5bet_shove'):.2f} > {b} {leg(b, '5bet_shove'):.2f}"
+        for a, b in zip(jam_ladder, jam_ladder[1:], strict=False)
+        if leg(a, "5bet_shove") > leg(b, "5bet_shove")
+    ]
+    assert not jam_bad, f"maniac vs_4bet jam mass falls as pairs get stronger: {jam_bad}"
 
 
 def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
@@ -5127,9 +5155,11 @@ def test_w3r6_damp_constants_inside_their_fitted_ranges():
 # WIDTH DEFINITION (pinned by roadmap W5-b3 (a), R9-c5): combo-weighted
 # `raise` + `3bet` legs over all 1326 combos under first-match-wins —
 # NEVER `1 - fold`, which would fold open-limps into the number and make a
-# limp-heavy node read as a wide opener. The nit's `unopened` nodes each open
-# with an open-limp mix (`22-66` UTG / `22-77` elsewhere at limp 0.4), so the
-# two measures differ materially here.
+# limp-heavy node read as a wide opener. Every nit `unopened` node carries
+# limp 0.4 across its small-pair band, so the two measures differ materially
+# here. Band shapes after T-M2 (2026-07-31): UTG `22-66` limp-only, UTG1/UTG2/
+# LJ/HJ/SB/BB `22-77` limp-only, CO `55-77` at raise 0.3/limp 0.4 plus `22-44`
+# limp-only, BTN `22-77` at raise 0.3/limp 0.4 with NO limp-only mix left.
 
 _LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB")
 
@@ -5195,9 +5225,12 @@ def test_w5b3_nit_unopened_authored_width_strictly_increases():
     so `LJ < CO` and `CO < BTN` were 29.11 < 29.11 — FALSE. This test FAILS
     at pre-slice HEAD, which is what makes it a gate rather than a decoration.
 
-    POST-SLICE reading (this commit):
+    POST-SLICE reading (W5-b3):
         UTG 7.54 · UTG1 8.45 · UTG2 9.95 · LJ 12.22 · HJ 13.42 · CO 15.99 ·
         BTN 21.42 · SB 16.59 · BB 12.52
+    CURRENT reading (T-M2, 2026-07-31 — CO/BTN pair opens at raise 0.3):
+        UTG 7.54 · UTG1 8.45 · UTG2 9.95 · LJ 12.22 · HJ 13.42 · CO 16.395 ·
+        BTN 22.232 · SB 16.59 · BB 12.52
     """
     packs = load_persona_packs()
     if not packs:
@@ -5340,7 +5373,17 @@ _NIT_PAIR_OPEN_SEATS = {
     "CO": ("77", "66", "55"),
     "BTN": ("77", "66", "55", "44", "33", "22"),
 }
+# The exact mix the pair-open band carries. Pinned as a whole (review fold,
+# Codex+refuter MED): `raise > 0` would pass on a 0.01 token raise, and would
+# not notice the fold/limp legs being re-cut underneath it.
+_NIT_PAIR_OPEN_MIX = {"raise": 0.3, "limp": 0.4, "fold": 0.3}
 _NIT_ALL_PAIRS = tuple(r + r for r in "AKQJT98765432")
+# The authored limp band per seat: every pair BELOW that seat's core raise
+# band. UTG raises 77 outright (core depth 8), every other seat stops at 88.
+_NIT_LIMP_BAND = {
+    seat: _NIT_ALL_PAIRS[8:] if seat == "UTG" else _NIT_ALL_PAIRS[7:]
+    for seat in _LADDER_SEATS
+}
 
 
 def _nit_pair_policy(pack, seat: str) -> dict[str, dict[str, float]]:
@@ -5371,41 +5414,58 @@ def test_tm2_nit_opens_small_pairs_from_late_position():
     assertion FAILED at HEAD on all nine classes.
 
     POST-SLICE (this commit): CO opens 55-77 and BTN opens 22-77, each at
-    raise 0.3 (limp 0.4 unchanged, fold 0.6 -> 0.3)."""
+    raise 0.3 (limp 0.4 unchanged, fold 0.6 -> 0.3).
+
+    Review fold (Codex + refuter MED): the assertion pins the WHOLE mix, not
+    `raise > 0`. A token raise weight, or a raise leg funded by re-cutting the
+    limp leg, would have satisfied the looser form."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     pack = packs[VillainType.NIT]
-    dead = {
+    wrong = {
         (seat, cls): _nit_pair_policy(pack, seat)[cls]
         for seat, band in _NIT_PAIR_OPEN_SEATS.items()
         for cls in band
-        if _nit_pair_policy(pack, seat)[cls].get("raise", 0.0) <= 0.0
+        if _nit_pair_policy(pack, seat)[cls] != _NIT_PAIR_OPEN_MIX
     }
-    assert not dead, f"nit has no late-position open on these pairs: {dead}"
+    assert not wrong, (
+        f"nit late-position pair opens are not the authored "
+        f"{_NIT_PAIR_OPEN_MIX}: {wrong}"
+    )
 
 
 def test_tm2_nit_pair_limp_weight_is_verbatim_at_every_seat():
     """🟢 PRESERVATION (passes at HEAD — labeled, not sold as a defect gate).
 
     W5-b1's verbatim-limp law: the authored limp weights ARE the nit's
-    identity and this slice may not spend them. Every pair class that carries
-    limp mass carries EXACTLY 0.4 of it, at all nine seats — so the CO/BTN
+    identity and this slice may not spend them. Every pair class in a seat's
+    limp band carries EXACTLY 0.4 of limp, at all nine seats — so the CO/BTN
     raise band can only have come out of the fold leg. (UTG's band starts one
-    class lower: it raises 77 outright, so its limp band is 22-66.)"""
+    class lower: it raises 77 outright, so its limp band is 22-66.)
+
+    Review fold (refuter MED): PRESENCE is required, not just "0.4 if
+    present". The earlier `if limp and limp != 0.4` form was DELETION-BLIND —
+    dropping a class out of every mix (limp 0.4 -> 0.0, fold 1.0) read as
+    clean, which is exactly how limp mass would get spent in practice."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     pack = packs[VillainType.NIT]
     bad = {}
     for seat in _LADDER_SEATS:
-        for cls, w in _nit_pair_policy(pack, seat).items():
-            limp = w.get("limp", 0.0)
-            if limp and limp != 0.4:
-                bad[(seat, cls)] = limp
+        policy = _nit_pair_policy(pack, seat)
+        band = _NIT_LIMP_BAND[seat]
+        for cls in band:
+            limp = policy[cls].get("limp", 0.0)
+            if limp != 0.4:
+                bad[(seat, cls)] = policy[cls]
+        # ... and the core band above it carries no limp leg at all, so the
+        # band boundary itself cannot drift without failing here.
+        for cls in _NIT_ALL_PAIRS[: len(_NIT_ALL_PAIRS) - len(band)]:
+            if policy[cls].get("limp", 0.0):
+                bad[(seat, cls)] = policy[cls]
     assert not bad, f"nit pair limp weight moved off the verbatim 0.4: {bad}"
-    utg = _nit_pair_policy(pack, "UTG")
-    assert [c for c, w in utg.items() if w.get("limp", 0.0)] == list(_NIT_ALL_PAIRS[8:])
 
 
 def test_tm2_nit_pair_opens_did_not_leak_to_the_other_seven_seats():
@@ -5413,7 +5473,13 @@ def test_tm2_nit_pair_opens_did_not_leak_to_the_other_seven_seats():
     BTN, a pair class either sits in the core raise band (raise 1.0) or has NO
     raise mass at all. This is what keeps T-M2 a late-position fix — an
     early-position nit that open-raises 22 would satisfy the defect gate above
-    and be a worse bot."""
+    and be a worse bot.
+
+    ⚠️ SB is excluded by TICKET SCOPE, not by realism (theory review R-7):
+    T-M2 named CO and BTN, and the nit dossier's SB first-in range does
+    include 55+. This guard therefore pins today's authored shape; a later
+    SB-scoped slice is expected to move SB out of this list, and doing so is
+    a content decision, not a regression."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")

@@ -31,7 +31,11 @@
     "declared above `core` so the emitted mix order is unchanged at the seven",
     "untouched seats. Consequence: every seat must now carry an explicit",
     "`slopes.pairs`, because the `edge` tier would otherwise take a pair class",
-    "(it previously skipped the row for free as a tail row).",
+    "(it previously skipped the row for free as a tail row) and the row's",
+    "bottom would go unplayed. That requirement is MACHINE-CHECKED, not just",
+    "documented: `required_slopes` below makes the emitter reject a seat that",
+    "omits it (review fold, refuter I2 — a silent truncation is invisible to",
+    "the RR-LINT belt, which only sees row GAPS, never a short row bottom).",
     "",
     "The `limp` weight 0.4 is IDENTICAL in both pair tiers on purpose: W5-b1's",
     "verbatim-limp law. CO/BTN pair opens convert FOLD mass (0.6 -> 0.3), never",
@@ -71,6 +75,7 @@
       "weights": { "raise": 0.5, "fold": 0.5 }
     }
   ],
+  "required_slopes": ["pairs"],
   "monotone_seats": ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN"],
   "seats": {
     "UTG": {

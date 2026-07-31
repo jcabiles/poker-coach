@@ -46,6 +46,16 @@ SPEC_PATH = CONTENT / "personas" / "ladders" / "nit.unopened.json"
 # repointing `emits` at another pack now fails the proving tests.
 PACK_PATH = CONTENT.parent / json.loads(SPEC_PATH.read_text(encoding="utf-8"))["emits"]
 
+
+def test_spec_emits_the_runtime_nit_pack():
+    """Review fold (Codex MED): deriving PACK_PATH from `emits` audits the
+    metadata, but it also means the whole proving suite follows `emits`
+    wherever it points — a spec repointed at a scratch copy would keep every
+    gate green while the pack the ENGINE loads drifted. Pin the destination to
+    the file `load_persona_packs` actually globs."""
+    assert PACK_PATH.resolve() == (CONTENT / "personas" / "nit.json").resolve()
+
+
 def _combos(cls: str) -> int:
     """Combos in a starting-hand class: 6 for a pair, 4 suited, 12 offsuit."""
     if len(cls) == 2:
@@ -267,4 +277,24 @@ def test_validator_rejects_duplicate_tail_ownership():
 
 
 def test_validator_rejects_overweight_mix():
-    _bad(lambda s: s["tiers"][2].__setitem__("weights", {"raise": 0.7, "fold": 0.7}))
+    _bad(lambda s: _tier(s, "core").__setitem__("weights", {"raise": 0.7, "fold": 0.7}))
+
+
+def test_validator_rejects_a_seat_missing_mandatory_slope_widths():
+    """🔴 Negative control for the T-M2 review fold (refuter I2): a row driven
+    entirely by per-seat slope widths (`required_slopes`) TRUNCATES silently if
+    one seat omits its entry — the tiers fall back to their defaults, the row's
+    bottom goes unplayed, and no downstream lint can see it (a short row bottom
+    is not a row gap). Dropping `slopes.pairs` from a seat must now raise.
+
+    Pre-fold behaviour, reproduced with the validator's new check disabled:
+    dropping BB's `slopes.pairs` emitted a two-mix BB node — the limp band was
+    GONE (22-66 unplayed, i.e. fold 1.0) and the `edge` tier had swallowed 77
+    into its raise-0.5 mix, because both tiers fell back to their default
+    widths (0 and 1)."""
+    _bad(lambda s: s["seats"]["BB"]["slopes"].pop("pairs"))
+    _bad(lambda s: s["seats"]["CO"].pop("slopes"))
+
+
+def test_validator_rejects_unknown_required_slope_row():
+    _bad(lambda s: s.__setitem__("required_slopes", ["quads"]))

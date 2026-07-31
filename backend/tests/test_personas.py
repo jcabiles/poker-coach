@@ -362,6 +362,10 @@ BANDS = {
     # mixes byte-identical). Exact combo-weighted seat-average: 14.19 open /
     # 13.12 raise; bands = exact ±2.0pp per the tolerance note above
     # (pinned-seed reads 14.91 / 13.83, well inside). Rows 3-4 untouched.
+    # T-M2 (2026-07-31) moved the anchor slightly and the BANDS were NOT
+    # touched: CO/BTN small-pair opens (raise 0.3 out of the fold leg) take
+    # the exact seat-average to 14.33 open / 13.26 raise, pinned seed 15.01 /
+    # 14.01 — inside the frozen rows, ≥0.99pp clear of both ceilings.
     "nit": ((12, 16), (11, 15), (1, 2), (5, 15)),
     # tag 3-bet row (6,7)→(6,8) RE-TOLERATED by RR-HOLES (2026-07-31, theory
     # review F1): AQs joined the 3bet-0.8 mix (dominated-typo fix — tag

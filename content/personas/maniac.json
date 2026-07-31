@@ -245,7 +245,7 @@
         { "combos": "QQ, AKs, AKo", "weights": { "5bet_shove": 1.0 } },
         { "combos": "A5s, A4s, A3s, A2s", "weights": { "5bet_shove": 0.5, "fold": 0.5 } },
         { "combos": "55, 66, KQs", "weights": { "5bet_shove": 0.4, "fold": 0.6 } },
-        { "combos": "77, 88, 99", "weights": { "5bet_shove": 0.25, "call": 0.15, "fold": 0.6 } },
+        { "combos": "77, 88, 99", "weights": { "5bet_shove": 0.4, "fold": 0.6 } },
         { "combos": "TT, JJ, AQs", "weights": { "call": 0.5, "fold": 0.5 } }
       ]
     }
