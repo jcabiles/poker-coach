@@ -153,10 +153,20 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # LJ¹ 117, HJ¹ 88, CO¹ 103, CO² 40, SB¹ 89, SB² 46, BTN¹ 92, BTN² 29). No
 # limper-belt content changed — stream displacement, not a coverage regression
 # (BB¹ 56, BB² 30, BB³ 5 still fire).
+# RE-PINNED for R10-PRE2 (persona-realism-r10-pre2, 2026-07-30 — slice-
+# authorized): the maniac `unopened` ladder widened above the LAG's at every
+# seat (authored seat-avg first-in raise 51.8%), so far more pots see a maniac
+# open instead of folding around/limping and the shared-rng organic stream
+# drifts at this seed (old post-R10-PRE1 counts: UTG2¹ 105, LJ¹ 121, HJ¹ 106,
+# CO¹ 108, CO² 38, SB¹ 83, SB² 41, BTN¹ 96, BTN² 32). No limper-belt content
+# changed — stream displacement plus genuinely fewer limp-fests surviving to
+# hero in late seats (SB¹ 83 → 61), which is the intended direction of a table
+# with a real maniac at it. Every _WANT_* coverage shape still fires
+# (verified: BB¹ 64, BB² 39, BB³ 7) — not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 105, ("LJ", 1): 121, ("HJ", 1): 106, ("CO", 1): 108,
-    ("CO", 2): 38, ("SB", 1): 83, ("SB", 2): 41, ("BTN", 1): 96,
-    ("BTN", 2): 32,
+    ("UTG2", 1): 85, ("LJ", 1): 116, ("HJ", 1): 122, ("CO", 1): 97,
+    ("CO", 2): 27, ("SB", 1): 61, ("SB", 2): 41, ("BTN", 1): 81,
+    ("BTN", 2): 40,
 }
 
 

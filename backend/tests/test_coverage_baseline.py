@@ -138,6 +138,23 @@ Cumulative vs the IMMUTABLE persona-realism-start snapshot: 28.0% (329/1176) vs 
 (349/1233) — still the same pre-existing mapper-track DIP first flagged at W3-b/c/d,
 improved and no worse in character; not a persona-realism regression. Seeded-fixture
 re-record; bands stay frozen to W4-b.
+
+RE-RECORDED for R10-PRE2 (persona-realism-r10-pre2, 2026-07-30 — slice-authorized): the
+maniac `unopened` ladder widened above the LAG's at every seat (authored seat-avg
+first-in raise 51.8%) to fix the R10-1a first-in identity collapse. PURE preflop
+content — no engine or mapper code changed — but the maniac now opens roughly twice as
+often, so the seeded stream drifts → total 1176 → 1251, graded 329 → 329 (graded count
+HELD exactly; more total decision points because more pots see a raise and more seats
+act behind it). Graded ratio 28.0% → 26.3% (DOWN slice-over-slice — flagged, not
+laundered): the extra decision points are — INFERENTIALLY, pending T-REJECT's
+reject-reason distribution — dominated by non-HU-SRP shapes
+(maniac-opened multiway / re-raised pots) that the mapper's gates already reject —
+the pre-existing mapper-track DIP first flagged at W3-b/c/d, WIDENED here because a
+realism fix routes hero into exactly the spot mix `T-cover` exists to make gradable.
+Mapper coverage is orthogonal to persona realism; the remedy is the T-cover mapper
+work, not narrower villains. Cumulative vs the IMMUTABLE persona-realism-start
+snapshot: 26.3% (329/1251) vs 28.3% (349/1233). Seeded-fixture re-record; bands stay
+frozen to W4-b.
 """
 
 from __future__ import annotations

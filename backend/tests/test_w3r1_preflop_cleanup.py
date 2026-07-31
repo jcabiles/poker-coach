@@ -4,6 +4,9 @@ Spec: `docs/ai-dlc/specs/persona-realism-w3r-1.md` (T1–T3). Pure content edits
 - maniac `vs_rfi` REPLACED with a 3-tier legit loose-flat range (no any-two
   cold-call); maniac + lag SB open-limps DELETED; maniac HJ/CO/BTN offsuit-ace
   opens trimmed (HJ→A7o+, CO/BTN→A5o+).
+  ⚠️ The ace TRIMS were SUPERSEDED by R10-PRE2 (2026-07-30): the maniac ladder
+  now opens A2o+ from HJ/CO/BTN by design (see the T2 note below). The no-limp
+  invariants and the `vs_rfi` replacement remain live W3R-1 law.
 
 These tests pin the CONFIG behavior directly via `sample_preflop_action`; the
 seeded-sim stat bands (T4) live in `test_personas.py` / `test_personas_postflop.py`.
@@ -94,26 +97,55 @@ def test_maniac_vs_rfi_premiums_3bet(packs, hand):
     assert acts == {"3bet"}, f"{hand} vs_rfi actions {acts}"
 
 
+# T1's SB invariant is "maniac never OPEN-LIMPS from the SB" — an ACTION-SET
+# check, not a range-width check (same rule as the lag T3 note below). R10-PRE2
+# widened the maniac SB `unopened` node (ladder separation above the LAG), so
+# all three probes now land inside the range's fringe mix (raise 0.7/fold 0.3);
+# the pins are updated to the new ranges rather than the ranges being carved to
+# keep the pins. `"limp" not in acts` — the actual T1 guarantee — is unchanged.
 @pytest.mark.parametrize("hand", ["J2s", "32s", "K2o"])
 def test_maniac_sb_no_open_limp(packs, hand):
-    # SB open-limp mix deleted -> these fall through to fold (never limp).
     acts = _actions(packs[VillainType("maniac")], Position.SB, "unopened", hand)
-    assert "limp" not in acts and acts == {"fold"}, f"{hand} SB actions {acts}"
+    assert "limp" not in acts, f"{hand} maniac SB open-limped: {acts}"
+    assert acts == {"raise", "fold"}, f"{hand} SB actions {acts}"
+
+
+def test_maniac_unopened_has_no_limp_weight_anywhere(packs):
+    # Pack-level form of T1's invariant (R10-PRE2 refuter: the 3-hand probe
+    # above is a spot-check a reintroduced limp mix could slip past): no
+    # `unopened` mix in the maniac pack may carry ANY limp weight, at any seat.
+    for node in packs[VillainType("maniac")].preflop:
+        if node.facing != "unopened":
+            continue
+        for mix in node.mixes:
+            assert "limp" not in mix.weights, (
+                f"maniac unopened limp weight reintroduced at "
+                f"{node.positions}: {mix.combos!r} -> {dict(mix.weights)}"
+            )
 
 
 # --------------------------------------------------------------- T2 (maniac aces)
 
 
-def test_maniac_hj_ace_trim(packs):
+# T2 SUPERSEDED by R10-PRE2 (2026-07-30): the W3R-1 offsuit-ace trims
+# (HJ→A7o+, CO/BTN→A5o+) were authored against the old ~50%-and-under maniac
+# ladder. R10-PRE2 widens the whole ladder above the LAG's (HJ 57%, CO 64%,
+# BTN 73% authored RFI), and at those widths excluding A2o-A6o while raising
+# 96o/86o-type junk would be a range HOLE, not a trim — the LAG itself opens
+# A2o+ at HJ. The trims' original purpose (maniac not wider than its seat
+# budget on weak offsuit aces) is carried by the PRE2 ladder gates in
+# test_personas.py; these tests now pin the NEW behavior: weak offsuit aces
+# open (with fold mass from the mix weights, never pure-fold).
+def test_maniac_hj_offsuit_aces_open(packs):
     pack = packs[VillainType("maniac")]
-    assert _actions(pack, Position.HJ, "unopened", "A6o") == {"fold"}
+    assert "raise" in _actions(pack, Position.HJ, "unopened", "A2o")
     assert "raise" in _actions(pack, Position.HJ, "unopened", "A7o")
 
 
 @pytest.mark.parametrize("position", [Position.CO, Position.BTN])
-def test_maniac_co_btn_ace_trim(packs, position):
+def test_maniac_co_btn_offsuit_aces_open(packs, position):
     pack = packs[VillainType("maniac")]
-    assert _actions(pack, position, "unopened", "A4o") == {"fold"}
+    assert "raise" in _actions(pack, position, "unopened", "A2o")
     assert "raise" in _actions(pack, position, "unopened", "A5o")
 
 
@@ -128,34 +160,48 @@ def test_maniac_suited_ace_control_still_opens(packs, position):
 # ("TT+, AQs+, AKo" -> raise 1.0) is prepended to EVERY unopened node so the
 # maniac stops folding premiums first-in (R10-1b). The wide mixes below it
 # are byte-identical to the W3R-1 pins.
+# RE-PINNED for R10-PRE2 (slice-authorized): the ladder-separation slice
+# rewrites every maniac unopened node (core raise 0.9 / fringe raise 0.7,
+# widened above the LAG at every seat) — the W3R-1-era wide mixes no longer
+# exist. "Untouched" now means "pinned against drift AFTER PRE2": these five
+# seats' shapes are the PRE2-authored ranges verbatim.
 _MANIAC_UNTOUCHED_OPENS = {
     Position.UTG: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("55+, A6s+, K9s+, QTs+, J9s+, T9s, A9o+, KJo+", {"raise": 0.85, "fold": 0.15}),
-        ("33, 44, A4s, A5s, K8s, QTo", {"raise": 0.85, "fold": 0.15}),
+        ("22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 76s, A6o+, K9o+, QTo+, JTo",
+         {"raise": 0.9, "fold": 0.1}),
+        ("K2s, K3s, Q5s, Q6s, J6s, T6s, 75s, 65s, 54s, A4o, A5o, K8o, Q9o, J9o, T9o",
+         {"raise": 0.7, "fold": 0.3}),
     ],
     Position.UTG1: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("44+, A4s+, K7s+, Q9s+, J8s+, T8s+, 98s, A8o+, KTo+, QJo", {"raise": 0.85, "fold": 0.15}),
-        ("22, 33, A2s, A3s, K6s, JTo", {"raise": 0.85, "fold": 0.15}),
+        ("22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, A6o+, K9o+, Q9o+, J9o+, T9o",
+         {"raise": 0.9, "fold": 0.1}),
+        ("K2s, K3s, Q5s, Q6s, J6s, T6s, 54s, A4o, A5o, K8o, Q8o, J8o, T8o, 98o",
+         {"raise": 0.7, "fold": 0.3}),
     ],
     Position.UTG2: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("33+, A2s+, K5s+, Q8s+, J7s+, T7s+, 97s+, 87s, A6o+, K9o+, QTo+, JTo",
-         {"raise": 0.8, "fold": 0.2}),
-        ("22, K4s, Q7s, J6s, 76s, A5o", {"raise": 0.85, "fold": 0.15}),
+        ("22+, A2s+, K3s+, Q6s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, A5o+, K8o+, Q9o+, J9o+, T9o",
+         {"raise": 0.9, "fold": 0.1}),
+        ("K2s, Q4s, Q5s, J5s, T5s, 54s, A3o, A4o, K7o, Q8o, J8o, T8o, 98o",
+         {"raise": 0.7, "fold": 0.3}),
     ],
     Position.LJ: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("22+, A2s+, K3s+, Q6s+, J6s+, T6s+, 86s+, 75s+, 64s+, A4o+, K7o+, Q9o+, J9o+, T9o",
-         {"raise": 0.8, "fold": 0.2}),
-        ("K2s, Q5s, J5s, 54s, A3o, K6o, Q8o", {"raise": 0.85, "fold": 0.15}),
+        ("22+, A2s+, K2s+, Q4s+, J5s+, T5s+, 95s+, 85s+, 74s+, 64s+, 53s+, "
+         "A4o+, K7o+, Q8o+, J8o+, T8o+, 98o",
+         {"raise": 0.9, "fold": 0.1}),
+        ("Q2s, Q3s, J3s, J4s, T4s, 43s, A2o, A3o, K5o, K6o, Q7o, J7o, T7o, 97o, 87o",
+         {"raise": 0.7, "fold": 0.3}),
     ],
     Position.BB: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("33+, A3s+, K6s+, Q9s+, J8s+, T8s+, 98s, A7o+, K9o+, QTo+, JTo",
-         {"raise": 0.8, "fold": 0.2}),
-        ("22, A2s, K5s, Q8s, J7s, 87s, A6o, K8o", {"raise": 0.85, "fold": 0.15}),
+        ("22+, A2s+, K2s+, Q3s+, J5s+, T5s+, 95s+, 85s+, 74s+, 64s+, 53s+, "
+         "A3o+, K6o+, Q8o+, J8o+, T8o+, 98o",
+         {"raise": 0.9, "fold": 0.1}),
+        ("Q2s, J3s, J4s, T4s, 43s, A2o, K4o, K5o, Q6o, Q7o, J7o, T7o, 97o, 87o",
+         {"raise": 0.7, "fold": 0.3}),
     ],
 }
 
