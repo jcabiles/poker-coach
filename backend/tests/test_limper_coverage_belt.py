@@ -181,10 +181,16 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # SB² 28, BTN¹ 74, BTN² 40). No limper-belt content changed; every _WANT_*
 # coverage shape still fires (verified: BB¹ 39, BB² 26, BB³ 2) — stream
 # displacement, not a coverage regression.
+# RE-PINNED for RR-HOLES (2026-07-31, slice-authorized): typo-hole cleanup
+# (station/fish/tag/lag preflop membership additions) displaces the shared-rng
+# organic stream at this seed (old post-R10-3BET counts: UTG2¹ 101, LJ¹ 105,
+# HJ¹ 114, CO¹ 85, CO² 26, SB¹ 54, SB² 41, BTN¹ 86, BTN² 38). Every _WANT_*
+# coverage shape still fires (verified: BB¹ 40, BB² 28, BB³ 5) — stream
+# displacement, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 101, ("LJ", 1): 105, ("HJ", 1): 114, ("CO", 1): 85,
-    ("CO", 2): 26, ("SB", 1): 54, ("SB", 2): 41, ("BTN", 1): 86,
-    ("BTN", 2): 38,
+    ("UTG2", 1): 96, ("LJ", 1): 98, ("HJ", 1): 99, ("CO", 1): 101,
+    ("CO", 2): 30, ("SB", 1): 68, ("SB", 2): 40, ("BTN", 1): 73,
+    ("BTN", 2): 36,
 }
 
 

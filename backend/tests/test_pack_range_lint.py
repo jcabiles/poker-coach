@@ -144,31 +144,44 @@ def _scan_packs():
 # commit that fixes them.
 
 _ROW_GAPS = {
-    # --- unopened membership holes: all strictly-dominated typos (RR-HOLES) --
-    # (maniac QJo/43s holes, K2o inert token and 4 interleavings were fixed
-    # by R10-PRE2's ladder rewrite (#138) — entries removed post-merge.)
-    ("calling_station", "unopened", "*", "5s", ("54s",)),
-    ("passive_fish", "unopened", "*", "5s", ("54s",)),
-    ("tag", "unopened", "BTN", "Ts", ("T4s",)),
-    ("tag", "unopened", "BB", "Ks", ("K4s",)),
-    ("tag", "unopened", "BB", "Qs", ("Q6s",)),
-    # --- response-layer gaps: recorded as-is; several are deliberate polar /
-    # blocker construction (adjudicated by W5-b4 / R10-3BET when those nodes
-    # are rewritten) -----------------------------------------------------------
-    ("calling_station", "vs_limpers", "*", "5s", ("54s", "53s")),
-    ("calling_station", "vs_limpers", "*", "4s", ("43s",)),
-    ("calling_station", "vs_rfi", "*", "5s", ("54s", "53s")),
-    ("calling_station", "vs_rfi", "*", "4s", ("43s",)),
-    ("lag", "vs_rfi", "*", "Ao", ("AQo",)),
-    ("lag", "vs_rfi", "*", "Qs", ("QTs",)),
+    # --- RR-HOLES (2026-07-31): the unopened membership holes + tag's vs_rfi
+    # inert tokens (all strictly-dominated typos / dead text) were FIXED —
+    # missing class added next to its weaker same-mix neighbor, or dead token
+    # removed. Also fixed in this slice, as ordinary dominated typos (no
+    # blocker/polar reading applies to plain rank domination): calling_station
+    # vs_limpers/vs_rfi 5s+4s holes (loose-caller character, low-risk widen),
+    # tag vs_rfi pair/As/Ao holes (77 folded into 22-66→22-77; AQo slotted
+    # next to AJo/ATo in the call mix; AQs slotted next to AJs in the
+    # 3bet-0.8 mix — theory review F1: exact combo-weighted 3-bet width with
+    # AQs@0.8 is 6.91%, INSIDE the (6,7) band; the band edge only trips via
+    # Monte Carlo noise, so the range goes where the archetype plays it and
+    # the noisy pin was re-tolerated in test_personas.py), and lag
+    # vs_rfi Ao/Qs holes (AQo, QTs slotted next to their same-tier
+    # neighbors). Entries removed post-fix. (maniac QJo/43s holes, K2o inert
+    # token and 4 interleavings were fixed by R10-PRE2's ladder rewrite
+    # (#138) — entries removed post-merge.)
+    #
+    # --- response-layer gaps left in place (RR-HOLES adjudication) ----------
+    # lag & maniac vs_4bet As-row: thin suited aces unplayed while AKs and
+    # wheel-ace blockers continue — the docstring's own canonical
+    # polar/blocker construction. Same CONCEPT, different ranges (Codex
+    # review: lag authors AKs + A5s only; maniac authors AKs + A5s-A2s).
+    # DECLARED INTENTIONAL, not fixed.
     ("lag", "vs_4bet", "*", "As", ("AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
-    ("maniac", "vs_4bet", "*", "pair", ("99", "88", "77")),
     ("maniac", "vs_4bet", "*", "As", ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s")),
+    # maniac vs_4bet pair-row: 99/88/77 unplayed between TT/JJ (call 0.5) and
+    # 55/66 (5bet_shove 0.4). No blocker/card-removal story distinguishes 77
+    # from 66 the way ace-blockers do — plausibly a dominated typo, but fixing
+    # it means widening the maniac's 4-bet-shove range across three whole pair
+    # classes (a real strategy-EV change, not typo-scale), and maniac.json's
+    # push/fold ladder was the deliberate subject of R10-PRE1/PRE2. FLAGGED
+    # for a dedicated R10-4BET-style slice rather than fixed here (RR-HOLES
+    # scope is typo-scale edits).
+    ("maniac", "vs_4bet", "*", "pair", ("99", "88", "77")),
+    # nit vs_limpers pair-row: nit.json is out of scope for this ticket
+    # (owned by another ticket) — left untouched, FLAGGED for whoever next
+    # rewrites nit.json's vs_limpers node.
     ("nit", "vs_limpers", "*", "pair", ("TT", "99", "88")),
-    ("passive_fish", "vs_rfi", "*", "5s", ("54s",)),
-    ("tag", "vs_rfi", "*", "pair", ("77",)),
-    ("tag", "vs_rfi", "*", "As", ("AQs",)),
-    ("tag", "vs_rfi", "*", "Ao", ("AQo",)),
     # R10-3BET (2026-07-31): tag's rewritten vs_3bet deliberately continues
     # ATs and 4-bet-bluffs A5s/A4s while folding A9s-A6s — polar blocker
     # construction, authored exception (dossier: fold-to-3bet 52-65%, 4-bet
@@ -177,13 +190,15 @@ _ROW_GAPS = {
     ("tag", "vs_3bet", "*", "As", ("A9s", "A8s", "A7s", "A6s")),
 }
 
+# RR-HOLES (2026-07-31): tag's three vs_rfi inert tokens (ATs/KJs shadowed by
+# the earlier 3bet mix, KQo shadowed by the same) were dead text that could
+# never fire under first-match-wins — removed rather than relocated, since
+# making them live would have downgraded already-stronger-mixed combos
+# (ATs/KJs from 3bet 0.8 to call 1.0; KQo likewise) to a weaker treatment,
+# which reads as unintended. Entries removed post-fix.
 # (maniac vs_rfi JTo inert token and the K2s-mix call interleaving were fixed
 # by W5-b4's vs_rfi rewrite — entries removed in that slice's commit.)
-_INERT_TOKENS = {
-    ("tag", "vs_rfi", "*", "99", "ATs"),
-    ("tag", "vs_rfi", "*", "99", "KJs"),
-    ("tag", "vs_rfi", "*", "22-66", "KQo"),
-}
+_INERT_TOKENS: set[tuple] = set()
 
 # (The four vs_3bet interleavings — nit/passive_fish KK, lag 88-JJ, tag TT-QQ —
 # were fixed by R10-3BET's node rewrites: mixes are now ordered so dominant

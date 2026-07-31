@@ -1,6 +1,6 @@
 {
   "id": "persona_passive_fish",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "domain": "persona",
   "persona": "passive_fish",
   "display_name": "Passive Fish",
@@ -32,7 +32,7 @@
       "mixes": [
         { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
-          "combos": "22-99, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
+          "combos": "22-99, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
           "weights": { "limp": 1.0 }
         }
       ]
@@ -54,7 +54,7 @@
       "mixes": [
         { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
         {
-          "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
+          "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
           "weights": { "call": 1.0 }
         }
       ]

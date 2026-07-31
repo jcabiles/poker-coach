@@ -165,6 +165,15 @@ slice-over-slice — the maniac 3-betting/isolating ends more hands preflop, tri
 ungradable multiway tail R10-PRE2 created). Cumulative vs the IMMUTABLE
 persona-realism-start snapshot: 27.1% (330/1219) vs 28.3% (349/1233). Seeded-fixture
 re-record; bands stay frozen to W4-b.
+
+RE-RECORDED for RR-HOLES (persona-realism, 2026-07-31 — slice-authorized):
+typo-hole + dead-token cleanup adds a few playable combos to station/fish/
+tag/lag preflop nodes, displacing the shared stream: 1218/332 → 1237/325
+(27.3% → 26.3%). CUMULATIVE vs the immutable persona-realism-start snapshot
+(349/1233 = 28.3%): 325/1237 = 26.3%, −2.0pp — adjudicated as a continuation
+of the known mapper-track dip (stream displacement; the mapper is orthogonal
+and T-cover owns the ratio), NOT silently accepted. Seeded-fixture re-record;
+population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

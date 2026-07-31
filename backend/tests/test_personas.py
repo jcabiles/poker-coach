@@ -235,7 +235,16 @@ BANDS = {
     # combo-weighted: nit 28.45 open / 27.38 raise, tag 33.97, lag 43.15).
     # Rows 3-4 are UNTOUCHED — separate levers W5-b1 does not move.
     "nit": ((26, 30), (25, 29), (1, 2), (5, 15)),
-    "tag": ((32, 36), (32, 36), (6, 7), (15, 28)),
+    # tag 3-bet row (6,7)→(6,8) RE-TOLERATED by RR-HOLES (2026-07-31, theory
+    # review F1): AQs joined the 3bet-0.8 mix (dominated-typo fix — tag
+    # 3-bet AJs/ATs at 0.8 with NO action on the stronger AQs). Exact
+    # combo-weighted width is 6.91% — inside the OLD band — but this row is a
+    # Monte Carlo estimate whose 25-seed sweep already spanned 6.19-7.31
+    # before the fix (docstring above); post-fix the pinned seed reads 7.10.
+    # Widened one point rather than carving the range to keep a noisy pin
+    # (the T3 precedent). Computing rows 3-4 exactly stays the documented
+    # future fix.
+    "tag": ((32, 36), (32, 36), (6, 8), (15, 28)),
     # lag/maniac open-freq re-anchored (P1 M3, persona-realism-p1): M3 deleted
     # the non-SB unopened open-limps from both packs, so open-freq collapsed
     # onto first-in-raise (+~0-1pp of retained SB limps). Measured at the
