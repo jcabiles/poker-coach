@@ -258,7 +258,14 @@ BANDS = {
     # wide-marginal flat); continue-rate measured at 45.99% on the pinned seed
     # (hash-stable). Snug window around the measured value. The 3bet band stays
     # [12,20] (restored via tier-2 3bet:0.45, measured 12.59%) — NOT re-anchored.
-    "maniac": ((49.8, 53.8), (49.8, 53.8), (12, 20), (44, 48)),
+    # maniac rows 3-4 RE-ANCHORED by W5-b4 (2026-07-31): the vs_rfi node was
+    # rewritten (tier-2 3bet 0.45 -> 0.5, tier-3 flat {call 0.9} -> {3bet 0.2,
+    # call 0.3, fold 0.5}, any-two {3bet 0.05, fold 0.95} catch-all — the
+    # R10-1 73%-flat-call repair). Measured at the pinned seed: 3-bet 22.00,
+    # vs_rfi-continue 38.69; both rows = measured ±2.0pp per the tolerance
+    # note above. The 3-bet row is DELIBERATELY above the full-ring 4-7% pool
+    # anchor — that anchor belongs to the other five personas, untouched here.
+    "maniac": ((49.8, 53.8), (49.8, 53.8), (20.0, 24.0), (36.7, 40.7)),
 }
 
 DEALS = 1112  # pinned: 1,112 deals x 9 seats ~= 10k samples per facing

@@ -163,9 +163,18 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # hero in late seats (SB¹ 83 → 61), which is the intended direction of a table
 # with a real maniac at it. Every _WANT_* coverage shape still fires
 # (verified: BB¹ 64, BB² 39, BB³ 7) — not a coverage regression.
+# RE-PINNED for W5-b4 (persona-realism-w5b4, 2026-07-31 — slice-authorized):
+# the maniac vs_limpers/vs_rfi repair (positional iso toward ~60% late; the
+# flat-call tier converted to 3bet/call/fold; light any-two cold-3bet) makes
+# the maniac attack limped pots it used to ignore, so fewer limped pots
+# survive to hero — a GENUINE texture change, the slice's stated intent, on
+# top of stream displacement (old post-R10-PRE2 counts: UTG2¹ 85, LJ¹ 116,
+# HJ¹ 122, CO¹ 97, CO² 27, SB¹ 61, SB² 41, BTN¹ 81, BTN² 40). No limper-belt
+# content changed; every _WANT_* coverage shape still fires (verified:
+# BB¹ 39, BB² 33, BB³ 5) — not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 85, ("LJ", 1): 116, ("HJ", 1): 122, ("CO", 1): 97,
-    ("CO", 2): 27, ("SB", 1): 61, ("SB", 2): 41, ("BTN", 1): 81,
+    ("UTG2", 1): 89, ("LJ", 1): 91, ("HJ", 1): 117, ("CO", 1): 94,
+    ("CO", 2): 36, ("SB", 1): 65, ("SB", 2): 28, ("BTN", 1): 74,
     ("BTN", 2): 40,
 }
 

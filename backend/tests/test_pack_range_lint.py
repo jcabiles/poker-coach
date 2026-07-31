@@ -173,8 +173,9 @@ _ROW_GAPS = {
     ("tag", "vs_3bet", "*", "As", ("ATs", "A9s", "A8s", "A7s", "A6s")),
 }
 
+# (maniac vs_rfi JTo inert token and the K2s-mix call interleaving were fixed
+# by W5-b4's vs_rfi rewrite — entries removed in that slice's commit.)
 _INERT_TOKENS = {
-    ("maniac", "vs_rfi", "*", "K2s", "JTo"),
     ("tag", "vs_rfi", "*", "99", "ATs"),
     ("tag", "vs_rfi", "*", "99", "KJs"),
     ("tag", "vs_rfi", "*", "22-66", "KQo"),
@@ -189,7 +190,6 @@ _WEIGHT_INTERLEAVING = {
     ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 1.0),
     ("lag", "vs_3bet", "*", "88-JJ", "call", 0.6, 0.75),
     ("maniac", "vs_4bet", "*", "QQ", "5bet_shove", 0.7, 1.0),
-    ("maniac", "vs_rfi", "*", "K2s", "call", 0.55, 0.9),
     ("nit", "vs_3bet", "*", "KK", "call", 0.5, 1.0),
     ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 1.0),
     ("passive_fish", "vs_3bet", "*", "KK", "call", 0.5, 1.0),

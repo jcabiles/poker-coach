@@ -3134,13 +3134,23 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # aggressor with more air and gives up more; the single W4-b re-anchor must
 # reconcile this. REPORTED only — no band moved here. Exact tripwire
 # re-record; population bands stay frozen to W4-b.
+# RE-RECORDED for W5-b4 (persona-realism-w5b4, 2026-07-31 — slice-authorized):
+# the maniac vs_limpers/vs_rfi repair (positional iso split toward ~60% late,
+# tier-3 flat {call 0.9} -> {3bet 0.2, call 0.3, fold 0.5}, any-two light
+# 3bet-or-fold catch-all, modest fringe over-limp). PURE preflop content — the
+# maniac now isolates/3-bets pots it used to flat or fold, so the shared-table
+# stream reshapes and ALL six rows move at this seed (displacement + genuine
+# environment change). Stable-n (1200) maniac reading with only this pack
+# changed: VPIP 40.6 -> ~39.6, PFR 25.1 -> ~32, gap 15.4 -> ~7.5, vs_rfi
+# cold-call 34.2 -> ~16, 3bet 12.4 -> ~23. Exact tripwire re-record;
+# population bands stay frozen to W4-b.
 _GOLDEN_STATS_N200 = {
-    "calling_station": (0.303125, 0.15517241379310345, 0.6906474820143885),
-    "lag": (3.0625, None, 0.44696969696969696),
-    "maniac": (3.5, 0.4634146341463415, 0.4421052631578947),
-    "nit": (0.8936170212765957, None, 0.6515151515151515),
-    "passive_fish": (0.816, None, 0.5643564356435643),
-    "tag": (2.676470588235294, None, 0.5357142857142857),
+    "calling_station": (0.31176470588235294, 0.1568627450980392, 0.7027972027972028),
+    "lag": (3.6363636363636362, None, 0.5757575757575758),
+    "maniac": (3.5625, 0.29411764705882354, 0.46710526315789475),
+    "nit": (None, None, 0.6938775510204082),
+    "passive_fish": (0.9323308270676691, 0.35135135135135137, 0.5314009661835749),
+    "tag": (2.6666666666666665, None, 0.5633802816901409),
 }
 
 
@@ -3411,9 +3421,19 @@ def test_preflop_node_occupancy_arrival_grid():
     # prevent, and unlike the roster-wide band below there is no reproducibility
     # finding against this one — only thin n. Tightening the denominator (or
     # retiring the cell for a wider late-position aggregate) is a Wave B call.
-    assert 0.05 <= grid["BTN"]["unopened"] <= 0.12, (
-        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.05, 0.12] "
-        f"-- n~408, seed-dispersion 0.0417..0.1005, see the comment above{report}"
+    #
+    # RE-DERIVED for W5-b4 (2026-07-31, slice-authorized — NOT a quiet
+    # recentre on a noise miss; the reseed-first protocol above was run): the
+    # maniac's vs_limpers/vs_rfi repair raises its VPIP and attack rate on
+    # limped pots, so FEWER hands fold around to the button — a genuine,
+    # intended arrival shift (the slice's roadmap entry names table texture as
+    # its causal surface). Measured post-slice across 6 reseeds this cell
+    # spans 0.0343..0.0637 (was 0.0417..0.1005 pre-slice), i.e. robustly
+    # below the old 0.05 floor on most seeds, not a one-seed excursion. New
+    # band = post-slice span ± the same thin-n allowance; still DIRECTIONAL.
+    assert 0.025 <= grid["BTN"]["unopened"] <= 0.10, (
+        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.025, 0.10] "
+        f"-- n~408, post-W5-b4 seed-dispersion 0.0343..0.0637, see above{report}"
     )
 
     total = sum(occ.opps.values())
@@ -3505,11 +3525,20 @@ def test_preflop_node_occupancy_arrival_grid():
     # would be sharper — but that is a different number needing its own
     # calibration, so it is a Wave B question, not a silent edit here.
     # ------------------------------------------------------------------
-    assert 0.30 <= roster_wide_unopened <= 0.36, (
+    # RE-CENTRED for W5-b4 (2026-07-31, slice-authorized — the reseed-first
+    # protocol was run, this is not a noise recentre): the maniac's
+    # vs_limpers/vs_rfi repair means more limped/opened pots get attacked, so
+    # more seats arrive FACING action and fewer arrive `unopened` — a genuine,
+    # intended texture shift. Measured post-slice across 6 reseeds:
+    # 0.2907..0.3120 (mean ~0.305; the pinned seed is the low tail), vs the
+    # pre-slice calibration 0.325 +/-0.010 across seeds. New centre 0.305,
+    # same +/-0.03 half-width and the same purpose (the only watch on the
+    # UTG1/UTG2/LJ middle region).
+    assert 0.275 <= roster_wide_unopened <= 0.335, (
         f"roster-wide unopened arrival {roster_wide_unopened:.4f} outside "
-        f"[0.30, 0.36] (calibrated at 0.325) -- read the provenance comment "
-        f"above before re-centring: this is the only check watching the middle "
-        f"positions (UTG1/UTG2/LJ), though SB+BB dilute it{report}"
+        f"[0.275, 0.335] (re-centred 0.305 at W5-b4) -- read the provenance "
+        f"comment above before re-centring: this is the only check watching "
+        f"the middle positions (UTG1/UTG2/LJ), though SB+BB dilute it{report}"
     )
 
     # Arrival at `unopened` can only decay as the seat acts later: every seat
@@ -3679,6 +3708,30 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
         f"EP first-in raise {ep:.3f} not below aggregate {aggregate:.3f} -- the "
         f"authored ladder rises toward the button, so its arrival-weighted "
         f"shadow must keep EP below the aggregate"
+    )
+
+
+def test_maniac_vpip_pfr_gap_back_under_ten():
+    """🔴 W5-b4 defect gate (failed at pre-fix HEAD: gap 15.4pp at n=1200 —
+    the roster's ONLY gap-row failure, the signature of the call-heavy
+    vs_rfi tier-3 flat {call 0.9} that audit-F11 struck from the "*"
+    catch-all but that survived in an enumerated mix).
+
+    The GAP (VPIP - PFR) is format-INVARIANT per W5-a1 and therefore
+    COMMITTABLE. VPIP and PFR levels are REPORTED only (printed below) —
+    the single population-band re-anchor stays W4-b's (roadmap W5-b4 no-go:
+    committing an RP6 number as a gate here is a §11 item-7 auto-FAIL).
+    Threshold margin: across a 6-reseed sweep at this n the shipped content
+    reads gap 6.4-8.8pp (mean 7.8) — the 10pp ceiling sits ~1.2pp above the
+    worst observed reading (~2σ of the sweep spread)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    s = _persona_stats_ext(packs, "maniac", 600)
+    print(f"maniac VPIP {s.vpip:.3f} PFR {s.pfr:.3f} (REPORTED — band anchor is W4-b)")
+    assert s.gap is not None and s.gap < 0.10, (
+        f"maniac VPIP-PFR gap {s.gap:.3f} not back under 0.10 (W5-b4 gate; "
+        f"format-invariant, committable per W5-a1)"
     )
 
 

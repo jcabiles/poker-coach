@@ -69,11 +69,16 @@ def _mix_shape(node) -> list[tuple[str, dict]]:
 # --------------------------------------------------------------- T1 (maniac)
 
 
+# T1's vs_rfi invariant is "offsuit trash NEVER COLD-CALLS a raise" — that is
+# what audit-F11 struck and what this test protects. W5-b4 (2026-07-31) added
+# an any-two {3bet 0.05, fold 0.95} catch-all (the maniac's light cold-3bet
+# tell), so trash now 3-bets occasionally — but flatting remains impossible:
+# the F11 guarantee is asserted directly, not via the exact action set.
 @pytest.mark.parametrize("hand", ["J2o", "72o", "92o", "Q4o", "K5o"])
 def test_maniac_vs_rfi_offsuit_trash_folds_never_calls(packs, hand):
-    # No mix matches offsuit trash -> engine default fold (never a cold-call).
     acts = _actions(packs[VillainType("maniac")], Position.CO, "vs_rfi", hand)
-    assert acts == {"fold"}, f"{hand} vs_rfi actions {acts}"
+    assert "call" not in acts, f"{hand} cold-called a raise: {acts}"
+    assert acts <= {"3bet", "fold"}, f"{hand} vs_rfi actions {acts}"
 
 
 @pytest.mark.parametrize("hand", ["55", "87s", "KQs"])
