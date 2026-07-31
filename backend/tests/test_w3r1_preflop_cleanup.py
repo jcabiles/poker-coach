@@ -255,10 +255,17 @@ def test_lag_sb_no_open_limp(packs, hand, expected):
     assert acts == expected, f"{hand} lag SB actions {acts}"
 
 
+# Pin UPDATED for RR-HOLES (2026-07-31), per this file's own T3 precedent
+# ("pins are updated to the new ranges rather than the ranges being carved to
+# keep the pins"): RR-HOLES fixed two strictly-dominated row-gap typos in this
+# node — QTs (Qs row: QJs played, Q9s/Q8s played, QTs skipped) and AQo (Ao
+# row: AJo/ATo 3-bet at 0.6 while the stronger AQo had NO action), both added
+# to the 3bet-0.6 mix. The W3R-1 invariant this pin protects — the four-mix
+# replacement shape, and "offsuit trash never cold-calls" — is unchanged.
 _LAG_VS_RFI = [
     ("JJ+, AQs+, AKo", {"3bet": 1.0}),
-    ("TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QJs, JTs, "
-     "AJo, ATo, KQo, KJo", {"3bet": 0.6, "fold": 0.4}),
+    ("TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, "
+     "JTs, AQo, AJo, ATo, KQo, KJo", {"3bet": 0.6, "fold": 0.4}),
     ("77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, "
      "54s, QJo, JTo, T9o, 98o", {"call": 1.0}),
     ("A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",

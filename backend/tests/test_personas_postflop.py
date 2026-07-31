@@ -3157,18 +3157,16 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # population n). Exact tripwire re-record; population bands stay frozen to
 # W4-b.
 _GOLDEN_STATS_N200 = {
-    # RE-RECORDED for R10-3BET (2026-07-31, slice-authorized): the six-pack
-    # vs_3bet rewrite shifts the shared rng stream from the first re-raised
-    # pot onward. Note tag's AF drops off the n=200 tripwire (None — its call
-    # denominator fell under the floor at this tiny n); the tag AF band test
-    # still gates it at population n. Exact tripwire re-record; population
-    # bands stay frozen to W4-b.
-    "calling_station": (0.32625994694960214, 0.13636363636363635, 0.7272727272727273),
-    "lag": (3.0, None, 0.44642857142857145),
-    "maniac": (3.2962962962962963, 0.3157894736842105, 0.5263157894736842),
-    "nit": (None, None, 0.7288135593220338),
-    "passive_fish": (1.0350877192982457, 0.5581395348837209, 0.511520737327189),
-    "tag": (None, None, 0.625),
+    # RE-RECORDED for RR-HOLES (2026-07-31, slice-authorized): typo-hole +
+    # dead-token cleanup adds a few playable combos to station/fish/tag/lag
+    # preflop nodes, displacing the shared rng stream. Exact tripwire
+    # re-record; population bands stay frozen to W4-b.
+    "calling_station": (0.35, 0.16666666666666666, 0.6996805111821086),
+    "lag": (2.7, None, 0.48623853211009177),
+    "maniac": (2.765625, 0.29545454545454547, 0.45751633986928103),
+    "nit": (1.0731707317073171, None, 0.6086956521739131),
+    "passive_fish": (0.7230769230769231, 0.6216216216216216, 0.5566502463054187),
+    "tag": (2.032258064516129, None, 0.532258064516129),
 }
 
 
