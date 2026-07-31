@@ -337,3 +337,26 @@ def test_dispersion_floor_bounds_k_inside_the_declared_range(monkeypatch):
     floor = 0.40 * HEAD_MANIAC_RAISE_2_33
     monkeypatch.setattr(pp, "_PRICE_TAIL_K", 2.5)
     assert p_raise("maniac", "AIR", 2.33) < floor
+
+
+def test_authored_sizing_keys_never_exceed_the_tail_anchor():
+    """Anchor-staleness guard (theory fan-in LOW): the byte-identity-by-
+    construction argument for `_PRICE_TAIL_ANCHOR = 1.5` rests on a CONTENT
+    fact — no pack authors a bet-size key above 1.5× pot — that lives in
+    `content/personas/*.json` and could drift silently. Trip loudly if a
+    future pack edit authors a bigger size (raise-compounding can still
+    produce f > 1.5 organically; that is the tail's intended domain)."""
+    from app.domain.personas import load_persona_packs
+
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    for vt, pack in packs.items():
+        pf = pack.postflop
+        keys = set(pf.sizing or {})
+        for node_sizing in (pf.sizing_by_node or {}).values():
+            keys |= set(node_sizing)
+        biggest = max(float(k) for k in keys)
+        assert biggest <= pp._PRICE_TAIL_ANCHOR + 1e-9, (
+            f"{vt.value}: authored sizing key {biggest} exceeds the tail anchor"
+        )
