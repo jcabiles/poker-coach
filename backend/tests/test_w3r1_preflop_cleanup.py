@@ -243,11 +243,15 @@ def test_maniac_untouched_opens_byte_identical(packs, position):
 # ranges being carved to keep the pins (which would corrupt the persona to
 # protect a test). `"limp" not in acts` — the actual T3 guarantee — is asserted
 # for all three and is unchanged.
-#   54s -> mix 2 (raise 0.4 / fold 0.6)      32s -> outside the node
+# UPDATED AGAIN for N-LAGLADDER (2026-07-31, same precedent): the SB node is now
+# emitted from content/personas/ladders/lag.unopened.json, and its suited rows
+# run deeper than the hand-authored node did, so 54s moved from the fringe mix
+# into the core.
+#   54s -> mix 1 via `53s+` (raise 1.0)      32s -> outside the node
 #   J9o -> mix 1 via `J8o+` (raise 1.0)
 @pytest.mark.parametrize(
     ("hand", "expected"),
-    [("54s", {"raise", "fold"}), ("32s", {"fold"}), ("J9o", {"raise"})],
+    [("54s", {"raise"}), ("32s", {"fold"}), ("J9o", {"raise"})],
 )
 def test_lag_sb_no_open_limp(packs, hand, expected):
     acts = _actions(packs[VillainType("lag")], Position.SB, "unopened", hand)
@@ -262,10 +266,20 @@ def test_lag_sb_no_open_limp(packs, hand, expected):
 # row: AJo/ATo 3-bet at 0.6 while the stronger AQo had NO action), both added
 # to the 3bet-0.6 mix. The W3R-1 invariant this pin protects — the four-mix
 # replacement shape, and "offsuit trash never cold-calls" — is unchanged.
+# Pin UPDATED AGAIN for N-LAGLADDER (2026-07-31), same precedent: RR-HOLES
+# flagged row T-F3 ("lag AQo fold-0.4 vs one raise is nitty") is fixed by
+# CARVING AQo out of the 3bet-0.6 mix into its own {3bet 0.6, call 0.4} mix —
+# the sanctioned carve-out idiom (first-match-wins peels exactly that class
+# off the wider mix). The 3bet weight is deliberately IDENTICAL on both sides
+# of the carve, so the pack's authored 3-bet width does not move; only the
+# fold mass does, and it goes to call. The node is a FIVE-mix shape now;
+# "offsuit trash never cold-calls" is unchanged (AQo is not trash) and the
+# dominant non-fold weights still only descend, so RR-LINT stays clean.
 _LAG_VS_RFI = [
     ("JJ+, AQs+, AKo", {"3bet": 1.0}),
+    ("AQo", {"3bet": 0.6, "call": 0.4}),
     ("TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, "
-     "JTs, AQo, AJo, ATo, KQo, KJo", {"3bet": 0.6, "fold": 0.4}),
+     "JTs, AJo, ATo, KQo, KJo", {"3bet": 0.6, "fold": 0.4}),
     ("77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, "
      "54s, QJo, JTo, T9o, 98o", {"call": 1.0}),
     ("A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",

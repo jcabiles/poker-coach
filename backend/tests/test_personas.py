@@ -385,7 +385,16 @@ BANDS = {
     # M3 behavior, not a range regression (first-in-raise, 3-bet and
     # vs_rfi-continue all stayed inside their existing bands).
     # W5-b1 supersedes rows 1-2 of that anchor with the authored width 43.15.
-    "lag": ((41, 45), (41, 45), (8, 12), (25, 42)),
+    # lag rows 1-2 RE-ANCHORED by N-LAGLADDER (2026-07-31): all nine `unopened`
+    # nodes were re-emitted from content/personas/ladders/lag.unopened.json,
+    # tightening the ladder (mostly by cutting dominated offsuit opens in early
+    # seats) at every seat. Exact combo-weighted seat-average: 39.22 open /
+    # 39.22 raise (every lag unopened mix is raise/fold-only, so `_stats`
+    # open-freq == first-in-raise); bands = exact ±2.0pp per the tolerance note
+    # above, pinned seed reads 39.20 / 39.20. Rows 3-4 are NOT re-anchored: the
+    # vs_rfi AQo carve-out holds 3-bet width constant by construction and the
+    # pinned seed still reads 9.76 3-bet / 26.80 continue, both inside.
+    "lag": ((37.2, 41.2), (37.2, 41.2), (8, 12), (25, 42)),
     # maniac rows 1-2 RE-ANCHORED by R10-PRE2 (2026-07-30): the ladder-separation
     # slice widened every maniac `unopened` node so the authored per-seat RFI
     # sits above the LAG's at every seat (R10-1a defect: it sat BELOW at all 9).
@@ -640,6 +649,172 @@ def test_maniac_first_in_ladder_monotone_to_button():
         if rfi[a] > rfi[b]
     ]
     assert not bad, f"maniac authored RFI ladder not monotone to the button: {bad}"
+
+
+# ------------------------------------------------ N-LAGLADDER — lag ladder tighten
+# Theory-HIGH finding T-H1 (wave-2 ledger, filed off N-3BSTRATA): the lag's
+# authored first-in ladder was uniformly too wide for its 21-27 VPIP identity,
+# and the surplus sat in DOMINATED OFFSUIT hands in early seats — at UTG the
+# pack raised 12.49% of all combos offsuit against only 7.90% suited, i.e. it
+# opened MORE offsuit than the TAG from every early seat. That surplus is what
+# later arrives at `vs_3bet` as call mass the persona cannot defend.
+#
+# The repair re-emits all nine `unopened` nodes from the RR-EMIT curve spec
+# `content/personas/ladders/lag.unopened.json` (proving gate: test_rr_emit.py).
+# Gates below are AUTHORED-shape and deterministic — no sampling, so no CI.
+# Population VPIP/PFR stays REPORTED-not-gated (the single band anchor is W4-b).
+
+_LAG_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
+
+# Per-seat authored-RFI CEILINGS. Each is the post-fix width rounded up with
+# ~1pp of headroom, and EVERY ONE of them is breached by the pre-fix pack —
+# the non-vacuity proof (R9-3 rule). Pre-fix / post-fix authored RFI %:
+#   UTG 25.10/22.11 · UTG1 27.48/24.80 · UTG2 33.73/29.17 · LJ 37.62/33.09
+#   HJ 47.69/40.63 · CO 53.24/51.61 · BTN 66.09/62.90 · SB 51.98/49.44
+#   BB 45.40/39.25   (seat-average 43.15 -> 39.22)
+_LAG_RFI_CEILING = {
+    "UTG": 23.1, "UTG1": 25.8, "UTG2": 30.2, "LJ": 34.1, "HJ": 41.6,
+    "CO": 52.6, "BTN": 63.9, "SB": 50.4, "BB": 40.2,
+}
+
+# Early-seat OFFSUIT-ONLY ceilings — the named mechanism of the finding.
+# Pre-fix: UTG 12.49, UTG1 13.39, UTG2 17.38 (all breach); post-fix 7.78 /
+# 8.69 / 10.50. Suited width went UP over the same seats (7.90 -> 10.08,
+# 9.11 -> 11.40, 10.92 -> 13.51): this is a SUBSTITUTION, not a blanket trim,
+# so the suited FLOOR is asserted alongside the offsuit ceiling — a future
+# edit cannot satisfy the ceiling by simply deleting the range.
+_LAG_EP_OFFSUIT_CEILING = {"UTG": 11.0, "UTG1": 11.5, "UTG2": 13.0}
+_LAG_EP_SUITED_FLOOR = {"UTG": 9.0, "UTG1": 10.0, "UTG2": 12.0}
+
+
+def _authored_first_in_by_kind(pack: PersonaPack) -> dict[str, dict[str, float]]:
+    """Per seat, the combo-weighted authored first-in raise % split into
+    pair / suited / offsuit. Same sampler semantics as
+    `_authored_first_in_raise` (first matching node, first matching mix)."""
+    from app.domain.personas import _combos
+
+    out: dict[str, dict[str, float]] = {}
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
+        acc = {"pair": 0.0, "suited": 0.0, "offsuit": 0.0}
+        for cls, ncombos in _CLASS_COMBOS.items():
+            if node is None:
+                break
+            for mix in node.mixes:
+                if cls in _combos(mix.combos):
+                    kind = (
+                        "pair" if len(cls) == 2
+                        else "suited" if cls[2] == "s"
+                        else "offsuit"
+                    )
+                    acc[kind] += ncombos * mix.weights.get("raise", 0.0)
+                    break
+        out[pos.value] = {k: 100.0 * v / 1326.0 for k, v in acc.items()}
+    return out
+
+
+def test_lagladder_authored_rfi_under_seat_ceilings():
+    """🔴 N-LAGLADDER defect gate (failed at pre-fix HEAD at ALL NINE seats,
+    e.g. UTG 25.10 > 23.1, HJ 47.69 > 41.6)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    rfi = _authored_first_in_raise(packs[VillainType.LAG])
+    bad = {
+        pos: round(100.0 * rfi[pos], 2)
+        for pos, cap in _LAG_RFI_CEILING.items()
+        if 100.0 * rfi[pos] > cap
+    }
+    assert not bad, f"lag authored RFI above its N-LAGLADDER ceiling: {bad}"
+
+
+def test_lagladder_early_seat_offsuit_opens_trimmed():
+    """🔴 N-LAGLADDER defect gate #2 — the finding's named mechanism (failed at
+    pre-fix HEAD at all three early seats: offsuit 12.49 / 13.39 / 17.38)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    kinds = _authored_first_in_by_kind(packs[VillainType.LAG])
+    over = {
+        pos: round(kinds[pos]["offsuit"], 2)
+        for pos, cap in _LAG_EP_OFFSUIT_CEILING.items()
+        if kinds[pos]["offsuit"] > cap
+    }
+    assert not over, f"lag early-seat offsuit open width above ceiling: {over}"
+    under = {
+        pos: round(kinds[pos]["suited"], 2)
+        for pos, floor in _LAG_EP_SUITED_FLOOR.items()
+        if kinds[pos]["suited"] < floor
+    }
+    assert not under, f"lag early-seat suited open width below floor: {under}"
+
+
+def test_lag_first_in_ladder_above_tag_preservation():
+    """PRESERVATION (R9-3 rule: label what already passed). The roster's
+    definitional ordering tag < lag held at HEAD and must survive the tighten;
+    the lag < maniac leg is gated by `test_maniac_first_in_ladder_above_lag`,
+    which the tighten can only make safer."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    lag = _authored_first_in_raise(packs[VillainType.LAG])
+    tag = _authored_first_in_raise(packs[VillainType.TAG])
+    bad = {
+        pos: (round(lag[pos], 4), round(tag[pos], 4))
+        for pos in lag
+        if lag[pos] <= tag[pos]
+    }
+    assert not bad, f"lag authored RFI not above TAG (lag, tag): {bad}"
+
+
+def test_lag_first_in_ladder_monotone_and_sb_under_btn_preservation():
+    """PRESERVATION: the non-blind ladder is non-decreasing UTG -> BTN and the
+    SB opens tighter than the BTN. Both held at HEAD (same structural argument
+    as `test_maniac_first_in_ladder_monotone_to_button`: each later seat has
+    strictly fewer players left to act)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    rfi = _authored_first_in_raise(packs[VillainType.LAG])
+    bad = [
+        f"{a} {rfi[a]:.4f} > {b} {rfi[b]:.4f}"
+        for a, b in zip(_LAG_LADDER_SEATS, _LAG_LADDER_SEATS[1:], strict=False)
+        if rfi[a] > rfi[b]
+    ]
+    assert not bad, f"lag authored RFI ladder not monotone to the button: {bad}"
+    assert rfi["SB"] < rfi["BTN"], (
+        f"lag SB {rfi['SB']:.4f} opens at least as wide as BTN {rfi['BTN']:.4f}"
+    )
+
+
+def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():
+    """🔴 RR-HOLES T-F3 flagged-row gate (failed at pre-fix HEAD: AQo sat in the
+    {3bet 0.6, fold 0.4} mix, i.e. a lag folded AQo to ONE raise 40% of the
+    time). The fold mass moved to CALL, not to 3-bet, so the pack's authored
+    3-bet width is unchanged by construction — this is a fold->call transfer
+    on a single class, not a 3-bet-frequency edit."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    from app.domain.personas import _combos
+
+    node = next(
+        n for n in packs[VillainType.LAG].preflop
+        if n.facing == "vs_rfi" and n.positions is None
+    )
+    mix = next(m for m in node.mixes if "AQo" in _combos(m.combos))
+    fold = mix.weights.get("fold", 0.0) + max(0.0, 1.0 - sum(mix.weights.values()))
+    assert fold == 0.0, (
+        f"lag folds AQo to a single raise: {mix.combos!r} -> {dict(mix.weights)}"
+    )
 
 
 def test_all_six_persona_packs_load():
