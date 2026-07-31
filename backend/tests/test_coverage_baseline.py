@@ -146,7 +146,8 @@ content — no engine or mapper code changed — but the maniac now opens roughl
 often, so the seeded stream drifts → total 1176 → 1251, graded 329 → 329 (graded count
 HELD exactly; more total decision points because more pots see a raise and more seats
 act behind it). Graded ratio 28.0% → 26.3% (DOWN slice-over-slice — flagged, not
-laundered): the extra decision points are dominated by non-HU-SRP shapes
+laundered): the extra decision points are — INFERENTIALLY, pending T-REJECT's
+reject-reason distribution — dominated by non-HU-SRP shapes
 (maniac-opened multiway / re-raised pots) that the mapper's gates already reject —
 the pre-existing mapper-track DIP first flagged at W3-b/c/d, WIDENED here because a
 realism fix routes hero into exactly the spot mix `T-cover` exists to make gradable.

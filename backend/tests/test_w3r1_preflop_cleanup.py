@@ -4,6 +4,9 @@ Spec: `docs/ai-dlc/specs/persona-realism-w3r-1.md` (T1–T3). Pure content edits
 - maniac `vs_rfi` REPLACED with a 3-tier legit loose-flat range (no any-two
   cold-call); maniac + lag SB open-limps DELETED; maniac HJ/CO/BTN offsuit-ace
   opens trimmed (HJ→A7o+, CO/BTN→A5o+).
+  ⚠️ The ace TRIMS were SUPERSEDED by R10-PRE2 (2026-07-30): the maniac ladder
+  now opens A2o+ from HJ/CO/BTN by design (see the T2 note below). The no-limp
+  invariants and the `vs_rfi` replacement remain live W3R-1 law.
 
 These tests pin the CONFIG behavior directly via `sample_preflop_action`; the
 seeded-sim stat bands (T4) live in `test_personas.py` / `test_personas_postflop.py`.
@@ -107,6 +110,20 @@ def test_maniac_sb_no_open_limp(packs, hand):
     assert acts == {"raise", "fold"}, f"{hand} SB actions {acts}"
 
 
+def test_maniac_unopened_has_no_limp_weight_anywhere(packs):
+    # Pack-level form of T1's invariant (R10-PRE2 refuter: the 3-hand probe
+    # above is a spot-check a reintroduced limp mix could slip past): no
+    # `unopened` mix in the maniac pack may carry ANY limp weight, at any seat.
+    for node in packs[VillainType("maniac")].preflop:
+        if node.facing != "unopened":
+            continue
+        for mix in node.mixes:
+            assert "limp" not in mix.weights, (
+                f"maniac unopened limp weight reintroduced at "
+                f"{node.positions}: {mix.combos!r} -> {dict(mix.weights)}"
+            )
+
+
 # --------------------------------------------------------------- T2 (maniac aces)
 
 
@@ -119,14 +136,14 @@ def test_maniac_sb_no_open_limp(packs, hand):
 # budget on weak offsuit aces) is carried by the PRE2 ladder gates in
 # test_personas.py; these tests now pin the NEW behavior: weak offsuit aces
 # open (with fold mass from the mix weights, never pure-fold).
-def test_maniac_hj_ace_trim(packs):
+def test_maniac_hj_offsuit_aces_open(packs):
     pack = packs[VillainType("maniac")]
     assert "raise" in _actions(pack, Position.HJ, "unopened", "A2o")
     assert "raise" in _actions(pack, Position.HJ, "unopened", "A7o")
 
 
 @pytest.mark.parametrize("position", [Position.CO, Position.BTN])
-def test_maniac_co_btn_ace_trim(packs, position):
+def test_maniac_co_btn_offsuit_aces_open(packs, position):
     pack = packs[VillainType("maniac")]
     assert "raise" in _actions(pack, position, "unopened", "A2o")
     assert "raise" in _actions(pack, position, "unopened", "A5o")

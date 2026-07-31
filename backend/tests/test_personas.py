@@ -280,6 +280,14 @@ def _stats(pack: PersonaPack) -> tuple[float, float, float, float]:
     comment claims they are. This is a MEASUREMENT repair: no band number in
     rows 3-4 moved, and all six personas pass them at the pinned seed.
 
+    Residual coupling (R10-PRE2 refuter): "independent" is only true of the
+    ACTION draws — the deal itself comes from `rng_u`, which `unopened`
+    sampling consumes, so a widened `unopened` still displaces the dealt
+    hands feeding rows 3-4. Measured for the R10-PRE2 maniac widening:
+    3-bet 12.81 -> 12.67, vs_rfi-continue 46.51 -> 46.94 (both stay in
+    (12, 20) / (44, 48); the maniac block's earlier 45.99 figure below is a
+    pre-PRE2 reading).
+
     Known residual (pre-existing, NOT introduced here): rows 3-4 are still Monte
     Carlo estimates of exactly-computable quantities, and tag's snug (6, 7)
     3-bet and (15, 28) continue rows sit within ~1 sd of an edge — across a
@@ -435,7 +443,18 @@ def _authored_first_in_raise(pack: PersonaPack) -> dict[str, float]:
 def test_maniac_first_in_ladder_above_lag():
     """🔴 R10-PRE2 defect gate (failed at pre-fix HEAD: maniac below LAG at
     all 9 seats, e.g. UTG 16.5% vs 25.1%). Authored per-seat RFI must be
-    strictly above the LAG's at every seat."""
+    strictly above the LAG's at every seat.
+
+    ARRIVAL context (theory review, R10-PRE2): this is an AUTHORED-shape
+    gate with equal seat weight; realized first-in identity is EP-dominated —
+    measured unopened-node occupancy over 400 organic hands: UTG 84.6%,
+    UTG1 52.9%, UTG2 38.3%, LJ 25.0%, HJ 14.1%, CO 7.1%, BTN 3.3%, SB 1.2%,
+    BB 0.0%. The BB `unopened` node is STRUCTURALLY UNREACHABLE in organic
+    play (a fold-around ends the hand before BB acts; an SB limp routes BB
+    to `vs_limpers`) — it is authored for pack-shape symmetry and gated here
+    only as an authored-shape pin. Level seeds cited for this slice (UTG
+    ≈32-45 → CO/BTN ≈52-82) are 9-max dossier rubric numbers whose source
+    format is unstated — DIRECTIONAL fit seeds only, never gated (§5a)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -454,7 +473,12 @@ def test_maniac_first_in_ladder_monotone_to_button():
     authored CO 49.7% > BTN 48.3% — the button authored TIGHTER than the
     cutoff for the loosest persona in the roster). The non-blind ladder must
     be non-decreasing UTG -> BTN; blinds are excluded (SB/BB are structurally
-    different first-in spots and sit off the positional ladder)."""
+    different first-in spots and sit off the positional ladder).
+
+    Declared reliance (§5a): monotonicity claims sit in the contract's
+    [UNVERIFIED] blanket ordering/monotonicity licence. The claim here is
+    STRUCTURAL — each later seat has strictly fewer players left to act, so
+    a wider open is dominance-consistent — not a transferred source level."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")

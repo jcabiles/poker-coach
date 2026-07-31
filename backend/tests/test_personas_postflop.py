@@ -3124,10 +3124,16 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # but the maniac now opens roughly twice as often, which reshapes every pot
 # the shared table plays (more raised pots, fewer limp-fests, different flop
 # arrivals), so ALL six rows move at this seed via environment + rng-stream
-# displacement. Directionally coherent: maniac WTSD falls 0.532 -> 0.442
-# (it now arrives postflop with far more junk and bluff-folds more of it) and
-# fish FtC re-crosses the >=30 floor -> None. Exact tripwire re-record;
-# population bands stay frozen to W4-b.
+# displacement. The N200 deltas are stream-displacement NOISE, not a
+# behavioral reading (theory review, R10-PRE2): at stable n=1200 with only
+# the maniac pack swapped, maniac reads AF 3.62 -> 3.16, FtC 0.353 -> 0.328,
+# WTSD 0.506 -> 0.499 (essentially flat; the N200 WTSD 0.532 -> 0.442 swing
+# is a sampling artifact; fish FtC re-crossing the >=30 floor -> None is the
+# same). ⚠️ W4-b HAND-OFF: the stable-n AF drop (3.62 -> 3.16, ~2.5σ) moves
+# maniac FURTHER BELOW §5's AF 4-6 keystone — it reaches the flop as
+# aggressor with more air and gives up more; the single W4-b re-anchor must
+# reconcile this. REPORTED only — no band moved here. Exact tripwire
+# re-record; population bands stay frozen to W4-b.
 _GOLDEN_STATS_N200 = {
     "calling_station": (0.303125, 0.15517241379310345, 0.6906474820143885),
     "lag": (3.0625, None, 0.44696969696969696),
@@ -3630,9 +3636,13 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
     AUTHORED ladder: exact combo-weighted first-in raise 34.2/37.4/40.4% at
     the EP seats (37.3% 3-seat avg), rising to 73.3% at BTN, seat-avg 51.8%.
     Across a 20-reseed sweep the instrument reads aggregate 0.410 (sd 0.021,
-    span 0.381-0.444) and EP 0.367 (sd 0.022, span 0.336-0.404); bands =
-    sweep span ± ~3σ, the same sizing rule as the original calibration
-    (review C-1 + refuter R-2). The composition-light cross-check is the EP
+    span 0.381-0.444) and EP 0.367 (sd 0.022, span 0.336-0.404); an
+    independent 13-seed sweep (R10-PRE2 refuter, different seed family)
+    read agg 0.373-0.437 / EP 0.318-0.392 — union span agg 0.373-0.444,
+    EP 0.318-0.404, so treat THAT as the real dispersion when resizing.
+    Bands = union span ± ~2-3σ, the same sizing rule as the original
+    calibration (review C-1 + refuter R-2); the pinned reading keeps ≥2σ
+    margin to every edge under both sweeps. The composition-light cross-check is the EP
     stratum: sampled 0.367 vs authored 0.373. The aggregate sits BELOW its
     authored 0.518 because arrival is EP-heavy (later seats usually face an
     open and never reach the unopened node) — the documented conversion
