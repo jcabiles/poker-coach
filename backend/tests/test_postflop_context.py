@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from app.domain.spot import ActionType, HistoryAction, PlayerStatus, Position, Street
 from app.domain.table.postflop_context import (
     BustedDraw,
+    aggressor_barrel_run,
     bet_prev_street,
     busted_draw_kind,
     derive_in_position,
@@ -267,3 +268,192 @@ def test_derive_postflop_context_bundles_all_three():
     assert ctx.in_position is True
     assert ctx.bet_prev_street is True
     assert ctx.busted_draw is BustedDraw.FLUSH
+
+
+# --------------------------------------------------- R9-SIGNAL barrel run
+
+# `aggressor_barrel_run` = the CONSECUTIVE run of POSTFLOP bet/raise aggressions
+# by one seat on the streets immediately BEFORE the one being acted on. Read by
+# nobody this slice; these tests pin the two semantics R9-DEFENCE depends on.
+
+
+def test_barrel_run_flop_is_zero_even_when_the_aggressor_raised_preflop():
+    # The trap case: BTN raises preflop, BB calls, BTN c-bets the flop. The
+    # preflop raise must NEVER count, so the modal c-bet node is run 0 — and
+    # `bet_prev_street` (the separate OWN-initiative signal) disagrees on
+    # purpose. If these two ever agree here, the postflop-only pin is broken.
+    hist = [
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BTN, action=ActionType.RAISE, amount_bb=3.0
+        ),
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=2.0
+        ),
+        _bet(Street.FLOP, Position.BTN),
+    ]
+    assert aggressor_barrel_run(hist, Street.FLOP, Position.BTN) == 0
+    assert bet_prev_street(hist, Street.FLOP, Position.BTN) is True  # the contrast
+
+
+def test_barrel_run_flop_is_zero_with_an_empty_history():
+    assert aggressor_barrel_run([], Street.FLOP, Position.CO) == 0
+
+
+def test_barrel_run_preflop_street_is_zero():
+    hist = [_bet(Street.PREFLOP, Position.CO)]
+    assert aggressor_barrel_run(hist, Street.PREFLOP, Position.CO) == 0
+
+
+def test_barrel_run_turn_is_one_after_a_flop_cbet():
+    hist = [_bet(Street.FLOP, Position.CO), _check(Street.FLOP, Position.BB)]
+    assert aggressor_barrel_run(hist, Street.TURN, Position.CO) == 1
+    # the seat that only checked the flop is stabbing, not barrelling
+    assert aggressor_barrel_run(hist, Street.TURN, Position.BB) == 0
+
+
+def test_barrel_run_river_is_two_after_flop_and_turn_barrels():
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _check(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.CO),
+        _check(Street.TURN, Position.BB),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 2
+
+
+def test_barrel_run_river_is_one_when_only_the_turn_was_bet():
+    # Checked flop, turn stab, now the river: the run is 1, not 2 — the checked
+    # flop is not credited.
+    hist = [
+        _check(Street.FLOP, Position.CO),
+        _check(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.CO),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 1
+
+
+def test_barrel_run_is_consecutive_not_cumulative():
+    # Bet the flop, CHECK the turn: at the river the run is broken, so it is 0.
+    # A cumulative COUNT of postflop aggressions would score this 1 (or 2 once
+    # the river stab lands) and over-punish a delayed stab as a barrel.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _check(Street.FLOP, Position.BB),
+        _check(Street.TURN, Position.CO),
+        _check(Street.TURN, Position.BB),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 0
+
+
+def test_barrel_run_zero_when_the_aggressor_never_bet_postflop():
+    hist = [
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.CO, action=ActionType.RAISE, amount_bb=3.0
+        ),
+        _check(Street.FLOP, Position.CO),
+        HistoryAction(
+            street=Street.TURN, position=Position.CO, action=ActionType.CALL, amount_bb=4.0
+        ),
+    ]
+    assert aggressor_barrel_run(hist, Street.TURN, Position.CO) == 0
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 0
+
+
+def test_barrel_run_counts_raises_as_aggression():
+    # A check-raise on the flop and a raise on the turn are both aggressions.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        _raise(Street.FLOP, Position.BB),
+        _bet(Street.TURN, Position.CO),
+        _raise(Street.TURN, Position.BB),
+    ]
+    assert aggressor_barrel_run(hist, Street.TURN, Position.BB) == 1
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.BB) == 2
+
+
+def test_barrel_run_is_seat_specific():
+    # CO barrels flop+turn; BB only called. The run is asked of ONE seat, so
+    # another seat's aggression never counts toward it.
+    hist = [
+        _bet(Street.FLOP, Position.CO),
+        HistoryAction(
+            street=Street.FLOP, position=Position.BB, action=ActionType.CALL, amount_bb=2.0
+        ),
+        _bet(Street.TURN, Position.CO),
+        HistoryAction(
+            street=Street.TURN, position=Position.BB, action=ActionType.CALL, amount_bb=4.0
+        ),
+    ]
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.CO) == 2
+    assert aggressor_barrel_run(hist, Street.RIVER, Position.BB) == 0
+
+
+# --------------------- R9-SIGNAL review fold — call-site wiring capture test
+# Codex + refuter (convergent): the kwarg is deliberately dead, so no
+# behavioral test can prove `bot_decision` derives and forwards it — deleting
+# the derivation, hardcoding False, or using the whole-hand aggressor would
+# all pass the rest of the suite. This test monkeypatches the capture point
+# and replays organic seeded hands, asserting three properties of every
+# captured postflop decision:
+#   (a) PARITY — the forwarded flag equals an independent recomputation from
+#       the same history (current-street last aggressor -> barrel run >= 1),
+#   (b) UNOPENED-FALSE — no current-street aggressor => flag is False,
+#   (c) NON-VACUOUS — both True and False are observed in the sample (a
+#       hardcoded value or dead derivation fails here).
+
+
+def test_bot_decision_forwards_the_barrel_flag(monkeypatch):
+    import random
+
+    from app.domain.personas import load_persona_packs
+    from app.domain.table import play as play_mod
+    from app.domain.table.deck import deal_hand
+    from app.domain.table.engine import apply, start_hand
+    from app.domain.table.play import bot_decision
+
+    packs = load_persona_packs()
+    if not packs:
+        import pytest
+
+        pytest.skip("no persona packs")
+    pack_list = sorted(packs.values(), key=lambda p: p.persona.value)
+
+    captured = []
+    real = play_mod._postflop_decision
+
+    def spy(*args):
+        # positional signature: ... street=args[10]-ish; capture by name via
+        # the wrapper's knowledge of the tuple: last arg is the flag.
+        captured.append((args[10], list(args_state.action_history), args[-1]))
+        return real(*args)
+
+    monkeypatch.setattr(play_mod, "_postflop_decision", spy)
+
+    from app.domain.table.sizing import last_aggressor_position
+
+    rng = random.Random(20260731)
+    seen_true = seen_false = 0
+    for hand_no in range(120):
+        dealt = deal_hand(rng)
+        state = start_hand(dealt, button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
+        args_state = state
+        guard = 0
+        while not state.hand_over and state.to_act_seat is not None:
+            guard += 1
+            assert guard <= 500
+            seat = state.to_act_seat
+            args_state = state
+            dec = bot_decision(state, seat, pack_list[seat % len(pack_list)], rng)
+            state = apply(state, dec)
+    for street, history, flag in captured:
+        street_actions = [h for h in history if h.street is street]
+        aggr = last_aggressor_position(street_actions)
+        expect = aggr is not None and aggressor_barrel_run(history, street, aggr) >= 1
+        assert flag == expect, (street, aggr, flag, expect)
+        if aggr is None:
+            assert flag is False
+        seen_true += flag
+        seen_false += not flag
+    assert seen_true > 0 and seen_false > 0, (
+        f"vacuous capture: true={seen_true} false={seen_false} n={len(captured)}"
+    )

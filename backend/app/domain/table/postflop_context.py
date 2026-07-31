@@ -142,6 +142,64 @@ def facing_raise(action_history: Sequence[HistoryAction], street: Street) -> boo
     return street_aggression_count(action_history, street) >= 2
 
 
+# Postflop street order, used by `aggressor_barrel_run` to walk BACKWARDS from
+# the street being acted on. Deliberately NOT `_PREV_STREET`: that map takes
+# FLOP -> PREFLOP by design (own-initiative), and reusing it here would label the
+# modal flop c-bet by the preflop raiser as sustained postflop aggression.
+_POSTFLOP_ORDER: tuple[Street, ...] = (Street.FLOP, Street.TURN, Street.RIVER)
+
+
+def aggressor_barrel_run(
+    action_history: Sequence[HistoryAction],
+    street: Street,
+    aggressor_position: Position,
+) -> int:
+    """R9-SIGNAL — the CONSECUTIVE run of POSTFLOP bet/raise aggressions by
+    `aggressor_position` on the streets immediately preceding `street`.
+
+    The line state behind a sustained barrel: 0 = this is the seat's first
+    aggression of the postflop line, 1 = it also bet/raised the previous
+    postflop street, 2 = the two before it.
+
+    Two pins, both deliberate:
+
+    * **POSTFLOP-ONLY — the run is 0 on the FLOP by construction.** A preflop
+      raise NEVER counts, so the textbook HU single-raised pot (BTN raises pre,
+      BB calls, BTN c-bets the flop) reads `run = 0` at that flop node. This is
+      what keeps a future consumer off the flop facing-a-bet node (the
+      balanced-villain alpha fixture's node class), and it is why `_PREV_STREET`
+      / `bet_prev_street` are NOT reused: that pair maps FLOP -> PREFLOP on
+      purpose and stays the separate OWN-initiative signal.
+    * **CONSECUTIVE, not cumulative.** The walk counts PRECEDING streets only
+      and STOPS at the first one the seat did not bet/raise. So bet flop,
+      check turn, bet river scores **0** at the river (the turn check broke
+      the run — the river's own bet is the wager being FACED, never part of
+      its own run), and the delayed stab — check flop, bet turn, bet river —
+      scores **1** at the river. A cumulative count would score the first
+      line 1 (or 2 counting the live bet) and over-punish it; the design
+      report's pin 2 and `test_barrel_run_is_consecutive_not_cumulative` both
+      encode the 0.
+
+    Derivation only this slice — `sample_postflop_decision` takes the `>= 1`
+    boolean as a dead kwarg and no branch reads it; the consumer is R9-DEFENCE.
+    Same shape as `street_aggression_count` -> `facing_raise` above: one
+    derivation, one taxonomy, and a richer `g(run)` costs nothing later.
+    """
+    if street not in _POSTFLOP_ORDER:  # preflop has no postflop predecessor
+        return 0
+    run = 0
+    for prev in reversed(_POSTFLOP_ORDER[: _POSTFLOP_ORDER.index(street)]):
+        if not any(
+            h.street is prev
+            and h.position == aggressor_position
+            and h.action in (ActionType.BET, ActionType.RAISE)
+            for h in action_history
+        ):
+            break  # run broken — anything earlier is a delayed stab, not a barrel
+        run += 1
+    return run
+
+
 def _has_flush_draw(hole: tuple[Card, Card], board: list[Card]) -> bool:
     """Four cards to a flush using a hole suit (the flush-draw half of
     `personas_postflop._draw_category`, kept minimal to avoid a second

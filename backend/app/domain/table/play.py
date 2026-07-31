@@ -25,7 +25,11 @@ from app.domain.personas import sample_preflop_action
 from app.domain.personas_postflop import sample_postflop_decision
 from app.domain.spot import ActionType, PlayerStatus, Position, Street
 from app.domain.table.engine import HandState, apply, legal_actions
-from app.domain.table.postflop_context import derive_postflop_context, facing_raise
+from app.domain.table.postflop_context import (
+    aggressor_barrel_run,
+    derive_postflop_context,
+    facing_raise,
+)
 from app.domain.table.sizing import (
     last_aggressor_position,
     pot_before_current_aggression,
@@ -142,6 +146,7 @@ def _postflop_decision(
     latest_aggressor_contribution_bb,
     context,
     facing_raise,
+    aggressor_bet_prev_street,
 ) -> Decision:
     kinds = {la.action for la in legal}
     d = sample_postflop_decision(
@@ -159,6 +164,7 @@ def _postflop_decision(
         latest_aggressor_contribution_bb=latest_aggressor_contribution_bb,
         context=context,
         facing_raise=facing_raise,
+        aggressor_bet_prev_street=aggressor_bet_prev_street,
     )
     if d.action not in kinds:
         # Defensive: never happens if the sampler honors `legal`, but keep
@@ -221,6 +227,23 @@ def bot_decision(
     # W3R-6: is the outstanding wager on this street a RAISE? A flat flag, not a
     # context field (the estimator opts into it alone) — see postflop_context.
     faced_raise = facing_raise(state.action_history, state.street)
+    # R9-SIGNAL: the opponent-LINE signal — did the seat whose wager this seat is
+    # facing also bet/raise the previous POSTFLOP street (a barrel, not a first
+    # stab)? The aggressor is the last BET/RAISE on THIS street, so the flag is
+    # about the wager actually outstanding; on an unopened street there is none
+    # and the run is 0. Flat flag like `faced_raise`, and READ BY NOBODY yet —
+    # no sampler branch consults it, so every decision is byte-identical.
+    # ⚠️ Consumer note (review, R9-SIGNAL): the flag is derived for EVERY
+    # postflop node, including matched-with-option shapes (legal CHECK+RAISE)
+    # where the seat owes nothing — there "the wager I am facing" does not
+    # exist. R9-DEFENCE must gate its mechanic on facing-chips nodes (its §Q3
+    # scope), not on this flag alone.
+    street_aggressor = last_aggressor_position(
+        [h for h in state.action_history if h.street is state.street]
+    )
+    aggressor_barrelled = street_aggressor is not None and (
+        aggressor_barrel_run(state.action_history, state.street, street_aggressor) >= 1
+    )
     return _postflop_decision(
         pack,
         seat_state.hole_cards,
@@ -236,6 +259,7 @@ def bot_decision(
         contribution,
         context,
         faced_raise,
+        aggressor_barrelled,
     )
 
 
