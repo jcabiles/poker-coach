@@ -174,6 +174,15 @@ tag/lag preflop nodes, displacing the shared stream: 1218/332 → 1237/325
 of the known mapper-track dip (stream displacement; the mapper is orthogonal
 and T-cover owns the ratio), NOT silently accepted. Seeded-fixture re-record;
 population bands stay frozen to W4-b.
+
+RE-RECORDED for W5-b3 (persona-realism, 2026-07-31 — slice-authorized): the
+nit nine-seat unopened ladder (flat 13.6/29.1 → 7.54-21.42 by seat) changes
+which pots exist at all: 1237/325 → 1256/318 (26.3% → 25.3%). CUMULATIVE vs
+the immutable persona-realism-start snapshot (349/1233 = 28.3%): 318/1256 =
+25.3%, −3.0pp — mapper-track dip continuation (a tighter nit folds more
+first-in, so more multiway/limped pots the mapper's gates reject; T-cover
+owns the ratio), reported not silent. Seeded-fixture re-record; population
+bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

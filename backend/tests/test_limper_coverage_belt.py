@@ -187,10 +187,17 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # HJ¹ 114, CO¹ 85, CO² 26, SB¹ 54, SB² 41, BTN¹ 86, BTN² 38). Every _WANT_*
 # coverage shape still fires (verified: BB¹ 40, BB² 28, BB³ 5) — stream
 # displacement, not a coverage regression.
+# RE-PINNED for W5-b3 (persona-realism-w5b3, 2026-07-31 — slice-authorized):
+# the nit nine-seat unopened ladder (7.54% UTG → 21.42% BTN, was 13.6/29.1
+# flat) means a much tighter nit leaves far more pots unopened/limpable, so
+# the organic stream shifts genuinely as well as by displacement (old
+# post-RR-HOLES counts: UTG2¹ 96, LJ¹ 98, HJ¹ 99, CO¹ 101, CO² 30, SB¹ 68,
+# SB² 40, BTN¹ 73, BTN² 36). Every _WANT_* coverage shape still fires
+# (verified: BB¹ 56, BB² 25, BB³ 5) — not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 96, ("LJ", 1): 98, ("HJ", 1): 99, ("CO", 1): 101,
-    ("CO", 2): 30, ("SB", 1): 68, ("SB", 2): 40, ("BTN", 1): 73,
-    ("BTN", 2): 36,
+    ("UTG2", 1): 84, ("LJ", 1): 124, ("HJ", 1): 116, ("CO", 1): 117,
+    ("CO", 2): 24, ("SB", 1): 57, ("SB", 2): 51, ("BTN", 1): 90,
+    ("BTN", 2): 44,
 }
 
 

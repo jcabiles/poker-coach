@@ -234,7 +234,12 @@ BANDS = {
     # numbers to the authored widths this slice actually ships (exact
     # combo-weighted: nit 28.45 open / 27.38 raise, tag 33.97, lag 43.15).
     # Rows 3-4 are UNTOUCHED — separate levers W5-b1 does not move.
-    "nit": ((26, 30), (25, 29), (1, 2), (5, 15)),
+    # nit rows 1-2 RE-ANCHORED by W5-b3 (2026-07-31): the nine-seat ladder
+    # replaced the flat 13.6/29.1 pack (7.54% UTG rising to 21.42% BTN, limp
+    # mixes byte-identical). Exact combo-weighted seat-average: 14.19 open /
+    # 13.12 raise; bands = exact ±2.0pp per the tolerance note above
+    # (pinned-seed reads 14.91 / 13.83, well inside). Rows 3-4 untouched.
+    "nit": ((12, 16), (11, 15), (1, 2), (5, 15)),
     # tag 3-bet row (6,7)→(6,8) RE-TOLERATED by RR-HOLES (2026-07-31, theory
     # review F1): AQs joined the 3bet-0.8 mix (dominated-typo fix — tag
     # 3-bet AJs/ATs at 0.8 with NO action on the stronger AQs). Exact
