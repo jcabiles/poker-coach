@@ -155,6 +155,16 @@ Mapper coverage is orthogonal to persona realism; the remedy is the T-cover mapp
 work, not narrower villains. Cumulative vs the IMMUTABLE persona-realism-start
 snapshot: 26.3% (329/1251) vs 28.3% (349/1233). Seeded-fixture re-record; bands stay
 frozen to W4-b.
+
+RE-RECORDED for W5-b4 (persona-realism-w5b4, 2026-07-31 — slice-authorized): the maniac
+vs_limpers/vs_rfi repair (positional iso split toward ~60% late; the 73%-flat-call tier
+converted to a 3bet/call/fold split; any-two light 3bet-or-fold catch-all; modest fringe
+over-limp). PURE preflop content — no engine or mapper code changed — the seeded stream
+drifts → total 1251 → 1219, graded 329 → 330. Graded ratio 26.3% → 27.1% (UP
+slice-over-slice — the maniac 3-betting/isolating ends more hands preflop, trimming the
+ungradable multiway tail R10-PRE2 created). Cumulative vs the IMMUTABLE
+persona-realism-start snapshot: 27.1% (330/1219) vs 28.3% (349/1233). Seeded-fixture
+re-record; bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
