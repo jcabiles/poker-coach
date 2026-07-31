@@ -220,7 +220,11 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # (verified: BB¹ 39, BB² 29, BB³ 5) — stream displacement plus genuinely
 # longer 3-bet hands, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 99, ("LJ", 1): 116, ("HJ", 1): 118, ("CO", 1): 89,
+    # RE-RECORDED for T-M2 + T-F3 (persona-realism-wave3, 2026-07-31 —
+    # wave-authorized): nit CO/BTN small-pair opens displace the shared rng
+    # stream; only (LJ, 1) moves at this seed (116 -> 117), every other pair
+    # is byte-identical.
+    ("UTG2", 1): 99, ("LJ", 1): 117, ("HJ", 1): 118, ("CO", 1): 89,
     ("CO", 2): 36, ("SB", 1): 71, ("SB", 2): 38, ("BTN", 1): 96,
     ("BTN", 2): 27,
 }

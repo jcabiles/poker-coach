@@ -3193,12 +3193,23 @@ _GOLDEN_STATS_N200 = {
     # reaches more passive postflop nodes); population bands still gate it
     # at stable n. Exact tripwire re-record; population bands stay frozen to
     # W4-b.
+    # RE-RECORDED for T-M2 + T-F3 (persona-realism-wave3, 2026-07-31 —
+    # wave-authorized): nit small-pair opens at CO/BTN (raise 0.3 out of fold
+    # mass) + maniac vs_4bet 99/88/77 {5bet_shove 0.4}. PURE preflop content —
+    # the nit now open-raises pots it used to limp-or-fold behind, displacing
+    # the shared rng stream from the first affected first-in decision onward.
+    # Only maniac (AF 3.3288 -> 3.2319, junk-continue composition) and tag
+    # (AF 2.3256 -> 2.7353) move materially at this n=200 seed; station /
+    # lag / nit / fish rows are byte-identical (their samples hit no displaced
+    # cell). The R-3 maniac vs_4bet refit itself moved NO row (verified both
+    # sides of that edit). Exact tripwire re-record; population bands stay
+    # frozen to W4-b.
     "calling_station": (0.340625, 0.15254237288135594, 0.7024221453287197),
     "lag": (2.608695652173913, None, 0.43902439024390244),
-    "maniac": (3.328767123287671, 0.16326530612244897, 0.45454545454545453),
+    "maniac": (3.2318840579710146, 0.18, 0.45263157894736844),
     "nit": (None, None, 0.6304347826086957),
     "passive_fish": (1.0, 0.5384615384615384, 0.507537688442211),
-    "tag": (2.3255813953488373, None, 0.6590909090909091),
+    "tag": (2.735294117647059, None, 0.6511627906976745),
 }
 
 

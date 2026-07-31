@@ -202,6 +202,17 @@ immutable persona-realism-start snapshot (349/1233 = 28.3%): 331/1252 =
 26.4%, −1.9pp — further recovery within the adjudicated mapper-track dip
 (T-cover owns the ratio), reported not silent. Seeded-fixture re-record;
 population bands stay frozen to W4-b.
+RE-RECORDED for T-M2 + T-F3 (persona-realism-wave3, 2026-07-31 —
+wave-authorized): nit small-pair opens at CO/BTN (raise 0.3 from fold mass)
++ maniac vs_4bet 99/88/77 {5bet_shove 0.4, fold 0.6}. PURE preflop content —
+the nit now open-raises pots it used to limp-or-fold behind, so the seeded
+stream displaces: 1252/331 → 1179/328 (26.4% → 27.8%). ⚠️ DISCLOSED (refuter
+L2, wave-3 ledger): this re-record moves the graded RATCHET DOWN 331 → 328 —
+not a pure stream refresh — while the RATIO rises +1.4pp slice-over-slice.
+CUMULATIVE vs the immutable persona-realism-start snapshot (349/1233 =
+28.3%): 328/1179 = 27.8%, −0.5pp — the mapper-track dip largely recovered
+(T-cover owns the ratio), reported not silent. Seeded-fixture re-record;
+population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
