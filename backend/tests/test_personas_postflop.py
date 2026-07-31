@@ -1535,8 +1535,11 @@ def test_multiway_facing_bluff_catch_fold_freq_higher_than_hu(persona):
 def test_multiway_value_hand_continuation_not_looser_than_hu(persona):
     """Direction 2 (pass/fail): value-hand continuation (call+raise mass with
     a strong made hand facing a bet) is at least as tight as HU — never
-    looser 3-way. Top pair is outside `_MW_CATCH_BUCKETS`, so this also
-    guards against the tighten mechanism ever leaking onto value hands."""
+    looser 3-way. R10-TAIL-b1 note: TOP_PAIR now IS in `_MW_CATCH_BUCKETS`
+    (this hand tightens multiway by design), so this assertion holds both via
+    the tighten mechanic and independently of it; the leak guard for the
+    genuinely excluded rungs (OVERPAIR_TPTK / TWO_PAIR_PLUS) lives in
+    test_mw_catch_toppair.py's byte-identity tests."""
     hole, board = ("Ah", "2d"), ["Ac", "9s", "3h"]  # top pair, value
     legal = [
         personas_postflop_legal_fold(),

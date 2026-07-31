@@ -30,6 +30,14 @@ and the byte-identity tests below prove this slice did not silently claim it.
 NOT ASSERTED HERE, by design: any absolute call/fold LEVEL — no sourced
 per-headcount defense frequency exists in the contract, so the gates are
 monotonicity + direction only (design pass §D1).
+
+DRAW-CARRYING TOP_PAIR (Codex review C-2, accepted): the class mechanic is
+bucket-keyed, so TOP_PAIR + a live draw also tightens multiway — exactly as
+the pre-existing class members always have (MIDDLE_PAIR + draw tightens too).
+The draw call/raise bonuses still apply after the tighten, so a draw-carrying
+combo remains looser than its bare twin at every headcount. Accepted as
+inherent class semantics, not restricted to draw-NONE; on the W4-b
+observation list with the base-magnitude fit.
 """
 
 from __future__ import annotations
@@ -76,10 +84,14 @@ _HEAD_BUCKETS = (
 
 F_RAISE = 1.37
 HEADCOUNTS = (1, 2, 3, 4)
-# Every persona's spr_commit lies in [1.2, 3.3]; SPR 10 clears them all and
-# SPR 1.0 sits below them all (the ⑤ confounder sweep).
+# Every persona's spr_commit lies in [1.2, 3.3]; SPR 10 clears them all.
+# The ⑤ confounder sweep needs an SPR below every spr_commit AND a legal
+# raise bracket: min raise = 2*bet = 27.4 must not exceed stack = spr*pot =
+# spr*23.7, so spr >= 1.156 (Codex review C-1 — at spr=1.0 the constructed
+# raise node was impossible, min_bb > max_bb). 1.19 satisfies both:
+# 1.156 <= 1.19 < 1.2 = min(spr_commit).
 SPR_ABOVE = 10.0
-SPR_BELOW = 1.0
+SPR_BELOW = 1.19
 
 
 class _CaptureRng:
