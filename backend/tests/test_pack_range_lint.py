@@ -189,13 +189,24 @@ _ROW_GAPS = {
     # is STRICTER than this entry was: this one only recorded that the classes
     # were unplayed and explicitly "does not judge intent", while the pin fixes
     # the wheel tier's exact mix and the strict jam ordering between the two
-    # tiers.)
+    # tiers.
+    # ⚠️ OBSERVABILITY TRADE (refuter MED, recorded on both sides): that node
+    # now ends in a `*` catch-all, so lint 1 is PERMANENTLY BLIND to it — every
+    # class is "played", so no row of maniac vs_4bet can ever register a gap
+    # again, deliberate or accidental. Bought: no class can silently fold 1.0,
+    # which was the defect. Replacement watch: a TAIL-MASS tripwire in
+    # test_nm4bet_maniac_vs_4bet_covers_its_own_arriving_3bet_range caps the
+    # `*` tier at 0.15 of arriving mass (today 0.1181), so "covering" classes
+    # by dumping them into the tail goes red there instead of here.)
     # (The maniac vs_4bet pair-row gap — 99/88/77 dead between TT/JJ at call
     # 0.5 and 55/66 at 5bet_shove 0.4, RR-HOLES finding T-F3 — was FIXED by
-    # T-M2/T-F3, the EV-scale pass RR-HOLES routed it to: the three classes
-    # now continue as {5bet_shove 0.25, call 0.15, fold 0.6}, below TT/JJ's
-    # 0.5 continue and beside 55/66's 0.4. Entry removed in that commit; the
-    # pair row is now contiguous AA-55.)
+    # T-M2/T-F3, the EV-scale pass RR-HOLES routed it to. STALE-COMMENT FIX
+    # (N-M4BET review LOW): this text used to quote the FIRST DRAFT weights
+    # {5bet_shove 0.25, call 0.15, fold 0.6}, which theory review R-3 rejected
+    # before that slice shipped. The weights that actually shipped, and that
+    # still ship at 1.4.0, are {5bet_shove 0.4, fold 0.6} — push/fold, no call
+    # leg — now authored as the single "22-99" mix. The pair row is contiguous
+    # AA-22.)
     # nit vs_limpers pair-row: nit.json is out of scope for this ticket
     # (owned by another ticket) — left untouched, FLAGGED for whoever next
     # rewrites nit.json's vs_limpers node.
