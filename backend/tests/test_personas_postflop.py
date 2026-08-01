@@ -13,11 +13,10 @@ same post-change run on a quiet tree reads 75.73s.) Treat the ABSOLUTES as
 load-dependent, not as constants: the identical unchanged suite was re-measured
 at 91.4s and 97.0s at load average 3.6 on the same box. What is stable is that
 this file costs ~6x its documented budget and that T-ARR added ~2% of it.
-The 12s number is left in place below only
-because `_derive_n`'s `budget_s = 9.5` is DERIVED from it and is load-bearing:
-that constant sizes N, and changing it would move every seeded band and golden
-in this file. Treat 12s as a historical derivation input, not as a live budget;
-re-deriving the real one is its own slice.
+The 12s number and `_derive_n`'s `budget_s = 9.5` are HISTORICAL as of the
+instrument-repair wave (2026-08-01): `per_persona_n`/`texture_n` are pinned
+constants now, so `budget_s` sizes nothing. Both stay in the text only as the
+derivation record for the pinned values.
 
 Budget derivation (refuter-pinned): whole file must add <=12s to the suite.
 At the spec's measured engine throughput (~430 hands/s, sticky-policy floor;
@@ -2212,9 +2211,12 @@ def _measure_throughput(packs) -> float:
 
 
 def _derive_n(hands_per_s: float) -> int:
-    """Scale N DOWN only, floor at 150/persona so the >=30-occurrence stat
-    floors stay reachable (spec allocation: 600/persona x 6 + 1500 texture
-    ~= 5100 hands at ~430 h/s ~= 11.8s).
+    """Return the PINNED (per_persona_n, texture_n) = (600, 1500). Nothing
+    scales any more (instrument-repair wave delta fold, 2026-08-01): both were
+    throughput-derived once, which made frozen-band verdicts machine-dependent;
+    the spec allocation (600/persona x 6 + 1500 texture ~= 5100 hands at
+    ~430 h/s ~= 11.8s) is now pinned. `hands_per_s` is accepted and returned
+    for reporting only.
 
     The "<=12s" budget this is derived from is STALE — the file measured 76.37s
     at HEAD on 2026-07-26, see the module docstring. `budget_s` below is kept at
@@ -2272,7 +2274,7 @@ def budget():
 # fold-to-cbet / WTSD are binomial proportions: tol = 3*sqrt(p(1-p)/n),
 # p = PRD band midpoint (or 0.3 as a conservative prior for one-sided "<X%"
 # bands), n = this maker's measured occurrence count at the throughput-
-# calibrated N (~650-700/persona; see `_derive_n`).
+# calibrated N (pinned at 600/persona since 2026-08-01; see `_derive_n`).
 #
 # AF = (BET+RAISE count R) / (CALL count C) is a RATIO of two counts, not a
 # single proportion; using the delta method for Var(R/C) with R, C treated
@@ -3026,10 +3028,20 @@ def test_stats_caches_are_pack_content_keyed():
     original_maniac_open = packs[VillainType.MANIAC].sizing.open_bb
     try:
         packs[VillainType.MANIAC].sizing.open_bb = original_maniac_open + 5.0
-        assert _persona_stats(packs, "tag", n) is not base, (
+        filler_read = _persona_stats(packs, "tag", n)
+        assert filler_read is not base, (
             "editing a FILLER pack did not miss the cache — the fingerprint "
             "covers only the measured persona, so six of nine seats can change "
             "under a stale reading"
+        )
+        # Delta-review fold (2026-08-01): identity alone would also pass under a
+        # merely over-sensitive fingerprint (e.g. one hashing object ids) — the
+        # VALUE must move too, proving the filler pack is a live input to the
+        # tag's measured environment (maniac opens 5bb larger → tag faces
+        # different action).
+        assert filler_read != base, (
+            "filler-pack edit missed the cache but the tag reading did not "
+            "move — the filler pack is not a live input to this measurement"
         )
         assert _persona_stats_ext(packs, "tag", n) is not base_ext, (
             "editing a FILLER pack did not miss the ext cache — same defect"
@@ -5175,27 +5187,28 @@ def test_persona_postflop_bands(persona, budget):
 
     if af is not None and af_band is not None:
         lo, hi = af_band
-        # Instrument-repair wave (2026-08-01): AF now escalates to the stable
-        # large-n before failing — the same remedy FtC and WTSD already use
-        # below, applied for the same reason. After the R-L2 preflop-sizing
-        # repair (the harness stopped min-raising every raise), maniac's AF at
-        # the small first-pass n reads 2.24-2.45 across n in {150, 400-650} —
-        # straddling the frozen 2.4 floor — against 3.15-3.52 at those same n on
-        # the pre-repair base, while its STABLE-n AF is 2.99 (n=2000) / 3.06
-        # (n=4000), comfortably inside [2.4, 5.1]. That is instrument power, not
-        # a band breach: the repair removed the min-raise ping-pong wars, and
-        # those wars were inflating the BET+RAISE numerator at every n. Band
-        # VALUES untouched (frozen to W4-b); the stable-n run is memoized and
-        # already paid for by the WTSD leg below.
-        if not (lo <= af <= hi):
-            af_stable, _f3, _w3, call_stable_n, _fn3, _wn3 = _persona_stats(
-                packs, persona, _WTSD_ORDER_N
-            )
-            assert af_stable is not None and lo <= af_stable <= hi, (
-                f"{persona} AF {af:.2f} (n_call={call_n}) breached and the "
-                f"stable-n re-measure {af_stable} (n_call={call_stable_n}) "
-                f"confirms it — outside [{lo},{hi}]"
-            )
+        # Instrument-repair wave (2026-08-01, delta-review fold): AF asserts at
+        # the stable large-n — the SAME rule WTSD uses below (NOT the FtC
+        # escalate-on-breach shape: that re-measures only when the small n
+        # breaches, so a stable-n breach that happens to read in-band at the
+        # small n would pass silently — delta-review MED). The small-n reading
+        # is report-only, carried in the failure message. Background: after the
+        # R-L2 preflop-sizing repair (the harness stopped min-raising every
+        # raise), maniac's AF at small n reads 2.24-2.45 across n in
+        # {150, 400-650} — straddling the frozen 2.4 floor — against 3.15-3.52
+        # at those same n on the pre-repair base, while its STABLE-n AF is 2.99
+        # (n=2000) / 3.06 (n=4000), comfortably inside [2.4, 5.1]. Instrument
+        # power, not a band breach: the min-raise ping-pong wars were inflating
+        # the BET+RAISE numerator at every n. Band VALUES untouched (frozen to
+        # W4-b); the stable-n run is memoized and shared with the WTSD leg.
+        af_stable, _f3, _w3, call_stable_n, _fn3, _wn3 = _persona_stats(
+            packs, persona, _WTSD_ORDER_N
+        )
+        assert af_stable is not None and lo <= af_stable <= hi, (
+            f"{persona} AF {af_stable} (n_call={call_stable_n}) at stable "
+            f"n={_WTSD_ORDER_N} outside [{lo},{hi}] (throughput-n read: "
+            f"{af:.2f} at n_call={call_n})"
+        )
     if ftc is not None:
         lo, hi = ftc_band
         # R10-TAIL-a1: FtC now escalates to the stable large-n before failing,
@@ -5255,9 +5268,13 @@ def test_persona_postflop_bands(persona, budget):
         # at seed 20260710 — INSIDE its frozen band, so there is nothing left to
         # defer and a standing skip would hide a future regression. This is a
         # strengthening (a skip becomes a live assertion), band VALUE untouched.
-        # The margin over the 0.50 floor is thin (~0.008); the stable-n leg is
-        # deterministic at the pinned seed, so it is not noisy — but a future
-        # slice that moves the fish's showdown rate DOWN will trip here first.
+        # The margin over the 0.50 floor is thin: ~0.008 is ~1.1 sigma of
+        # binomial sampling error at this n (delta-review: independent-stream
+        # probes at seed offsets 1/2/7 read 0.5049/0.5222/0.5072 — all pass,
+        # nearest ~0.65 sigma above the floor). Deterministic at the pinned
+        # seed, but an rng-STREAM shift with zero behavior change can flip this
+        # leg red — treat a red here as "re-measure at more seeds first", and a
+        # future slice that moves fish showdown rate DOWN will trip here first.
         #
         # W3-b/c/d: measure the WTSD-vs-band at the stable large-n (memoized,
         # shared with the ordering test). The throughput-n estimate breaches band
