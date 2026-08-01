@@ -97,6 +97,15 @@ The idealized-distinct stat signatures. **HARD-vs-directional is critical — a 
 - **maniac / station VPIP** — the researched 9-max bands (maniac 45–60, station 40–55) already agree with what is written; no edit needed.
 - **⚠ station / fish PFR** — sourced 9-max values (station 3–10, fish 5–12) are `LOW`-conf: real recreational examples scatter from 40/2 to 40/30. Flagged UNRESOLVED, not changed. Treat as DIRECTIONAL-only until metric #3 measures it.
 
+**LAG joint-consistency ruling (2026-07-31, OWNER-ADJUDICATED — wave-3 filing T-M1, recorded in the wave-5
+contract pass).** Post-ledger-#14 the LAG VPIP/PFR/gap trio is **not jointly satisfiable across full band
+edges**: the gap row was correctly left format-invariant while VPIP/PFR scaled ~0.75×, and the measured lag
+gap sits ≈6.5 vs [3, 6] (three separate slice reviews tripped on this). Ruling: **VPIP and gap are the
+primary LAG targets; PFR is DERIVED (≈ VPIP − gap) and its band edges are DIRECTIONAL-only.** A lag slice
+must not treat PFR 17–23 as an independent constraint, and a reviewer must not file a defect on PFR alone
+while VPIP and gap are in band. Rationale: loose/tight is a VPIP statement and passive/aggressive is a gap
+statement — those are the two axes the archetype is defined on. **No band VALUE is edited by this ruling.**
+
 **Why only three rows moved (the mechanism confirming itself):** the transfer error lands on **nit / TAG / LAG** — the three *position-aware* archetypes, whose ranges respond to seats-left-to-act and blind frequency (blinds arrive 2/6 ≈ 33% of hands at 6-max vs 2/9 ≈ 22% full ring). It does **not** land on **maniac / station / fish**, because a player who does not adjust to table size has no mechanism by which a 6-max→9-max transfer could bias their stat. The corrections and the non-corrections fall exactly where the mechanism predicts.
 
 3-bet%, still DIRECTIONAL, for the same pool: full ring **4–7%**, 6-max 6–10% — quote the full-ring figure in this contract.
@@ -149,6 +158,20 @@ The population is inflated vs RP6 (price-blind defense keeps too many pots to sh
 
 **Format-SENSITIVE stats** (a 6-max number may NOT be transferred to 9-max, or vice versa, without restating it): VPIP, PFR, 3-bet%, RFI-by-seat, c-bet, fold-to-c-bet, WTSD, turn barrel, multiway incidence.
 **Format-INVARIANT stats** (transfer is safe, state that you relied on it): the VPIP−PFR **gap**, **AF**, and any ordering or monotonicity claim.
+
+**Per-seat RFI governance (2026-07-31, OWNER-ADJUDICATED — wave-4 filing T-D2, wave-5 filing T-1, recorded
+in the wave-5 contract pass).** Aggregate VPIP/PFR (metric #3) is arrival-dominated — measured unopened-node
+arrival UTG 1.000 … CO ~0.12 · BTN ~0.07 · SB ~0.03 makes it ~85% an early-position statistic — so it
+structurally **cannot police per-seat opening width** (that is how a 58% tag button and a 66% lag button
+shipped with every aggregate gate green). Ruling: **authored per-seat RFI is governed by the committed
+research doc `docs/ai-dlc/research/rfi-seat-provenance.md` (R9-SEATPROV), applied under that doc's own
+rules** — (a) **one-sided no-regression bounds and WITHIN-persona ordinal/shape claims only**; no full row
+is gate-grade, a band maximum may bound a regression but never define a pass (the W5-a2-f principle);
+(b) **cross-persona ordering claims stay `[UNVERIFIED]`** and may never be HARD gates (wave-5 N-TAGWIDTH
+ruling — a hard cross-persona cliff gate was shipped, caught, and demoted to report-only); (c) any per-seat
+target cited into a gate or ticket carries the provenance doc's anchor triple verbatim — **the §5a registry
+duty extends to per-seat/dossier-sourced targets**, not just keystone rows. Slices touching `unopened`
+ladders cite R9-SEATPROV or say `[UNVERIFIED]` out loud.
 
 **These two lists are themselves claims and must be sourced (W5-a2 remedy — see the CONTRACT-DEFECT note in §10).** Being on the INVARIANT list is a licence to transfer a number across formats; shipping that licence unsourced is the same error as shipping an unsourced number. Current state of the licence:
 - **AF → INVARIANT: SOURCED** (S1 publishes AF 3 for 6-max and 3 for full ring side by side). Was an unsourced axiom until W5-a2; it held, but it was not *checked* to hold.
