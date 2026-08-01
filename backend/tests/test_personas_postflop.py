@@ -3224,23 +3224,12 @@ _GOLDEN_STATS_N200 = {
     # growing the call denominator), comfortably inside the HARD band
     # (1.5, 4.5) — the band test still gates it at population n. Exact
     # tripwire re-record; population bands stay frozen to W4-b.
-    # RE-RECORDED for N-TAGWIDTH (persona-realism-wave5, 2026-07-31 —
-    # wave-authorized, single-recorder landing on the stacked wave-5 tip):
-    # the tag five-seat width trim (UTG recompose + junk-suited retirement +
-    # offsuit restoration at HJ/CO/BTN/SB) re-deals every pot a tag enters,
-    # so ALL six rows move at this n=200 seed (pure stream displacement for
-    # the non-tag personas). The tag n=200 AF move (2.5 → 1.53) is small-n
-    # noise, NOT a real shift: at stable n=1200 in separate processes
-    # (the pack-blind `_STATS_EXT_CACHE` defect filed in wave 4 makes
-    # same-process before/after reads invalid), tag AF reads
-    # 2.5134 → 2.4711, deep inside the band (1.4, 3.6). Exact tripwire
-    # re-record; population bands stay frozen to W4-b.
-    "calling_station": (0.26282051282051283, 0.23076923076923078, 0.6804511278195489),
-    "lag": (3.9130434782608696, None, 0.5),
-    "maniac": (3.225806451612903, 0.375, 0.45789473684210524),
-    "nit": (None, None, 0.5208333333333334),
-    "passive_fish": (1.0, 0.5, 0.46153846153846156),
-    "tag": (1.530612244897959, None, 0.6987951807228916),
+    "calling_station": (0.3063973063973064, 0.2, 0.6829268292682927),
+    "lag": (2.2857142857142856, 0.37142857142857144, 0.5),
+    "maniac": (4.822222222222222, 0.4166666666666667, 0.37383177570093457),
+    "nit": (0.631578947368421, None, 0.6346153846153846),
+    "passive_fish": (1.1355932203389831, 0.41304347826086957, 0.5207373271889401),
+    "tag": (2.5, None, 0.6395348837209303),
 }
 
 

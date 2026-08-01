@@ -241,17 +241,6 @@ the strongest recovery since the wave-3 −3.8pp low (graded RATCHET moves UP
 317 → 338). Same adjudicated mapper-track class (T-cover owns the ratio),
 reported not silent. Seeded-fixture re-record; population bands stay frozen
 to W4-b.
-
-RE-RECORDED for N-TAGWIDTH (persona-realism-wave5, 2026-07-31 —
-wave-authorized, single-recorder landing on the stacked wave-5 tip): the tag
-five-seat width trim (UTG recomposed, junk suited retired + standard offsuit
-restored at HJ/CO/BTN/SB, seat-average 33.85 → 27.89). PURE preflop content;
-the stream displaces: 1275/338 → 1224/339 (26.5% → 27.7%). CUMULATIVE vs the
-immutable persona-realism-start snapshot (349/1233 = 28.3%): 339/1224 =
-27.7%, −0.6pp — continued recovery, now within 0.6pp of the immutable start
-(graded RATCHET moves UP 338 → 339). Same adjudicated mapper-track class
-(T-cover owns the ratio), reported not silent. Seeded-fixture re-record;
-population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
