@@ -5080,9 +5080,16 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     the check margin-relative and finding the n that settles maniac are FILED
     follow-ups, deliberately not done in this slice: tightening the check would
     fail the gate on a maniac figure this slice has no remit to re-fit.
-    Measured at this slice, same seed:
+    Measured at this slice, same seed (PRE-repair harness — see next line):
         maniac  0.2616 @n=12000 (n_dec 2703) · 0.2686 @n=4000 (n_dec 860)
         lag     0.4841 @n=12000 (n_dec 1506) · 0.4883 @n=4000 (n_dec 469)
+    WAVE-6 MERGED-STATE UPDATE (lane-A R-L2 harness repair, orchestrator at
+    landing): with production raise sizing in the harness the same seed reads
+        maniac  0.3054 @n=12000 (n_dec 2626, CI [0.288, 0.323])
+        lag     0.4934 @n=12000 (n_dec 1443, CI [0.468, 0.519])
+    — maniac's CI now sits FULLY INSIDE [0.25, 0.35]: the straddle above was
+    partly the broken min-raise ruler. The margin-relative-check follow-up
+    stays FILED (the structural point stands even when this reading clears).
     Runtime cost of the re-power: 19.5s -> 71-120s for this test (3x the hands;
     measured twice, the spread is machine load from concurrent work — the
     figures above are deterministic on the seed). The n=4000 line

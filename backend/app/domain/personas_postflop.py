@@ -837,11 +837,13 @@ def sample_postflop_decision(
         # chips) has contribution == current_bet_to, so the two agree.
         #
         # The legacy `max(current_bet_to, to_call)` branch remains ONLY for
-        # un-opted-in direct callers (harness, estimator, unit tests) that pass no
-        # contribution — byte-identical to pre-W1-b. Its over-subtraction is the
-        # documented approximation THERE; the estimator additionally never
-        # reconstructs to_call (it builds CALL with min_bb=None → numerator 0), so
-        # its faced_frac is 0 regardless — a separate, pre-existing approximation.
+        # un-opted-in direct callers (unit tests) that pass no contribution —
+        # byte-identical to pre-W1-b; its over-subtraction is the documented
+        # approximation THERE. The estimator is NOT in that set any more
+        # (ESTIM-PRICE, 2026-08-01): `range_estimate._legal_from_ctx` builds
+        # CALL with the real to_call and always passes the aggressor
+        # contribution, so its faced_frac is live and takes the exact branch
+        # below — see `range_estimate.py` and its self-re-raise regression.
         to_call_bb = by_kind[ActionType.CALL].min_bb or 0.0
         if latest_aggressor_contribution_bb is None:
             faced_frac = to_call_bb / max(pot_bb - max(current_bet_to, to_call_bb), 0.01)
