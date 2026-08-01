@@ -203,10 +203,15 @@ _ROW_GAPS = {
     # T-M2/T-F3, the EV-scale pass RR-HOLES routed it to. STALE-COMMENT FIX
     # (N-M4BET review LOW): this text used to quote the FIRST DRAFT weights
     # {5bet_shove 0.25, call 0.15, fold 0.6}, which theory review R-3 rejected
-    # before that slice shipped. The weights that actually shipped, and that
-    # still ship at 1.4.0, are {5bet_shove 0.4, fold 0.6} — push/fold, no call
-    # leg — now authored as the single "22-99" mix. The pair row is contiguous
-    # AA-22.)
+    # before that slice shipped. The weights that shipped at 1.4.0 were
+    # {5bet_shove 0.4, fold 0.6} — push/fold, no call leg — authored as the
+    # single "22-99" mix. N-M4CALL (2026-08-01, maniac.json 1.5.0) SPLIT that
+    # mix on theory finding T-M4: 77-99 now read {5bet_shove 0.4, call 0.3,
+    # fold 0.3} and only 22-66 keep the push/fold weights, because the direct
+    # price (theory contract §3 T3) the jam-or-fold law leaned on does not
+    # fail for 77-99. Neither lint moves: the pair row is still contiguous
+    # AA-22 across the two mixes, and both keep `5bet_shove` 0.4 as their
+    # dominant non-fold weight, so no interleaving appears either.)
     # nit vs_limpers pair-row: nit.json is out of scope for this ticket
     # (owned by another ticket) — left untouched, FLAGGED for whoever next
     # rewrites nit.json's vs_limpers node.

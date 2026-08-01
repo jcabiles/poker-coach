@@ -4127,12 +4127,17 @@ def test_r10_3bet_passive_identity_freeze():
 # record of why matters. The slice first raised the level to jam 0.75 on the
 # argument that a 25% aggregate fold left no budget for a 60% fold on middle
 # pairs; theory review REFUTED that arithmetic — holding all of 22-99 at the
-# wave-3 {jam 0.40, fold 0.60} the arrival-weighted aggregate lands at fold
+# wave-3 {jam 0.40, fold 0.60} the arrival-weighted aggregate landed at fold
 # 0.286, inside every bound the gate asserts. Nothing in the fit required the
-# move, so the wave-3 weights are restored: 22-99 are now ONE push/fold mix
-# ("22-99") at exactly this level, which also makes the 99 -> TT jam step
-# 0.40 -> 0.45 RISING instead of the 0.75 -> 0.45 inversion the raised level
-# introduced.
+# move, so the wave-3 weights were restored: at 1.4.0, 22-99 were ONE
+# push/fold mix ("22-99") at exactly this level, which also makes the
+# 99 -> TT jam step 0.40 -> 0.45 RISING instead of the 0.75 -> 0.45 inversion
+# the raised level introduced.
+# ⚠️ THE 0.286 ABOVE IS COUNTERFACTUAL AS OF 1.5.0 — it is the aggregate the
+# REFUTED-then-restored wave-3 weights produced when this paragraph was
+# written, not what the pack ships. The shipped reading lives with the gate
+# that asserts it: see `test_nm4bet_maniac_arrival_weighted_vs_4bet_matches_
+# dossier`.
 #
 # The rationale ABOVE is narrowed at the same review: "no set-mining price"
 # holds for 22-66, but for 77-99 the honest test is the DIRECT price — at
@@ -4142,13 +4147,17 @@ def test_r10_3bet_passive_identity_freeze():
 #
 # N-M4CALL (2026-08-01, maniac.json 1.5.0) — that follow-up, SETTLED. Finding
 # T-M4: the pair row was inconsistent, not principled — TT and up carry call
-# legs at the same SPR, so "pairs are jam-or-fold" could not be a law of the
-# node while it applied to 99 and not to TT. It is now what its own review
+# legs at the same depths, so "pairs are jam-or-fold" could not be a law of
+# the node while it applied to 99 and not to TT. It is now what its own review
 # already narrowed it to: a law about 22-66. 77/88/99 are carved into their
 # own mix with a call leg and 22-66 are byte-identical. See
 # `test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg` for the T3
 # arithmetic, the measured equities, and why the call leg is a MINORITY of
-# continue mass while the jam level does not move.
+# continue mass while the jam level does not move. NOTE the paragraph above
+# states the price from lever-derived sizing rounded to "~14 into ~35.5, SPR
+# ~1.5"; the exact chain is 13.86 into 35.16 at post-call SPR 1.56 (T3 =
+# 0.2827), and the live node's arrivals are a MIXTURE around that reference,
+# not draws from it — both corrected at the T-M4 gate (review C-1).
 _MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "call": 0.3, "fold": 0.3}
 # 22-66 — the narrowed law's block, unchanged since wave 3.
 _MANIAC_VS_4BET_SMALL_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
@@ -4228,36 +4237,70 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
     boundary guards, not the red-first claim.
 
     THE ARITHMETIC (theory contract §3, T3 pure-call break-even
-    `E >= B/(P+B)`, at the modeled channel's recorded sizing — a call of ~14
-    into a ~35.5 pot, SPR ~1.5 after calling):
+    `E >= B/(P+B)`), on the LEVER-DERIVED canonical single-raised chain — NOT
+    a probe reading (review C-1): open 2.5 -> maniac 3-bets 3.3x -> opener
+    4-bets 3.0x, all from the shipped `sizing` levers, leaves a call of 13.86
+    into a pot of 35.16 (post-call SPR 1.56):
 
-        E >= 14 / (35.5 + 14) = 0.283
+        E >= 13.86 / (35.16 + 13.86) = 13.86 / 49.02 = 0.2827
 
-    Measured with the repo's own `equity_vs_range` (20k iters, seed 7),
-    77/88/99 preflop, all-in:
+    THE PROBE'S ARRIVALS ARE NOT THAT SPOT, and the difference is recorded
+    rather than smoothed over: `_maniac_vs_4bet_channels` counts channels, it
+    does not price them, and re-pricing its replayed decisions gives a mean
+    call of 28.6 into a pot of 73.7 with a MEDIAN post-call SPR of 0.562, over
+    150 OOP / 132 IP arrivals. The canonical chain above is the reference
+    geometry this mix is authored against; the live node is a mixture whose
+    centre sits deeper-priced and shallower-SPR than it.
 
-        vs a value-only 4-bet range (QQ+, AK)        0.362 / 0.357 / 0.362
-        vs a wider one (TT+, AQs+, AKo, A5s, A4s)    0.378 / 0.376 / 0.377
+    Measured with the repo's own `equity_vs_range` (20k iters, seed 7), hero
+    combos 7c7d / 8c8d / 9c9d, preflop all-in:
 
-    The price is cleared by ~7-9pts against the TIGHTEST range the maniac can
-    face here, so a 0.60 fold on these three was leaving a priced-in call on
-    the floor — the 1.4.0 "no set-mining price" rationale is about IMPLIED
-    odds and does not reach a hand whose DIRECT price is already good.
+        vs a value-only 4-bet range (QQ+, AK)     0.3617 / 0.3565 / 0.3618
+        vs a wider one (TT+, AQs+, AKo, A5s, A4s) 0.3782 / 0.3760 / 0.3772
 
-    WHY THE CALL IS A MINORITY LEG (the assertion `call < 5bet_shove`): T3 is
-    a RAW-equity test, and an underpair out of position at SPR ~1.5 realizes
-    below raw — it flops a set 11.8% of the time and otherwise plays a
-    bluff-catcher with no implied odds left to win. Authoring call above jam
-    would be reading raw equity as realized equity. Shipped {call 0.30,
-    5bet_shove 0.40, fold 0.30}.
+    +- ~0.002 of SUIT-CHOICE noise: an independent re-run at the same seed
+    with different concrete combos read 0.3612 / 0.3550 / 0.3604 (review L4).
+    Nothing here turns on the third decimal.
+
+    ROBUSTNESS, stated as the MASS-WEIGHTED claim it actually is (review
+    CT-3): the price is not cleared against every 4-bettor at this table. The
+    nit 4-bets {AA 0.5, KK 0.3, QQ 0.1} and the fish {AA 0.5} — against those
+    ranges 77-99 hold ~0.19 and MISS the 0.283 price by ~9pts. They are also
+    ~0.6% of the roster's combined 4-bet mass against the maniac's own 34.7%,
+    and against the roster-POOLED 4-bet range 77/99 read 0.52 / 0.56. So the
+    tight tail exists, is named, and does not govern: the mass the maniac
+    actually faces here is overwhelmingly wide, and a class-level mix answers
+    the mixture, not its tail. The 1.4.0 "no set-mining price" rationale is
+    about IMPLIED odds and does not reach a hand whose DIRECT price is good
+    against the ranges that supply the mass.
+
+    WHY THE CALL IS A MINORITY LEG (the assertion `call < 5bet_shove`) —
+    DIRECTIONAL PREMISE, not settled law: T3 is a RAW-equity test, and an
+    underpair realizes below raw at these depths (it flops a set 11.8% of the
+    time and otherwise plays a bluff-catcher with little implied odds left to
+    win; arrivals are mixed IP/OOP, 132 of 282 in position). The size of that
+    discount is UNMEASURED here, so `call < jam` is the shape the premise
+    implies, not a proven optimum — a future re-fit that measures realization
+    may refute it. Shipped {call 0.30, 5bet_shove 0.40, fold 0.30}.
 
     WHY THE JAM LEVEL DOES NOT MOVE (this slice adds a leg; it does not
-    re-level): T1 (`E >= B/(P+2B)`) with an effective jam of ~92 into ~35.5
-    needs 0.419, ABOVE these hands' ~0.36, so the shove is not a value commit
-    — by T2 it needs realized fold equity F* ≈ 0.27-0.31, which is live but
-    not free. The jam is also boxed in on both sides by the ladders the test
-    below asserts: >= 66's 0.40 and <= TT's 0.45 (the T-L1 inversion
-    tripwire), so 0.40 is the only level that leaves both intact."""
+    re-level) — with the stacks done EXACTLY (review CT-1, convergent): after
+    3-betting to 9.9 the maniac has 90.1 behind, and the 4-bettor has only
+    76.24 behind, so THE VILLAIN CANNOT COVER THE JAM. §3's T1/T2 forms
+    silently assume villain covers B, so the exact zero-fold-equity
+    break-even is taken from the real final pot instead:
+
+        90.1 / (35.16 + 90.1 + 76.24) = 90.1 / 201.5 = 0.447
+
+    ABOVE these hands' ~0.36, so the shove is not a value commit — it needs
+    fold equity, and the conclusion holds a fortiori against the naive
+    covered-B reading (0.419). By T2 the required realized fold equity is
+    F* ≈ 0.26-0.28 (0.262-0.279 at P = 35.5, B = 92, E = 0.3565-0.3618 —
+    review C-2; the uncovered-B caveat above makes any T2 number here an
+    approximation). Live for this archetype, not free. The jam is also boxed
+    in on both sides by the ladders the test below asserts: >= 66's 0.40 and
+    <= TT's 0.45 (the T-L1 inversion tripwire), so 0.40 is the only level
+    that leaves both intact."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4269,7 +4312,8 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
     }
     assert not no_call, (
         f"maniac vs_4bet 77-99 have no call leg — T3 says the direct price "
-        f"(~0.283 needed, ~0.36 held) is already good: {no_call}"
+        f"(0.2827 needed on the canonical chain, ~0.36 held against the "
+        f"ranges that supply the 4-bet mass) is already good: {no_call}"
     )
     over_called = {
         cls: policy.get(cls, {})
@@ -4278,9 +4322,11 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
         >= policy.get(cls, {}).get("5bet_shove", 0.0)
     }
     assert not over_called, (
-        f"maniac vs_4bet 77-99 call at least as often as they jam — T3 is a "
-        f"RAW-equity test and an OOP underpair at SPR ~1.5 realizes below "
-        f"raw, so the call must stay the minority leg: {over_called}"
+        f"maniac vs_4bet 77-99 call at least as often as they jam. The "
+        f"minority-leg shape rests on a DIRECTIONAL, UNMEASURED premise — T3 "
+        f"is a raw-equity test and an underpair is assumed to realize below "
+        f"raw at these depths. That premise, not an optimum, is what a "
+        f"re-fit has to refute before inverting this: {over_called}"
     )
     small_calls = {
         cls: policy.get(cls, {})
@@ -4290,7 +4336,7 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
     assert not small_calls, (
         f"22-66 gained a call leg — the jam-or-fold law was narrowed TO this "
         f"block, not repealed (their set-mining price is the one that really "
-        f"fails at SPR ~1.5): {small_calls}"
+        f"fails at these depths): {small_calls}"
     )
 
 
@@ -4517,7 +4563,13 @@ def test_nm4bet_maniac_arrival_weighted_vs_4bet_matches_dossier():
     PRE-SLICE HEAD cause (recorded per the gate-design rule): coverage, not
     weights — 73.63% of arriving mass (151 of 169 classes: AQo, KQo, KJo, QJo,
     JTo, ATo, AJo, A9o, AJs, 44-22 and the whole light-3-bet tail) matched NO
-    mix and folded 1.0."""
+    mix and folded 1.0.
+
+    SHIPPED READING, recorded here because this is where the gate lives
+    (N-M4CALL, maniac.json 1.5.0): fold 0.2764 / call 0.3454 / jam 0.3781,
+    from fold 0.2859 / call 0.3359 / jam 0.3781 at 1.4.0 — the 77-99 call leg
+    moving fold mass into call at a constant jam. Every bound clear, and the
+    distance to the dossier row shrank on both legs that moved."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4699,7 +4751,15 @@ def test_nm4bet_vs_4bet_arrival_channels_report():
         n=3, seat opened unopened             0.0664  [0.0658]
         n=3, seat's FIRST decision (cold)     0.0577  [0.0572]
         n=3, seat ISO-raised limpers          0.0433  [0.0429]
+        n=3, seat CALLED at vs_rfi            0.0404  [0.0401]
+        n=3, seat CALLED at vs_3bet           0.0375  [0.0372]
         n=4, seat CALLED at vs_4bet           0.0289  [0.0286]
+
+    The three CALL-prior rows are listed explicitly (review L2) because an
+    earlier version of this table skipped the two n=3 ones — together 7.8% of
+    decisions, and precisely the arrivals the deterministic gates do NOT
+    model: a seat that FLATTED earlier in the chain reaches this node with a
+    calling range, not with the 3-betting range the aggregate is weighted by.
 
     N-M4CALL (2026-08-01) BARELY MOVES THIS, which is itself worth recording:
     a call leg on three pair classes at a node this deep changes ~1% of the
