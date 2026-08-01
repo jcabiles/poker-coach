@@ -1088,9 +1088,14 @@ _TAG_OFFSUIT_CEILING = {
 # could: it names the classes, so the old offsuit-heavy shape cannot come back
 # under any width. UTG1 / UTG2 / LJ / BB floors and the whole
 # `_TAG_OFFSUIT_CEILING` row are UNCHANGED. Each new value sits ~0.2-0.7pp
-# under its shipped width.
+# under its shipped width. UTG is deliberately ABSENT from this floor
+# (theory delta-review L3, wave-5 ledger): a 4.9 floor under the shipped 5.13
+# would re-impose a de-facto two-sided freeze against the one-sided
+# outside-suited ceiling, and the escalated early-seat trim must not have to
+# delete a green floor to move UTG — its shape defence is the exact offsuit
+# block pin (`test_tagwidth_utg_offsuit_block_pinned`) instead.
 _TAG_SUITED_FLOOR = {
-    "UTG": 4.9, "UTG1": 7.7, "UTG2": 8.3, "LJ": 11.8, "HJ": 12.0,
+    "UTG1": 7.7, "UTG2": 8.3, "LJ": 11.8, "HJ": 12.0,
     "CO": 12.5, "BTN": 15.2, "SB": 14.3, "BB": 13.0,
 }
 # Pre-slice per-seat TOTAL authored first-in raise %, frozen (measured on the
@@ -1238,7 +1243,7 @@ def test_tagcomp_pair_band_unchanged_preservation():
 # SOMEWHERE once the suited rows saturate.
 #
 # WHERE THE TARGETS COME FROM, and why the gates below are shaped the way they
-# are. The repo's only audited per-seat RFI source is the COMMITTED research
+# are. The repo's only audited per-seat RFI source is the research
 # doc `docs/ai-dlc/research/rfi-seat-provenance.md` (R9-SEATPROV). It is not
 # yet tracked in git as this branch is written; the orchestrator commits it at
 # landing, which is what makes the citations below resolvable. Its anchor
@@ -1298,11 +1303,12 @@ def test_tagcomp_pair_band_unchanged_preservation():
 #      CO 0.119, BTN 0.073, SB 0.036, BB 0.000), so population PFR is made at
 #      UTG-LJ. Taking UTG1/UTG2/LJ to their provenance bands models at ~2.1pp
 #      of PFR unadjusted and ~1.6pp after this slice's measured
-#      self-compensation factor (0.63 measured / 0.85 modelled = 0.75);
+#      self-compensation factor (0.63 measured / 0.85 modelled = 0.74);
 #      against a measured pre-slice PFR of 12.67 that lands at 10.57-11.1,
 #      i.e. 0.9-1.43pp under the §5 tag PFR band's low edge of 12. Even the
 #      most optimistic estimate raised in review (~0.7pp) lands on it. That
-#      edge is DIRECTIONAL, not frozen-hard: §5a marks the PFR row directional
+#      edge is DIRECTIONAL, not frozen-hard: §5a records the PFR row VERIFIED
+#      (conf MEDIUM, ledger #14) with DIRECTIONAL band edges,
 #      and §5 forbids any RP6/population number becoming a gate before the
 #      W4-b re-anchor — nothing in the suite reds on it. Two DIRECTIONAL
 #      targets (per-seat RFI, aggregate PFR) therefore bracket that edge and
@@ -1566,6 +1572,27 @@ def test_tagwidth_btn_offsuit_block_restored():
         if missing or extra:
             bad.append(f"@{weight}: missing={missing} extra={extra}")
     assert not bad, f"BTN offsuit block moved: {bad}"
+
+
+def test_tagwidth_utg_offsuit_block_pinned():
+    """Theory delta-review M1 (wave-5 ledger): UTG's rewritten offsuit shape —
+    ATo+/KQo at full weight and NO other offsuit at any weight — is exactly
+    the shape the v2 cut deleted (it folded AJo/ATo/KQo/KJo outright), and it
+    was the one rewritten seat with no class pin on the offsuit side: with the
+    one-sided width gates alone, deleting ATo+/KQo again would leave every
+    gate green. Exact per-tier pin, mirroring `_TAG_BTN_OFFSUIT_BLOCK`."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    got = _tag_offsuit_by_weight(packs[VillainType.TAG], "UTG")
+    want = parse_range("ATo+, KQo")
+    missing = sorted(want - got.get(1.0, set()))
+    extra = sorted(got.get(1.0, set()) - want)
+    assert not missing and not extra, (
+        f"UTG full-weight offsuit block moved: missing={missing} extra={extra}"
+    )
+    stray = sorted(set(got) - {1.0})
+    assert not stray, f"unexpected UTG offsuit weight tiers: {stray}"
 
 
 def test_tagwidth_cliff_ordering_reported_not_gated():
