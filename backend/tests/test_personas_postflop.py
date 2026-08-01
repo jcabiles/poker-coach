@@ -4139,7 +4139,19 @@ def test_r10_3bet_passive_identity_freeze():
 # SPR ~1.5, calling ~14 into ~35.5 needs ~28% equity, which 77-99 clear
 # against a 4-betting range. Whether 77-99 deserve a call leg is therefore
 # OPEN and FILED as a follow-up; this slice authors no new call legs.
-_MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
+#
+# N-M4CALL (2026-08-01, maniac.json 1.5.0) — that follow-up, SETTLED. Finding
+# T-M4: the pair row was inconsistent, not principled — TT and up carry call
+# legs at the same SPR, so "pairs are jam-or-fold" could not be a law of the
+# node while it applied to 99 and not to TT. It is now what its own review
+# already narrowed it to: a law about 22-66. 77/88/99 are carved into their
+# own mix with a call leg and 22-66 are byte-identical. See
+# `test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg` for the T3
+# arithmetic, the measured equities, and why the call leg is a MINORITY of
+# continue mass while the jam level does not move.
+_MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "call": 0.3, "fold": 0.3}
+# 22-66 — the narrowed law's block, unchanged since wave 3.
+_MANIAC_VS_4BET_SMALL_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
 
 
 def _vs_4bet_policy(pack) -> dict[str, dict[str, float]]:
@@ -4174,7 +4186,12 @@ def test_tf3_maniac_vs_4bet_middle_pairs_continue():
 
     Review fold (Codex MED): the EXACT mix is pinned, not `continue > 0`. The
     loose form would have accepted any token weight and could not have caught
-    the jam-ladder inversion theory review R-3 found."""
+    the jam-ladder inversion theory review R-3 found.
+
+    N-M4CALL (2026-08-01): the pinned mix gains its call leg (see the block
+    comment and the T-M4 gate below), and the 22-66 block is pinned in the
+    SAME assertion — the narrowing only means something if the classes it
+    excludes are watched too."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4187,6 +4204,93 @@ def test_tf3_maniac_vs_4bet_middle_pairs_continue():
     assert not wrong, (
         f"maniac vs_4bet middle pairs are not the authored "
         f"{_MANIAC_VS_4BET_MID_PAIR_MIX}: {wrong}"
+    )
+    wrong_small = {
+        cls: policy.get(cls, {})
+        for cls in ("66", "55", "44", "33", "22")
+        if policy.get(cls, {}) != _MANIAC_VS_4BET_SMALL_PAIR_MIX
+    }
+    assert not wrong_small, (
+        f"maniac vs_4bet small pairs left the narrowed jam-or-fold law "
+        f"{_MANIAC_VS_4BET_SMALL_PAIR_MIX}: {wrong_small}"
+    )
+
+
+def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
+    """🔴 T-M4 defect gate (deterministic, no sampling): 77, 88 and 99 must
+    have a NON-ZERO call leg vs a 4-bet, that leg must stay a MINORITY of
+    their continue mass, and 22-66 must have none.
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule): at b54fe6e all
+    of 22-99 shipped one `{5bet_shove 0.4, fold 0.6}` mix, so call == 0.0 for
+    77/88/99 — the first assertion FAILS at HEAD on all three classes. The
+    other two assertions pass at HEAD (vacuously and by identity); they are
+    boundary guards, not the red-first claim.
+
+    THE ARITHMETIC (theory contract §3, T3 pure-call break-even
+    `E >= B/(P+B)`, at the modeled channel's recorded sizing — a call of ~14
+    into a ~35.5 pot, SPR ~1.5 after calling):
+
+        E >= 14 / (35.5 + 14) = 0.283
+
+    Measured with the repo's own `equity_vs_range` (20k iters, seed 7),
+    77/88/99 preflop, all-in:
+
+        vs a value-only 4-bet range (QQ+, AK)        0.362 / 0.357 / 0.362
+        vs a wider one (TT+, AQs+, AKo, A5s, A4s)    0.378 / 0.376 / 0.377
+
+    The price is cleared by ~7-9pts against the TIGHTEST range the maniac can
+    face here, so a 0.60 fold on these three was leaving a priced-in call on
+    the floor — the 1.4.0 "no set-mining price" rationale is about IMPLIED
+    odds and does not reach a hand whose DIRECT price is already good.
+
+    WHY THE CALL IS A MINORITY LEG (the assertion `call < 5bet_shove`): T3 is
+    a RAW-equity test, and an underpair out of position at SPR ~1.5 realizes
+    below raw — it flops a set 11.8% of the time and otherwise plays a
+    bluff-catcher with no implied odds left to win. Authoring call above jam
+    would be reading raw equity as realized equity. Shipped {call 0.30,
+    5bet_shove 0.40, fold 0.30}.
+
+    WHY THE JAM LEVEL DOES NOT MOVE (this slice adds a leg; it does not
+    re-level): T1 (`E >= B/(P+2B)`) with an effective jam of ~92 into ~35.5
+    needs 0.419, ABOVE these hands' ~0.36, so the shove is not a value commit
+    — by T2 it needs realized fold equity F* ≈ 0.27-0.31, which is live but
+    not free. The jam is also boxed in on both sides by the ladders the test
+    below asserts: >= 66's 0.40 and <= TT's 0.45 (the T-L1 inversion
+    tripwire), so 0.40 is the only level that leaves both intact."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+    no_call = {
+        cls: policy.get(cls, {})
+        for cls in ("99", "88", "77")
+        if policy.get(cls, {}).get("call", 0.0) <= 0.0
+    }
+    assert not no_call, (
+        f"maniac vs_4bet 77-99 have no call leg — T3 says the direct price "
+        f"(~0.283 needed, ~0.36 held) is already good: {no_call}"
+    )
+    over_called = {
+        cls: policy.get(cls, {})
+        for cls in ("99", "88", "77")
+        if policy.get(cls, {}).get("call", 0.0)
+        >= policy.get(cls, {}).get("5bet_shove", 0.0)
+    }
+    assert not over_called, (
+        f"maniac vs_4bet 77-99 call at least as often as they jam — T3 is a "
+        f"RAW-equity test and an OOP underpair at SPR ~1.5 realizes below "
+        f"raw, so the call must stay the minority leg: {over_called}"
+    )
+    small_calls = {
+        cls: policy.get(cls, {})
+        for cls in ("66", "55", "44", "33", "22")
+        if policy.get(cls, {}).get("call", 0.0) > 0.0
+    }
+    assert not small_calls, (
+        f"22-66 gained a call leg — the jam-or-fold law was narrowed TO this "
+        f"block, not repealed (their set-mining price is the one that really "
+        f"fails at SPR ~1.5): {small_calls}"
     )
 
 
@@ -4207,9 +4311,15 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
     this gate was written, so the continue ladder stopped at 55 and the jam
     ladder started there. Both now run the full pair row — continue
     non-increasing AA -> 22, jam non-decreasing 22 -> 99 — which is strictly
-    more than the old gate asserted. 22-99 ship as ONE push/fold mix at the
-    wave-3 level, so both ladders hold as LEVEL across that block (0.40), and
-    the step out of it into TT rises 0.40 -> 0.45.
+    more than the old gate asserted.
+
+    N-M4CALL (2026-08-01, maniac.json 1.5.0) SPLITS that block: 22-66 keep the
+    wave-3 push/fold mix and 77-99 add a call leg, so the ladders now read
+    continue 0.40 (22-66) -> 0.70 (77-99) -> 1.00 (TT) and jam LEVEL at 0.40
+    across all of 22-99, stepping up into TT's 0.45. Both directions are
+    load-bearing on the new mix: the continue ladder is what stops the call
+    leg from out-continuing TT, and the jam ladder plus the 99->TT boundary
+    pin below are what box the jam level in at exactly 0.40.
 
     JJ/TT and up are deliberately OUTSIDE the jam ladder: those tiers are
     call-capable (continue 1.00, split call 0.55 / jam 0.45), and QQ/AK jam
@@ -4287,8 +4397,12 @@ def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
 # opener facing a cold 4-bet, a cold caller, the ISO-raiser over limpers, and
 # n >= 4 re-entrant arrivals — where "5bet_shove" is a misnomer and, facing an
 # all-in, degrades to a CALL through play.py's legality fallback. Measured on a
-# seeded 4000-hand PRODUCTION-SIZING probe (the REPORTED test below): 70.2% of
-# the maniac's vs_4bet decisions are n=3 and 45.9% are this modeled channel.
+# seeded 4000-hand PRODUCTION-SIZING probe (the REPORTED test below): 65.4% of
+# the maniac's vs_4bet decisions are n=3 and 40.7% are this modeled channel.
+# (Re-read at N-M4CALL, maniac.json 1.5.0. The 70.2% / 45.9% recorded here at
+# 1.4.0 no longer reproduce even on 1.4.0 content — see the ⚠️ note in the
+# reported test's docstring. The conclusion the figures support is unchanged:
+# the modeled channel is the single largest stratum, and it is under half.)
 #
 # THE vs_limpers QUESTION, SETTLED BY TRACE (review item 1b): the iso channel IS
 # reachable — Codex's construction is right, the "never reaches vs_4bet" reading
@@ -4299,7 +4413,7 @@ def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
 # the replayed deal the iso-raiser then folds; a 5-bet to 100 in that hand
 # comes from a DIFFERENT maniac seat on the modeled channel. The seed is an
 # illustrative constructed replay, not drawn from the probe's own hand
-# stream — delta-review D3.) The iso channel is 3.2% of the maniac's vs_4bet
+# stream — delta-review D3.) The iso channel is 4.3% of the maniac's vs_4bet
 # decisions in the probe; that mass arrives with the ISO range, not the
 # 3-bet range, and is NOT modeled here.
 #
@@ -4573,15 +4687,35 @@ def test_nm4bet_vs_4bet_arrival_channels_report():
     history, so this one node serves several arrival strata with incomparable
     ranges. This probe prints the split so the conditional in the gates above
     is a measured claim rather than an assumption. Reference reading at the
-    pinned seed, n=4000 hands (621 maniac decisions, shipped 1.4.0 pack):
+    pinned seed, n=4000 hands (693 maniac decisions, shipped 1.5.0 pack; the
+    bracketed column is the SAME probe re-run against 1.4.0 content in a
+    separate process, 699 decisions, immediately before this slice):
 
-        n=3 total                             0.7021
-        n>=4 total                            0.2979
-        n=3, seat 3-bet at vs_rfi  [MODELED]  0.4589
-        n=4, seat 4-bet at vs_3bet            0.1965
-        n=3, seat opened unopened             0.0821
-        n=3, seat's FIRST decision (cold)     0.0548
-        n=3, seat ISO-raised limpers          0.0322
+        n=3 total                             0.6537  [0.6552]
+        n>=4 total                            0.3463  [0.3448]
+        n=3, seat 3-bet at vs_rfi  [MODELED]  0.4069  [0.4106]
+        n=4, seat 4-bet at vs_3bet            0.2251  [0.2246]
+        n=4, seat 3-bet at vs_rfi             0.0693  [0.0687]
+        n=3, seat opened unopened             0.0664  [0.0658]
+        n=3, seat's FIRST decision (cold)     0.0577  [0.0572]
+        n=3, seat ISO-raised limpers          0.0433  [0.0429]
+        n=4, seat CALLED at vs_4bet           0.0289  [0.0286]
+
+    N-M4CALL (2026-08-01) BARELY MOVES THIS, which is itself worth recording:
+    a call leg on three pair classes at a node this deep changes ~1% of the
+    decisions and no stratum's share by more than 0.004 — rng displacement,
+    not a re-shaping of the node's traffic. The modeled channel is still the
+    largest single stratum, which is the property the gates above depend on.
+
+    ⚠️ THE 1.4.0-ERA FIGURES THIS DOCSTRING USED TO QUOTE (621 decisions;
+    n=3 0.7021, modeled 0.4589, iso 0.0322) DO NOT REPRODUCE at the pack
+    version they were recorded against — re-running the probe on 1.4.0
+    content today gives the bracketed column above. They went stale in some
+    slice between, which moved the rng stream (the `vs_rfi` node this probe
+    feeds off has been rewritten since) without re-reading this report. Left
+    as a note rather than chased: an unasserted Monte Carlo reading has no
+    owner between slices, and the drift is exactly the failure mode that
+    keeps it unasserted.
 
     NOT ASSERTED, on purpose: it is a Monte Carlo reading of an occupancy
     distribution with no dossier target, and gating it would freeze an
