@@ -458,9 +458,12 @@ def _stats(pack: PersonaPack) -> tuple[float, float, float, float]:
     25-seed sweep they span 6.19-7.31 and 14.88-16.31. They pass at the pinned
     seed; a future slice that needs them robust should compute them exactly.
     ⚠️ Those two sweep spans are HISTORICAL, not current evidence: they were
-    measured before RR-HOLES, R10-3BET and N-TAGCOMP, each of which displaced
-    the shared `rng_u` deal stream. The tag continue row now reads 17.12 at the
-    pinned seed, ABOVE the whole span quoted above. Re-sweep before citing them.
+    measured before RR-HOLES, R10-3BET, N-TAGCOMP and N-TAGWIDTH, each of which
+    displaced the shared `rng_u` deal stream. The tag continue row reads 16.83
+    at the pinned seed (17.12 before N-TAGWIDTH narrowed four `unopened` nodes),
+    still ABOVE the whole span quoted above and inside its (15, 28) row — the
+    move is deal-stream displacement, not a `vs_rfi` edit. Re-sweep before
+    citing the spans.
     """
     rng_u = random.Random(20260710)
     rng_v = random.Random(20260710)
