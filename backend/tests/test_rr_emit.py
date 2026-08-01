@@ -388,7 +388,14 @@ def test_lag_proving_gate_corpus_is_non_trivial(lag_emitted, lag_shipped):
         }
 
     played = union(lag_shipped)
-    assert len(played) == 132, "shipped lag unopened corpus changed size"
+    # 132 -> 135 (N-LAGCOMP2, 2026-07-31). This is an anti-triviality belt, not
+    # a content claim: its job is to stop a mismatch being "fixed" by emitting
+    # an empty ladder, so it moves with the ladder. The late-seat swap takes the
+    # BTN suited rows to the full suited universe (+7 classes never opened
+    # before: 92s 82s 72s 62s 52s 42s 32s) and drops four weak-kicker offsuit
+    # classes that only the BTN opened (J4o T5o 96o 86o); CO and SB add and drop
+    # nothing, every class they gain or lose is opened at another seat.
+    assert len(played) == 135, "shipped lag unopened corpus changed size"
     assert union(lag_emitted) == played
     assert sum(len(n["mixes"]) for n in lag_emitted) == 18  # 9 seats x 2 tiers
 
