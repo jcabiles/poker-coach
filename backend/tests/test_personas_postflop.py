@@ -3202,12 +3202,22 @@ _GOLDEN_STATS_N200 = {
     # only maniac + tag; the lag content change re-deals every pot the lag
     # enters). Exact tripwire re-record; population bands stay frozen to
     # W4-b.
-    "calling_station": (0.38636363636363635, 0.10869565217391304, 0.7250859106529209),
-    "lag": (2.2711864406779663, None, 0.5294117647058824),
-    "maniac": (3.272727272727273, 0.25, 0.5555555555555556),
-    "nit": (None, None, 0.6296296296296297),
-    "passive_fish": (1.125984251968504, 0.5, 0.4484304932735426),
-    "tag": (2.8666666666666667, None, 0.5185185185185185),
+    # RE-RECORDED for WAVE 4 COMBINED (persona-realism-wave4, 2026-08-01 —
+    # wave-authorized, recorded once on the combined lane-C + lane-D tip):
+    # N-M4BET maniac vs_4bet full coverage (fold 0.81→0.29 at the node — the
+    # maniac now continues most 4-bet pots, so every 4-bet pot plays on) +
+    # N-TAGCOMP tag unopened offsuit→suited swap. PURE preflop content; the
+    # displacements compound and ALL six rows move at this n=200 seed. The
+    # maniac n=200 AF spike (3.27 → 4.82) is small-n composition — its call
+    # denominator shrinks as 4-bet pots it used to fold out of now reach
+    # postflop as raised-in pots; population bands still gate it at stable n.
+    # Exact tripwire re-record; population bands stay frozen to W4-b.
+    "calling_station": (0.3063973063973064, 0.2, 0.6829268292682927),
+    "lag": (2.6, 0.2894736842105263, 0.5074626865671642),
+    "maniac": (4.822222222222222, 0.4166666666666667, 0.37383177570093457),
+    "nit": (0.8857142857142857, None, 0.4915254237288136),
+    "passive_fish": (1.1355932203389831, 0.41304347826086957, 0.5207373271889401),
+    "tag": (2.5, None, 0.6395348837209303),
 }
 
 
@@ -3493,9 +3503,20 @@ def test_preflop_node_occupancy_arrival_grid():
     # allowance, ceiling tightened so a genuine BTN-ladder collapse or a
     # revert-to-narrow regression still trips. Still DIRECTIONAL, still
     # thin-n (~408); the Wave B denominator repair remains the real fix.
-    assert 0.02 <= grid["BTN"]["unopened"] <= 0.075, (
-        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.02, 0.075] "
-        f"-- n~408, 21-seed dispersion 0.027..0.071 (slice-neutral cell), see above{report}"
+    # RE-DERIVED at WAVE 4 (2026-08-01, N-TAGCOMP landing): a 10-seed PAIRED
+    # sweep (identical seeds, only wave-4 content differing) measured a REAL,
+    # small, attributable rise — paired delta +0.0108 sd 0.0127 (t≈2.7; 7 of
+    # 10 seeds up) — mechanism: the tag width trim makes every tag seat fold
+    # slightly more first-in (the dossier-correct direction, see N-TAGWIDTH),
+    # and BTN unopened arrival is exactly P(all earlier seats fold). HEAD
+    # dispersion 0.044..0.1005 (parent 0.039..0.081), pinned seed 0.0784.
+    # Ceiling re-derived from the pooled dispersion; floor kept — a genuine
+    # BTN-ladder collapse or revert-to-narrow regression still trips. Still
+    # DIRECTIONAL, still thin-n (~408); the Wave B denominator repair remains
+    # the real fix.
+    assert 0.02 <= grid["BTN"]["unopened"] <= 0.11, (
+        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.02, 0.11] "
+        f"-- n~408, wave-4 paired-sweep dispersion 0.044..0.10, see above{report}"
     )
 
     total = sum(occ.opps.values())
