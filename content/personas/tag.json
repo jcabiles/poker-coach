@@ -1,8 +1,25 @@
 {
   "id": "persona_tag",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "domain": "persona",
   "_doc": [
+    "1.3.0 (N-TAGWIDTH, 2026-07-31) — the HJ / CO / BTN / SB `unopened` nodes",
+    "are TRIMMED toward the tag dossier's per-seat RFI envelope. Still emitted:",
+    "the same spec regenerates them and the same proving gate holds. The trim",
+    "deletes OFFSUIT ONLY at those four seats — suited and pair treatment are",
+    "byte-identical everywhere, and UTG / UTG1 / UTG2 / LJ / BB are untouched.",
+    "  total    HJ 35.90->32.73 · CO 48.42->36.65 · BTN 58.22->46.46 ·",
+    "           SB 46.61->42.99   (seat-average 33.85 -> 30.38)",
+    "  offsuit  HJ 14.03->10.86 · CO 23.53->11.76 · BTN 29.86->18.10 ·",
+    "           SB 22.62->19.00",
+    "BTN lands INSIDE the dossier band (42-48) and SB stays inside its own",
+    "(40-48); HJ and CO are trimmed but remain over theirs, and the four early",
+    "seats are untouched, because both are BLOCKED — see the spec's `_doc` for",
+    "the arithmetic (suited floor + pair band) and the measured §5 PFR cost.",
+    "The junk the filing named is gone from the button: K5o-K9o, Q7o/Q8o and",
+    "J7o/J8o no longer open, so every offsuit class the tag opens is now a",
+    "broadway or an ace.",
+    "",
     "1.2.0 (N-TAGCOMP, 2026-07-31) — all nine `unopened` nodes REPLACED. They",
     "are now EMITTED, not hand-authored: the curve spec is",
     "content/personas/ladders/tag.unopened.json and `cd backend && python -m",
@@ -87,32 +104,32 @@
       "facing": "unopened",
       "positions": ["HJ"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q4s+, J5s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, A8o+, K9o+, QTo+, JTo", "weights": { "raise": 1.0 } },
-        { "combos": "Q3s, J4s, T5s, 95s, 85s, 64s, A7o, K8o, Q9o, J9o, T9o", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "22+, A2s+, K2s+, Q4s+, J5s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, ATo+, KTo+, QTo+, JTo", "weights": { "raise": 1.0 } },
+        { "combos": "Q3s, J4s, T5s, 95s, 85s, 64s, A9o, K9o, Q9o, J9o", "weights": { "raise": 0.5, "fold": 0.5 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["CO"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 95s+, 85s+, 75s+, 64s+, 54s, 43s, A5o+, K7o+, Q8o+, J8o+, T9o", "weights": { "raise": 1.0 } },
-        { "combos": "J2s, T3s, 94s, 84s, 74s, 53s, A4o, K6o, Q7o, J7o, T8o, 98o", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 95s+, 85s+, 75s+, 64s+, 54s, 43s, A9o+, KTo+, QTo+, JTo", "weights": { "raise": 1.0 } },
+        { "combos": "J2s, T3s, 94s, 84s, 74s, 53s, A8o, K9o, Q9o, J9o", "weights": { "raise": 0.5, "fold": 0.5 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["BTN"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 93s+, 83s+, 73s+, 63s+, 53s+, 43s, A2o+, K5o+, Q7o+, J8o+, T8o+, 98o", "weights": { "raise": 1.0 } },
-        { "combos": "92s, 82s, 72s, 62s, 52s, 42s, 32s, K4o, Q6o, J7o, 87o", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 93s+, 83s+, 73s+, 63s+, 53s+, 43s, A2o+, KTo+, QTo+, JTo", "weights": { "raise": 1.0 } },
+        { "combos": "92s, 82s, 72s, 62s, 52s, 42s, 32s, K9o, Q9o, J9o, T9o", "weights": { "raise": 0.5, "fold": 0.5 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["SB"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q3s+, J4s+, T5s+, 95s+, 85s+, 75s+, 64s+, 54s, 43s, A5o+, K7o+, Q8o+, J8o+, T9o", "weights": { "raise": 1.0 } },
-        { "combos": "Q2s, J3s, T4s, 94s, 84s, 74s, A4o, K6o, Q7o, T8o", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "22+, A2s+, K2s+, Q3s+, J4s+, T5s+, 95s+, 85s+, 75s+, 64s+, 54s, 43s, A6o+, K8o+, Q9o+, J9o+, T9o", "weights": { "raise": 1.0 } },
+        { "combos": "Q2s, J3s, T4s, 94s, 84s, 74s, A5o, K7o, Q8o, T8o", "weights": { "raise": 0.5, "fold": 0.5 } }
       ]
     },
     {

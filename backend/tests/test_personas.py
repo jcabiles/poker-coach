@@ -376,7 +376,14 @@ BANDS = {
     # Widened one point rather than carving the range to keep a noisy pin
     # (the T3 precedent). Computing rows 3-4 exactly stays the documented
     # future fix.
-    "tag": ((32, 36), (32, 36), (6, 8), (15, 28)),
+    # tag rows 1-2 RE-ANCHORED by N-TAGWIDTH (2026-07-31): the offsuit-only
+    # width trim at HJ / CO / BTN / SB (see that section below) takes the exact
+    # combo-weighted seat-average from 33.8529 to 30.4843 open == first-in-raise
+    # (every tag `unopened` mix is raise/fold-only, so the two rows coincide).
+    # Bands = exact ±2.0pp per the tolerance note above; the pinned seed reads
+    # 30.42 / 30.42, ~1.9pp inside both edges. Rows 3-4 are UNTOUCHED — the
+    # `vs_rfi` node did not move and the two rngs are decoupled.
+    "tag": ((28.5, 32.5), (28.5, 32.5), (6, 8), (15, 28)),
     # lag/maniac open-freq re-anchored (P1 M3, persona-realism-p1): M3 deleted
     # the non-SB unopened open-limps from both packs, so open-freq collapsed
     # onto first-in-raise (+~0-1pp of retained SB limps). Measured at the
@@ -1193,6 +1200,161 @@ def test_tagcomp_pair_band_unchanged_preservation():
             if got != want:
                 bad.setdefault(pos.value, []).append(f"{cls}: {got} != {want}")
     assert not bad, f"tag per-class pair treatment moved: {bad}"
+
+
+# --------------------------------------------- N-TAGWIDTH — tag width trim
+# Filed off the wave-4 fan-in (ledger `persona-realism-wave4-m4bet-tagcomp.md`,
+# finding T-D2): N-TAGCOMP held the tag's per-seat width, and that width sits
+# OVER the tag dossier's per-seat RFI envelope at 7 of 8 opening seats — most
+# glaringly CO 48.42 against 25-29 and BTN 58.22 against 42-48, where the
+# button was opening K5o / Q7o / J7o purely because a frozen 58% total has to
+# put its surplus SOMEWHERE once the suited rows are saturated.
+#
+# THE TRIM IS OFFSUIT-ONLY, at HJ / CO / BTN / SB. That is not a preference —
+# it is the shape N-TAGCOMP's gates were explicitly designed to allow
+# (`test_tagcomp_total_width_never_rises`'s docstring: "N-TAGWIDTH expects the
+# offsuit side to shrink toward the dossier"), so this slice weakens no gate:
+# `_TAG_SUITED_FLOOR`, `_TAG_OFFSUIT_CEILING` and the per-class pair pin are
+# untouched and still pass, and the suited width is now pinned EXACTLY
+# (`test_tagwidth_suited_and_pair_width_unchanged`).
+#
+# WHAT IS *NOT* DONE, and why — both blockers are arithmetic, not taste.
+#  (1) CO / HJ / LJ / the early seats cannot reach their envelope by deleting
+#      offsuit, because pairs + the frozen suited width already exceed (or all
+#      but exhaust) the band top: CO 5.88 + 19.00 = 24.88 of a 29 ceiling
+#      leaves 4.12pp of offsuit — less than the HJ seat behind it plays, so
+#      "CO in band" forces an offsuit ladder INVERSION unless every earlier
+#      seat is cut too. HJ's 5.88 + 15.99 = 21.87 leaves 0.13pp, i.e. not even
+#      AKo; UTG's 4.52 + 7.99 = 12.51 already exceeds its band top of 12.
+#      Reaching the envelope at those seats means cutting SUITED, which is the
+#      one thing N-TAGCOMP's floor forbids — a contract question, filed.
+#  (2) The cascade in (1) is also unaffordable. Unopened arrival is
+#      EP-dominated (measured over 10 x n=2000 metric-#3 hands: UTG 1.000,
+#      UTG1 0.767, UTG2 0.535, LJ 0.323, HJ 0.188, CO 0.110, BTN 0.055,
+#      SB 0.025, BB 0.000), so trimming the early seats is where population
+#      PFR actually lives. The shipped trim costs ~0.3pp of PFR; a full
+#      dossier-ward trim of all eight opening seats models at ~2.1pp, which
+#      would put the tag ~0.9pp UNDER the frozen §5 PFR floor of 12. The
+#      measured before/after sweep is quoted in the spec's `_doc`.
+#
+# Gates are AUTHORED-shape and deterministic — no sampling, so no CI.
+# Population VPIP/PFR stays REPORTED-not-gated (the single band anchor is W4-b).
+
+# The TAG dossier's per-seat RFI envelope, online 9-max column (playstyle
+# research dossier `tag.md` §19 "Preflop RFI", calibrated against Upswing +
+# Preflop Wizard 9-max charts; the dossier tree is gitignored, so the table is
+# transcribed here — the same treatment §5's bands get). MP == UTG2 in this
+# repo's seat vocabulary. BB has no RFI row (a fold-around to the BB is a walk;
+# the tag's BB `unopened` node is authored for pack symmetry and is
+# structurally unreachable in organic play).
+# ⚠️ DIRECTIONAL, like every dossier number here: the research provenance doc
+# (docs/ai-dlc/research/rfi-seat-provenance.md) rates per-seat RFI as
+# shape-grade, not gate-grade. Only the two seats this slice actually brought
+# inside are asserted below; the rest are recorded so the residual is visible.
+_TAG_DOSSIER_RFI = {
+    "UTG": (9, 12), "UTG1": (11, 14), "UTG2": (13, 16), "LJ": (15, 19),
+    "HJ": (18, 22), "CO": (25, 29), "BTN": (42, 48), "SB": (40, 48),
+}
+# The seats this slice brings (BTN) or keeps (SB) inside the envelope. BOTH
+# edges are asserted: the ceiling is the trim's point, and the floor is what
+# stops a future edit from "passing" it by gutting the range — the same
+# two-sided discipline the §5 PFR floor imposes from the other direction.
+_TAG_IN_ENVELOPE_SEATS = ("BTN", "SB")
+# Per-seat offsuit ceilings for the four trimmed seats. Pre-slice HEAD read
+# HJ 14.03 · CO 23.53 · BTN 29.86 · SB 22.62; shipped 10.86 / 11.76 / 18.10 /
+# 19.00. Each cap sits ~0.5-0.8pp above the shipped value and far below HEAD.
+_TAG_TRIMMED_OFFSUIT_CEILING = {"HJ": 11.5, "CO": 12.5, "BTN": 18.7, "SB": 19.5}
+# Suited width per seat, EXACTLY as N-TAGCOMP shipped it (its `_TAG_SUITED_FLOOR`
+# states the same claim as a floor; this pins it from both sides, which is what
+# makes "the trim came out of offsuit" checkable rather than asserted).
+_TAG_SUITED_WIDTH_PIN = {
+    "UTG": 7.99, "UTG1": 8.75, "UTG2": 9.20, "LJ": 12.52, "HJ": 15.99,
+    "CO": 19.00, "BTN": 22.47, "SB": 18.10, "BB": 14.18,
+}
+_TAG_OFFSUIT_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
+
+
+def test_tagwidth_per_seat_width_inside_dossier_envelope():
+    """🔴 N-TAGWIDTH defect gate. Failed at pre-slice HEAD on the BTN leg
+    (58.22 against a 42-48 dossier band); the SB leg (46.61, band 40-48) held
+    at HEAD and is the preservation half — the trim must not push SB out of a
+    band it was already inside.
+
+    Only these two seats are asserted. The other six are over their envelope
+    and stay over: see the section note above for the two arithmetic blockers
+    (frozen suited width + pair band leave no offsuit budget; and the EP-heavy
+    arrival makes the early-seat cascade cost ~2.1pp of §5 PFR)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
+    bad = {}
+    for pos in _TAG_IN_ENVELOPE_SEATS:
+        lo, hi = _TAG_DOSSIER_RFI[pos]
+        width = sum(kinds[pos].values())
+        if not lo <= width <= hi:
+            bad[pos] = (round(width, 2), (lo, hi))
+    assert not bad, f"tag authored first-in width outside dossier band: {bad}"
+
+
+def test_tagwidth_late_seat_offsuit_trimmed():
+    """🔴 N-TAGWIDTH defect gate #2 — the named mechanism (offsuit junk), and
+    the reason the width fell. Failed at pre-slice HEAD at all four seats:
+    HJ 14.03 / CO 23.53 / BTN 29.86 / SB 22.62, every one above its cap here.
+
+    This is what makes the width gate above non-gameable in the other
+    direction too: BTN could satisfy 42-48 by deleting suited instead, and
+    the suited pin plus this ceiling together forbid that."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
+    over = {
+        pos: (round(kinds[pos]["offsuit"], 2), cap)
+        for pos, cap in _TAG_TRIMMED_OFFSUIT_CEILING.items()
+        if kinds[pos]["offsuit"] > cap
+    }
+    assert not over, f"tag offsuit open width above the trim ceiling: {over}"
+
+
+def test_tagwidth_suited_and_pair_width_unchanged():
+    """PRESERVATION (held at HEAD, and the whole point of the slice): the trim
+    is offsuit-only, so per seat the suited width is EXACTLY N-TAGCOMP's and
+    the pair width is unchanged. The per-CLASS pair treatment is pinned
+    separately by `test_tagcomp_pair_band_unchanged_preservation`; this row
+    catches a suited edit, which that one cannot see."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
+    bad = {
+        pos: (round(kinds[pos]["suited"], 2), pin)
+        for pos, pin in _TAG_SUITED_WIDTH_PIN.items()
+        if abs(kinds[pos]["suited"] - pin) > 0.01
+    }
+    assert not bad, f"tag suited open width moved (now, N-TAGCOMP pin): {bad}"
+
+
+def test_tagwidth_offsuit_ladder_monotone_to_button():
+    """PRESERVATION (held at HEAD, at risk from this slice): offsuit width must
+    be non-decreasing UTG -> BTN. A later seat that opens FEWER offsuit combos
+    than an earlier one is the positional inversion T-M2 condemned across
+    personas, and trimming late seats is exactly how it would be introduced —
+    the shipped CO (11.76) now sits only 0.9pp above the untouched HJ, so a
+    deeper CO trim trips this on purpose. The blinds are excluded (SB/BB sit
+    off the positional ladder)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
+    bad = [
+        f"{a} {kinds[a]['offsuit']:.2f} > {b} {kinds[b]['offsuit']:.2f}"
+        for a, b in zip(
+            _TAG_OFFSUIT_LADDER_SEATS, _TAG_OFFSUIT_LADDER_SEATS[1:], strict=False
+        )
+        if kinds[a]["offsuit"] > kinds[b]["offsuit"]
+    ]
+    assert not bad, f"tag offsuit width not monotone to the button: {bad}"
 
 
 def test_all_six_persona_packs_load():

@@ -440,6 +440,11 @@ def test_lag_authored_raise_pct_annotations_match_emitted_widths(lag_emitted):
 # tag slice moves it because a TAG that plays 51% of the offsuit universe and
 # only 70% of the suited one from the BTN is not shaped like a TAG at all
 # (theory T-M2). Both are constant-width swaps and both are proved the same way.
+#
+# N-TAGWIDTH (2026-07-31) is the second edit through this spec and the first
+# that changes WIDTH: HJ / CO / BTN / SB lose offsuit depth only. Nothing about
+# the gates below changes — the spec and the pack still have to agree — but the
+# corpus-size pin moves with the deleted classes (see its note).
 
 TAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "tag.unopened.json"
 TAG_PACK_PATH = CONTENT.parent / json.loads(
@@ -511,7 +516,12 @@ def test_tag_proving_gate_corpus_is_non_trivial(tag_emitted, tag_shipped):
         }
 
     played = union(tag_shipped)
-    assert len(played) == 126, "shipped tag unopened corpus changed size"
+    # 126 -> 117 (N-TAGWIDTH): the offsuit-only trim at HJ / CO / BTN / SB
+    # retires nine classes from the tag's whole unopened corpus (98o, 87o and
+    # the K4o-K8o / Q6o-Q8o / J7o-J8o / T8o kicker junk). Suited and pair
+    # classes are unchanged — that is what makes the number move by exactly
+    # the offsuit count.
+    assert len(played) == 117, "shipped tag unopened corpus changed size"
     assert union(tag_emitted) == played
     assert sum(len(n["mixes"]) for n in tag_emitted) == 18  # 9 seats x 2 tiers
 

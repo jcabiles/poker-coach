@@ -1,8 +1,59 @@
 {
   "id": "ladder_tag_unopened",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "domain": "persona_ladder",
   "_doc": [
+    "N-TAGWIDTH (2026-07-31) — THE WIDTH TRIM the N-TAGCOMP note below filed.",
+    "Four seats move, offsuit rows ONLY; suited and pair depths are untouched",
+    "at every seat, and UTG / UTG1 / UTG2 / LJ / BB do not move at all.",
+    "  total    HJ 35.90->32.73 · CO 48.42->36.65 · BTN 58.22->46.46 ·",
+    "           SB 46.61->42.99   (seat-average 33.8529 -> 30.4843)",
+    "  offsuit  HJ 14.03->10.86 · CO 23.53->11.76 · BTN 29.86->18.10 ·",
+    "           SB 22.62->19.00",
+    "BTN lands INSIDE the tag dossier's per-seat RFI band (42-48) and SB stays",
+    "inside its own (40-48) — those two are gated",
+    "(tests/test_personas.py::test_tagwidth_per_seat_width_inside_dossier_",
+    "envelope). Suited share of the SUITED universe is unchanged by",
+    "construction (BTN 95.5%, CO 80.8%, HJ 67.9%, SB 76.9%) and suited share",
+    "of the RANGE rises at all four trimmed seats (BTN 38.6->48.4, CO",
+    "39.3->51.9, HJ 44.5->48.8, SB 38.8->42.1). The junk the filing named is",
+    "gone from the button: K5o-K9o, Q7o/Q8o, J7o/J8o and 87o/98o no longer",
+    "open, and every offsuit class the tag now opens is a broadway or an ace.",
+    "",
+    "WHY HJ, CO AND THE FOUR EARLY SEATS STAY OVER THEIR ENVELOPE — arithmetic,",
+    "not taste, and both halves are worth reading before proposing a deeper cut.",
+    "(1) SUITED + PAIRS ALREADY FILL THE BAND. This trim may only delete",
+    "offsuit: the suited width is what N-TAGCOMP bought and its floor gate",
+    "guards it (that slice's own note: 'N-TAGWIDTH expects the offsuit side to",
+    "shrink toward the dossier'). Pairs + suited per seat vs the band TOP:",
+    "UTG 12.51 vs 12 (already over with ZERO offsuit) · UTG1 13.27 vs 14 ·",
+    "UTG2 14.18 vs 16 · LJ 17.95 vs 19 · HJ 21.87 vs 22 · CO 24.88 vs 29.",
+    "So CO could only reach 29 by opening at most 4.12% offsuit — LESS than",
+    "the untouched HJ seat behind it plays (10.86%), i.e. an offsuit ladder",
+    "INVERSION unless HJ, LJ, UTG2, UTG1 and UTG are all cut below it too.",
+    "(2) THAT CASCADE IS UNAFFORDABLE against the frozen §5 PFR floor. Measured",
+    "unopened arrival (10 seeds x n=2000, metric #3): UTG 1.000 · UTG1 0.767 ·",
+    "UTG2 0.535 · LJ 0.323 · HJ 0.188 · CO 0.110 · BTN 0.055 · SB 0.025 ·",
+    "BB 0.000 — population PFR is ~85% an EARLY-position statistic, which is",
+    "exactly where the cascade would have to cut. Modelled on those weights a",
+    "full dossier-ward trim of all eight opening seats costs ~2.1pp of PFR",
+    "against a measured pre-slice 12.67, i.e. ~11 — BELOW the §5 floor of 12.",
+    "Reaching the envelope at those seats therefore needs a suited-side",
+    "decision (lower the N-TAGCOMP floors) and a §5 PFR-floor decision; both",
+    "are contract questions, both are filed, and neither is a builder's call.",
+    "",
+    "MEASURED COST OF WHAT DID SHIP (same 10-seed n=2000 metric-#3 sweep, seeds",
+    "20260710 + 1000i, run on the pre- and post-slice packs in separate",
+    "processes because the harness memoizes on (persona, n) only): VPIP",
+    "16.05 +-0.48 -> 15.96 +-0.51, PFR 12.67 +-0.41 -> 12.57 +-0.48, gap 3.38",
+    "-> 3.39. Both stay inside §5 (VPIP 15-20, PFR 12-17), with the PFR mean",
+    "~3.7 standard errors clear of its floor. The cost is far under the ~0.3pp",
+    "the arrival weights predict because the trim is SELF-COMPENSATING at this",
+    "lineup: a tag that folds more often at HJ/CO/BTN leaves the seats behind",
+    "it unopened more often (BTN arrival 0.055 -> 0.070, CO 0.110 -> 0.119).",
+    "REPORTED, not gated — the single population-band anchor is still W4-b, and",
+    "this instrument's 3x-persona lineup is not the §5 reference pool.",
+    "",
     "N-TAGCOMP curve spec — the THIRD RR-EMIT spec and the second PRODUCTION",
     "authoring run (nit was a lossless re-encoding; lag and this one author new",
     "content). NOT loaded at runtime: app/domain/personas.py globs",
@@ -77,7 +128,8 @@
     "deliberately not gated — an authoring habit, not a law; carried over from",
     "lag.unopened.json): a row never plays a weak kicker that a STRONGER high",
     "card of the same kicker does not also play, so the weakest full-weight",
-    "kicker is non-decreasing down the rows (BTN: A2o, K5o, Q7o, J8o, T8o, 98o).",
+    "kicker is non-decreasing down the rows (post-N-TAGWIDTH BTN: A2o, KTo,",
+    "QTo, JTo, and the slope tier's K9o, Q9o, J9o, T9o one class below).",
     "Suited rows are exempt: 65s outranks 95s on connectedness, so the",
     "same-kicker comparison is not a domination relation there.",
     "",
@@ -152,38 +204,38 @@
       }
     },
     "HJ": {
-      "raise_pct": 35.90,
+      "raise_pct": 32.73,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 8, "Js": 6, "Ts": 4, "9s": 3,
         "8s": 2, "7s": 2, "6s": 1, "5s": 1,
-        "Ao": 6, "Ko": 4, "Qo": 2, "Jo": 1, "To": 0
+        "Ao": 4, "Ko": 3, "Qo": 2, "Jo": 1
       },
       "slopes": { "pairs": [0], "7s": [0], "5s": [0] }
     },
     "CO": {
-      "raise_pct": 48.42,
+      "raise_pct": 36.65,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 4,
         "8s": 3, "7s": 2, "6s": 2, "5s": 1, "4s": 1,
-        "Ao": 9, "Ko": 6, "Qo": 4, "Jo": 3, "To": 1, "9o": 0
+        "Ao": 5, "Ko": 3, "Qo": 2, "Jo": 1
       },
       "slopes": { "pairs": [0], "6s": [0], "4s": [0] }
     },
     "BTN": {
-      "raise_pct": 58.22,
+      "raise_pct": 46.46,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 8, "9s": 6,
         "8s": 5, "7s": 4, "6s": 3, "5s": 2, "4s": 1, "3s": 0,
-        "Ao": 12, "Ko": 8, "Qo": 5, "Jo": 3, "To": 2, "9o": 1, "8o": 0
+        "Ao": 12, "Ko": 3, "Qo": 2, "Jo": 1, "To": 0
       },
-      "slopes": { "pairs": [0], "To": [0], "9o": [0] }
+      "slopes": { "pairs": [0] }
     },
     "SB": {
-      "raise_pct": 46.61,
+      "raise_pct": 42.99,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 9, "Js": 7, "Ts": 5, "9s": 4,
         "8s": 3, "7s": 2, "6s": 2, "5s": 1, "4s": 1,
-        "Ao": 9, "Ko": 6, "Qo": 4, "Jo": 3, "To": 1
+        "Ao": 8, "Ko": 5, "Qo": 3, "Jo": 2, "To": 1
       },
       "slopes": { "pairs": [0], "6s": [0], "5s": [0], "4s": [0], "Jo": [0] }
     },
