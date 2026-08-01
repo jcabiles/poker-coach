@@ -1877,14 +1877,17 @@ from app.domain.table.play import _preflop_decision as _prod_preflop_decision  #
 
 
 def _preflop_decision(
-    pack, position, facing, hole, legal, rng, current_bet_to=0.0, limpers=0, is_opener=None
+    pack, position, facing, hole, legal, rng, current_bet_to, limpers, is_opener=None
 ) -> Decision:
     """Thin pass-through to production's `play._preflop_decision` — see above.
 
-    The two sizing arguments default only for the one OUT-OF-FILE caller,
-    `tests/test_sim_session.py::test_bot_decision_parity_with_harness`, which
-    asserts ACTION parity only (sizing is explicitly out of its scope there, and
-    is covered by `test_bet_sizing.py`). Every measurement path passes them."""
+    `current_bet_to` / `limpers` are REQUIRED positionals, exactly as production
+    declares them. They were briefly given 0.0 / 0 defaults for the one
+    out-of-file caller (`test_sim_session.py::test_bot_decision_parity_with_
+    harness`); review killed that, correctly — silently defaulted sizing inputs
+    are how this divergence got in the first time, and a wrapper that zeroes
+    them re-creates min-raise sizing at every re-raise node while still LOOKING
+    delegated. `test_harness_preflop_raise_sizing_uses_production_args` pins it."""
     return _prod_preflop_decision(
         pack, position, facing, hole, legal, rng, current_bet_to, limpers, is_opener=is_opener
     )
@@ -2232,7 +2235,20 @@ def _derive_n(hands_per_s: float) -> int:
     # 1500 is the historical cap every documented reading was quoted at; the
     # guards below are now deterministic at the pinned seed.
     texture_n = 1500
-    per_persona_n = max(150, (total_budget_hands - texture_n) // 6)
+    # per_persona_n FIXED at the instrument-repair wave (2026-08-01, review fold
+    # — the SAME defect and the SAME precedent as texture_n directly above): it
+    # was `max(150, (total_budget_hands - texture_n) // 6)`, i.e. 150..~700
+    # depending on machine speed, and it is the n that decides FROZEN band
+    # verdicts. The R-L2 sizing repair made that concrete: maniac's AF reads
+    # 2.24-2.45 across n in {150, 400-650} (band floor 2.4) while its stable-n AF
+    # is 2.99 / 3.06 at n=2000 / 4000 — INSIDE the frozen band. Which side of a
+    # frozen floor the suite landed on was a function of how fast the box was.
+    # 600 is the spec allocation every reading here was calibrated at (600/persona
+    # x 6 + 1500 texture; see this docstring). `total_budget_hands` is retained
+    # only as the historical derivation — it now sizes nothing.
+    _historical_budget_hands = total_budget_hands
+    del _historical_budget_hands
+    per_persona_n = 600
     return per_persona_n, texture_n
 
 
@@ -3001,6 +3017,26 @@ def test_stats_caches_are_pack_content_keyed():
     # content-derived, so it returns to its earlier value; nothing was evicted).
     assert _persona_stats(packs, "tag", n) is base
     assert _persona_stats_ext(packs, "tag", n) is base_ext
+
+    # (d) FILLER packs count too. The lineup is nine seats of ALL personas, so a
+    # maniac edit moves a tag reading — a fingerprint that hashed only the
+    # MEASURED persona would pass every leg above and still serve stale readings
+    # for the six-of-nine seats it ignored. Mutating a persona that is in the
+    # lineup but is NOT the one being measured kills that mutant.
+    original_maniac_open = packs[VillainType.MANIAC].sizing.open_bb
+    try:
+        packs[VillainType.MANIAC].sizing.open_bb = original_maniac_open + 5.0
+        assert _persona_stats(packs, "tag", n) is not base, (
+            "editing a FILLER pack did not miss the cache — the fingerprint "
+            "covers only the measured persona, so six of nine seats can change "
+            "under a stale reading"
+        )
+        assert _persona_stats_ext(packs, "tag", n) is not base_ext, (
+            "editing a FILLER pack did not miss the ext cache — same defect"
+        )
+    finally:
+        packs[VillainType.MANIAC].sizing.open_bb = original_maniac_open
+    assert _persona_stats(packs, "tag", n) is base
 
 
 # --------------------------------------------------------------------- T-ARR
@@ -4546,10 +4582,13 @@ def test_nm4bet_vs_4bet_arrival_channels_report():
 def _legacy_min_raise_preflop_decision(
     pack, position, facing, hole, legal, rng, current_bet_to, limpers, is_opener=None
 ) -> Decision:
-    """The harness's PRE-REPAIR preflop decision, verbatim from b54fe6e except
-    for the two now-unused sizing arguments: every raise sized at `la.min_bb`.
-    Kept ONLY so `test_harness_preflop_raise_depth_matches_production` can show
-    the defect it fixes (R-L2) instead of asserting an absence."""
+    """The harness's PRE-REPAIR preflop decision, from b54fe6e except for the two
+    now-unused sizing arguments: every raise sized at `la.min_bb`. Kept ONLY so
+    `test_harness_preflop_raise_depth_matches_production` can show the defect it
+    fixes (R-L2) instead of asserting an absence. It is AST-equal to the b54fe6e
+    body, not byte-equal — the original's inline comments were dropped (they
+    explained the legality fallback, which is unchanged and documented on the
+    production copy)."""
     act = sample_preflop_action(pack, position, facing, hole, rng, is_opener=is_opener)
     kinds = {la.action for la in legal}
     if act.action not in kinds:
@@ -4668,6 +4707,54 @@ def test_harness_preflop_raise_depth_matches_production():
         f"harness reached {max(live)} preflop raises in a hand; production's "
         f"5-bet-is-all-in ceiling at equal stacks is 5"
     )
+
+
+def test_harness_preflop_raise_sizing_uses_production_args():
+    """🔴 INSTRUMENT GATE (R-L2, arg parity — the mutation the depth gate above
+    cannot see): delegating to `play._preflop_decision` is not enough; the
+    harness must also FORWARD the real sizing inputs. A wrapper that passes
+    `current_bet_to=0.0, limpers=0` still "delegates", still produces a legal
+    raise, and still passes the depth gate (a zeroed multiplier clamps UP to
+    `min_bb` — i.e. exactly the min-raise behaviour R-L2 removed).
+
+    Two constructed spots, tag pack (open_bb 3.0 / threebet_mult 3.5 /
+    fourbet_mult 2.4), AA so the action is a raise at every seed:
+      vs_rfi facing a 3.0 open  -> 3.5 * 3.0  = 10.5 (min_bb 6.0)
+      vs_3bet facing a 10.0 3-bet -> 2.4 * 10.0 = 24.0 (min_bb 20.0)
+    The zeroed-default mutant reads 6.0 and 20.0 — the min-raises — so each leg
+    kills it. The harness value is also asserted EQUAL to production's on the
+    same seeded rng, which is the property that actually matters."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.TAG]
+    hole = ("Ah", "As")
+    spots = (
+        ("vs_rfi", 3.0, 6.0, 10.5),
+        ("vs_3bet", 10.0, 20.0, 24.0),
+    )
+    for facing, current_bet_to, min_bb, expected_to in spots:
+        legal = [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(current_bet_to),
+            personas_postflop_legal_raise(min_bb, 100.0),
+        ]
+        args = (pack, Position.CO, facing, hole, legal)
+        got = _preflop_decision(*args, random.Random(0), current_bet_to, 0)
+        want = _prod_preflop_decision(*args, random.Random(0), current_bet_to, 0)
+        assert got.action is ActionType.RAISE, f"{facing}: expected a raise, got {got}"
+        assert got == want, f"{facing}: harness {got} != production {want}"
+        assert got.size_bb == pytest.approx(expected_to), (
+            f"{facing}: harness raised to {got.size_bb}, production sizing is "
+            f"{expected_to} (min-raise here is {min_bb} — a wrapper that zeroes "
+            f"current_bet_to/limpers reads exactly that)"
+        )
+        # The mutant, run explicitly: zeroed sizing inputs collapse to min-raise.
+        mutant = _prod_preflop_decision(*args, random.Random(0), 0.0, 0)
+        assert mutant.size_bb == pytest.approx(min_bb) and mutant.size_bb != got.size_bb, (
+            f"{facing}: the zeroed-arg mutant no longer reads the min-raise "
+            f"({mutant.size_bb}) — this gate's premise has changed, re-derive it"
+        )
 
 
 def _wilson95(k: int, n: int) -> tuple[float, float]:
@@ -5088,7 +5175,27 @@ def test_persona_postflop_bands(persona, budget):
 
     if af is not None and af_band is not None:
         lo, hi = af_band
-        assert lo <= af <= hi, f"{persona} AF {af:.2f} outside [{lo},{hi}] (n_call={call_n})"
+        # Instrument-repair wave (2026-08-01): AF now escalates to the stable
+        # large-n before failing — the same remedy FtC and WTSD already use
+        # below, applied for the same reason. After the R-L2 preflop-sizing
+        # repair (the harness stopped min-raising every raise), maniac's AF at
+        # the small first-pass n reads 2.24-2.45 across n in {150, 400-650} —
+        # straddling the frozen 2.4 floor — against 3.15-3.52 at those same n on
+        # the pre-repair base, while its STABLE-n AF is 2.99 (n=2000) / 3.06
+        # (n=4000), comfortably inside [2.4, 5.1]. That is instrument power, not
+        # a band breach: the repair removed the min-raise ping-pong wars, and
+        # those wars were inflating the BET+RAISE numerator at every n. Band
+        # VALUES untouched (frozen to W4-b); the stable-n run is memoized and
+        # already paid for by the WTSD leg below.
+        if not (lo <= af <= hi):
+            af_stable, _f3, _w3, call_stable_n, _fn3, _wn3 = _persona_stats(
+                packs, persona, _WTSD_ORDER_N
+            )
+            assert af_stable is not None and lo <= af_stable <= hi, (
+                f"{persona} AF {af:.2f} (n_call={call_n}) breached and the "
+                f"stable-n re-measure {af_stable} (n_call={call_stable_n}) "
+                f"confirms it — outside [{lo},{hi}]"
+            )
     if ftc is not None:
         lo, hi = ftc_band
         # R10-TAIL-a1: FtC now escalates to the stable large-n before failing,
@@ -5109,41 +5216,49 @@ def test_persona_postflop_bands(persona, budget):
                 f"— outside [{lo},{hi}]"
             )
     if wtsd is not None:
-        # W2 (persona-realism-w2, 2026-07-24 — owner-approved defer): the maniac
-        # WTSD assertion is skipped here and reconciled at W4-b (the single
-        # authoritative band re-anchor). maniac's true WTSD sits ON the 0.50 band
-        # ceiling, and `per_persona_n` is throughput-derived (varies with machine
-        # speed), so the point estimate flips over/under 0.50 by sampling noise
-        # (0.52 @ n=200, 0.484 @ n=1000). This straddle is PRE-EXISTING (it also
-        # breaches at n=700 without any W2-b change) — a fragile-boundary + under-
-        # sampling artifact, NOT a W2 regression. The band VALUE (0.50) is untouched
-        # (frozen no-go); only this one noisy assertion is deferred. maniac's AF +
-        # fold-to-cbet bands and every other persona's WTSD stay live. W2-b behavior
-        # is covered by the exact-weight commit/draw-gate unit tests.
+        # maniac WTSD — DEFERRED to W4-b by OWNER RULING, 2026-08-01
+        # (instrument-repair wave). This rationale REPLACES the W2-era one, which
+        # said maniac's WTSD "sits ON the 0.50 ceiling" and flipped over/under by
+        # throughput-n noise (0.52 @ n=200, 0.484 @ n=1000). That is no longer
+        # what the instrument reads and the old note would misinform the next
+        # reader: after the R-L2 preflop-sizing repair the harness plays
+        # production's raise sizes, so preflop pots get big and all-in run-outs
+        # (which count as showdowns) get common — maniac's WTSD reads 0.593
+        # (n=2000) and 0.588 (n=4000), measured in SEPARATE processes at seed
+        # 20260710, against the frozen band (0.34, 0.50). That is a ~9-point
+        # breach, not a straddle.
+        #
+        # WHY DEFERRED RATHER THAN RE-ANCHORED: the BOT did not change — no
+        # persona pack, no sampler, no engine code moved in this wave; only the
+        # RULER was repaired, and it now measures production-faithful play. The
+        # band VALUE (0.34, 0.50) was recorded against the old, min-raising
+        # ruler, so re-anchoring it is a band re-anchor decision, and W4-b is the
+        # single authoritative re-anchor. Owner ruled 2026-08-01: defer the
+        # ASSERTION, freeze the VALUE. maniac's AF + fold-to-cbet bands and every
+        # other persona's WTSD (including passive_fish, restored live directly
+        # below) stay live.
         if persona == "maniac":
-            pytest.skip("maniac WTSD on the 0.50 ceiling; throughput-n noise — reconcile W4-b")
-        # R10-3BET (2026-07-31, owner-approved defer — same shape as maniac's):
-        # the roster-wide vs_3bet rewrite moved passive_fish's stable-n WTSD
-        # 0.5104 -> 0.4873 against the frozen [0.50, 0.57] floor. HONEST
-        # REPORT: attribution measured that the fish's OWN node explains only
-        # a minor share of the move — reverting fish's vs_3bet alone reads
-        # 0.4949, trimming its call tiers 0.4912, restoring the dossier
-        # weights 0.4873: all within noise of each other, so the trim was
-        # reverted (theory review R-3). The remainder is cross-persona
-        # composition — the
-        # whole table now plays 3-bet/4-bet pots differently around the fish
-        # (single-lever probe NEGATIVE: removing maniac's junk-tier 4-bet
-        # bluffs made it WORSE, 0.4888). Trimming the fish's continue tiers
-        # far enough to clear the floor would gut the archetype (N9
-        # compensating-lever trap). Band VALUE untouched (frozen no-go);
-        # W4-b (the single authoritative re-anchor) reconciles both deferred
-        # WTSDs together. Fish AF + fold-to-cbet stay live below.
-        if persona == "passive_fish":
             pytest.skip(
-                "passive_fish WTSD 0.4873 vs frozen 0.50 floor after the "
-                "R10-3BET roster rewrite; cross-persona composition, not a "
-                "fish-node defect — owner-deferred to W4-b (ledger)"
+                "maniac WTSD 0.588-0.593 at stable n (n=4000/2000) vs frozen "
+                "(0.34, 0.50) after the R-L2 sizing repair; ruler repaired, bot "
+                "unchanged — owner-deferred to W4-b (ruling 2026-08-01)"
             )
+        # passive_fish WTSD — SKIP LIFTED, 2026-08-01 (instrument-repair wave);
+        # the assertion below is live for the fish again. The R10-3BET-era skip
+        # deferred it on a reading of 0.4873 vs the frozen [0.50, 0.57] floor,
+        # attributed to cross-persona composition rather than a fish-node defect
+        # (reverting fish's own vs_3bet read 0.4949, trimming its call tiers
+        # 0.4912 — all within noise of each other, theory review R-3). That
+        # attribution is unchanged and still on record; what changed is the
+        # RULER. With the R-L2 preflop-sizing repair the fish's stable-n WTSD
+        # reads 0.5082 (n=4000) / 0.5093 (n=2000), measured in separate processes
+        # at seed 20260710 — INSIDE its frozen band, so there is nothing left to
+        # defer and a standing skip would hide a future regression. This is a
+        # strengthening (a skip becomes a live assertion), band VALUE untouched.
+        # The margin over the 0.50 floor is thin (~0.008); the stable-n leg is
+        # deterministic at the pinned seed, so it is not noisy — but a future
+        # slice that moves the fish's showdown rate DOWN will trip here first.
+        #
         # W3-b/c/d: measure the WTSD-vs-band at the stable large-n (memoized,
         # shared with the ordering test). The throughput-n estimate breaches band
         # ceilings by under-sampling noise alone — lag's true WTSD 0.55 spikes to
