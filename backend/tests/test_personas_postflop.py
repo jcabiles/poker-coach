@@ -4238,19 +4238,26 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
 
     THE ARITHMETIC (theory contract §3, T3 pure-call break-even
     `E >= B/(P+B)`), on the LEVER-DERIVED canonical single-raised chain — NOT
-    a probe reading (review C-1): open 2.5 -> maniac 3-bets 3.3x -> opener
-    4-bets 3.0x, all from the shipped `sizing` levers, leaves a call of 13.86
-    into a pot of 35.16 (post-call SPR 1.56):
+    a probe reading (review C-1). Whose lever is whose matters here (delta
+    review D1), because `sizing.py` applies every multiplier to the LAST
+    raise-to: the OPENER's `open_bb` 3.0 (tag / lag / nit) -> the MANIAC's
+    `threebet_mult` 3.3 = 9.9 -> the OPENER's `fourbet_mult` 2.4 (tag / lag)
+    x 9.9 = 23.76. Only the 3.3 is the maniac's; its OWN block reads
+    {open_bb 4.5, threebet_mult 3.3, fourbet_mult 3.0} and the two figures
+    that are not the 3.3 do NOT appear in this chain. That leaves a call of
+    23.76 - 9.9 = 13.86 into a pot of 9.9 + 23.76 + 1.5 = 35.16 (post-call
+    SPR 1.56):
 
         E >= 13.86 / (35.16 + 13.86) = 13.86 / 49.02 = 0.2827
 
     THE PROBE'S ARRIVALS ARE NOT THAT SPOT, and the difference is recorded
     rather than smoothed over: `_maniac_vs_4bet_channels` counts channels, it
-    does not price them, and re-pricing its replayed decisions gives a mean
-    call of 28.6 into a pot of 73.7 with a MEDIAN post-call SPR of 0.562, over
-    150 OOP / 132 IP arrivals. The canonical chain above is the reference
-    geometry this mix is authored against; the live node is a mixture whose
-    centre sits deeper-priced and shallower-SPR than it.
+    does not price them. A one-off scratch probe that re-priced its replayed
+    decisions read a mean call of 28.6 into a pot of 73.7, a MEDIAN post-call
+    SPR of 0.562, and 150 OOP / 132 IP arrivals — SCRATCH READINGS, NOT
+    COMMITTED AND NOT ASSERTED anywhere; re-derive them before reusing them
+    (review D5). The canonical chain above is the reference geometry this mix
+    is authored against; the live node is a mixture around it.
 
     Measured with the repo's own `equity_vs_range` (20k iters, seed 7), hero
     combos 7c7d / 8c8d / 9c9d, preflop all-in:
@@ -4265,12 +4272,20 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
     ROBUSTNESS, stated as the MASS-WEIGHTED claim it actually is (review
     CT-3): the price is not cleared against every 4-bettor at this table. The
     nit 4-bets {AA 0.5, KK 0.3, QQ 0.1} and the fish {AA 0.5} — against those
-    ranges 77-99 hold ~0.19 and MISS the 0.283 price by ~9pts. They are also
-    ~0.6% of the roster's combined 4-bet mass against the maniac's own 34.7%,
-    and against the roster-POOLED 4-bet range 77/99 read 0.52 / 0.56. So the
-    tight tail exists, is named, and does not govern: the mass the maniac
-    actually faces here is overwhelmingly wide, and a class-level mix answers
-    the mixture, not its tail. The 1.4.0 "no set-mining price" rationale is
+    ranges 77-99 hold ~0.19 and MISS the 0.2827 price by ~9pts. Under ONE
+    metric (combo-weighted `vs_3bet` 4-bet mass under first-match-wins) that
+    tail is 0.63% of the range, against 19.6% for the maniac's own
+    opener-arrival node and 15.2% for its cold node — i.e. the wide 4-bettor
+    outweighs the tight tail by ~30x. (Delta review D2: an earlier draft put
+    the comparison at "34.7%", which reproduces under no metric at all — it
+    was the unrelated n>=4 CHANNEL share 0.3463, a conflation.) Against a
+    roster-POOLED 4-bet range 77/99 read ~0.52 / ~0.56 on a scratch
+    reconstruction — again UNASSERTED and weighting-sensitive (the delta
+    reviewer's own reconstruction read 0.55 / 0.59), quoted only for its
+    direction. So the tight tail exists, is named, and does not govern: the
+    mass the maniac actually faces here is overwhelmingly wide, and a
+    class-level mix answers the mixture, not its tail. The 1.4.0 "no
+    set-mining price" rationale is
     about IMPLIED odds and does not reach a hand whose DIRECT price is good
     against the ranges that supply the mass.
 
@@ -4285,18 +4300,20 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
 
     WHY THE JAM LEVEL DOES NOT MOVE (this slice adds a leg; it does not
     re-level) — with the stacks done EXACTLY (review CT-1, convergent): after
-    3-betting to 9.9 the maniac has 90.1 behind, and the 4-bettor has only
-    76.24 behind, so THE VILLAIN CANNOT COVER THE JAM. §3's T1/T2 forms
-    silently assume villain covers B, so the exact zero-fold-equity
-    break-even is taken from the real final pot instead:
+    3-betting to 9.9 the maniac has 90.1 behind and the 4-bettor, having put
+    in 23.76, has 76.24. Both end up wagering exactly 100 and the jam IS
+    fully matched — what breaks is the FORMULA, not the call: §3's
+    `B/(P+2B)` books a full extra B on top of P for the villain's call, and
+    effective stacks cap that at 76.24, not 90.1 (delta review D3). So the
+    exact zero-fold-equity break-even is read off the real final pot:
 
         90.1 / (35.16 + 90.1 + 76.24) = 90.1 / 201.5 = 0.447
 
     ABOVE these hands' ~0.36, so the shove is not a value commit — it needs
     fold equity, and the conclusion holds a fortiori against the naive
-    covered-B reading (0.419). By T2 the required realized fold equity is
+    uncapped reading (0.419). By T2 the required realized fold equity is
     F* ≈ 0.26-0.28 (0.262-0.279 at P = 35.5, B = 92, E = 0.3565-0.3618 —
-    review C-2; the uncovered-B caveat above makes any T2 number here an
+    review C-2; the same capping caveat makes any T2 number here an
     approximation). Live for this archetype, not free. The jam is also boxed
     in on both sides by the ladders the test below asserts: >= 66's 0.40 and
     <= TT's 0.45 (the T-L1 inversion tripwire), so 0.40 is the only level
@@ -4754,12 +4771,15 @@ def test_nm4bet_vs_4bet_arrival_channels_report():
         n=3, seat CALLED at vs_rfi            0.0404  [0.0401]
         n=3, seat CALLED at vs_3bet           0.0375  [0.0372]
         n=4, seat CALLED at vs_4bet           0.0289  [0.0286]
+        n=4, seat CALLED at vs_3bet           0.0159  [0.0157]
+        n=3, seat CALLED at vs_limpers        0.0014  [0.0014]
 
-    The three CALL-prior rows are listed explicitly (review L2) because an
-    earlier version of this table skipped the two n=3 ones — together 7.8% of
-    decisions, and precisely the arrivals the deterministic gates do NOT
-    model: a seat that FLATTED earlier in the chain reaches this node with a
-    calling range, not with the 3-betting range the aggregate is weighted by.
+    All FIVE CALL-prior strata are listed (review L2, corrected at delta
+    review D4 — the first fix added only the two n=3 rows, 7.8% of decisions,
+    and still left two behind). Together they are 12.4% of the node's traffic
+    and they are precisely what the deterministic gates do NOT model: a seat
+    that FLATTED earlier in the chain reaches this node with a calling range,
+    not with the 3-betting range the aggregate is weighted by.
 
     N-M4CALL (2026-08-01) BARELY MOVES THIS, which is itself worth recording:
     a call leg on three pair classes at a node this deep changes ~1% of the
