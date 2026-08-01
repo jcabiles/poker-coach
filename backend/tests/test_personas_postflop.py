@@ -3372,12 +3372,24 @@ _GOLDEN_STATS_N200 = {
     # growing the call denominator), comfortably inside the HARD band
     # (1.5, 4.5) — the band test still gates it at population n. Exact
     # tripwire re-record; population bands stay frozen to W4-b.
-    "calling_station": (0.3063973063973064, 0.2, 0.6829268292682927),
-    "lag": (2.2857142857142856, 0.37142857142857144, 0.5),
-    "maniac": (4.822222222222222, 0.4166666666666667, 0.37383177570093457),
-    "nit": (0.631578947368421, None, 0.6346153846153846),
-    "passive_fish": (1.1355932203389831, 0.41304347826086957, 0.5207373271889401),
-    "tag": (2.5, None, 0.6395348837209303),
+    # RE-RECORDED for the WAVE-6 lane-A landing (persona-realism-wave6,
+    # 2026-08-01 — wave-authorized, single-recorder). TWO compounded causes,
+    # disclosed separately: (1) the rows above were ALREADY red at the wave
+    # base b54fe6e (station AF measured 0.2628 vs the 0.3064 golden — the
+    # wave-5 #152/#153 squash-merge chain lost part of that wave's re-record);
+    # (2) the R-L2 harness-sizing repair in THIS slice changes the harness
+    # stream these N200 tripwires are measured on (production raise sizes,
+    # all-in 5-bets → re-raised pots play out differently from the first
+    # re-raise onward), so all six rows move again on this tip (station AF
+    # 0.2628 → 0.3241 between base and tip is the instrument repair, not a
+    # bot change — zero production code in this slice). Exact tripwire
+    # re-record; population bands stay frozen to W4-b.
+    "calling_station": (0.32409972299168976, 0.06557377049180328, 0.7077922077922078),
+    "lag": (2.611111111111111, None, 0.5294117647058824),
+    "maniac": (2.681159420289855, 0.34, 0.5781990521327014),
+    "nit": (None, None, 0.7450980392156863),
+    "passive_fish": (0.7049180327868853, 0.4358974358974359, 0.514018691588785),
+    "tag": (2.2580645161290325, None, 0.6385542168674698),
 }
 
 
