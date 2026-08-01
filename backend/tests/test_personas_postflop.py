@@ -5573,3 +5573,25 @@ def test_nlagladder_lag_vpip_pfr_reported_not_gated():
         f"10-seed n=2000 means: pre-slice 23.51/17.32/6.19, shipped 23.88/17.32/6.55"
     )
     assert s.vpip is not None and s.pfr is not None
+
+
+def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
+    """REPORT-ONLY (same rule as the lag row above — the single population-band
+    anchor is W4-b). Added at the wave-4 delta review (D4): N-TAGCOMP's `_doc`
+    cites a 10-seed metric-#3 sweep (pre-slice VPIP 16.07 ±0.53 / PFR 12.80
+    ±0.46 · shipped 16.46 ±0.37 / 12.95 ±0.25, all inside §5 TAG 15-20 /
+    12-17) that previously had no in-repo reproduction path. §5 provenance is
+    stated once in content/personas/ladders/tag.unopened.json's `_doc`; the
+    lag row's instrument caveat (3×persona+filler lineup, one-sidedly LOW vs
+    §5) applies verbatim.
+    """
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    s = _persona_stats_ext(packs, "tag", 600)
+    print(
+        f"tag VPIP {s.vpip:.3f} (§5 0.15-0.20) PFR {s.pfr:.3f} (§5 0.12-0.17) "
+        f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
+        f"10-seed n=2000 means: pre-slice 16.07/12.80/3.27, shipped 16.46/12.95/3.51"
+    )
+    assert s.vpip is not None and s.pfr is not None

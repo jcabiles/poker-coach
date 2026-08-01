@@ -446,7 +446,7 @@ def _stats(pack: PersonaPack) -> tuple[float, float, float, float]:
     pre-PRE2 reading).
 
     Known residual (pre-existing, NOT introduced here): rows 3-4 are still Monte
-    Carlo estimates of exactly-computable quantities, and tag's snug (6, 7)
+    Carlo estimates of exactly-computable quantities, and tag's snug (6, 8)
     3-bet and (15, 28) continue rows sit within ~1 sd of an edge — across a
     25-seed sweep they span 6.19-7.31 and 14.88-16.31. They pass at the pinned
     seed; a future slice that needs them robust should compute them exactly.
@@ -943,9 +943,12 @@ def test_tagcomp_offsuit_opens_replaced_by_suited():
     5.43 / 5.58 / 6.49 / 8.45 / 11.01 / 13.42 / 16.44 / 13.57 / 9.50 all below
     floor).
 
-    Both legs are asserted together, and the total-width pin below is the third
-    leg: the ceiling alone could be satisfied by deleting range, the floor
-    alone by widening, and neither is what T-M2 asked for."""
+    Both legs are asserted together, and the one-sided rise ceiling below is
+    the third leg: the floor alone could be satisfied by widening, which is not
+    what T-M2 asked for. (Deleting range is deliberately NOT blocked — falling
+    width is unconstrained per the N-TAGWIDTH adjudication; the suited floor
+    guards the suited side of a trim, and the offsuit side is intentionally
+    open — delta-review D2.)"""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -972,8 +975,10 @@ def test_tagcomp_total_width_never_rises():
     ceiling alone could be satisfied by widening the suited rows instead of
     substituting into them.
 
-    A future width TRIM is deliberately still green here; the thing that stops
-    a trim from hollowing the range out is `_TAG_SUITED_FLOOR` above."""
+    A future width TRIM is deliberately still green here. `_TAG_SUITED_FLOOR`
+    guards only the SUITED side of a trim; offsuit deletion passes every tag
+    gate by design (the one-sided trade adjudicated at the wave-4 fan-in —
+    N-TAGWIDTH expects the offsuit side to shrink toward the dossier)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
