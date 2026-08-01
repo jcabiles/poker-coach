@@ -4046,6 +4046,14 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
         if leg(a, "5bet_shove") > leg(b, "5bet_shove")
     ]
     assert not jam_bad, f"maniac vs_4bet jam mass falls as pairs get stronger: {jam_bad}"
+    # Delta-review D1: the docstring's "step out of the block into TT rises"
+    # claim was advertised but unasserted (TT sits outside jam_ladder by
+    # design). Pin just the boundary step so re-raising 99's jam above TT's
+    # cannot recreate the wave-3 R-3 inversion silently.
+    assert leg("99", "5bet_shove") <= leg("TT", "5bet_shove"), (
+        f"99 jam {leg('99', '5bet_shove'):.2f} exceeds TT's "
+        f"{leg('TT', '5bet_shove'):.2f} — the 99->TT boundary inverted"
+    )
 
 
 def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
@@ -4091,10 +4099,14 @@ def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
 # reachable — Codex's construction is right, the "never reaches vs_4bet" reading
 # is wrong. Concrete production-sizing hand (seed 447515414, button seat 4):
 # UTG1 limps, the maniac at UTG2 ISO-raises to 5.5 (raise #1), LJ re-raises to
-# 18.15 (#2), HJ re-raises to 54.45 (#3) — every later seat, including the
-# maniac when action returns to it, reads `vs_4bet` at n=3, and the maniac
-# 5-bets to 100. It is 3.2% of its vs_4bet decisions in the probe. That mass
-# arrives with the ISO range, not the 3-bet range, and is NOT modeled here.
+# 18.15 (#2), HJ re-raises to 54.45 (#3) — when action returns to the
+# ISO-raiser it reads `vs_4bet` at n=3, which is the load-bearing claim. (In
+# the replayed deal the iso-raiser then folds; a 5-bet to 100 in that hand
+# comes from a DIFFERENT maniac seat on the modeled channel. The seed is an
+# illustrative constructed replay, not drawn from the probe's own hand
+# stream — delta-review D3.) The iso channel is 3.2% of the maniac's vs_4bet
+# decisions in the probe; that mass arrives with the ISO range, not the
+# 3-bet range, and is NOT modeled here.
 #
 # ⚠️ INSTRUMENT WARNING (refuter, filed to the instrument owner): the band
 # harness's own `_preflop_decision` sizes every raise at `la.min_bb`, while
@@ -4371,7 +4383,7 @@ def test_nm4bet_vs_4bet_arrival_channels_report():
     distribution with no dossier target, and gating it would freeze an
     instrument, not a behaviour. It exists so the next slice can see whether
     the modeled channel is still the dominant one. n is small enough to run in
-    the suite (~10s) and large enough to read shares to ~2pp."""
+    the suite (~6.5s measured) and large enough to read shares to ~2pp."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
