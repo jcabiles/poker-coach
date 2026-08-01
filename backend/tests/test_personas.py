@@ -450,6 +450,10 @@ def _stats(pack: PersonaPack) -> tuple[float, float, float, float]:
     3-bet and (15, 28) continue rows sit within ~1 sd of an edge — across a
     25-seed sweep they span 6.19-7.31 and 14.88-16.31. They pass at the pinned
     seed; a future slice that needs them robust should compute them exactly.
+    ⚠️ Those two sweep spans are HISTORICAL, not current evidence: they were
+    measured before RR-HOLES, R10-3BET and N-TAGCOMP, each of which displaced
+    the shared `rng_u` deal stream. The tag continue row now reads 17.12 at the
+    pinned seed, ABOVE the whole span quoted above. Re-sweep before citing them.
     """
     rng_u = random.Random(20260710)
     rng_v = random.Random(20260710)
@@ -871,13 +875,16 @@ def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():
 # `_doc`, deliberately not restated here, and nothing below gates on it), i.e.
 # ~1.7 sd of headroom — the same "no width to spend" position that made
 # N-LAGLADDER's first cut breach §5 for the lag. So the deliverable is the
-# COMPOSITION, and the total is PINNED rather than bounded: see
-# `test_tagcomp_total_width_preserved`, which passes at pre-slice HEAD as well
-# as after, and is the belt that stops the ceiling below from being satisfied
-# by simply deleting range.
+# COMPOSITION, and the total may not be spent UPWARD: see
+# `test_tagcomp_total_width_never_rises`, which passes at pre-slice HEAD as
+# well as after, and is the belt that stops the ceiling below from being
+# satisfied by widening the suited rows instead of substituting into them.
+# That gate is ONE-SIDED by design — a later dossier-ward width trim
+# (`N-TAGWIDTH`) must not have to delete a green test to proceed.
 #
-# Pairs are untouched at every seat (byte-identical bands), so `pair` is
-# absent from both dicts by construction, not by omission.
+# Pairs are untouched at every seat (per-class treatment pinned by
+# `test_tagcomp_pair_band_unchanged_preservation`), so `pair` is absent from
+# both dicts below by construction, not by omission.
 #
 # Gates are AUTHORED-shape and deterministic — no sampling, so no CI.
 # Population VPIP/PFR stays REPORTED-not-gated (the single band anchor is W4-b).
@@ -887,9 +894,14 @@ def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():
 #            CO 29.41 · BTN 36.20 · SB 27.15 · BB 15.84
 #   suited   UTG 5.43 · UTG1 5.58 · UTG2 6.49 · LJ 8.45 · HJ 11.01 ·
 #            CO 13.42 · BTN 16.44 · SB 13.57 · BB 9.50
+# Shipped:
+#   offsuit  UTG 4.52 · UTG1 4.98 · UTG2 7.24 · LJ 9.95 · HJ 14.03 ·
+#            CO 23.53 · BTN 29.86 · SB 22.62 · BB 10.86
+#   suited   UTG 7.99 · UTG1 8.75 · UTG2 9.20 · LJ 12.52 · HJ 15.99 ·
+#            CO 19.00 · BTN 22.47 · SB 18.10 · BB 14.18
 # Every seat is gated on BOTH legs (the lag slice could only gate six because
 # its CO/BTN moves were too thin to be meaningful; this one moves all nine by
-# ≥2.7pp offsuit and ≥2.5pp suited). Each threshold sits ~1pp inside the
+# ≥2.7pp offsuit and ≥2.5pp suited). Each threshold sits ≥0.7pp inside the
 # shipped value and clearly on the far side of the pre-slice value.
 _TAG_OFFSUIT_CEILING = {
     "UTG": 5.5, "UTG1": 6.0, "UTG2": 8.3, "LJ": 11.0, "HJ": 15.5,
@@ -904,14 +916,24 @@ _TAG_SUITED_FLOOR = {
     "UTG": 7.0, "UTG1": 7.7, "UTG2": 8.3, "LJ": 11.8, "HJ": 14.8,
     "CO": 17.8, "BTN": 21.3, "SB": 17.0, "BB": 13.0,
 }
-# Pre-slice HEAD per-seat TOTAL authored first-in raise %, frozen. The slice
-# ships within 0.4525pp of every one of them (seat-average 34.0204 -> 33.9367),
-# which is why the tag rows of BANDS above were NOT re-anchored.
+# Pre-slice per-seat TOTAL authored first-in raise %, frozen (measured on the
+# wave-3 tip e25abde). The slice never RISES above any of them and falls by at
+# most 0.4525pp (seat-average 34.0204 -> 33.8529), which is why the tag rows of
+# BANDS above were NOT re-anchored.
 _TAG_TOTAL_PRESLICE = {
-    "UTG": 17.19, "UTG1": 18.70, "UTG2": 21.42, "LJ": 27.90, "HJ": 36.35,
-    "CO": 48.72, "BTN": 58.52, "SB": 46.61, "BB": 30.77,
+    "UTG": 17.1946, "UTG1": 18.7029, "UTG2": 21.4178, "LJ": 27.9035,
+    "HJ": 36.3499, "CO": 48.7179, "BTN": 58.5219, "SB": 46.6063, "BB": 30.7692,
 }
-_TAG_TOTAL_TOL = 1.0
+# ONE-SIDED on purpose (theory review D2). The gate this slice needs is "a
+# composition swap may not be used to buy WIDTH"; a two-sided ±1pp band would
+# additionally freeze the width in place, and the very next filed ticket wants
+# it lower — the tag's per-seat authored widths sit ~1.7x a TAG dossier
+# envelope at CO/BTN, and trimming toward it is `N-TAGWIDTH` (blocked on the §5
+# PFR-floor decision, not on this test). A future trim must not have to DELETE
+# a green gate to proceed, so falling is unconstrained and only rising is
+# capped. The 0.1pp allowance is float/rounding slack, not authoring headroom:
+# one suited class at edge weight is 0.15pp, so no real widen fits under it.
+_TAG_TOTAL_RISE_CEILING = 0.1
 
 
 def test_tagcomp_offsuit_opens_replaced_by_suited():
@@ -942,47 +964,84 @@ def test_tagcomp_offsuit_opens_replaced_by_suited():
     assert not under, f"tag suited open width below floor: {under}"
 
 
-def test_tagcomp_total_width_preserved():
-    """PRESERVATION, and the reason it exists is measured, not stylistic: the
-    tag's population PFR sits ~1.7 sd above the §5 floor, so this slice may not
-    spend width in EITHER direction. Passes at pre-slice HEAD (delta 0 by
-    construction) and after (max delta 0.4525pp), which is exactly what makes it
-    a belt on the composition gate rather than a restatement of it."""
+def test_tagcomp_total_width_never_rises():
+    """PRESERVATION, one-sided (see `_TAG_TOTAL_RISE_CEILING`): a composition
+    swap may not be spent on WIDTH. Passes at pre-slice HEAD (delta 0 by
+    construction) and after (every seat ≤ pre-slice, largest fall 0.4525pp at
+    HJ), which is what makes it a belt on the composition gate — the offsuit
+    ceiling alone could be satisfied by widening the suited rows instead of
+    substituting into them.
+
+    A future width TRIM is deliberately still green here; the thing that stops
+    a trim from hollowing the range out is `_TAG_SUITED_FLOOR` above."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
     rfi = {pos: sum(k.values()) for pos, k in kinds.items()}  # already in %
     bad = {
-        pos: (round(rfi[pos], 2), pre)
+        pos: (round(rfi[pos], 4), pre)
         for pos, pre in _TAG_TOTAL_PRESLICE.items()
-        if abs(rfi[pos] - pre) > _TAG_TOTAL_TOL
+        if rfi[pos] > pre + _TAG_TOTAL_RISE_CEILING
     }
     assert not bad, (
-        f"tag authored first-in width moved more than {_TAG_TOTAL_TOL}pp "
-        f"(now, pre-slice): {bad}"
+        f"tag authored first-in width ROSE above pre-slice + "
+        f"{_TAG_TOTAL_RISE_CEILING}pp (now, pre-slice): {bad}"
     )
 
 
+# Per-CLASS pair treatment on the pre-slice tip e25abde, resolved with sampler
+# semantics (first matching `unopened` node, first matching mix; a class in no
+# mix is fold-by-rule and pins as None). Every played pair sits in the core mix
+# at `{"raise": 1.0}` and the pair row is a clean top-anchored band, so the
+# whole pre-slice mapping is exactly "these classes at raise 1.0, the rest
+# unplayed" — recorded here as the band's weakest played class per seat.
+_TAG_PAIR_BAND_PRESLICE = {
+    "UTG": "55", "UTG1": "44", "UTG2": "44", "LJ": "33", "HJ": "22",
+    "CO": "22", "BTN": "22", "SB": "22", "BB": "33",
+}
+_PAIR_CLASSES = [r + r for r in reversed("23456789TJQKA")]  # AA..22
+
+
 def test_tagcomp_pair_band_unchanged_preservation():
-    """PRESERVATION: the swap is offsuit-for-suited ONLY. Pair opening mass is
-    byte-identical at every seat, so a future edit cannot quietly pay for a
-    suited floor out of the pair band (which would confound T-M2's measurement
-    and is not what the finding named)."""
+    """PRESERVATION: the swap is offsuit-for-suited ONLY, and the pack `_doc`
+    promises the pair band is byte-identical — so pin the actual per-class
+    TREATMENT, not a rounded aggregate (Codex review MED). An aggregate-only
+    gate is satisfiable by, say, demoting one pair to 0.5 and promoting another
+    from nothing; this one is not.
+
+    A future edit therefore cannot quietly pay for the suited floor out of the
+    pair band, which would confound T-M2's measurement and is not what the
+    finding named."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
-    kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
-    expected = {
-        "UTG": 4.52, "UTG1": 4.98, "UTG2": 4.98, "LJ": 5.43, "HJ": 5.88,
-        "CO": 5.88, "BTN": 5.88, "SB": 5.88, "BB": 5.43,
-    }
-    bad = {
-        pos: round(kinds[pos]["pair"], 2)
-        for pos, pre in expected.items()
-        if abs(kinds[pos]["pair"] - pre) > 0.005
-    }
-    assert not bad, f"tag pair open width moved: {bad}"
+    from app.domain.personas import _combos
+
+    pack = packs[VillainType.TAG]
+    bad: dict[str, list[str]] = {}
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
+        floor_idx = _PAIR_CLASSES.index(_TAG_PAIR_BAND_PRESLICE[pos.value])
+        for idx, cls in enumerate(_PAIR_CLASSES):
+            want = {"raise": 1.0} if idx <= floor_idx else None
+            got = None
+            if node is not None:
+                for mix in node.mixes:
+                    if cls in _combos(mix.combos):
+                        got = dict(mix.weights)
+                        break
+            if got != want:
+                bad.setdefault(pos.value, []).append(f"{cls}: {got} != {want}")
+    assert not bad, f"tag per-class pair treatment moved: {bad}"
 
 
 def test_all_six_persona_packs_load():

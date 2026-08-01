@@ -196,15 +196,25 @@ def test_four_bet_line_strict_subset_and_hand_computed_posterior(packs):
     assert open_res.exact is True and four_res.exact is True
     open_set, four_set = _positive(open_res), _positive(four_res)
     assert four_set < open_set  # strict subset
-    # tag.json: UTG open ∩ vs_3bet 4bet-mass. RE-PINNED for R10-3BET
-    # (2026-07-31, slice-authorized): the tag vs_3bet rewrite is now
-    # {AA,KK @1.0} ∪ {QQ,AKs @0.5} ∪ {AKo @0.35} ∪ {A5s,A4s @0.35} — QQ and
-    # AKo JOINED the 4-bet mix (dossier: 4-bet 10-18% of opportunities,
-    # 1.5-3.0% of all hands), AQo LEFT it (its 4bet 0.4 tier was struck; AQo
-    # now calls 0.2 in the bottom continue tier), and A4s is authored but NOT
-    # reachable from the UTG open range, so it stays out of the posterior.
+    # tag.json: UTG open ∩ vs_3bet 4bet-mass. The vs_3bet 4-bet mass is
+    # {AA,KK @1.0} ∪ {QQ,AKs @0.5} ∪ {AKo @0.35} ∪ {A5s,A4s @0.35} (R10-3BET,
+    # 2026-07-31: QQ and AKo JOINED it — dossier 4-bet 10-18% of opportunities,
+    # 1.5-3.0% of all hands — and AQo LEFT it, its 4bet 0.4 tier struck, now
+    # calling 0.2 in the bottom continue tier). The intersection is decided by
+    # the UTG OPEN, and that is what moved next:
+    #
+    # RE-PINNED for N-TAGCOMP (2026-07-31, slice-authorized): **A4s is now
+    # reachable and IS in the posterior.** This comment previously said the
+    # opposite — correctly, at the time: the pre-N-TAGCOMP UTG open was
+    # `A6s+` (+ A5s at 0.5), so A4s had zero open weight and could not survive
+    # to a 4-bet no matter what vs_3bet authored. N-TAGCOMP's constant-width
+    # offsuit->suited swap widened the UTG suited-ace row to the full `A2s+`
+    # at weight 1.0 (the offsuit row paid for it: A9o+ -> AJo+), so A4s now
+    # opens, gets 3-bet, and enters the 4-bet mix through the wheel-ace bluff
+    # tier exactly as A5s always did. Nothing in vs_3bet changed — that node
+    # is byte-identical across N-TAGCOMP.
     # The pin is updated to the new range — never carved to preserve the pin.
-    assert four_set == {"AA", "KK", "QQ", "AKs", "AKo", "A5s"}
+    assert four_set == {"AA", "KK", "QQ", "AKs", "AKo", "A5s", "A4s"}
     # Hand-computed posterior ratios: AA = 6 combos × (1.0 × 1.0);
     # AKo = 12 combos × (1.0 × 0.35) → AA/AKo = 6/4.2 = 10/7;
     # QQ = 6 combos × (1.0 × 0.5) → AA/QQ = 6/3 = 2.
