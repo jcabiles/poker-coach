@@ -678,6 +678,72 @@ def test_estimator_prices_the_faced_bet(packs):
         assert folds[2] - folds[0] > 0.2, f"{hole} price response is cosmetic: {folds}"
 
 
+def test_estimator_prices_a_self_reraise_by_the_increment_not_the_bet_to(packs):
+    """🔴 ESTIM-PRICE, the discriminating case (Codex fold): on FRESH aggression
+    the street's latest-aggressor INCREMENT and `current_bet_to` are equal, so
+    every other test here would pass under either one. They diverge on a
+    same-street self-re-raise, and that is the case theory contract §7
+    ("denominator unification") legislates: the pre-aggression pot is the live
+    pot minus the increment the last bet/raise ADDED, never minus its raise-TO —
+    subtracting the TO double-counts the raiser's earlier street chips, shrinking
+    the denominator and OVERSTATING the price.
+
+    Line: seat 2 bets 3 into 6.5, seat 3 raises to 12, seat 2 re-raises to 60
+    (its own increment is 57, not 60), seat 3 faces 48 into a live pot of 78.5.
+      correct  f = 48 / (78.5 − 57) = 2.2326
+      bet-TO   f = 48 / (78.5 − 60) = 2.5946   (16% too expensive)
+    Both sit above the 1.5 anchor, where the R10-TAIL-a1 tail is CONTINUOUS in
+    f, so the error cannot hide inside a shared α bucket. Mutation-kill: the
+    estimator must equal the live sampler fed the increment and DIFFER from the
+    one fed the bet-TO. Probe holes are deliberately non-drawing so the
+    SPR-commit branch (live SPR 1.08 vs tag's spr_commit 2.5) is inert."""
+    tag = packs[VillainType.TAG]
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _CALL)]
+    moves += [(2, _bet(3.0)), (3, _raise_to(12.0)), (2, _raise_to(60.0)), (3, _CALL)]
+    state = _script(state, moves)
+    hist = _project(state)
+    ctx = _replay_contexts(hist, seat=3, n=len(hist.actions))[-1]
+
+    # The precondition that makes this test discriminating at all.
+    assert ctx.street is Street.FLOP
+    assert ctx.to_call_bb == pytest.approx(48.0)
+    assert ctx.pot_bb == pytest.approx(78.5)
+    assert ctx.current_bet_to == pytest.approx(60.0)
+    assert ctx.aggressor_contribution_bb == pytest.approx(57.0)
+    assert ctx.aggressor_contribution_bb != ctx.current_bet_to
+    f_ok = ctx.to_call_bb / (ctx.pot_bb - ctx.aggressor_contribution_bb)
+    f_bad = ctx.to_call_bb / (ctx.pot_bb - ctx.current_bet_to)
+    assert f_ok == pytest.approx(48.0 / 21.5) and f_bad == pytest.approx(48.0 / 18.5)
+    assert size_bucket(f_ok) is size_bucket(f_bad)  # only the tail separates them
+    assert f_ok > 1.5, "below the anchor the two prices would share one flat bucket"
+
+    for hole in (("6h", "4c"), ("7s", "5s")):  # air / middle pair, neither drawing
+        estimator = _postflop_action_dist(tag, hole, ctx)
+        dists = {}
+        for label, contribution in (
+            ("increment", ctx.aggressor_contribution_bb),
+            ("bet_to", ctx.current_bet_to),
+        ):
+            cap = _CaptureFirstChoices()
+            sample_postflop_decision(
+                tag, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+                ctx.opponents,
+                cap,  # type: ignore[arg-type] — duck-typed capture rng
+                current_bet_to=ctx.current_bet_to, street=Street.FLOP,
+                latest_aggressor_contribution_bb=contribution,
+                facing_raise=ctx.facing_raise,
+            )
+            dists[label] = cap.dist
+        assert estimator == dists["increment"], hole
+        assert estimator != dists["bet_to"], hole  # the mutation must be killed
+        # ...and in the diagnostic direction: the bet-TO denominator over-folds.
+        assert dists["bet_to"][ActionType.FOLD] > estimator[ActionType.FOLD], hole
+
+
 def test_estimator_has_the_overbet_price_tail(packs):
     """🔴 R10-TAIL-a1 parity (the filed follow-up): above the 1.5× anchor the
     bucketed α saturates, so ONLY the production tail `(f/1.5)**K` can separate a

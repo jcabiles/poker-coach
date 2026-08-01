@@ -4995,7 +4995,9 @@ def test_n3bstrata_only_maniac_and_lag_are_stratified():
 # figure. The dossier band is therefore gated HERE, on the production-signal
 # blend measured over seeded organic play; the unopened-weighted figure stays
 # as an authored-COMPONENT shape pin only.
-_OPENER_BLEND_CACHE: dict[tuple[str, int, tuple[int, ...]], tuple] = {}
+_OPENER_BLEND_CACHE: dict[
+    tuple[str, int, tuple[int, ...]], tuple[int, int, dict[int, tuple[int, int]]]
+] = {}
 
 
 def _production_opener_fold_counts(
@@ -5064,15 +5066,30 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     measured rate to the 0.43 band floor is only ~0.05 — the gate cannot
     distinguish "inside the band" from "under it". At n=12000 the stratum yields
     1506 decisions and the half-width falls to ±0.025, inside the 0.054 margin
-    between the measured rate and the floor. maniac is not the binding constraint
-    (2703 decisions, ±0.017, mid-band). Measured at this slice, same seed:
+    between the measured rate and the floor.
+
+    ⚠️ HONEST REPORT (theory review, ESTIM-3C): this re-power settles LAG ONLY.
+    maniac reads 0.2616 with CI [0.245, 0.278] — that CI STRADDLES its 0.25 band
+    floor, because its half-width (0.0166) is LARGER than the 0.0116 by which the
+    rate clears the floor. maniac therefore still carries the dr-L3 defect at
+    n=12000: a pass here is necessary, not sufficient, for it. The fixed 0.03
+    constant in the half-width self-check below is LAG-DERIVED and is not a valid
+    power test for maniac — maniac's stratum is the bigger one (2703 decisions)
+    but its band margin is far tighter, so the meaningful form is
+    margin-RELATIVE (half-width < the distance to the nearer band edge). Making
+    the check margin-relative and finding the n that settles maniac are FILED
+    follow-ups, deliberately not done in this slice: tightening the check would
+    fail the gate on a maniac figure this slice has no remit to re-fit.
+    Measured at this slice, same seed:
         maniac  0.2616 @n=12000 (n_dec 2703) · 0.2686 @n=4000 (n_dec 860)
         lag     0.4841 @n=12000 (n_dec 1506) · 0.4883 @n=4000 (n_dec 469)
-    Runtime cost of the re-power: 19.5s -> 71.4s for this test. The n=4000 line
+    Runtime cost of the re-power: 19.5s -> 71-120s for this test (3x the hands;
+    measured twice, the spread is machine load from concurrent work — the
+    figures above are deterministic on the seed). The n=4000 line
     is still PRINTED — it is free, being the 4000-hand checkpoint of the same
     seeded pass (see `_production_opener_fold_counts`) — but nothing asserts on
     it. The half-width itself is now asserted (< 0.03), so a future pack change
-    that thins the stratum fails LOUDLY instead of silently under-powering.
+    that thins the LAG stratum fails LOUDLY instead of silently under-powering.
 
     ⚠️ HISTORY: THIS GATE'S OLD n WAS NOT ENOUGH TO SETTLE THE VALUE
     (N-LAGLADDER, review fold 6). It reads ~460-490 lag opener decisions at
@@ -5110,8 +5127,9 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
             f"{f4 / n4:.4f} (n={n4})"
         )
         assert n >= 200, f"{persona}: opener sample n={n} too small to gate"
-        # The gate is only meaningful if the CI actually fits inside the band's
-        # margin — the dr-L3 lesson, asserted rather than trusted.
+        # The dr-L3 lesson, asserted rather than trusted. NOTE the constant is
+        # lag-derived: it is a floor on precision, NOT the margin-relative test
+        # maniac needs (see the docstring's HONEST REPORT).
         assert (whi - wlo) / 2 < 0.03, (
             f"{persona}: Wilson half-width {(whi - wlo) / 2:.4f} at n_dec={n} is too wide "
             f"to settle a [{lo},{hi}] band — raise the hand count"
