@@ -6003,12 +6003,17 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
     §5) applies verbatim.
 
     N-TAGWIDTH (2026-07-31) re-measured on its own 10-seed set (20260710 +
-    1000i, n=2000): the width trim reads VPIP 16.05 -> 15.96 and PFR 12.67 ->
-    12.57, both still inside §5. STILL REPORT-ONLY — the trim was sized
-    against the §5 PFR floor, but this instrument is not the §5 pool and the
-    slice gates on authored shape only. The two sweeps' pre-slice readings
-    differ (12.67 vs 12.80) because the seed sets differ; each sweep is
-    internally comparable, which is all the instrument claims.
+    1000i): the width trim reads VPIP 16.05 -> 15.32 and PFR 12.67 -> 12.04 at
+    n=2000, and a stable-n escalation to n=4000 x 10 reads the shipped pack at
+    VPIP 15.34 +-0.30 / PFR 12.05 +-0.24 (se of the mean 0.095 / 0.076). Both
+    stay inside §5 — but PFR clears its floor of 12 by only 0.05pp, so this
+    row is worth watching: the slice spends essentially all of the tag's
+    remaining PFR headroom, and the early-seat trim it could NOT afford is an
+    escalated contract question (see the spec `_doc`). STILL REPORT-ONLY — the
+    trim was sized against the §5 floor, but this instrument is not the §5
+    pool and the slice gates on authored shape only. The two sweeps' pre-slice
+    readings differ (12.67 vs 12.80) because the seed sets differ; each sweep
+    is internally comparable, which is all the instrument claims.
     """
     packs = load_persona_packs()
     if not packs:
@@ -6017,7 +6022,7 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
     print(
         f"tag VPIP {s.vpip:.3f} (§5 0.15-0.20) PFR {s.pfr:.3f} (§5 0.12-0.17) "
         f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
-        f"10-seed n=2000 means: N-TAGCOMP 16.46/12.95/3.51, "
-        f"N-TAGWIDTH 15.96/12.57/3.39"
+        f"10-seed means: N-TAGCOMP 16.46/12.95/3.51 (n=2000), "
+        f"N-TAGWIDTH 15.34/12.05/3.29 (n=4000)"
     )
     assert s.vpip is not None and s.pfr is not None

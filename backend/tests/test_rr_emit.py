@@ -516,12 +516,15 @@ def test_tag_proving_gate_corpus_is_non_trivial(tag_emitted, tag_shipped):
         }
 
     played = union(tag_shipped)
-    # 126 -> 117 (N-TAGWIDTH): the offsuit-only trim at HJ / CO / BTN / SB
-    # retires nine classes from the tag's whole unopened corpus (98o, 87o and
-    # the K4o-K8o / Q6o-Q8o / J7o-J8o / T8o kicker junk). Suited and pair
-    # classes are unchanged — that is what makes the number move by exactly
-    # the offsuit count.
-    assert len(played) == 117, "shipped tag unopened corpus changed size"
+    # 126 -> 97 (N-TAGWIDTH): the trim retires exactly 29 classes from the
+    # tag's whole unopened corpus and adds none —
+    #   junk suited (21): 32s 42s 52s 62s 63s 72s 73s 74s 82s 83s 84s 92s 93s
+    #                     94s J2s J3s J4s Q2s T2s T3s T4s
+    #   offsuit kickers (8): 87o J7o K4o K5o K6o K7o Q6o Q7o
+    # "adds none" is load-bearing beyond bookkeeping: the lag lane's suited
+    # class-superset gate (lag ⊇ tag) can only be broken by the TAG gaining a
+    # suited class, so a retirement-only edit cannot break it.
+    assert len(played) == 97, "shipped tag unopened corpus changed size"
     assert union(tag_emitted) == played
     assert sum(len(n["mixes"]) for n in tag_emitted) == 18  # 9 seats x 2 tiers
 
