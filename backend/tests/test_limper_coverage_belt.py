@@ -237,9 +237,18 @@ _PRE_M3_FIRES = {
     # SB¹ 71, SB² 39, BTN¹ 80, BTN² 38). No limper-belt content changed;
     # every _WANT_* coverage shape still fires (verified: BB¹ 55, BB² 23,
     # BB³ 5) — stream displacement, not a coverage regression.
-    ("UTG2", 1): 92, ("LJ", 1): 117, ("HJ", 1): 122, ("CO", 1): 99,
-    ("CO", 2): 26, ("SB", 1): 62, ("SB", 2): 40, ("BTN", 1): 93,
-    ("BTN", 2): 29,
+    # RE-RECORDED for N-TAGWIDTH (persona-realism-wave5, 2026-07-31 —
+    # wave-authorized, single-recorder landing on the stacked wave-5 tip):
+    # the tag five-seat width trim (UTG recompose, junk-suited retirement +
+    # offsuit restoration at HJ/CO/BTN/SB) means the tag opens far fewer
+    # pots, so the shared-rng organic stream drifts at this seed (old
+    # post-N-LAGCOMP2 counts: UTG2¹ 92, LJ¹ 117, HJ¹ 122, CO¹ 99, CO² 26,
+    # SB¹ 62, SB² 40, BTN¹ 93, BTN² 29). No limper-belt content changed;
+    # every _WANT_* coverage shape still fires (verified: BB¹ 45, BB² 39,
+    # BB³ 12) — stream displacement, not a coverage regression.
+    ("UTG2", 1): 87, ("LJ", 1): 128, ("HJ", 1): 114, ("CO", 1): 99,
+    ("CO", 2): 36, ("SB", 1): 69, ("SB", 2): 28, ("BTN", 1): 78,
+    ("BTN", 2): 32,
 }
 
 
