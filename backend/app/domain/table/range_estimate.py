@@ -23,8 +23,14 @@ Posterior math:
 - Postflop is APPROXIMATE (`exact=False`): per candidate combo, the action
   distribution the persona WOULD have mixed from at the reconstructed
   decision (merit ladder + levers, via `sample_postflop_decision` with a
-  weight-capturing rng), reweighted by the observed action TYPE (bet/raise
-  size is ignored — category-level approximation, spec-allowed).
+  weight-capturing rng), reweighted by the observed action TYPE (the size of
+  the villain's OWN bet/raise is ignored — category-level approximation,
+  spec-allowed; the size of the bet it FACED is not, see below).
+- ESTIM-PRICE: the faced price IS reconstructed. The replay carries the CALL
+  increment and the street's latest aggressor increment into the sampler, so
+  the estimator's response model prices a bet exactly as the live bot does
+  (`_price_factor`, including its f > 1.5 overbet tail, is reached through the
+  production sampler — this module owns no price law of its own).
 - Class↔combo granularity (spec med-2): classes expand to suit combos so
   dead-card removal (hero cards + revealed board ONLY) zeroes just the
   blocked combos; combo mass re-aggregates to 169-class weights.
@@ -101,6 +107,20 @@ class _Ctx(NamedTuple):
     # the flag ALONE, never a PostflopContext (whose in_position=False default
     # would newly activate W3-b's position damp here).
     facing_raise: bool = False
+    # ESTIM-PRICE: the two faced-PRICE inputs of the persona response model,
+    # reconstructed exactly as `engine.legal_actions` / `play.bot_decision` build
+    # them (both are 0.0 on a node with no chips to call):
+    #   `to_call_bb`            = engine.legal_actions' CALL `min_bb`
+    #                             (`round(min(cur - invested_street, stack), 2)`)
+    #   `aggressor_contribution_bb` = sizing.pot_before_current_aggression's
+    #                             `latest_aggressor_contribution_bb` — the chip
+    #                             INCREMENT the street's most recent BET/RAISE
+    #                             added (NOT its raise-TO).
+    # Together they are numerator and denominator of `faced_frac` in
+    # `personas_postflop.sample_postflop_decision` (theory contract §7
+    # "denominator unification"): f = to_call / (pot − aggressor increment).
+    to_call_bb: float = 0.0
+    aggressor_contribution_bb: float = 0.0
     # N-3BSTRATA: did this seat make the FIRST preflop raise of the hand (it is
     # the OPENER, now acting again)? Mirrors play._preflop_opener; selects the
     # role-tagged persona node so the estimator reads the same table the bot
@@ -131,6 +151,11 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     pf_limped = False
     pf_opener: int | None = None  # seat of the first preflop raise (N-3BSTRATA)
     street_aggr = 0  # BET/RAISE count on the CURRENT street (W3R-6 facing_raise)
+    # ESTIM-PRICE: chip increment of the CURRENT street's most recent BET/RAISE —
+    # sizing.pot_before_current_aggression's `latest_aggressor_contribution_bb`
+    # read off the same walk (PublicAction.amount_bb is already the increment,
+    # like HistoryAction.amount_bb). 0.0 on an unraised/checked street.
+    street_agg_amt = 0.0
     out: list[_Ctx] = []
 
     def pay(s: int, amt: float) -> None:
@@ -148,6 +173,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
             last_full = _BB
             acted = set()
             street_aggr = 0
+            street_agg_amt = 0.0
         s = a.seat
         if a.action is ActionType.POST:
             pay(s, a.amount_bb)
@@ -190,6 +216,8 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     current_bet_to=cur,
                     observed=a.action,
                     facing_raise=street_aggr >= 2,
+                    to_call_bb=round(min(to_call, stacks[s]), 2) if to_call > _EPS else 0.0,
+                    aggressor_contribution_bb=round(street_agg_amt, 2),
                     is_opener=pf_opener == s,
                 )
             )
@@ -206,6 +234,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                 pf_limped = True
         else:  # BET / RAISE — amount is the increment; new bet-TO = invested
             street_aggr += 1
+            street_agg_amt = a.amount_bb
             prev = cur
             pay(s, a.amount_bb)
             new_bet = inv_street[s]
@@ -295,10 +324,28 @@ class _CaptureRng:
         return [population[0]]
 
 
+def _legal_from_ctx(ctx: _Ctx) -> list[LegalAction]:
+    """The reconstructed decision's legal bracket, in `engine.legal_actions`'
+    shape for every field the persona-response path READS.
+
+    ESTIM-PRICE: that is the CALL entry's `min_bb` alone — it is the faced-price
+    numerator (`sample_postflop_decision`'s `to_call_bb`, :845). BET/RAISE
+    min/max are left None deliberately: their only readers are the SIZING draw
+    and its bracket clamp (:1015-1020), which `_CaptureRng` short-circuits by
+    returning population[0] (never BET/RAISE) on the action draw, so no size is
+    ever computed here. Reconstructing a min-raise ladder for a code path that
+    cannot run would be dead precision.
+    """
+    return [
+        LegalAction(action=k, min_bb=ctx.to_call_bb if k is ActionType.CALL else None)
+        for k in sorted(ctx.kinds)
+    ]
+
+
 def _postflop_action_dist(
     pack: PersonaPack, hole: tuple[Card, Card], ctx: _Ctx
 ) -> dict[ActionType, float]:
-    legal = [LegalAction(action=k) for k in sorted(ctx.kinds)]
+    legal = _legal_from_ctx(ctx)
     cap = _CaptureRng()
     decision = sample_postflop_decision(
         pack,
@@ -311,6 +358,7 @@ def _postflop_action_dist(
         cap,  # type: ignore[arg-type] — duck-typed capture rng
         current_bet_to=ctx.current_bet_to,
         street=ctx.street,
+        latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         facing_raise=ctx.facing_raise,
     )
     if cap.population is None:  # zero-total-merit fallback path: deterministic
