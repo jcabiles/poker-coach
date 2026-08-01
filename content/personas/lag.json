@@ -1,20 +1,42 @@
 {
   "id": "persona_lag",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "domain": "persona",
   "_doc": [
+    "1.4.0 (N-LAGCOMP2, 2026-07-31) — one change: the CO, BTN and SB `unopened`",
+    "nodes are re-emitted from the same curve spec, again offsuit -> suited and",
+    "again a swap rather than a trim, but here EXACTLY width-neutral (the",
+    "combo-weighted total is unchanged to the last combo: CO 704.4, BTN 874.8,",
+    "SB 687.6 of 1326; pairs untouched at 5.88). The defect: after N-TAGCOMP",
+    "fixed the tag's shape, the lag opened a WIDER total range than the tag from",
+    "these three seats while covering LESS of the suited universe, i.e. the",
+    "loose persona's extra width was offsuit junk.",
+    "  suited   CO 17.01->20.63 · BTN 19.91->23.53 · SB 17.01->19.73",
+    "  offsuit  CO 30.23->26.61 · BTN 40.18->36.56 · SB 28.96->26.24",
+    "The suited side is now a class-by-class SUPERSET of the tag's at all three",
+    "seats (equal or greater weight on every class the tag opens) and the",
+    "offsuit side stays above the tag's, so the roster ordering is preserved on",
+    "both axes. Full rationale, the per-row edits and the authoring rule they",
+    "obey: the N-LAGCOMP2 section of content/personas/ladders/lag.unopened.json",
+    "`_doc` (spec 1.2.0). The six other seats are byte-identical to 1.3.0, and",
+    "no response node (`vs_rfi` / `vs_3bet` / `vs_4bet`) was touched — the",
+    "1.3.0 opener re-tune below still stands, unmodified.",
+    "",
     "1.3.0 (N-LAGLADDER, 2026-07-31) — three changes.",
     "(1) All nine `unopened` nodes REPLACED. They are now EMITTED, not",
     "hand-authored: the curve spec is content/personas/ladders/lag.unopened.json",
     "and `python -m tools.rr_emit` regenerates exactly the mixes below (proved",
     "by backend/tests/test_rr_emit.py). This is a COMPOSITION swap at constant",
-    "width, NOT a trim — offsuit out, suited in, per seat:",
+    "width, NOT a trim — offsuit out, suited in, per seat. ⚠️ THE RIGHT-HAND",
+    "SIDE OF EVERY CO / BTN / SB ROW BELOW IS THE 1.3.0 VALUE AND IS NO LONGER",
+    "WHAT THIS PACK SHIPS — 1.4.0 above supersedes those three seats (marked",
+    "`->1.4.0` inline). The other six seats' figures are current.",
     "  offsuit  UTG 12.49->8.69 · UTG1 13.39->8.69 · UTG2 17.38->12.31 ·",
-    "           LJ 19.55->15.38 · HJ 26.61->22.62 · CO 31.13->30.23 ·",
-    "           BTN 40.54->40.18 · SB 29.86->28.96 · BB 24.80->20.81",
+    "           LJ 19.55->15.38 · HJ 26.61->22.62 · CO 31.13->30.23->1.4.0 ·",
+    "           BTN 40.54->40.18->1.4.0 · SB 29.86->28.96->1.4.0 · BB 24.80->20.81",
     "  suited   UTG 7.90->10.50 · UTG1 9.11->12.79 · UTG2 10.92->15.51 ·",
-    "           LJ 12.19->16.35 · HJ 15.20->19.13 · CO 16.23->17.01 ·",
-    "           BTN 19.67->19.91 · SB 16.23->17.01 · BB 14.72->18.34",
+    "           LJ 12.19->16.35 · HJ 15.20->19.13 · CO 16.23->17.01->1.4.0 ·",
+    "           BTN 19.67->19.91->1.4.0 · SB 16.23->17.01->1.4.0 · BB 14.72->18.34",
     "Combo-weighted TOTAL moves <=0.36pp at every seat (seat-average 43.15 ->",
     "43.04). The width was deliberately NOT reduced: measured population PFR",
     "sits ON the §5 floor, so a tighten breaches it — see the spec's `_doc`.",
@@ -98,24 +120,24 @@
       "facing": "unopened",
       "positions": ["CO"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, 43s, A3o+, K6o+, Q7o+, J7o+, T7o+, 98o", "weights": { "raise": 1.0 } },
-        { "combos": "J3s, T5s, 95s, 85s, 74s, 64s, A2o, K5o, Q6o, J6o, T6o, 97o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T3s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, A3o+, K6o+, Q8o+, J8o+, T8o+", "weights": { "raise": 1.0 } },
+        { "combos": "T2s, 93s, 83s, 73s, 63s, 52s, A2o, K5o, Q7o, J7o, T7o, 98o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["BTN"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, A2o+, K3o+, Q5o+, J5o+, T6o+, 97o+, 87o", "weights": { "raise": 1.0 } },
-        { "combos": "T2s, 94s, 84s, 73s, 63s, K2o, Q4o, J4o, T5o, 96o, 86o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, A2o+, K3o+, Q5o+, J6o+, T7o+, 98o", "weights": { "raise": 1.0 } },
+        { "combos": "K2o, Q4o, J5o, T6o, 97o, 87o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["SB"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T5s+, 96s+, 86s+, 75s+, 65s, 54s, A3o+, K6o+, Q7o+, J7o+, T7o+", "weights": { "raise": 1.0 } },
-        { "combos": "J3s, T4s, 95s, 85s, 74s, 64s, A2o, K5o, Q6o, J6o, T6o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 74s+, 64s+, 54s, 43s, A3o+, K6o+, Q8o+, J8o+, T8o+", "weights": { "raise": 1.0 } },
+        { "combos": "J2s, T3s, 93s, 83s, 73s, 63s, A2o, K5o, Q7o, J7o, T7o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {

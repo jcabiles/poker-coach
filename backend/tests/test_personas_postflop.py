@@ -3212,10 +3212,22 @@ _GOLDEN_STATS_N200 = {
     # denominator shrinks as 4-bet pots it used to fold out of now reach
     # postflop as raised-in pots; population bands still gate it at stable n.
     # Exact tripwire re-record; population bands stay frozen to W4-b.
+    # RE-RECORDED for N-LAGCOMP2 (persona-realism-wave5, 2026-07-31 —
+    # wave-authorized, single-recorder landing): the lag CO/BTN/SB
+    # offsuit→suited swap (width-neutral) displaces the shared rng stream
+    # from the first changed lag open onward — only the lag and nit rows
+    # move at this n=200 seed (station/maniac/fish/tag byte-identical:
+    # their samples hit no changed cell). The lag n=200 AF move
+    # (2.6 → 2.2857) is REAL composition, not just displacement: at stable
+    # n=1200 with only this pack changed, lag AF reads 2.8121 → 2.5176
+    # (suited-heavier late opens reach more drawable postflop nodes,
+    # growing the call denominator), comfortably inside the HARD band
+    # (1.5, 4.5) — the band test still gates it at population n. Exact
+    # tripwire re-record; population bands stay frozen to W4-b.
     "calling_station": (0.3063973063973064, 0.2, 0.6829268292682927),
-    "lag": (2.6, 0.2894736842105263, 0.5074626865671642),
+    "lag": (2.2857142857142856, 0.37142857142857144, 0.5),
     "maniac": (4.822222222222222, 0.4166666666666667, 0.37383177570093457),
-    "nit": (0.8857142857142857, None, 0.4915254237288136),
+    "nit": (0.631578947368421, None, 0.6346153846153846),
     "passive_fish": (1.1355932203389831, 0.41304347826086957, 0.5207373271889401),
     "tag": (2.5, None, 0.6395348837209303),
 }
@@ -4690,7 +4702,17 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     slices; 0.4667 is the value origin/main actually measures on this seed.
     An intermediate N-LAGLADDER build passed HERE at 0.4366 while measuring
     0.4242 at n=12000, i.e. under the floor: a pass at this n is necessary, not
-    sufficient, and the opener-node re-tune was driven by the n=12000 read."""
+    sufficient, and the opener-node re-tune was driven by the n=12000 read.
+
+    N-LAGCOMP2 (2026-07-31) re-reads BOTH n's on the same seed. The figures
+    above stay as N-LAGLADDER-era history; the current pack measures:
+        N-LAGCOMP2               0.4823 @n=4000 (n_dec 481) · 0.4651 @n=12000
+    The late-seat suited/offsuit swap moves the blend UP — AWAY from the band
+    floor that forced N-LAGLADDER's opener re-tune (0.4452 -> 0.4651 at the
+    settling n) — so no compensating edit was needed and N-LAGCOMP2 leaves the
+    `vs_3bet` opener node untouched. The authored-COMPONENT sibling pin
+    (test_n3bstrata_opener_fold_to_3bet_targets) is likewise unmoved:
+    0.6166 -> 0.6170, well inside its ±0.02."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")

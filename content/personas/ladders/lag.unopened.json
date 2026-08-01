@@ -1,6 +1,6 @@
 {
   "id": "ladder_lag_unopened",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "domain": "persona_ladder",
   "_doc": [
     "N-LAGLADDER curve spec — RR-EMIT's first PRODUCTION authoring run (the nit",
@@ -38,6 +38,38 @@
     "width reduction therefore breaches §5, so the width was restored and the",
     "whole deliverable is the composition. This ladder re-measures at PFR 17.32",
     "+- 0.30, identical to pre-slice.",
+    "",
+    "N-LAGCOMP2 (2026-07-31, lag.json 1.4.0) — SECOND composition swap, LATE",
+    "SEATS ONLY (CO / BTN / SB). N-LAGLADDER above fixed the EARLY seats and",
+    "left the late ones nearly alone (CO offsuit moved -0.90, BTN -0.36), so",
+    "after N-TAGCOMP fixed the tag's shape the lag ended up opening a wider",
+    "TOTAL range than the tag while covering LESS of the suited universe from",
+    "exactly the seats where suited hands are worth the most:",
+    "    suited %, lag vs tag   CO 17.01 vs 19.00 · BTN 19.91 vs 22.47 ·",
+    "                          SB 17.01 vs 18.10",
+    "A wider range that is a SUBSET in suited is the same defect T-M2 and",
+    "N-TAGCOMP condemned; the lag's surplus was sitting in offsuit junk.",
+    "",
+    "The repair is again a swap, and here it is EXACTLY width-neutral — the",
+    "combo-weighted total at all three seats is unchanged to the last combo",
+    "(CO 704.4, BTN 874.8, SB 687.6 of 1326), because the lag's measured PFR",
+    "sits ON the §5 floor (see the paragraph above) and there is nothing to",
+    "spend. Per seat, suited -> offsuit, in percent of all 1326 combos:",
+    "    CO   suited 17.01 -> 20.63   offsuit 30.23 -> 26.61   total 53.12",
+    "    BTN  suited 19.91 -> 23.53   offsuit 40.18 -> 36.56   total 65.97",
+    "    SB   suited 17.01 -> 19.73   offsuit 28.96 -> 26.24   total 51.86",
+    "Pairs are untouched (13 at every one of these seats, 5.88%), as in",
+    "N-TAGCOMP: moving the pair band too would confound the measurement.",
+    "The suited side is now a SUPERSET of the tag's at all three seats — every",
+    "suited class the tag opens, the lag opens, at equal or greater weight",
+    "(BTN is the whole suited universe at weight 1.0, which is what a 66% open",
+    "means). The offsuit side stays ABOVE the tag's at every seat, so the",
+    "N-LAGLADDER preservation gate is untouched and still green.",
+    "The offsuit mass came off the WEAK-KICKER BOTTOM of the low rows (CO Qo",
+    "Q7o->Q8o core, Jo J7o->J8o, To T7o->T8o, 9o out of the core; BTN Jo",
+    "J5o->J6o, To T6o->T7o, 9o 97o->98o, 8o out of the core; SB the same three",
+    "rows as CO), never off the aces or kings, and the authoring rule below",
+    "still holds at each of the three seats.",
     "",
     "AUTHORING RULE used for the offsuit rows (not enforced by the emitter, and",
     "deliberately not gated — an authoring habit, not a law): the weakest kicker",
@@ -127,34 +159,35 @@
     "CO": {
       "raise_pct": 53.12,
       "depths": {
-        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 7, "Ts": 4, "9s": 3,
-        "8s": 2, "7s": 2, "6s": 1, "5s": 1, "4s": 1,
-        "Ao": 11, "Ko": 7, "Qo": 5, "Jo": 4, "To": 3, "9o": 1
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 7, "9s": 5,
+        "8s": 4, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
+        "Ao": 11, "Ko": 7, "Qo": 4, "Jo": 3, "To": 2, "9o": 0
       },
       "slopes": {
-        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "4s": [0]
+        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "4s": [0]
       }
     },
     "BTN": {
       "raise_pct": 65.97,
       "depths": {
-        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 7, "9s": 4,
-        "8s": 3, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
-        "Ao": 12, "Ko": 10, "Qo": 7, "Jo": 6, "To": 4, "9o": 2, "8o": 1
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 8, "9s": 7,
+        "8s": 6, "7s": 5, "6s": 4, "5s": 3, "4s": 2, "3s": 1,
+        "Ao": 12, "Ko": 10, "Qo": 7, "Jo": 5, "To": 3, "9o": 1, "8o": 0
       },
       "slopes": {
-        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "Js": [0], "5s": [0],
-        "4s": [0], "Ao": [0]
+        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "Js": [0], "Ao": [0]
       }
     },
     "SB": {
       "raise_pct": 51.86,
       "depths": {
-        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 7, "Ts": 5, "9s": 3,
-        "8s": 2, "7s": 2, "6s": 1, "5s": 1,
-        "Ao": 11, "Ko": 7, "Qo": 5, "Jo": 4, "To": 3
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 5,
+        "8s": 4, "7s": 3, "6s": 2, "5s": 1, "4s": 1,
+        "Ao": 11, "Ko": 7, "Qo": 4, "Jo": 3, "To": 2
       },
-      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0] }
+      "slopes": {
+        "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "4s": [0]
+      }
     },
     "BB": {
       "raise_pct": 45.04,

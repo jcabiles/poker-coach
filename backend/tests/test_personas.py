@@ -694,11 +694,32 @@ _LAG_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
 # UTG2 10.92->15.51, LJ 12.19->16.35, HJ 15.20->19.13, BB 14.72->18.34): this
 # is a SUBSTITUTION, so the suited FLOOR is asserted alongside the offsuit
 # ceiling — a future edit cannot satisfy the ceiling by deleting the range.
+#
+# N-LAGCOMP2 (2026-07-31, lag.json 1.4.0) EXTENDS BOTH DICTS TO CO/BTN/SB — the
+# three seats N-LAGLADDER left alone and the paragraph above explicitly declared
+# ungated. What made them gateable is that they became decisive: N-LAGLADDER's
+# "too thin to be meaningful" was a statement about a -0.90/-0.36 move, and this
+# slice moves them -3.62/-3.62/-2.72. The defect it repairs is the one N-TAGCOMP
+# exposed by fixing the tag: from CO/BTN/SB the lag opened a WIDER TOTAL range
+# than the tag while covering LESS of the suited universe (17.01 vs 19.00,
+# 19.91 vs 22.47, 17.01 vs 18.10) — the surplus was offsuit junk.
+#   pre-slice -> post   suited  CO 17.01->20.63 · BTN 19.91->23.53 · SB 17.01->19.73
+#                       offsuit CO 30.23->26.61 · BTN 40.18->36.56 · SB 28.96->26.24
+# Every one of those six pre-slice values is red against the constants below,
+# measured at commit e5e08b6 (`git show e5e08b6:content/personas/lag.json`).
+# The TOTAL is unchanged to the last combo at all three seats (CO 704.4, BTN
+# 874.8, SB 687.6 of 1326) and that neutrality is already pinned elsewhere, by
+# the `raise_pct` annotations in the curve spec — 53.12 / 65.97 / 51.86, byte-
+# identical across this slice and asserted by
+# test_rr_emit.py::test_lag_authored_raise_pct_annotations_match_emitted_widths.
+# So the ceiling here cannot be met by deleting range, twice over.
 _LAG_OFFSUIT_CEILING = {
     "UTG": 10.5, "UTG1": 10.5, "UTG2": 14.5, "LJ": 17.0, "HJ": 24.5, "BB": 22.5,
+    "CO": 27.5, "BTN": 37.5, "SB": 27.0,
 }
 _LAG_SUITED_FLOOR = {
     "UTG": 9.5, "UTG1": 11.5, "UTG2": 14.0, "LJ": 15.0, "HJ": 17.5, "BB": 17.0,
+    "CO": 20.0, "BTN": 23.0, "SB": 19.0,
 }
 
 # Fix 2 (theory MED): the first cut pushed lag offsuit width to at-or-below the
@@ -712,7 +733,13 @@ _LAG_SUITED_FLOOR = {
 # the shape this gate was apologising for, and every seat's slack GREW. The
 # gate itself is unchanged: values, seats and logic are exactly as N-LAGLADDER
 # shipped them.
-_LAG_OFFSUIT_GE_TAG_SEATS = ("LJ", "HJ", "CO", "BTN")
+# SB ADDED by N-LAGCOMP2's review (2026-07-31). The relation holds at all NINE
+# seats in the shipped pack — but the GATE covers only the tuple below, so what
+# is defended is these FIVE seats, not the pack-wide property. SB joins because
+# N-LAGCOMP2 is the first slice to move SB offsuit materially (28.96 -> 26.24,
+# against tag 22.62): the seat that was "gated by NEITHER mechanism" in the
+# note above is now gated by both.
+_LAG_OFFSUIT_GE_TAG_SEATS = ("LJ", "HJ", "CO", "BTN", "SB")
 
 
 def _authored_first_in_by_kind(pack: PersonaPack) -> dict[str, dict[str, float]]:
@@ -749,11 +776,51 @@ def _authored_first_in_by_kind(pack: PersonaPack) -> dict[str, dict[str, float]]
     return out
 
 
+def _authored_first_in_suited_weights(pack: PersonaPack) -> dict[str, dict[str, float]]:
+    """Per seat, `suited class -> authored first-in raise weight`, zero-weight
+    classes dropped. Same sampler semantics as `_authored_first_in_by_kind`
+    (first matching node, first matching mix) — this is the class-resolved form
+    of that function's `suited` bucket, so the two can never disagree."""
+    from app.domain.personas import _combos
+
+    out: dict[str, dict[str, float]] = {}
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
+        weights: dict[str, float] = {}
+        for cls in _CLASS_COMBOS:
+            if node is None:
+                break
+            if len(cls) == 2 or cls[2] != "s":
+                continue
+            for mix in node.mixes:
+                if cls in _combos(mix.combos):
+                    w = mix.weights.get("raise", 0.0)
+                    if w > 0.0:
+                        weights[cls] = w
+                    break
+        out[pos.value] = weights
+    return out
+
+
 def test_lagladder_dominated_offsuit_opens_replaced_by_suited():
     """🔴 N-LAGLADDER defect gate — the finding's named mechanism. Failed at
     pre-fix HEAD on BOTH legs at all six gated seats (offsuit 12.49 / 13.39 /
     17.38 / 19.55 / 26.61 / 24.80 all above ceiling; suited 7.90 / 9.11 /
     10.92 / 12.19 / 15.20 / 14.72 all below floor).
+
+    🔴 N-LAGCOMP2 re-arms the same two legs at CO/BTN/SB, and both were red at
+    that slice's base commit too: offsuit 30.23 / 40.18 / 28.96 above the 27.5 /
+    37.5 / 27.0 ceilings, suited 17.01 / 19.91 / 17.01 below the 20.0 / 23.0 /
+    19.0 floors. (Measured read-only off
+    `git show e5e08b6:content/personas/lag.json`.)
 
     Both legs are asserted together on purpose: the ceiling alone could be
     satisfied by deleting range (which the §5 PFR floor forbids — see the
@@ -782,6 +849,12 @@ def test_lag_offsuit_width_at_least_tag_preservation():
     claim: the loose persona must not open a NARROWER offsuit range than the
     TAG at the seats where offsuit steals are the archetype's business.
 
+    ⚠️ SCOPE — this defends the FIVE seats in `_LAG_OFFSUIT_GE_TAG_SEATS`, not
+    the pack. The relation happens to hold at all nine, but four seats are
+    ungated and a regression there would pass here. (N-LAGCOMP2's review added
+    SB, taking the tuple from four seats to five; green post-slice at 26.24 vs
+    tag 22.62.)
+
     See `_LAG_OFFSUIT_GE_TAG_SEATS` for the standing caveat that the tag's own
     offsuit-heavy composition is itself suspect and filed forward."""
     packs = load_persona_packs()
@@ -795,6 +868,79 @@ def test_lag_offsuit_width_at_least_tag_preservation():
         if lag[pos]["offsuit"] < tag[pos]["offsuit"]
     }
     assert not bad, f"lag opens tighter offsuit than TAG (lag, tag): {bad}"
+
+
+# N-LAGCOMP2 — the superset claim, read from BOTH packs at test time.
+_LAGCOMP2_SEATS = ("CO", "BTN", "SB")
+
+
+def test_lagcomp2_late_seat_suited_covers_the_tag():
+    """🔴 N-LAGCOMP2 defect gate. Failed at pre-fix HEAD at all three seats:
+    lag suited 17.01 / 19.91 / 17.01 against tag 19.00 / 22.47 / 18.10 — the
+    LOOSER persona covering LESS of the suited universe than the tighter one
+    from the seats where suited hands are worth the most, while opening a wider
+    TOTAL range (53.12 vs 48.42, 65.97 vs 58.22, 51.86 vs 46.61). A wider range
+    that is a subset in suited is the shape defect T-M2 and N-TAGCOMP already
+    condemned; here the lag's surplus was sitting in offsuit junk.
+
+    ⚠️ THE TAG SIDE IS COMPUTED, NEVER HARD-CODED, and that is the point. The
+    sibling lane N-TAGWIDTH is trimming the tag's late-seat width, which will
+    LOWER these tag figures; a pinned number would either go stale or, worse,
+    turn a legitimate tag trim into a red test in the lag's file. Reading both
+    packs makes the gate the RELATION, which is what the finding is about.
+
+    TWO LEGS, and the second is the one with teeth (review fold, Codex MED —
+    convergent). Aggregate suited weight alone is satisfiable while DROPPING a
+    class the tag opens, as long as some other suited class is deepened to pay
+    for it; that mutation is exactly the "wider but shaped wrong" failure this
+    slice exists to stop. So the class-by-class leg is asserted too: every
+    suited class the tag opens, the lag opens, at >= the tag's weight. Both
+    legs read both packs at test time. Post-slice: 66 / 78 / 63 tag suited
+    classes at CO / BTN / SB, zero missing, zero lighter.
+    At e5e08b6 (pre-slice HEAD) BOTH legs were red — aggregate as quoted above,
+    and the superset leg short of 12 / 14 / 9 tag-covered classes at CO / BTN /
+    SB: 6 / 9 / 3 the lag did not open AT ALL (CO 53s 84s 94s J2s T3s T4s; BTN
+    the whole 32s 42s 52s 62s 72s 82s 83s 92s 93s bottom; SB 43s 84s 94s) and
+    6 / 5 / 6 more it opened at the 0.4 edge weight against tag weights of
+    1.0 (14 of the 17) or 0.5 (the other 3)
+    (measured off `git show e5e08b6:content/personas/{lag,tag}.json`).
+
+    The set leg's one failure mode is a tag edit that ADDS a suited class the
+    lag does not open — a tag decision, not a lag defect. That is accepted: it
+    is a loud, correct signal that the two packs disagree about shape, and the
+    aggregate leg beside it degrades gracefully under the trim N-TAGWIDTH is
+    actually doing (a trim can only make both legs easier).
+
+    This gate does NOT forbid the lag being offsuit-wider than the tag; that is
+    the archetype (see `test_lag_offsuit_width_at_least_tag_preservation`, which
+    stays green — post-slice offsuit 26.61 / 36.56 / 26.24 vs tag 23.53 / 29.86
+    / 22.62). The two gates together say: strictly wider on BOTH axes."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    lag = _authored_first_in_by_kind(packs[VillainType.LAG])
+    tag = _authored_first_in_by_kind(packs[VillainType.TAG])
+    bad = {
+        pos: (round(lag[pos]["suited"], 2), round(tag[pos]["suited"], 2))
+        for pos in _LAGCOMP2_SEATS
+        if lag[pos]["suited"] < tag[pos]["suited"]
+    }
+    assert not bad, f"lag opens a NARROWER suited range than TAG (lag, tag): {bad}"
+
+    lag_cls = _authored_first_in_suited_weights(packs[VillainType.LAG])
+    tag_cls = _authored_first_in_suited_weights(packs[VillainType.TAG])
+    short = {
+        pos: sorted(
+            (cls, round(lag_cls[pos].get(cls, 0.0), 2), round(w, 2))
+            for cls, w in tag_cls[pos].items()
+            if lag_cls[pos].get(cls, 0.0) < w
+        )
+        for pos in _LAGCOMP2_SEATS
+    }
+    short = {pos: v for pos, v in short.items() if v}
+    assert not short, (
+        f"lag suited range is not a superset of TAG's (class, lag w, tag w): {short}"
+    )
 
 
 def test_lag_first_in_ladder_above_tag_preservation():

@@ -230,6 +230,17 @@ persona-realism-start snapshot (349/1233 = 28.3%): 317/1269 = 25.0%, −3.3pp �
 inside the adjudicated mapper-track dip (T-cover owns the ratio), a small
 recovery from wave 3's −3.8pp, reported not silent. Graded ratchet 322 → 317
 disclosed. Seeded-fixture re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for N-LAGCOMP2 (persona-realism-wave5, 2026-07-31 —
+wave-authorized, single-recorder landing): the lag CO/BTN/SB offsuit→suited
+swap at exactly constant width (suited now a class-superset of the tag's at
+those seats). PURE preflop content; the stream displaces:
+1269/317 → 1275/338 (25.0% → 26.5%). CUMULATIVE vs the immutable
+persona-realism-start snapshot (349/1233 = 28.3%): 338/1275 = 26.5%, −1.8pp —
+the strongest recovery since the wave-3 −3.8pp low (graded RATCHET moves UP
+317 → 338). Same adjudicated mapper-track class (T-cover owns the ratio),
+reported not silent. Seeded-fixture re-record; population bands stay frozen
+to W4-b.
 """
 
 from __future__ import annotations
