@@ -4690,7 +4690,17 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     slices; 0.4667 is the value origin/main actually measures on this seed.
     An intermediate N-LAGLADDER build passed HERE at 0.4366 while measuring
     0.4242 at n=12000, i.e. under the floor: a pass at this n is necessary, not
-    sufficient, and the opener-node re-tune was driven by the n=12000 read."""
+    sufficient, and the opener-node re-tune was driven by the n=12000 read.
+
+    N-LAGCOMP2 (2026-07-31) re-reads BOTH n's on the same seed. The figures
+    above stay as N-LAGLADDER-era history; the current pack measures:
+        N-LAGCOMP2               0.4823 @n=4000 (n_dec 481) · 0.4651 @n=12000
+    The late-seat suited/offsuit swap moves the blend UP — AWAY from the band
+    floor that forced N-LAGLADDER's opener re-tune (0.4452 -> 0.4651 at the
+    settling n) — so no compensating edit was needed and N-LAGCOMP2 leaves the
+    `vs_3bet` opener node untouched. The authored-COMPONENT sibling pin
+    (test_n3bstrata_opener_fold_to_3bet_targets) is likewise unmoved:
+    0.6166 -> 0.6170, well inside its ±0.02."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
