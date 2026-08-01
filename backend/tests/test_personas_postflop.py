@@ -6001,6 +6001,22 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
     stated once in content/personas/ladders/tag.unopened.json's `_doc`; the
     lag row's instrument caveat (3×persona+filler lineup, one-sidedly LOW vs
     §5) applies verbatim.
+
+    N-TAGWIDTH (2026-07-31) re-measured on its own 10-seed set (20260710 +
+    1000i): the trim reads VPIP 16.05 -> 15.34 and PFR 12.67 -> 12.04, the
+    latter at a stable-n escalation of n=4000 x 10 (sd 0.21, se 0.066).
+    ⚠️ Read that PFR honestly rather than as a pass: its 95% CI is
+    [11.91, 12.17], which STRADDLES the §5 low edge of 12, and 4 of the 10
+    seeds read below it (min 11.750). The point estimate sits 0.04pp above a
+    DIRECTIONAL band edge, measured on this 3x-persona lineup rather than the
+    §5 reference pool, and nothing in the suite reds on it — §5 forbids gating
+    a population number before the W4-b re-anchor, which is exactly why this
+    row prints instead of asserting. Flagged for that re-anchor's watch list.
+    The slice spends essentially all of the tag's remaining PFR headroom; the
+    early-seat trim it could NOT afford is an escalated contract question (see
+    the spec `_doc`). The two sweeps' pre-slice readings differ (12.67 vs
+    12.80) because the seed sets differ; each sweep is internally comparable,
+    which is all the instrument claims.
     """
     packs = load_persona_packs()
     if not packs:
@@ -6009,6 +6025,7 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
     print(
         f"tag VPIP {s.vpip:.3f} (§5 0.15-0.20) PFR {s.pfr:.3f} (§5 0.12-0.17) "
         f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
-        f"10-seed n=2000 means: pre-slice 16.07/12.80/3.27, shipped 16.46/12.95/3.51"
+        f"10-seed means: N-TAGCOMP 16.46/12.95/3.51 (n=2000), "
+        f"N-TAGWIDTH 15.34/12.04/3.30 (n=4000, PFR 95% CI [11.91, 12.17])"
     )
     assert s.vpip is not None and s.pfr is not None

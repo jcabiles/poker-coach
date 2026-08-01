@@ -203,18 +203,21 @@ def test_four_bet_line_strict_subset_and_hand_computed_posterior(packs):
     # calling 0.2 in the bottom continue tier). The intersection is decided by
     # the UTG OPEN, and that is what moved next:
     #
-    # RE-PINNED for N-TAGCOMP (2026-07-31, slice-authorized): **A4s is now
-    # reachable and IS in the posterior.** This comment previously said the
-    # opposite — correctly, at the time: the pre-N-TAGCOMP UTG open was
-    # `A6s+` (+ A5s at 0.5), so A4s had zero open weight and could not survive
-    # to a 4-bet no matter what vs_3bet authored. N-TAGCOMP's constant-width
-    # offsuit->suited swap widened the UTG suited-ace row to the full `A2s+`
-    # at weight 1.0 (the offsuit row paid for it: A9o+ -> AJo+), so A4s now
-    # opens, gets 3-bet, and enters the 4-bet mix through the wheel-ace bluff
-    # tier exactly as A5s always did. Nothing in vs_3bet changed — that node
-    # is byte-identical across N-TAGCOMP.
-    # The pin is updated to the new range — never carved to preserve the pin.
-    assert four_set == {"AA", "KK", "QQ", "AKs", "AKo", "A5s", "A4s"}
+    # RE-PINNED TWICE, both times because the UTG OPEN moved and never because
+    # the range was carved to fit the pin (repo law: update the pin).
+    #  · N-TAGCOMP (2026-07-31) widened the UTG suited-ace row to the full
+    #    `A2s+` at weight 1.0, which made A5s AND A4s reachable: they open, get
+    #    3-bet, and enter the 4-bet mix through the wheel-ace bluff tier.
+    #  · N-TAGWIDTH (2026-07-31) takes them back OUT. Its UTG recomposition
+    #    retires the suited tail to pay for the restored ATo/KQo, and because
+    #    the emitter's rows are top-anchored prefixes, retiring A8s-A6s
+    #    necessarily retires A5s-A2s with them — the UTG open is now `A8s+`
+    #    (A7s at 0.5). With zero open weight, the wheel aces cannot survive to
+    #    a 4-bet no matter what vs_3bet authors, exactly as before N-TAGCOMP.
+    # `vs_3bet` is byte-identical across both slices: its 4-bet mass is still
+    # {AA,KK @1.0} ∪ {QQ,AKs @0.5} ∪ {AKo @0.35} ∪ {A5s,A4s @0.35}; only the
+    # intersection with the open moved.
+    assert four_set == {"AA", "KK", "QQ", "AKs", "AKo"}
     # Hand-computed posterior ratios: AA = 6 combos × (1.0 × 1.0);
     # AKo = 12 combos × (1.0 × 0.35) → AA/AKo = 6/4.2 = 10/7;
     # QQ = 6 combos × (1.0 × 0.5) → AA/QQ = 6/3 = 2.

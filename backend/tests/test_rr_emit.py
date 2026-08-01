@@ -440,6 +440,14 @@ def test_lag_authored_raise_pct_annotations_match_emitted_widths(lag_emitted):
 # tag slice moves it because a TAG that plays 51% of the offsuit universe and
 # only 70% of the suited one from the BTN is not shaped like a TAG at all
 # (theory T-M2). Both are constant-width swaps and both are proved the same way.
+#
+# N-TAGWIDTH (2026-07-31) is the second edit through this spec and the first
+# that changes WIDTH. Five seats move: HJ / CO / BTN / SB lose offsuit depth AND
+# retire their junk suited tail (an owner-adjudicated partial walk-back of the
+# suited push above), and UTG is recomposed at ~constant width — suited tail out,
+# ATo+/KQo back in. Nothing about the gates below changes — the spec and the
+# pack still have to agree — but the corpus-size pin moves with the retired
+# classes (see its note).
 
 TAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "tag.unopened.json"
 TAG_PACK_PATH = CONTENT.parent / json.loads(
@@ -511,7 +519,19 @@ def test_tag_proving_gate_corpus_is_non_trivial(tag_emitted, tag_shipped):
         }
 
     played = union(tag_shipped)
-    assert len(played) == 126, "shipped tag unopened corpus changed size"
+    # 126 -> 97 (N-TAGWIDTH): the trim retires exactly 29 classes from the
+    # tag's whole unopened corpus and adds none —
+    #   junk suited (21): 32s 42s 52s 62s 63s 72s 73s 74s 82s 83s 84s 92s 93s
+    #                     94s J2s J3s J4s Q2s T2s T3s T4s
+    #   offsuit kickers (8): 87o J7o K4o K5o K6o K7o Q6o Q7o
+    # The "adds none" half is load-bearing beyond bookkeeping, and it holds
+    # PER SEAT, not just in the union: at every one of the nine seats the
+    # shipped class set is a SUBSET of the pre-slice one (verified — UTG
+    # retires 12, HJ 14, CO 32, BTN 29, SB 20, the other four retire nothing,
+    # and no seat adds a class). The lag lane's suited class-superset gate
+    # (lag ⊇ tag, per seat, at CO/BTN/SB) can only be broken by the TAG gaining
+    # a suited class, so a retirement-only edit cannot break it.
+    assert len(played) == 97, "shipped tag unopened corpus changed size"
     assert union(tag_emitted) == played
     assert sum(len(n["mixes"]) for n in tag_emitted) == 18  # 9 seats x 2 tiers
 
