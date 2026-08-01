@@ -4995,17 +4995,30 @@ def test_n3bstrata_only_maniac_and_lag_are_stratified():
 # figure. The dossier band is therefore gated HERE, on the production-signal
 # blend measured over seeded organic play; the unopened-weighted figure stays
 # as an authored-COMPONENT shape pin only.
-_OPENER_BLEND_CACHE: dict[tuple[str, int], tuple[int, int]] = {}
+_OPENER_BLEND_CACHE: dict[
+    tuple[str, int, tuple[int, ...]], tuple[int, int, dict[int, tuple[int, int]]]
+] = {}
 
 
-def _production_opener_fold_counts(packs, persona: str, n: int) -> tuple[int, int]:
+def _production_opener_fold_counts(
+    packs, persona: str, n: int, checkpoints: tuple[int, ...] = ()
+) -> tuple[int, int, dict[int, tuple[int, int]]]:
     """(folds, decisions) for `persona` seats at vs_3bet in the OPENER stratum,
     where opener = the seat of the hand's FIRST preflop raise (the exact
     production signal `play._preflop_opener` derives), over the same seeded
-    lineup as `_persona_stats_ext`."""
-    key = (persona, n)
+    lineup as `_persona_stats_ext`.
+
+    ESTIM-3C: also returns {k: (folds, decisions)} after the first `k` hands for
+    each k in `checkpoints`. These readings are FREE and EXACT: the loop draws
+    every hand seed from one `random.Random(20260710)` stream and nothing in it
+    depends on `n`, so the first k iterations of an n-hand run ARE the k-hand
+    run. That is what lets the gate assert at a settling n while still printing
+    the historical n=4000 line (verified: the k=4000 checkpoint of the n=12000
+    pass reproduces the standalone n=4000 read exactly)."""
+    key = (persona, n, checkpoints)
     if key in _OPENER_BLEND_CACHE:
         return _OPENER_BLEND_CACHE[key]
+    at: dict[int, tuple[int, int]] = {}
     rng = random.Random(20260710)
     fillers = [p for p in ALL_PERSONAS if p != persona]
     lineup = ([persona] * 3 + [fillers[i % len(fillers)] for i in range(6)])[:9]
@@ -5013,6 +5026,8 @@ def _production_opener_fold_counts(packs, persona: str, n: int) -> tuple[int, in
     tested_seats = {i for i, p in persona_by_seat.items() if p == persona}
     folds = decisions = 0
     for i in range(n):
+        if i in checkpoints:
+            at[i] = (folds, decisions)
         hand_seed = rng.randrange(1_000_000_000)
         res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
         opener_seat = next(
@@ -5029,8 +5044,8 @@ def _production_opener_fold_counts(packs, persona: str, n: int) -> tuple[int, in
             decisions += 1
             if action == "fold":
                 folds += 1
-    _OPENER_BLEND_CACHE[key] = (folds, decisions)
-    return folds, decisions
+    _OPENER_BLEND_CACHE[key] = (folds, decisions, at)
+    return folds, decisions, at
 
 
 def test_n3bstrata_production_opener_blend_in_dossier_band():
@@ -5041,10 +5056,53 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     dossier band [0.43, 0.53] ("above 60% makes light 3-betting
     insufficiently defended"; pre-N-3BSTRATA measured 0.72-0.83).
 
-    ⚠️ THIS GATE'S n IS NOT ENOUGH TO SETTLE THE VALUE (N-LAGLADDER, review fold
-    6). It reads ~460-490 lag opener decisions at n=4000, whose Wilson half-
-    width is ±0.045 — wider than the distance from the band floor. Both figures
-    below are therefore quoted at n=12000 (≈1470 decisions) as well:
+    ESTIM-3C (2026-08-01) — THE GATE NOW ASSERTS AT n=12000. It previously
+    asserted at n=4000 and only QUOTED the n=12000 readings in this docstring,
+    which is the dr-L3 defect: an intermediate N-LAGLADDER build passed here at
+    0.4366 while truly measuring 0.4242 at n=12000, i.e. under the band floor.
+
+    The power math. At n=4000 the lag opener stratum yields ~470-490 decisions;
+    at p≈0.48 the Wilson 95% half-width is ±0.045, while the distance from the
+    measured rate to the 0.43 band floor is only ~0.05 — the gate cannot
+    distinguish "inside the band" from "under it". At n=12000 the stratum yields
+    1506 decisions and the half-width falls to ±0.025, inside the 0.054 margin
+    between the measured rate and the floor.
+
+    ⚠️ HONEST REPORT (theory review, ESTIM-3C): this re-power settles LAG ONLY.
+    maniac reads 0.2616 with CI [0.245, 0.278] — that CI STRADDLES its 0.25 band
+    floor, because its half-width (0.0166) is LARGER than the 0.0116 by which the
+    rate clears the floor. maniac therefore still carries the dr-L3 defect at
+    n=12000: a pass here is necessary, not sufficient, for it. The fixed 0.03
+    constant in the half-width self-check below is LAG-DERIVED and is not a valid
+    power test for maniac — maniac's stratum is the bigger one (2703 decisions)
+    but its band margin is far tighter, so the meaningful form is
+    margin-RELATIVE (half-width < the distance to the nearer band edge). Making
+    the check margin-relative and finding the n that settles maniac are FILED
+    follow-ups, deliberately not done in this slice: tightening the check would
+    fail the gate on a maniac figure this slice has no remit to re-fit.
+    Measured at this slice, same seed (PRE-repair harness — see next line):
+        maniac  0.2616 @n=12000 (n_dec 2703) · 0.2686 @n=4000 (n_dec 860)
+        lag     0.4841 @n=12000 (n_dec 1506) · 0.4883 @n=4000 (n_dec 469)
+    WAVE-6 MERGED-STATE UPDATE (lane-A R-L2 harness repair, orchestrator at
+    landing): with production raise sizing in the harness the same seed reads
+        maniac  0.3054 @n=12000 (n_dec 2626, CI [0.288, 0.323])
+        lag     0.4934 @n=12000 (n_dec 1443, CI [0.468, 0.519])
+    — maniac's CI now sits FULLY INSIDE [0.25, 0.35]: the straddle above was
+    partly the broken min-raise ruler. The margin-relative-check follow-up
+    stays FILED (the structural point stands even when this reading clears).
+    Runtime cost of the re-power: 19.5s -> 71-120s for this test (3x the hands;
+    measured twice, the spread is machine load from concurrent work — the
+    figures above are deterministic on the seed). The n=4000 line
+    is still PRINTED — it is free, being the 4000-hand checkpoint of the same
+    seeded pass (see `_production_opener_fold_counts`) — but nothing asserts on
+    it. The half-width itself is now asserted (< 0.03), so a future pack change
+    that thins the LAG stratum fails LOUDLY instead of silently under-powering.
+
+    ⚠️ HISTORY: THIS GATE'S OLD n WAS NOT ENOUGH TO SETTLE THE VALUE
+    (N-LAGLADDER, review fold 6). It reads ~460-490 lag opener decisions at
+    n=4000, whose Wilson half-width is ±0.045 — wider than the distance from the
+    band floor. Both figures below are therefore quoted at n=12000 (≈1470
+    decisions) as well:
         pre-slice (origin/main)  0.4667 @n=4000 (n_dec 480) · 0.4534 @n=12000
         shipped                  0.4622 @n=4000 (n_dec 489) · 0.4452 @n=12000
     The earlier in-tree figure "0.4735" was stale — it predates intervening
@@ -5066,14 +5124,23 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     if not packs:
         pytest.skip("no persona packs")
     for persona, lo, hi in (("maniac", 0.25, 0.35), ("lag", 0.43, 0.53)):
-        folds, n = _production_opener_fold_counts(packs, persona, 4000)
+        folds, n, at = _production_opener_fold_counts(packs, persona, 12000, (4000,))
         rate = folds / n
         wlo, whi = _wilson95(folds, n)
+        f4, n4 = at[4000]
         print(
             f"{persona} production opener fold-to-3bet {rate:.4f} "
-            f"(n={n}, CI [{wlo:.3f},{whi:.3f}])"
+            f"(n={n}, CI [{wlo:.3f},{whi:.3f}]) · report-only @4000 hands: "
+            f"{f4 / n4:.4f} (n={n4})"
         )
         assert n >= 200, f"{persona}: opener sample n={n} too small to gate"
+        # The dr-L3 lesson, asserted rather than trusted. NOTE the constant is
+        # lag-derived: it is a floor on precision, NOT the margin-relative test
+        # maniac needs (see the docstring's HONEST REPORT).
+        assert (whi - wlo) / 2 < 0.03, (
+            f"{persona}: Wilson half-width {(whi - wlo) / 2:.4f} at n_dec={n} is too wide "
+            f"to settle a [{lo},{hi}] band — raise the hand count"
+        )
         assert lo <= rate <= hi, (
             f"{persona} production opener fold-to-3bet {rate:.4f} (n={n}) outside [{lo},{hi}]"
         )

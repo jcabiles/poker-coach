@@ -15,7 +15,14 @@ from app.domain.action import Decision
 from app.domain.archetypes import VillainType
 from app.domain.content.notation import parse_range
 from app.domain.personas import load_persona_packs
-from app.domain.personas_postflop import sample_postflop_decision
+from app.domain.personas_postflop import (
+    StrengthBucket,
+    _price_exponent,
+    _price_factor,
+    sample_postflop_decision,
+    size_bucket,
+    strength_bucket,
+)
 from app.domain.spot import (
     RANKS,
     SUITS,
@@ -40,6 +47,7 @@ from app.domain.table.range_estimate import (
     _replay_contexts,
     estimate_range,
 )
+from app.domain.table.sizing import pot_before_current_aggression
 
 _DECK = [r + s for r in RANKS for s in SUITS]
 _STACKS = (100.0,) * 9
@@ -280,7 +288,16 @@ def test_no_peek_identical_weights_across_villain_cards(packs):
 
 def _true_ctx(state: HandState, seat: int):
     """Ground-truth decision context, read the way play.bot_decision reads it."""
-    kinds = frozenset(la.action for la in legal_actions(state))
+    legal = legal_actions(state)
+    kinds = frozenset(la.action for la in legal)
+    # ESTIM-PRICE ground truth: the two faced-price inputs, taken from the same
+    # two production sources play.bot_decision takes them from.
+    to_call = next(
+        (la.min_bb or 0.0 for la in legal if la.action is ActionType.CALL), 0.0
+    )
+    contribution = pot_before_current_aggression(
+        state.action_history, state.street
+    ).latest_aggressor_contribution_bb
     facing = _preflop_facing(state) if state.street is Street.PREFLOP else None
     # N-3BSTRATA parity: the live opener flag, read exactly as play.bot_decision
     # reads it — computed on EVERY street (the postflop sampler ignores it).
@@ -300,11 +317,13 @@ def _true_ctx(state: HandState, seat: int):
         ),
         state.current_bet_bb,
         opener,
+        to_call,
+        contribution,
     )
 
 
 def _assert_ctx_equal(ctx, truth, observed):
-    street, board, position, facing, kinds, pot, stack, opp, cur, opener = truth
+    street, board, position, facing, kinds, pot, stack, opp, cur, opener, to_call, contrib = truth
     assert ctx.street is street
     assert ctx.board == board
     assert ctx.position is position
@@ -315,13 +334,19 @@ def _assert_ctx_equal(ctx, truth, observed):
     assert ctx.opponents == opp
     assert ctx.current_bet_to == pytest.approx(cur, abs=1e-9)
     assert ctx.is_opener == opener
+    assert ctx.to_call_bb == pytest.approx(to_call, abs=1e-9)
+    assert ctx.aggressor_contribution_bb == pytest.approx(contrib, abs=1e-9)
     assert ctx.observed is observed
 
 
 def test_replay_matches_real_handstate_contexts(packs):
     """Full persona playouts: every seat's replayed contexts equal the real
-    HandState contexts at each decision (facing, kinds, pot, stack, SPR inputs)."""
+    HandState contexts at each decision (facing, kinds, pot, stack, SPR inputs,
+    and — ESTIM-PRICE — the faced price's numerator `to_call_bb` and denominator
+    input `aggressor_contribution_bb`, against `engine.legal_actions` and
+    `sizing.pot_before_current_aggression` respectively)."""
     rng = random.Random(20260712)
+    priced_postflop = 0  # non-vacuity: the price fields must not be all-zero
     for trial in range(6):
         personas = assign_lineup(rng)
         seat_packs = {s: packs[personas.get(s, VillainType.TAG)] for s in range(9)}
@@ -343,6 +368,13 @@ def test_replay_matches_real_handstate_contexts(packs):
             assert len(ctxs) == len(truth[seat])
             for ctx, (snapshot, observed) in zip(ctxs, truth[seat], strict=True):
                 _assert_ctx_equal(ctx, snapshot, observed)
+                if ctx.street is not Street.PREFLOP and ctx.to_call_bb > 0.0:
+                    assert ctx.aggressor_contribution_bb > 0.0  # someone bet those chips
+                    priced_postflop += 1
+    assert priced_postflop >= 5, (
+        f"only {priced_postflop} postflop facing-chips contexts in these playouts — "
+        f"the ESTIM-PRICE assertions would be near-vacuous (measured 14)"
+    )
 
 
 def test_multiway_limp_raise_facing_reconstruction():
@@ -447,6 +479,18 @@ def test_through_action_prefix(packs):
 # --------------------------------------- river parity (P2a, R1 truthfulness)
 
 
+def _live_legal(ctx) -> list[LegalAction]:
+    """The legal bracket the LIVE engine presents at this node, rebuilt test-side
+    (deliberately NOT `range_estimate._legal_from_ctx`, so the parity assertions
+    below stay independent of the module under test). ESTIM-PRICE: CALL carries
+    the faced price; BET/RAISE min/max stay None because the sampler reads them
+    only in the sizing draw, which a capture rng never reaches."""
+    return [
+        LegalAction(action=k, min_bb=ctx.to_call_bb if k is ActionType.CALL else None)
+        for k in sorted(ctx.kinds)
+    ]
+
+
 class _CaptureFirstChoices:
     """Duck-typed rng recording the sampler's first choices() distribution
     (the action draw) — same idiom as range_estimate._CaptureRng."""
@@ -486,7 +530,7 @@ def test_estimator_river_dist_equals_live_polarized_policy(packs):
     # and no-draw air (call floored) on the Kh7d2c9s3h board.
     for hole in (("9c", "4d"), ("6h", "4c")):
         estimator = _postflop_action_dist(tag, hole, ctx)
-        legal = [LegalAction(action=k) for k in sorted(ctx.kinds)]
+        legal = _live_legal(ctx)
         live = _CaptureFirstChoices()
         sample_postflop_decision(
             tag,
@@ -499,6 +543,7 @@ def test_estimator_river_dist_equals_live_polarized_policy(packs):
             live,  # type: ignore[arg-type] — duck-typed capture rng
             current_bet_to=ctx.current_bet_to,
             street=Street.RIVER,
+            latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         )
         assert estimator == live.dist, hole
         streetless = _CaptureFirstChoices()
@@ -512,6 +557,7 @@ def test_estimator_river_dist_equals_live_polarized_policy(packs):
             ctx.opponents,
             streetless,  # type: ignore[arg-type]
             current_bet_to=ctx.current_bet_to,
+            latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         )
         assert estimator != streetless.dist, hole  # polarization visible in the reveal
 
@@ -556,12 +602,13 @@ def test_estimator_facing_raise_parity_with_live_sampler(packs):
     # middle pair (#9) on Kh7d2c.
     for hole in (("Ah", "5c"), ("7s", "5s")):
         estimator = _postflop_action_dist(tag, hole, ctx)
-        legal = [LegalAction(action=k) for k in sorted(ctx.kinds)]
+        legal = _live_legal(ctx)
         live = _CaptureFirstChoices()
         sample_postflop_decision(
             tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
             live,  # type: ignore[arg-type] — duck-typed capture rng
             current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=True,
+            latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         )
         assert estimator == live.dist, hole
         blind = _CaptureFirstChoices()
@@ -569,8 +616,180 @@ def test_estimator_facing_raise_parity_with_live_sampler(packs):
             tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
             blind,  # type: ignore[arg-type]
             current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=False,
+            latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         )
         assert estimator != blind.dist, hole  # the damp is visible in the reveal
+
+
+def _flop_call_ctx(pot_frac: float):
+    """Seat 3 opens, seat 2 calls (flop pot 6.5), seat 2 checks, seat 3 bets
+    `pot_frac` × pot, seat 2 CALLS. Returns (history, seat-2's flop context)."""
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c", "9s", "3h"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _CALL)]
+    moves += [(2, _CHECK), (3, _bet(round(6.5 * pot_frac, 2))), (2, _CALL)]
+    state = _script(state, moves)
+    hist = _project(state)
+    return hist, _replay_contexts(hist, seat=2, n=len(hist.actions))[-1]
+
+
+def test_estimator_prices_the_faced_bet(packs):
+    """🔴 ESTIM-PRICE (the deferred W1-era Codex finding): the estimator used to
+    build CALL with `min_bb=None`, so `sample_postflop_decision`'s faced-price
+    numerator was 0 and EVERY faced bet — half-pot or 3×-pot jam — produced the
+    identical response distribution (measured at pre-fix HEAD: fold 0.4665 for
+    air and 0.0977 for middle pair at all three of f = 0.5 / 1.5 / 3.0).
+
+    Pins three things: the reconstructed price arithmetic against theory contract
+    §3/§7 (f = to_call / pot-before-the-aggression), exact parity with the live
+    sampler at each price, and strict monotonicity of the fold response."""
+    tag = packs[VillainType.TAG]
+    dists = {}
+    for f in (0.5, 1.5, 3.0):
+        hist, ctx = _flop_call_ctx(f)
+        bet = round(6.5 * f, 2)
+        # Contract §7 denominator unification: the pot the bet was made INTO is
+        # the live pot minus the aggressor's own increment.
+        assert ctx.to_call_bb == pytest.approx(bet)
+        assert ctx.aggressor_contribution_bb == pytest.approx(bet)
+        assert ctx.pot_bb == pytest.approx(6.5 + bet)
+        faced_frac = ctx.to_call_bb / (ctx.pot_bb - ctx.aggressor_contribution_bb)
+        assert faced_frac == pytest.approx(f), "reconstructed price != the bet's pot-fraction"
+
+        for hole in (("7s", "5s"), ("6h", "4c")):  # middle pair / air
+            estimator = _postflop_action_dist(tag, hole, ctx)
+            live = _CaptureFirstChoices()
+            sample_postflop_decision(
+                tag, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+                ctx.opponents,
+                live,  # type: ignore[arg-type] — duck-typed capture rng
+                current_bet_to=ctx.current_bet_to, street=Street.FLOP,
+                latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
+                facing_raise=ctx.facing_raise,
+            )
+            assert estimator == live.dist, (f, hole)
+            dists[f, hole] = estimator
+
+    for hole in (("7s", "5s"), ("6h", "4c")):
+        folds = [dists[f, hole][ActionType.FOLD] for f in (0.5, 1.5, 3.0)]
+        assert folds[0] < folds[1] < folds[2], f"{hole} fold response not monotone: {folds}"
+        assert folds[2] - folds[0] > 0.2, f"{hole} price response is cosmetic: {folds}"
+
+
+def test_estimator_prices_a_self_reraise_by_the_increment_not_the_bet_to(packs):
+    """🔴 ESTIM-PRICE, the discriminating case (Codex fold): on FRESH aggression
+    the street's latest-aggressor INCREMENT and `current_bet_to` are equal, so
+    every other test here would pass under either one. They diverge on a
+    same-street self-re-raise, and that is the case theory contract §7
+    ("denominator unification") legislates: the pre-aggression pot is the live
+    pot minus the increment the last bet/raise ADDED, never minus its raise-TO —
+    subtracting the TO double-counts the raiser's earlier street chips, shrinking
+    the denominator and OVERSTATING the price.
+
+    Line: seat 2 bets 3 into 6.5, seat 3 raises to 12, seat 2 re-raises to 60
+    (its own increment is 57, not 60), seat 3 faces 48 into a live pot of 78.5.
+      correct  f = 48 / (78.5 − 57) = 2.2326
+      bet-TO   f = 48 / (78.5 − 60) = 2.5946   (16% too expensive)
+    Both sit above the 1.5 anchor, where the R10-TAIL-a1 tail is CONTINUOUS in
+    f, so the error cannot hide inside a shared α bucket. Mutation-kill: the
+    estimator must equal the live sampler fed the increment and DIFFER from the
+    one fed the bet-TO. Probe holes are deliberately non-drawing so the
+    SPR-commit branch (live SPR 1.08 vs tag's spr_commit 2.5) is inert."""
+    tag = packs[VillainType.TAG]
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _CALL)]
+    moves += [(2, _bet(3.0)), (3, _raise_to(12.0)), (2, _raise_to(60.0)), (3, _CALL)]
+    state = _script(state, moves)
+    hist = _project(state)
+    ctx = _replay_contexts(hist, seat=3, n=len(hist.actions))[-1]
+
+    # The precondition that makes this test discriminating at all.
+    assert ctx.street is Street.FLOP
+    assert ctx.to_call_bb == pytest.approx(48.0)
+    assert ctx.pot_bb == pytest.approx(78.5)
+    assert ctx.current_bet_to == pytest.approx(60.0)
+    assert ctx.aggressor_contribution_bb == pytest.approx(57.0)
+    assert ctx.aggressor_contribution_bb != ctx.current_bet_to
+    f_ok = ctx.to_call_bb / (ctx.pot_bb - ctx.aggressor_contribution_bb)
+    f_bad = ctx.to_call_bb / (ctx.pot_bb - ctx.current_bet_to)
+    assert f_ok == pytest.approx(48.0 / 21.5) and f_bad == pytest.approx(48.0 / 18.5)
+    assert size_bucket(f_ok) is size_bucket(f_bad)  # only the tail separates them
+    assert f_ok > 1.5, "below the anchor the two prices would share one flat bucket"
+
+    for hole in (("6h", "4c"), ("7s", "5s")):  # air / middle pair, neither drawing
+        estimator = _postflop_action_dist(tag, hole, ctx)
+        dists = {}
+        for label, contribution in (
+            ("increment", ctx.aggressor_contribution_bb),
+            ("bet_to", ctx.current_bet_to),
+        ):
+            cap = _CaptureFirstChoices()
+            sample_postflop_decision(
+                tag, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+                ctx.opponents,
+                cap,  # type: ignore[arg-type] — duck-typed capture rng
+                current_bet_to=ctx.current_bet_to, street=Street.FLOP,
+                latest_aggressor_contribution_bb=contribution,
+                facing_raise=ctx.facing_raise,
+            )
+            dists[label] = cap.dist
+        assert estimator == dists["increment"], hole
+        assert estimator != dists["bet_to"], hole  # the mutation must be killed
+        # ...and in the diagnostic direction: the bet-TO denominator over-folds.
+        assert dists["bet_to"][ActionType.FOLD] > estimator[ActionType.FOLD], hole
+
+
+def test_estimator_has_the_overbet_price_tail(packs):
+    """🔴 R10-TAIL-a1 parity (the filed follow-up): above the 1.5× anchor the
+    bucketed α saturates, so ONLY the production tail `(f/1.5)**K` can separate a
+    1.5× bet from a 3× one — and the estimator must see that separation, else the
+    villain-range reveal keeps promising a 3×-pot jam is called as often as a
+    1.5× bet. The estimator owns no price law: it reaches `_price_factor` through
+    the production sampler, so the constant lives in exactly one place."""
+    tag = packs[VillainType.TAG]
+    # The saturation claim, asserted not assumed: same bucket, and the whole
+    # ratio between the two prices is the tail (K=2 ⇒ (3.0/1.5)**2 = 4.0).
+    assert size_bucket(1.5) is size_bucket(3.0)
+    exponent = _price_exponent(tag.postflop)
+    assert _price_factor(3.0, exponent) == pytest.approx(4.0 * _price_factor(1.5, exponent))
+
+    anchor = _postflop_action_dist(tag, ("7s", "5s"), _flop_call_ctx(1.5)[1])
+    tail = _postflop_action_dist(tag, ("7s", "5s"), _flop_call_ctx(3.0)[1])
+    assert tail[ActionType.FOLD] > anchor[ActionType.FOLD] + 0.2, (anchor, tail)
+    assert tail[ActionType.CALL] < anchor[ActionType.CALL]
+
+
+def test_estimator_posterior_moves_with_the_faced_price(packs):
+    """The user-facing consequence (`sim_session.estimate_range`): calling a 3×
+    overbet is stronger evidence than calling a half-pot bet, so the revealed
+    range must be the STRONGER one. Pre-fix all three posteriors were IDENTICAL.
+
+    "Stronger" is measured as the mass on hands that make no pair (AIR +
+    ACE_HIGH), which must fall as the price rises — NOT as concentration, which
+    moves the other way here: the overbet strips the dominant ace-high offsuit
+    classes and spreads mass over the pairs, so the posterior gets stronger and
+    FLATTER at once (measured air share 0.5382 / 0.4656 / 0.3790 at f = 0.5 /
+    1.5 / 3.0; sum-of-squares 0.0831 / 0.0764 / 0.0735)."""
+    tag = packs[VillainType.TAG]
+    board = ["Kh", "7d", "2c"]
+    no_pair = (StrengthBucket.AIR, StrengthBucket.ACE_HIGH)
+    shares = []
+    for f in (0.5, 1.5, 3.0):
+        res = estimate_range(tag, _flop_call_ctx(f)[0], seat=2, dead_cards=("Tc", "Td"))
+        shares.append(
+            sum(
+                w
+                for combo, w in res.combo_weights.items()
+                if w > 0.0 and strength_bucket(combo, board)[0] in no_pair
+            )
+        )
+    assert shares[0] > shares[1] > shares[2], f"no-pair share not monotone in price: {shares}"
+    assert shares[0] - shares[2] > 0.1, f"posterior barely moved with price: {shares}"
 
 
 def test_estimator_facing_raise_false_on_a_bare_flop_bet(packs):
@@ -648,7 +867,7 @@ def test_estimator_unchanged_by_the_barrel_run_signal(packs):
     hist = _project(state)
     ctx = _replay_contexts(hist, seat=2, n=len(hist.actions))[-1]
     assert ctx.street is Street.TURN
-    legal = [LegalAction(action=k) for k in sorted(ctx.kinds)]
+    legal = _live_legal(ctx)
 
     for hole in (("9c", "4d"), ("7s", "5s")):
         estimator = _postflop_action_dist(tag, hole, ctx)
@@ -658,6 +877,7 @@ def test_estimator_unchanged_by_the_barrel_run_signal(packs):
                 tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
                 live,  # type: ignore[arg-type] — duck-typed capture rng
                 current_bet_to=ctx.current_bet_to, street=Street.TURN,
+                latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
                 facing_raise=ctx.facing_raise, aggressor_bet_prev_street=flag,
             )
             assert estimator == live.dist, (hole, flag)

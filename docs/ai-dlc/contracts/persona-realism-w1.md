@@ -92,7 +92,10 @@ classes — the contract every slice must preserve:
   dead code, so `_Ctx`/`_replay_contexts` are NOT touched (and there was no
   positional-unpack risk — the sole `_Ctx(...)` site is all-keyword). The
   estimator's faced-price-blindness is a pre-existing approximation → recorded as a
-  deferred follow-up, out of W1 scope.
+  deferred follow-up, out of W1 scope. [CLOSED 2026-08-01 by ESTIM-PRICE
+  (wave 6): the estimator now reconstructs to_call AND the aggressor
+  increment and passes both to the production sampler — see
+  `range_estimate._legal_from_ctx` and the wave-6 ledger.]
 - **Harness — NO CHANGE:** the statistical harness has its own `_postflop_decision`
   wrapper (test_personas_postflop.py:1196) that never passes the kwarg → legacy
   formula → bands byte-identical (honors the no-band-re-anchor no-go). The fix is
