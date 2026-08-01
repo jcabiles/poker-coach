@@ -220,9 +220,14 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # (verified: BB¹ 39, BB² 29, BB³ 5) — stream displacement plus genuinely
 # longer 3-bet hands, not a coverage regression.
 _PRE_M3_FIRES = {
-    ("UTG2", 1): 99, ("LJ", 1): 116, ("HJ", 1): 118, ("CO", 1): 89,
-    ("CO", 2): 36, ("SB", 1): 71, ("SB", 2): 38, ("BTN", 1): 96,
-    ("BTN", 2): 27,
+    # RE-RECORDED for WAVE 3 COMBINED (persona-realism-wave3, 2026-07-31 —
+    # wave-authorized, recorded once on the combined lane-B + lane-A tip):
+    # nit CO/BTN pair opens + maniac vs_4bet pairs + the lag composition swap
+    # compound their rng-stream displacement, so every pair moves (lane B
+    # alone moved only (LJ,1) 116 -> 117).
+    ("UTG2", 1): 86, ("LJ", 1): 124, ("HJ", 1): 108, ("CO", 1): 112,
+    ("CO", 2): 40, ("SB", 1): 70, ("SB", 2): 31, ("BTN", 1): 90,
+    ("BTN", 2): 35,
 }
 
 

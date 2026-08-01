@@ -362,6 +362,10 @@ BANDS = {
     # mixes byte-identical). Exact combo-weighted seat-average: 14.19 open /
     # 13.12 raise; bands = exact ±2.0pp per the tolerance note above
     # (pinned-seed reads 14.91 / 13.83, well inside). Rows 3-4 untouched.
+    # T-M2 (2026-07-31) moved the anchor slightly and the BANDS were NOT
+    # touched: CO/BTN small-pair opens (raise 0.3 out of the fold leg) take
+    # the exact seat-average to 14.33 open / 13.26 raise, pinned seed 15.01 /
+    # 14.01 — inside the frozen rows, ≥0.99pp clear of both ceilings.
     "nit": ((12, 16), (11, 15), (1, 2), (5, 15)),
     # tag 3-bet row (6,7)→(6,8) RE-TOLERATED by RR-HOLES (2026-07-31, theory
     # review F1): AQs joined the 3bet-0.8 mix (dominated-typo fix — tag
@@ -381,6 +385,13 @@ BANDS = {
     # M3 behavior, not a range regression (first-in-raise, 3-bet and
     # vs_rfi-continue all stayed inside their existing bands).
     # W5-b1 supersedes rows 1-2 of that anchor with the authored width 43.15.
+    # N-LAGLADDER (2026-07-31) re-emitted all nine `unopened` nodes from
+    # content/personas/ladders/lag.unopened.json but did NOT re-anchor any lag
+    # row. Rows 1-2: the reshape is a suited-for-offsuit SUBSTITUTION and the
+    # combo-weighted total barely moved (43.15 -> 43.04 seat-average; pinned
+    # seed 42.63), so the existing (41, 45) still is "exact ±2.0pp" — an edit
+    # here would have been cosmetic. Rows 3-4: the vs_rfi AQo carve-out holds
+    # 3-bet width constant by construction; pinned seed reads 9.74 / 26.75.
     "lag": ((41, 45), (41, 45), (8, 12), (25, 42)),
     # maniac rows 1-2 RE-ANCHORED by R10-PRE2 (2026-07-30): the ladder-separation
     # slice widened every maniac `unopened` node so the authored per-seat RFI
@@ -636,6 +647,206 @@ def test_maniac_first_in_ladder_monotone_to_button():
         if rfi[a] > rfi[b]
     ]
     assert not bad, f"maniac authored RFI ladder not monotone to the button: {bad}"
+
+
+# ------------------------------------------------ N-LAGLADDER — lag ladder tighten
+# Theory-HIGH finding T-H1 (wave-2 ledger, filed off N-3BSTRATA): the lag's
+# authored first-in ladder carried its width in DOMINATED OFFSUIT hands, worst
+# in early seats — at UTG the pack raised 12.49% of all combos offsuit against
+# only 7.90% suited, i.e. HALF the opening range was offsuit and the lag opened
+# MORE offsuit than the TAG from every early seat. That surplus is what later
+# arrives at `vs_3bet` as call mass the persona cannot defend.
+#
+# The repair re-emits all nine `unopened` nodes from the RR-EMIT curve spec
+# `content/personas/ladders/lag.unopened.json` (proving gate: test_rr_emit.py).
+#
+# ⚠️ WHAT THIS SLICE DOES *NOT* DO, and why (review fold, fix 1). The first cut
+# also TIGHTENED the ladder (seat-average 43.15 -> 39.22). That drove measured
+# population PFR to 15.77, under the §5 LAG floor of 17. A 10-seed sweep of
+# metric #3 at n=2000 then established that the PRE-SLICE pack itself measures
+# PFR 17.32 ± 0.34 — sitting ON the floor with no headroom to spend — so ANY
+# real width reduction breaches §5. The width was therefore restored to within
+# 0.36pp of pre-slice at every seat, and the deliverable is the COMPOSITION.
+# There is consequently NO per-seat authored-RFI ceiling gate: it would be
+# vacuous (the pre-slice pack would pass it). The gates below are the offsuit
+# ceiling and the suited floor, which is what actually changed.
+# §5 provenance for "21-27 VPIP / 17-23 PFR" lives ONCE in the spec's `_doc`;
+# it is deliberately not restated here and nothing below gates on it.
+#
+# Gates are AUTHORED-shape and deterministic — no sampling, so no CI.
+# Population VPIP/PFR stays REPORTED-not-gated (the single band anchor is W4-b).
+
+_LAG_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
+
+# OFFSUIT-ONLY ceilings — the named mechanism of the finding. Gated at the six
+# seats where the move is decisive (≥3.8pp below pre-slice); CO/BTN moved only
+# -0.90/-0.36 and are covered by the ≥TAG preservation gate instead of a
+# ceiling too thin to be meaningful. SB (-0.90) is gated by NEITHER mechanism
+# (not in this dict, not in _LAG_OFFSUIT_GE_TAG_SEATS) — ungated by scope,
+# delta-review L2.
+#   pre-slice -> post   UTG 12.49->8.69 · UTG1 13.39->8.69 · UTG2 17.38->12.31
+#                       LJ 19.55->15.38 · HJ 26.61->22.62 · BB 24.80->20.81
+# Suited width rose at the SAME seats (UTG 7.90->10.50, UTG1 9.11->12.79,
+# UTG2 10.92->15.51, LJ 12.19->16.35, HJ 15.20->19.13, BB 14.72->18.34): this
+# is a SUBSTITUTION, so the suited FLOOR is asserted alongside the offsuit
+# ceiling — a future edit cannot satisfy the ceiling by deleting the range.
+_LAG_OFFSUIT_CEILING = {
+    "UTG": 10.5, "UTG1": 10.5, "UTG2": 14.5, "LJ": 17.0, "HJ": 24.5, "BB": 22.5,
+}
+_LAG_SUITED_FLOOR = {
+    "UTG": 9.5, "UTG1": 11.5, "UTG2": 14.0, "LJ": 15.0, "HJ": 17.5, "BB": 17.0,
+}
+
+# Fix 2 (theory MED): the first cut pushed lag offsuit width to at-or-below the
+# TAG's at 6 of 9 seats, so the "loose" persona read offsuit-TIGHTER than the
+# tag. Restored, and pinned here per seat (not as a total-width claim).
+# ⚠️ Files forward, NOT this slice's to touch: the tag's own suited/offsuit
+# composition is itself suspect — it opens 36.20% of combos offsuit from the
+# BTN against 16.44% suited. This gate compares against that suspect baseline
+# because roster ORDERING is the invariant available today; it is not an
+# endorsement of the tag's shape.
+_LAG_OFFSUIT_GE_TAG_SEATS = ("LJ", "HJ", "CO", "BTN")
+
+
+def _authored_first_in_by_kind(pack: PersonaPack) -> dict[str, dict[str, float]]:
+    """Per seat, the combo-weighted authored first-in raise % split into
+    pair / suited / offsuit. Same sampler semantics as
+    `_authored_first_in_raise` (first matching node, first matching mix)."""
+    from app.domain.personas import _combos
+
+    out: dict[str, dict[str, float]] = {}
+    for pos in Position:
+        node = next(
+            (
+                n
+                for n in pack.preflop
+                if n.facing == "unopened"
+                and (n.positions is None or pos in n.positions)
+            ),
+            None,
+        )
+        acc = {"pair": 0.0, "suited": 0.0, "offsuit": 0.0}
+        for cls, ncombos in _CLASS_COMBOS.items():
+            if node is None:
+                break
+            for mix in node.mixes:
+                if cls in _combos(mix.combos):
+                    kind = (
+                        "pair" if len(cls) == 2
+                        else "suited" if cls[2] == "s"
+                        else "offsuit"
+                    )
+                    acc[kind] += ncombos * mix.weights.get("raise", 0.0)
+                    break
+        out[pos.value] = {k: 100.0 * v / 1326.0 for k, v in acc.items()}
+    return out
+
+
+def test_lagladder_dominated_offsuit_opens_replaced_by_suited():
+    """🔴 N-LAGLADDER defect gate — the finding's named mechanism. Failed at
+    pre-fix HEAD on BOTH legs at all six gated seats (offsuit 12.49 / 13.39 /
+    17.38 / 19.55 / 26.61 / 24.80 all above ceiling; suited 7.90 / 9.11 /
+    10.92 / 12.19 / 15.20 / 14.72 all below floor).
+
+    Both legs are asserted together on purpose: the ceiling alone could be
+    satisfied by deleting range (which the §5 PFR floor forbids — see the
+    section note above), and the floor alone could be satisfied by widening."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    kinds = _authored_first_in_by_kind(packs[VillainType.LAG])
+    over = {
+        pos: round(kinds[pos]["offsuit"], 2)
+        for pos, cap in _LAG_OFFSUIT_CEILING.items()
+        if kinds[pos]["offsuit"] > cap
+    }
+    assert not over, f"lag offsuit open width above ceiling: {over}"
+    under = {
+        pos: round(kinds[pos]["suited"], 2)
+        for pos, floor in _LAG_SUITED_FLOOR.items()
+        if kinds[pos]["suited"] < floor
+    }
+    assert not under, f"lag suited open width below floor: {under}"
+
+
+def test_lag_offsuit_width_at_least_tag_preservation():
+    """PRESERVATION (held at pre-slice HEAD; BROKEN by this slice's first cut
+    and restored by the retune — review fix 2). Per seat, not as a total-width
+    claim: the loose persona must not open a NARROWER offsuit range than the
+    TAG at the seats where offsuit steals are the archetype's business.
+
+    See `_LAG_OFFSUIT_GE_TAG_SEATS` for the standing caveat that the tag's own
+    offsuit-heavy composition is itself suspect and filed forward."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    lag = _authored_first_in_by_kind(packs[VillainType.LAG])
+    tag = _authored_first_in_by_kind(packs[VillainType.TAG])
+    bad = {
+        pos: (round(lag[pos]["offsuit"], 2), round(tag[pos]["offsuit"], 2))
+        for pos in _LAG_OFFSUIT_GE_TAG_SEATS
+        if lag[pos]["offsuit"] < tag[pos]["offsuit"]
+    }
+    assert not bad, f"lag opens tighter offsuit than TAG (lag, tag): {bad}"
+
+
+def test_lag_first_in_ladder_above_tag_preservation():
+    """PRESERVATION (R9-3 rule: label what already passed). The roster's
+    definitional ordering tag < lag held at HEAD and must survive the reshape;
+    the lag < maniac leg is gated by `test_maniac_first_in_ladder_above_lag`."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    lag = _authored_first_in_raise(packs[VillainType.LAG])
+    tag = _authored_first_in_raise(packs[VillainType.TAG])
+    bad = {
+        pos: (round(lag[pos], 4), round(tag[pos], 4))
+        for pos in lag
+        if lag[pos] <= tag[pos]
+    }
+    assert not bad, f"lag authored RFI not above TAG (lag, tag): {bad}"
+
+
+def test_lag_first_in_ladder_monotone_and_sb_under_btn_preservation():
+    """PRESERVATION: the non-blind ladder is non-decreasing UTG -> BTN and the
+    SB opens tighter than the BTN. Both held at HEAD (same structural argument
+    as `test_maniac_first_in_ladder_monotone_to_button`: each later seat has
+    strictly fewer players left to act)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    rfi = _authored_first_in_raise(packs[VillainType.LAG])
+    bad = [
+        f"{a} {rfi[a]:.4f} > {b} {rfi[b]:.4f}"
+        for a, b in zip(_LAG_LADDER_SEATS, _LAG_LADDER_SEATS[1:], strict=False)
+        if rfi[a] > rfi[b]
+    ]
+    assert not bad, f"lag authored RFI ladder not monotone to the button: {bad}"
+    assert rfi["SB"] < rfi["BTN"], (
+        f"lag SB {rfi['SB']:.4f} opens at least as wide as BTN {rfi['BTN']:.4f}"
+    )
+
+
+def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():
+    """🔴 RR-HOLES T-F3 flagged-row gate (failed at pre-fix HEAD: AQo sat in the
+    {3bet 0.6, fold 0.4} mix, i.e. a lag folded AQo to ONE raise 40% of the
+    time). The fold mass moved to CALL, not to 3-bet, so the pack's authored
+    3-bet width is unchanged by construction — this is a fold->call transfer
+    on a single class, not a 3-bet-frequency edit."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    from app.domain.personas import _combos
+
+    node = next(
+        n for n in packs[VillainType.LAG].preflop
+        if n.facing == "vs_rfi" and n.positions is None
+    )
+    mix = next(m for m in node.mixes if "AQo" in _combos(m.combos))
+    fold = mix.weights.get("fold", 0.0) + max(0.0, 1.0 - sum(mix.weights.values()))
+    assert fold == 0.0, (
+        f"lag folds AQo to a single raise: {mix.combos!r} -> {dict(mix.weights)}"
+    )
 
 
 def test_all_six_persona_packs_load():

@@ -1,4 +1,15 @@
-"""RR-EMIT — the build-time `unopened` range emitter and its proving gate.
+"""RR-EMIT — the build-time `unopened` range emitter and its proving gates.
+
+TWO SPECS ARE PROVED HERE, and they prove different things:
+  - `nit.unopened.json` (W5-b3) is a RE-ENCODING of content that already
+    shipped; its gate is evidence the model is lossless.
+  - `lag.unopened.json` (N-LAGLADDER) is RR-EMIT's first PRODUCTION authoring
+    run — the spec came first and `content/personas/lag.json`'s nine `unopened`
+    nodes were generated from it. Its gate is the reverse guarantee: the
+    committed pack has not drifted away from the spec that is supposed to
+    generate it, so `python -m tools.rr_emit content/personas/ladders/
+    lag.unopened.json` stays the way that ladder is edited.
+Both are the same assertion in code, run in both directions of authorship.
 
 THE PROVING GATE (`test_proving_gate_*`): the emitter, fed the nit curve spec
 checked in at `content/personas/ladders/nit.unopened.json`, reproduces the
@@ -10,10 +21,12 @@ treatment", not "did the text match", so a legitimate difference in token
 spelling can never be mistaken for a behaviour change (and, equally, identical
 text can never hide a semantic one).
 
-`content/personas/nit.json` is NOT edited by this slice, and neither is any
-engine module: the gate is evidence that the spec is a lossless re-encoding of
-what already ships, not a target to force. It fails if the spec drifts from the
-pack in either direction.
+The gate is evidence that the spec and the pack say the SAME thing, not a
+target to force: it fails if either drifts from the other. RR-EMIT authored it
+against an untouched `content/personas/nit.json`; T-M2 (2026-07-31) is the
+first slice to move both TOGETHER — the CO/BTN pair-open band is authored in
+the spec's tiers and hand-mirrored into the pack, and this gate is what proves
+the two edits agree class-by-class and weight-by-weight.
 
 The remaining tests pin the properties that make the emitter usable as an
 authoring surface: its output satisfies the RR-LINT structural belt with ZERO
@@ -43,6 +56,16 @@ SPEC_PATH = CONTENT / "personas" / "ladders" / "nit.unopened.json"
 # declaration, so the metadata is audited by the gate instead of being dead —
 # repointing `emits` at another pack now fails the proving tests.
 PACK_PATH = CONTENT.parent / json.loads(SPEC_PATH.read_text(encoding="utf-8"))["emits"]
+
+
+def test_spec_emits_the_runtime_nit_pack():
+    """Review fold (Codex MED): deriving PACK_PATH from `emits` audits the
+    metadata, but it also means the whole proving suite follows `emits`
+    wherever it points — a spec repointed at a scratch copy would keep every
+    gate green while the pack the ENGINE loads drifted. Pin the destination to
+    the file `load_persona_packs` actually globs."""
+    assert PACK_PATH.resolve() == (CONTENT / "personas" / "nit.json").resolve()
+
 
 def _combos(cls: str) -> int:
     """Combos in a starting-hand class: 6 for a pair, 4 suited, 12 offsuit."""
@@ -121,7 +144,12 @@ def test_proving_gate_covers_every_shipped_hand_class(emitted, shipped):
     played = union(shipped)
     assert len(played) == 57, "shipped nit unopened corpus changed size"
     assert union(emitted) == played
-    assert sum(len(n["mixes"]) for n in emitted) == 27  # 9 seats x 3 tiers
+    # T-M2: 28, not 27 — seven seats emit three mixes (the pair-open tier is
+    # width 0 there and drops out), CO emits four (pair-open 55-77 AND the
+    # 22-44 remainder) and BTN three (its pair-open band swallows the whole
+    # 22-77 remainder, so the limp-only mix drops out). The corpus above is
+    # unchanged: no pair class gained or lost a treatment, three changed tier.
+    assert sum(len(n["mixes"]) for n in emitted) == 28
 
 
 # ================================================== STRUCTURE / LEGALITY BELTS
@@ -221,8 +249,24 @@ def _bad(mutate):
         emit_nodes(spec)
 
 
+def _tier(spec: dict, kind: str) -> dict:
+    """First tier of `kind`. Addressing tiers by KIND, not list index (T-M2):
+    the nit spec's tier list changed shape when the pairs row was demoted from
+    `tail` to two per-seat slope tiers, and index-addressed mutations silently
+    stopped testing what they named (a `width` set on the `core` tier is simply
+    ignored, so the negative-width probe passed vacuously)."""
+    return next(t for t in spec["tiers"] if t["kind"] == kind)
+
+
+# The nit spec no longer uses a `tail` tier (T-M2), so the tail probes below
+# APPEND one rather than mutating the spec's own — the emitter still supports
+# the kind, and these are validator tests, not nit-content tests.
+def _tail(rows: list[str]) -> dict:
+    return {"kind": "tail", "rows": rows, "weights": {"fold": 1.0}}
+
+
 def test_validator_rejects_negative_slope_width():
-    _bad(lambda s: s["tiers"][2].__setitem__("width", -2))
+    _bad(lambda s: _tier(s, "slope").__setitem__("width", -2))
 
 
 def test_validator_rejects_non_unopened_facing():
@@ -230,20 +274,150 @@ def test_validator_rejects_non_unopened_facing():
 
 
 def test_validator_rejects_response_action_vocabulary():
-    _bad(lambda s: s["tiers"][1].__setitem__("weights", {"call": 1.0}))
+    _bad(lambda s: _tier(s, "core").__setitem__("weights", {"call": 1.0}))
 
 
 def test_validator_rejects_missing_tier_keys_loudly():
-    _bad(lambda s: s["tiers"][2].pop("width"))
-    _bad(lambda s: s["tiers"][1].pop("weights"))
-    _bad(lambda s: s["tiers"][0].pop("rows"))
+    _bad(lambda s: _tier(s, "slope").pop("width"))
+    _bad(lambda s: _tier(s, "core").pop("weights"))
+    _bad(lambda s: s["tiers"].append({"kind": "tail", "weights": {"fold": 1.0}}))
 
 
 def test_validator_rejects_duplicate_tail_ownership():
-    def dup(s):
-        s["tiers"].append({"kind": "tail", "rows": ["pairs"], "weights": {"fold": 1.0}})
-    _bad(dup)
+    _bad(lambda s: s["tiers"].extend([_tail(["pairs"]), _tail(["pairs"])]))
 
 
 def test_validator_rejects_overweight_mix():
-    _bad(lambda s: s["tiers"][2].__setitem__("weights", {"raise": 0.7, "fold": 0.7}))
+    _bad(lambda s: _tier(s, "core").__setitem__("weights", {"raise": 0.7, "fold": 0.7}))
+
+
+def test_validator_rejects_a_seat_missing_mandatory_slope_widths():
+    """🔴 Negative control for the T-M2 review fold (refuter I2): a row driven
+    entirely by per-seat slope widths (`required_slopes`) TRUNCATES silently if
+    one seat omits its entry — the tiers fall back to their defaults, the row's
+    bottom goes unplayed, and no downstream lint can see it (a short row bottom
+    is not a row gap). Dropping `slopes.pairs` from a seat must now raise.
+
+    Pre-fold behaviour, reproduced with the validator's new check disabled:
+    dropping BB's `slopes.pairs` emitted a two-mix BB node — the limp band was
+    GONE (22-66 unplayed, i.e. fold 1.0) and the `edge` tier had swallowed 77
+    into its raise-0.5 mix, because both tiers fell back to their default
+    widths (0 and 1)."""
+    _bad(lambda s: s["seats"]["BB"]["slopes"].pop("pairs"))
+    _bad(lambda s: s["seats"]["CO"].pop("slopes"))
+
+
+def test_validator_rejects_unknown_required_slope_row():
+    _bad(lambda s: s.__setitem__("required_slopes", ["quads"]))
+
+
+# ====================================== N-LAGLADDER — the lag production spec
+# Same gate, opposite direction of authorship (see the module docstring): the
+# lag spec GENERATED the pack, so this asserts the committed pack is still what
+# the spec emits. A hand-edit to lag.json's `unopened` nodes that forgets the
+# spec fails here, which is what keeps the spec from rotting into a fiction.
+
+LAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "lag.unopened.json"
+LAG_PACK_PATH = CONTENT.parent / json.loads(
+    LAG_SPEC_PATH.read_text(encoding="utf-8")
+)["emits"]
+# Review fold (3-way convergent: Codex, theory, lane-B precedent): deriving the
+# pack path from the spec's own `emits` makes the metadata audited rather than
+# dead, but ONLY if the resolved target is itself pinned — otherwise repointing
+# `emits` at, say, nit.json would silently re-aim every gate below at a pack
+# this spec does not author. Assert the resolution before any fixture uses it.
+assert LAG_PACK_PATH == CONTENT / "personas" / "lag.json", (
+    f"lag spec 'emits' resolves to {LAG_PACK_PATH}, not content/personas/lag.json"
+)
+
+
+def _load_lag_spec() -> dict:
+    return json.loads(LAG_SPEC_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def lag_emitted() -> list[dict]:
+    return emit_nodes(_load_lag_spec())
+
+
+@pytest.fixture(scope="module")
+def lag_shipped() -> list[dict]:
+    pack = json.loads(LAG_PACK_PATH.read_text(encoding="utf-8"))
+    return [n for n in pack["preflop"] if n["facing"] == "unopened"]
+
+
+def test_lag_proving_gate_seat_list_matches_shipped(lag_emitted, lag_shipped):
+    assert [n["positions"] for n in lag_emitted] == [
+        n["positions"] for n in lag_shipped
+    ]
+    assert all(n["facing"] == "unopened" for n in lag_emitted)
+
+
+def test_lag_proving_gate_unopened_is_semantically_identical(lag_emitted, lag_shipped):
+    """Per seat, per mix, in order: same classes (parsed) and same weights."""
+    for emit_node, ship_node in zip(lag_emitted, lag_shipped, strict=True):
+        seat = ship_node["positions"][0]
+        assert len(emit_node["mixes"]) == len(ship_node["mixes"]), (
+            f"{seat}: emitted {len(emit_node['mixes'])} mixes, "
+            f"shipped {len(ship_node['mixes'])}"
+        )
+        for i, (emit_mix, ship_mix) in enumerate(
+            zip(emit_node["mixes"], ship_node["mixes"], strict=True)
+        ):
+            emit_classes = parse_range(emit_mix["combos"])
+            ship_classes = parse_range(ship_mix["combos"])
+            assert emit_classes == ship_classes, (
+                f"{seat} mix {i}: only-shipped={sorted(ship_classes - emit_classes)} "
+                f"only-emitted={sorted(emit_classes - ship_classes)} "
+                f"({ship_mix['combos']!r} -> {emit_mix['combos']!r})"
+            )
+            assert emit_mix["weights"] == ship_mix["weights"], f"{seat} mix {i}"
+
+
+def test_lag_proving_gate_corpus_is_non_trivial(lag_emitted, lag_shipped):
+    """Belt on the gate itself (the nit gate's rule): a mismatch must not be
+    passable by emitting an empty ladder."""
+    def union(nodes):
+        return {
+            cls
+            for node in nodes
+            for mix in node["mixes"]
+            for cls in parse_range(mix["combos"])
+        }
+
+    played = union(lag_shipped)
+    assert len(played) == 132, "shipped lag unopened corpus changed size"
+    assert union(lag_emitted) == played
+    assert sum(len(n["mixes"]) for n in lag_emitted) == 18  # 9 seats x 2 tiers
+
+
+def test_lag_emitted_nodes_are_legal_persona_nodes(lag_emitted):
+    for node in lag_emitted:
+        PersonaNode.model_validate(node)
+
+
+def test_lag_emission_is_byte_deterministic():
+    first = emit_json(_load_lag_spec())
+    assert emit_json(_load_lag_spec()) == first
+    assert first.endswith("\n") and "\n \n" not in first
+
+
+def test_lag_ladder_widths_strictly_increase_toward_the_button(lag_emitted):
+    spec = _load_lag_spec()
+    by_seat = {n["positions"][0]: n for n in lag_emitted}
+    widths = [_raise_width_pct(by_seat[s]) for s in spec["monotone_seats"]]
+    assert widths == sorted(widths) and len(set(widths)) == len(widths), (
+        f"lag ladder not strictly increasing over {spec['monotone_seats']}: "
+        f"{[round(w, 2) for w in widths]}"
+    )
+
+
+def test_lag_authored_raise_pct_annotations_match_emitted_widths(lag_emitted):
+    """`raise_pct` is documentation the emitter never reads — assert it is
+    honest, so it can never quietly become a fitted width parameter."""
+    spec = _load_lag_spec()
+    for node in lag_emitted:
+        seat = node["positions"][0]
+        assert _raise_width_pct(node) == pytest.approx(
+            spec["seats"][seat]["raise_pct"], abs=0.005
+        ), seat

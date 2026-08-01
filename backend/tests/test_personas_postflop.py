@@ -3193,12 +3193,21 @@ _GOLDEN_STATS_N200 = {
     # reaches more passive postflop nodes); population bands still gate it
     # at stable n. Exact tripwire re-record; population bands stay frozen to
     # W4-b.
-    "calling_station": (0.340625, 0.15254237288135594, 0.7024221453287197),
-    "lag": (2.608695652173913, None, 0.43902439024390244),
-    "maniac": (3.328767123287671, 0.16326530612244897, 0.45454545454545453),
-    "nit": (None, None, 0.6304347826086957),
-    "passive_fish": (1.0, 0.5384615384615384, 0.507537688442211),
-    "tag": (2.3255813953488373, None, 0.6590909090909091),
+    # RE-RECORDED for WAVE 3 COMBINED (persona-realism-wave3, 2026-07-31 —
+    # wave-authorized, recorded once on the combined lane-B + lane-A tip):
+    # T-M2 nit CO/BTN pair opens + T-F3 maniac vs_4bet middle pairs (lane B)
+    # + N-LAGLADDER lag composition swap + AQo fold→call + opener vs_3bet
+    # trim (lane A). PURE preflop content; the two lanes' displacements
+    # compound so ALL six rows move at this n=200 seed (lane B alone moved
+    # only maniac + tag; the lag content change re-deals every pot the lag
+    # enters). Exact tripwire re-record; population bands stay frozen to
+    # W4-b.
+    "calling_station": (0.38636363636363635, 0.10869565217391304, 0.7250859106529209),
+    "lag": (2.2711864406779663, None, 0.5294117647058824),
+    "maniac": (3.272727272727273, 0.25, 0.5555555555555556),
+    "nit": (None, None, 0.6296296296296297),
+    "passive_fish": (1.125984251968504, 0.5, 0.4484304932735426),
+    "tag": (2.8666666666666667, None, 0.5185185185185185),
 }
 
 
@@ -3897,6 +3906,125 @@ def test_r10_3bet_passive_identity_freeze():
     )
 
 
+# ------------------------------- T-F3 — maniac vs_4bet middle-pair dead band --
+# RR-HOLES finding T-F3 (MED, routed to "a future vs_4bet pass" — this one):
+# the maniac's `vs_4bet` node covered TT/JJ (call 0.5) and 55/66 (5bet_shove
+# 0.4) but NOTHING on 99/88/77, and an uncovered class at a matched node folds
+# 1.0 (`sample_preflop_action` has no fall-through). RR-LINT recorded it as a
+# pair-row gap and explicitly declined the ace-blocker reading that makes the
+# As-row gaps intentional: no card-removal story distinguishes 77 from 66.
+#
+# EV-scale judgment at ~100bb (the roadmap's phrasing, not a solver claim): a
+# 4-bet pot leaves an SPR around 1-2, so 77-99 have no set-mining equity to
+# call on — but the maniac is the one archetype whose identity is applying
+# pressure with exactly that kind of hand. Authored PUSH/FOLD, no call leg:
+# {5bet_shove 0.4, fold 0.6}.
+#
+# Theory review R-3 (MED, folded): the first draft authored {shove 0.25, call
+# 0.15, fold 0.6}, which (a) INVERTED the jam ladder — 55/66 jammed 0.40 while
+# the stronger 77-99 jammed only 0.25 — and (b) contradicted this very
+# docstring by adding a call leg to hands with no set-mining price. Levelling
+# the jam at 0.40 fixes both and keeps the archetype's push/fold identity.
+# The FLAT continue level 0.40 (equal to 55/66, below TT/JJ's 0.50) is
+# theory-endorsed and deliberate, not a rounding artifact.
+
+
+_MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
+
+
+def _vs_4bet_policy(pack) -> dict[str, dict[str, float]]:
+    """Authored vs_4bet weights per class, sampler semantics (first matching
+    mix wins; classes no mix covers are absent = fold 1.0)."""
+    from app.domain.content.notation import parse_range
+
+    node = next(n for n in pack.preflop if n.facing == "vs_4bet")
+    policy: dict[str, dict[str, float]] = {}
+    for mix in node.mixes:
+        for cls in parse_range(mix.combos):
+            policy.setdefault(cls, dict(mix.weights))
+    return policy
+
+
+def test_tf3_maniac_vs_4bet_middle_pairs_continue():
+    """🔴 T-F3 defect gate (deterministic, no sampling): the maniac's authored
+    vs_4bet continue mass (call + 5bet_shove) on 99, 88 and 77 is > 0.
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule): all three
+    classes were absent from every mix of the node, i.e. continue 0.0 and fold
+    1.0 — this assertion FAILED at HEAD on all three.
+
+    Review fold (Codex MED): the EXACT mix is pinned, not `continue > 0`. The
+    loose form would have accepted any token weight and could not have caught
+    the jam-ladder inversion theory review R-3 found."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+    wrong = {
+        cls: policy.get(cls, {})
+        for cls in ("99", "88", "77")
+        if policy.get(cls, {}) != _MANIAC_VS_4BET_MID_PAIR_MIX
+    }
+    assert not wrong, (
+        f"maniac vs_4bet middle pairs are not the authored "
+        f"{_MANIAC_VS_4BET_MID_PAIR_MIX}: {wrong}"
+    )
+
+
+def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
+    """🟢 PRESERVATION-shaped companion to the gate above (it could not pass at
+    HEAD, where 99/88/77 read 0.0 between TT/JJ's 0.5 and 66/55's 0.4): the
+    repair must not out-continue a stronger pair. Continue mass is
+    non-increasing down the pair row AA -> 55.
+
+    Second direction added at review (theory R-3): JAM mass must be
+    non-decreasing UP the row, 55 -> 99. That is the assertion the first draft
+    violated — it continued 77-99 at the right total (0.40) while jamming them
+    less than the weaker 55/66 — and continue-monotonicity alone could never
+    have caught it, because the inversion lived inside the split."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+
+    def leg(cls: str, action: str) -> float:
+        return policy.get(cls, {}).get(action, 0.0)
+
+    def cont(cls: str) -> float:
+        return leg(cls, "call") + leg(cls, "5bet_shove")
+
+    ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55"]
+    bad = [
+        f"{a} {cont(a):.2f} < {b} {cont(b):.2f}"
+        for a, b in zip(ladder, ladder[1:], strict=False)
+        if cont(a) < cont(b)
+    ]
+    assert not bad, f"maniac vs_4bet pair continue ladder inverted: {bad}"
+    jam_ladder = ["55", "66", "77", "88", "99"]
+    jam_bad = [
+        f"{a} {leg(a, '5bet_shove'):.2f} > {b} {leg(b, '5bet_shove'):.2f}"
+        for a, b in zip(jam_ladder, jam_ladder[1:], strict=False)
+        if leg(a, "5bet_shove") > leg(b, "5bet_shove")
+    ]
+    assert not jam_bad, f"maniac vs_4bet jam mass falls as pairs get stronger: {jam_bad}"
+
+
+def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
+    """🟢 PRESERVATION (passes at HEAD and after — the point is that it reads
+    the SAME number both times): the archetype 4-bet share is a `vs_3bet`
+    quantity, so adding continue mass to a `vs_4bet` node cannot move it.
+    Pinned to the R10-3BET-authored values so a later slice cannot smuggle a
+    4-bet-frequency change in through the vs_4bet node."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    shares = {
+        vt.value: round(_fourbet_share(packs[vt]) * 100, 2)
+        for vt in (VillainType.MANIAC, VillainType.LAG, VillainType.TAG, VillainType.NIT)
+    }
+    assert shares == {"maniac": 15.16, "lag": 2.33, "tag": 1.81, "nit": 0.41}, shares
+
+
 def _wilson95(k: int, n: int) -> tuple[float, float]:
     """Wilson score 95% interval — the spec's named CI method for the
     report-only fold-to-3-bet grid (well-behaved at the tiny n these strata
@@ -4045,7 +4173,22 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     shape so a pack edit can't silently reshape it. Measured post-fit:
     maniac 0.3073 (its iso range is close to its open range, so component ≈
     blend 0.2801); lag 0.6034 (the wide junky OPEN range folds a lot; the
-    strong iso component pulls the live blend to 0.4735, mid-band)."""
+    strong iso component pulls the live blend to 0.4735, mid-band).
+
+    lag pin RE-DERIVED by N-LAGLADDER (2026-07-31, lag.json 1.3.0) — TWO inputs
+    moved, so the pin is re-measured rather than re-derived from one of them:
+      (a) the nine `unopened` nodes were re-emitted from
+          content/personas/ladders/lag.unopened.json, which re-weights the
+          arrival mix (dominated offsuit out, suited in);
+      (b) the `vs_3bet` OPENER node's two middle tiers were re-tuned — the
+          suited-broadway tier 0.60->0.55 call and the speculative tier
+          0.50->0.46 call. That was not optional: (a) alone dropped the
+          PRODUCTION blend to 0.4242 at n=12000, UNDER the [0.43, 0.53] dossier
+          floor, because a suited-heavier open range meets a table that folds
+          it less. The band is the gate and must not be widened, so the opener
+          weights were brought back per the slice's own remit.
+    Component lands at 0.6166 (deterministic, no CI); pre-slice was 0.6034.
+    The `cold` node is still untouched."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -4053,7 +4196,7 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     lag = _opener_fold_to_3bet(packs[VillainType.LAG])
     print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.4f} lag {lag:.4f}")
     assert maniac == pytest.approx(0.3073, abs=0.02), f"maniac component {maniac:.4f} moved"
-    assert lag == pytest.approx(0.6034, abs=0.02), f"lag component {lag:.4f} moved"
+    assert lag == pytest.approx(0.6166, abs=0.02), f"lag component {lag:.4f} moved"
 
 
 def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
@@ -4140,7 +4283,19 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     raises over limpers, exactly what the live `is_opener` signal serves the
     opener table to. maniac ~0.30 target → band [0.25, 0.35]; lag inside its
     dossier band [0.43, 0.53] ("above 60% makes light 3-betting
-    insufficiently defended"; pre-slice measured 0.72-0.83)."""
+    insufficiently defended"; pre-N-3BSTRATA measured 0.72-0.83).
+
+    ⚠️ THIS GATE'S n IS NOT ENOUGH TO SETTLE THE VALUE (N-LAGLADDER, review fold
+    6). It reads ~460-490 lag opener decisions at n=4000, whose Wilson half-
+    width is ±0.045 — wider than the distance from the band floor. Both figures
+    below are therefore quoted at n=12000 (≈1470 decisions) as well:
+        pre-slice (origin/main)  0.4667 @n=4000 (n_dec 480) · 0.4534 @n=12000
+        shipped                  0.4622 @n=4000 (n_dec 489) · 0.4452 @n=12000
+    The earlier in-tree figure "0.4735" was stale — it predates intervening
+    slices; 0.4667 is the value origin/main actually measures on this seed.
+    An intermediate N-LAGLADDER build passed HERE at 0.4366 while measuring
+    0.4242 at n=12000, i.e. under the floor: a pass at this n is necessary, not
+    sufficient, and the opener-node re-tune was driven by the n=12000 read."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -5036,9 +5191,11 @@ def test_w3r6_damp_constants_inside_their_fitted_ranges():
 # WIDTH DEFINITION (pinned by roadmap W5-b3 (a), R9-c5): combo-weighted
 # `raise` + `3bet` legs over all 1326 combos under first-match-wins —
 # NEVER `1 - fold`, which would fold open-limps into the number and make a
-# limp-heavy node read as a wide opener. The nit's `unopened` nodes each open
-# with an open-limp mix (`22-66` UTG / `22-77` elsewhere at limp 0.4), so the
-# two measures differ materially here.
+# limp-heavy node read as a wide opener. Every nit `unopened` node carries
+# limp 0.4 across its small-pair band, so the two measures differ materially
+# here. Band shapes after T-M2 (2026-07-31): UTG `22-66` limp-only, UTG1/UTG2/
+# LJ/HJ/SB/BB `22-77` limp-only, CO `55-77` at raise 0.3/limp 0.4 plus `22-44`
+# limp-only, BTN `22-77` at raise 0.3/limp 0.4 with NO limp-only mix left.
 
 _LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB")
 
@@ -5104,9 +5261,12 @@ def test_w5b3_nit_unopened_authored_width_strictly_increases():
     so `LJ < CO` and `CO < BTN` were 29.11 < 29.11 — FALSE. This test FAILS
     at pre-slice HEAD, which is what makes it a gate rather than a decoration.
 
-    POST-SLICE reading (this commit):
+    POST-SLICE reading (W5-b3):
         UTG 7.54 · UTG1 8.45 · UTG2 9.95 · LJ 12.22 · HJ 13.42 · CO 15.99 ·
         BTN 21.42 · SB 16.59 · BB 12.52
+    CURRENT reading (T-M2, 2026-07-31 — CO/BTN pair opens at raise 0.3):
+        UTG 7.54 · UTG1 8.45 · UTG2 9.95 · LJ 12.22 · HJ 13.42 · CO 16.395 ·
+        BTN 22.232 · SB 16.59 · BB 12.52
     """
     packs = load_persona_packs()
     if not packs:
@@ -5223,5 +5383,193 @@ def test_w5b3_nit_vpip_pfr_reported_not_gated():
     print(
         f"nit VPIP {s.vpip:.3f} PFR {s.pfr:.3f} gap "
         f"{s.gap:.3f} (n=600, REPORTED — band anchor is W4-b)"
+    )
+    assert s.vpip is not None and s.pfr is not None
+
+
+# ================== T-M2 — nit late-position pair opens (AUTHORED, n-free) ====
+#
+# W5-b3 review finding T-M2 (MED): the nit "never open-raises 22-66 anywhere,
+# and 77 only from UTG" — an INVERSION (the one seat that opens 77 is the
+# tightest) against a dossier that has the nit opening small pairs in late
+# position. W5-b3 could not fix it: the pairs band was locked by W5-b1's
+# verbatim-limp law, and the named follow-up was "convert pair FOLD mass (not
+# limp mass) to raise at CO/BTN".
+#
+# That is exactly what these gates assert, in both directions:
+#   - the band EXISTS at CO/BTN (fails at pre-slice HEAD: raise weight 0.0 on
+#     every pair class below the core band, at every seat),
+#   - the limp leg is BYTE-IDENTICAL at all nine seats (0.4 on every pair
+#     class in the band) — the conversion came out of fold, not out of limp,
+#   - and it did NOT leak to the seven other seats (over-widening guard: the
+#     T-M2 finding is about LATE position; an early-position nit opening 22 is
+#     a different, unauthorized change).
+
+_NIT_PAIR_OPEN_SEATS = {
+    "CO": ("77", "66", "55"),
+    "BTN": ("77", "66", "55", "44", "33", "22"),
+}
+# The exact mix the pair-open band carries. Pinned as a whole (review fold,
+# Codex+refuter MED): `raise > 0` would pass on a 0.01 token raise, and would
+# not notice the fold/limp legs being re-cut underneath it.
+_NIT_PAIR_OPEN_MIX = {"raise": 0.3, "limp": 0.4, "fold": 0.3}
+_NIT_ALL_PAIRS = tuple(r + r for r in "AKQJT98765432")
+# The authored limp band per seat: every pair BELOW that seat's core raise
+# band. UTG raises 77 outright (core depth 8), every other seat stops at 88.
+_NIT_LIMP_BAND = {
+    seat: _NIT_ALL_PAIRS[8:] if seat == "UTG" else _NIT_ALL_PAIRS[7:]
+    for seat in _LADDER_SEATS
+}
+
+
+def _nit_pair_policy(pack, seat: str) -> dict[str, dict[str, float]]:
+    """Authored weights per PAIR class at one seat, resolved with sampler
+    semantics (first matching mix in the node's list order wins; a class no
+    mix covers folds 1.0)."""
+    from app.domain.content.notation import parse_range
+
+    node = _unopened_node(pack, seat)
+    out: dict[str, dict[str, float]] = {}
+    for cls in _NIT_ALL_PAIRS:
+        weights: dict[str, float] = {}
+        if node is not None:
+            for mix in node.mixes:
+                if cls in parse_range(mix.combos):
+                    weights = dict(mix.weights)
+                    break
+        out[cls] = weights
+    return out
+
+
+def test_tm2_nit_opens_small_pairs_from_late_position():
+    """🔴 T-M2 defect gate (deterministic, no sampling).
+
+    PRE-SLICE HEAD reading (recorded per the gate-design rule): CO and BTN
+    authored raise weight was 0.0 on 77, 66, 55, 44, 33 and 22 — the pairs
+    below the `88+` core band were limp 0.4 / fold 0.6 at every seat, so this
+    assertion FAILED at HEAD on all nine classes.
+
+    POST-SLICE (this commit): CO opens 55-77 and BTN opens 22-77, each at
+    raise 0.3 (limp 0.4 unchanged, fold 0.6 -> 0.3).
+
+    Review fold (Codex + refuter MED): the assertion pins the WHOLE mix, not
+    `raise > 0`. A token raise weight, or a raise leg funded by re-cutting the
+    limp leg, would have satisfied the looser form."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    wrong = {
+        (seat, cls): _nit_pair_policy(pack, seat)[cls]
+        for seat, band in _NIT_PAIR_OPEN_SEATS.items()
+        for cls in band
+        if _nit_pair_policy(pack, seat)[cls] != _NIT_PAIR_OPEN_MIX
+    }
+    assert not wrong, (
+        f"nit late-position pair opens are not the authored "
+        f"{_NIT_PAIR_OPEN_MIX}: {wrong}"
+    )
+
+
+def test_tm2_nit_pair_limp_weight_is_verbatim_at_every_seat():
+    """🟢 PRESERVATION (passes at HEAD — labeled, not sold as a defect gate).
+
+    W5-b1's verbatim-limp law: the authored limp weights ARE the nit's
+    identity and this slice may not spend them. Every pair class in a seat's
+    limp band carries EXACTLY 0.4 of limp, at all nine seats — so the CO/BTN
+    raise band can only have come out of the fold leg. (UTG's band starts one
+    class lower: it raises 77 outright, so its limp band is 22-66.)
+
+    Review fold (refuter MED): PRESENCE is required, not just "0.4 if
+    present". The earlier `if limp and limp != 0.4` form was DELETION-BLIND —
+    dropping a class out of every mix (limp 0.4 -> 0.0, fold 1.0) read as
+    clean, which is exactly how limp mass would get spent in practice."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    bad = {}
+    for seat in _LADDER_SEATS:
+        policy = _nit_pair_policy(pack, seat)
+        band = _NIT_LIMP_BAND[seat]
+        for cls in band:
+            limp = policy[cls].get("limp", 0.0)
+            if limp != 0.4:
+                bad[(seat, cls)] = policy[cls]
+        # ... and the core band above it carries no limp leg at all, so the
+        # band boundary itself cannot drift without failing here.
+        for cls in _NIT_ALL_PAIRS[: len(_NIT_ALL_PAIRS) - len(band)]:
+            if policy[cls].get("limp", 0.0):
+                bad[(seat, cls)] = policy[cls]
+    assert not bad, f"nit pair limp weight moved off the verbatim 0.4: {bad}"
+
+
+def test_tm2_nit_pair_opens_did_not_leak_to_the_other_seven_seats():
+    """🟢 PRESERVATION / over-widening guard (passes at HEAD): outside CO and
+    BTN, a pair class either sits in the core raise band (raise 1.0) or has NO
+    raise mass at all. This is what keeps T-M2 a late-position fix — an
+    early-position nit that open-raises 22 would satisfy the defect gate above
+    and be a worse bot.
+
+    ⚠️ SB is excluded by TICKET SCOPE, not by realism (theory review R-7):
+    T-M2 named CO and BTN, and the nit dossier's SB first-in range does
+    include 55+. This guard therefore pins today's authored shape; a later
+    SB-scoped slice is expected to move SB out of this list, and doing so is
+    a content decision, not a regression."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.NIT]
+    leaked = {
+        (seat, cls): w
+        for seat in _LADDER_SEATS
+        if seat not in _NIT_PAIR_OPEN_SEATS
+        for cls, w in _nit_pair_policy(pack, seat).items()
+        if 0.0 < w.get("raise", 0.0) < 1.0
+    }
+    assert not leaked, f"nit pair opens leaked outside CO/BTN: {leaked}"
+
+
+def test_nlagladder_lag_vpip_pfr_reported_not_gated():
+    """REPORT-ONLY (same rule as the nit row above — the single population-band
+    anchor is W4-b; committing a level here would be a §5 / §11 item-7
+    auto-FAIL). Prints BOTH rows against their §5 LAG bands. §5 provenance is
+    stated once in content/personas/ladders/lag.unopened.json's `_doc` (VPIP
+    21-27 / PFR 17-23, 9-max full ring, ledger #14, conf MEDIUM, edges
+    DIRECTIONAL); it is not restated as a bare number here.
+
+    WHY THIS ROW EXISTS (review fold, fix 1). N-LAGLADDER's first cut tightened
+    the authored ladder and drove PFR to 15.77, UNDER the §5 floor. A 10-seed
+    sweep of THIS metric at n=2000 then measured:
+        pre-slice pack  VPIP 23.51 ±0.45 · PFR 17.32 ±0.34 · gap 6.19 ±0.36
+        shipped  pack   VPIP 23.88 ±0.40 · PFR 17.32 ±0.30 · gap 6.55 ±0.28
+    Two facts follow, and both are REPORTED not gated:
+      1. JOINT GEOMETRY — PFR = VPIP − gap. With the gap at its ~6 ceiling, a
+         VPIP under ~22.9 forces PFR under the 17 floor. The pre-slice pack
+         already sat ON both limits (PFR 17.32 vs floor 17, gap 6.19 vs ceiling
+         6), so there was NO headroom for a width tighten to spend. That is why
+         this slice ships a composition swap at constant width.
+      2. The gap row is ABOVE 6 on both packs. The +0.36 the shipped pack adds
+         is the AQo vs_rfi fold->call transfer (AQo is 0.905% of hands × 0.40
+         converted = 0.36pp of VPIP-without-PFR) — an intended, arithmetically
+         accounted consequence of the T-F3 fix, not drift. It was NOT
+         compensated elsewhere (that would be the compensating-lever trap).
+
+    ⚠️ INSTRUMENT CAVEAT (review fold, fix 5): metric #3's lineup is
+    3×[persona] + 6 fillers cycled from the other five archetypes — NOT the §5
+    reference pool. Roster-wide this instrument reads one-sidedly LOW against
+    §5 (nit 0.067 vs 10-14, maniac 0.390 vs 45-58, passive_fish 0.354 vs
+    40-55), so a lag reading that lands inside a §5 band is not evidence of
+    pool-level realism, and "there is no headroom" must not be inherited from
+    here as a settled fact about the persona — only as one about this harness.
+    """
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    s = _persona_stats_ext(packs, "lag", 600)
+    print(
+        f"lag VPIP {s.vpip:.3f} (§5 0.21-0.27) PFR {s.pfr:.3f} (§5 0.17-0.23) "
+        f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
+        f"10-seed n=2000 means: pre-slice 23.51/17.32/6.19, shipped 23.88/17.32/6.55"
     )
     assert s.vpip is not None and s.pfr is not None
