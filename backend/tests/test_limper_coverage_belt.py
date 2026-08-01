@@ -229,9 +229,17 @@ _PRE_M3_FIRES = {
     # wave-authorized, recorded once on the combined lane-C + lane-D tip):
     # N-M4BET + N-TAGCOMP preflop content compound the stream displacement;
     # every pair moves.
-    ("UTG2", 1): 105, ("LJ", 1): 125, ("HJ", 1): 133, ("CO", 1): 102,
-    ("CO", 2): 26, ("SB", 1): 71, ("SB", 2): 39, ("BTN", 1): 80,
-    ("BTN", 2): 38,
+    # RE-RECORDED for N-LAGCOMP2 (persona-realism-wave5, 2026-07-31 —
+    # wave-authorized, single-recorder landing): the lag CO/BTN/SB
+    # offsuit→suited swap (width-neutral) changes which hands the lag opens
+    # late, so the shared-rng organic stream drifts at this seed (old
+    # post-WAVE-4 counts: UTG2¹ 105, LJ¹ 125, HJ¹ 133, CO¹ 102, CO² 26,
+    # SB¹ 71, SB² 39, BTN¹ 80, BTN² 38). No limper-belt content changed;
+    # every _WANT_* coverage shape still fires (verified: BB¹ 55, BB² 23,
+    # BB³ 5) — stream displacement, not a coverage regression.
+    ("UTG2", 1): 92, ("LJ", 1): 117, ("HJ", 1): 122, ("CO", 1): 99,
+    ("CO", 2): 26, ("SB", 1): 62, ("SB", 2): 40, ("BTN", 1): 93,
+    ("BTN", 2): 29,
 }
 
 

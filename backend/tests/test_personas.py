@@ -901,7 +901,8 @@ def test_lagcomp2_late_seat_suited_covers_the_tag():
     and the superset leg short of 12 / 14 / 9 tag-covered classes at CO / BTN /
     SB: 6 / 9 / 3 the lag did not open AT ALL (CO 53s 84s 94s J2s T3s T4s; BTN
     the whole 32s 42s 52s 62s 72s 82s 83s 92s 93s bottom; SB 43s 84s 94s) and
-    6 / 5 / 6 more it opened at the 0.4 edge weight against the tag's 0.5
+    6 / 5 / 6 more it opened at the 0.4 edge weight against tag weights of
+    1.0 (14 of the 17) or 0.5 (the other 3)
     (measured off `git show e5e08b6:content/personas/{lag,tag}.json`).
 
     The set leg's one failure mode is a tag edit that ADDS a suited class the
