@@ -6003,17 +6003,20 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
     §5) applies verbatim.
 
     N-TAGWIDTH (2026-07-31) re-measured on its own 10-seed set (20260710 +
-    1000i): the width trim reads VPIP 16.05 -> 15.32 and PFR 12.67 -> 12.04 at
-    n=2000, and a stable-n escalation to n=4000 x 10 reads the shipped pack at
-    VPIP 15.34 +-0.30 / PFR 12.05 +-0.24 (se of the mean 0.095 / 0.076). Both
-    stay inside §5 — but PFR clears its floor of 12 by only 0.05pp, so this
-    row is worth watching: the slice spends essentially all of the tag's
-    remaining PFR headroom, and the early-seat trim it could NOT afford is an
-    escalated contract question (see the spec `_doc`). STILL REPORT-ONLY — the
-    trim was sized against the §5 floor, but this instrument is not the §5
-    pool and the slice gates on authored shape only. The two sweeps' pre-slice
-    readings differ (12.67 vs 12.80) because the seed sets differ; each sweep
-    is internally comparable, which is all the instrument claims.
+    1000i): the trim reads VPIP 16.05 -> 15.34 and PFR 12.67 -> 12.04, the
+    latter at a stable-n escalation of n=4000 x 10 (sd 0.21, se 0.066).
+    ⚠️ Read that PFR honestly rather than as a pass: its 95% CI is
+    [11.91, 12.17], which STRADDLES the §5 low edge of 12, and 4 of the 10
+    seeds read below it (min 11.750). The point estimate sits 0.04pp above a
+    DIRECTIONAL band edge, measured on this 3x-persona lineup rather than the
+    §5 reference pool, and nothing in the suite reds on it — §5 forbids gating
+    a population number before the W4-b re-anchor, which is exactly why this
+    row prints instead of asserting. Flagged for that re-anchor's watch list.
+    The slice spends essentially all of the tag's remaining PFR headroom; the
+    early-seat trim it could NOT afford is an escalated contract question (see
+    the spec `_doc`). The two sweeps' pre-slice readings differ (12.67 vs
+    12.80) because the seed sets differ; each sweep is internally comparable,
+    which is all the instrument claims.
     """
     packs = load_persona_packs()
     if not packs:
@@ -6023,6 +6026,6 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
         f"tag VPIP {s.vpip:.3f} (§5 0.15-0.20) PFR {s.pfr:.3f} (§5 0.12-0.17) "
         f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
         f"10-seed means: N-TAGCOMP 16.46/12.95/3.51 (n=2000), "
-        f"N-TAGWIDTH 15.34/12.05/3.29 (n=4000)"
+        f"N-TAGWIDTH 15.34/12.04/3.30 (n=4000, PFR 95% CI [11.91, 12.17])"
     )
     assert s.vpip is not None and s.pfr is not None
