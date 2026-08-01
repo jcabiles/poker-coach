@@ -219,6 +219,17 @@ mapper-track class (T-cover owns the ratio; suited-heavier lag opens + nit
 late raises route hero into more non-HU-SRP shapes the mapper rejects),
 reported not silent and flagged to the owner in the wave-3 ledger. Seeded-
 fixture re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for WAVE 4 COMBINED (persona-realism-wave4, 2026-08-01 —
+wave-authorized, recorded once on the combined lane-C + lane-D tip):
+N-M4BET maniac vs_4bet full coverage (the maniac now continues most 4-bet
+pots instead of folding 81% of its arriving range) + N-TAGCOMP tag unopened
+offsuit→suited swap. PURE preflop content; the stream displaces:
+1314/322 → 1269/317 (24.5% → 25.0%). CUMULATIVE vs the immutable
+persona-realism-start snapshot (349/1233 = 28.3%): 317/1269 = 25.0%, −3.3pp —
+inside the adjudicated mapper-track dip (T-cover owns the ratio), a small
+recovery from wave 3's −3.8pp, reported not silent. Graded ratchet 322 → 317
+disclosed. Seeded-fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

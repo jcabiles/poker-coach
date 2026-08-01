@@ -3202,12 +3202,22 @@ _GOLDEN_STATS_N200 = {
     # only maniac + tag; the lag content change re-deals every pot the lag
     # enters). Exact tripwire re-record; population bands stay frozen to
     # W4-b.
-    "calling_station": (0.38636363636363635, 0.10869565217391304, 0.7250859106529209),
-    "lag": (2.2711864406779663, None, 0.5294117647058824),
-    "maniac": (3.272727272727273, 0.25, 0.5555555555555556),
-    "nit": (None, None, 0.6296296296296297),
-    "passive_fish": (1.125984251968504, 0.5, 0.4484304932735426),
-    "tag": (2.8666666666666667, None, 0.5185185185185185),
+    # RE-RECORDED for WAVE 4 COMBINED (persona-realism-wave4, 2026-08-01 —
+    # wave-authorized, recorded once on the combined lane-C + lane-D tip):
+    # N-M4BET maniac vs_4bet full coverage (fold 0.81→0.29 at the node — the
+    # maniac now continues most 4-bet pots, so every 4-bet pot plays on) +
+    # N-TAGCOMP tag unopened offsuit→suited swap. PURE preflop content; the
+    # displacements compound and ALL six rows move at this n=200 seed. The
+    # maniac n=200 AF spike (3.27 → 4.82) is small-n composition — its call
+    # denominator shrinks as 4-bet pots it used to fold out of now reach
+    # postflop as raised-in pots; population bands still gate it at stable n.
+    # Exact tripwire re-record; population bands stay frozen to W4-b.
+    "calling_station": (0.3063973063973064, 0.2, 0.6829268292682927),
+    "lag": (2.6, 0.2894736842105263, 0.5074626865671642),
+    "maniac": (4.822222222222222, 0.4166666666666667, 0.37383177570093457),
+    "nit": (0.8857142857142857, None, 0.4915254237288136),
+    "passive_fish": (1.1355932203389831, 0.41304347826086957, 0.5207373271889401),
+    "tag": (2.5, None, 0.6395348837209303),
 }
 
 
@@ -3493,9 +3503,20 @@ def test_preflop_node_occupancy_arrival_grid():
     # allowance, ceiling tightened so a genuine BTN-ladder collapse or a
     # revert-to-narrow regression still trips. Still DIRECTIONAL, still
     # thin-n (~408); the Wave B denominator repair remains the real fix.
-    assert 0.02 <= grid["BTN"]["unopened"] <= 0.075, (
-        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.02, 0.075] "
-        f"-- n~408, 21-seed dispersion 0.027..0.071 (slice-neutral cell), see above{report}"
+    # RE-DERIVED at WAVE 4 (2026-08-01, N-TAGCOMP landing): a 10-seed PAIRED
+    # sweep (identical seeds, only wave-4 content differing) measured a REAL,
+    # small, attributable rise — paired delta +0.0108 sd 0.0127 (t≈2.7; 7 of
+    # 10 seeds up) — mechanism: the tag width trim makes every tag seat fold
+    # slightly more first-in (the dossier-correct direction, see N-TAGWIDTH),
+    # and BTN unopened arrival is exactly P(all earlier seats fold). HEAD
+    # dispersion 0.044..0.1005 (parent 0.039..0.081), pinned seed 0.0784.
+    # Ceiling re-derived from the pooled dispersion; floor kept — a genuine
+    # BTN-ladder collapse or revert-to-narrow regression still trips. Still
+    # DIRECTIONAL, still thin-n (~408); the Wave B denominator repair remains
+    # the real fix.
+    assert 0.02 <= grid["BTN"]["unopened"] <= 0.11, (
+        f"BTN unopened arrival {grid['BTN']['unopened']:.4f} outside [0.02, 0.11] "
+        f"-- n~408, wave-4 paired-sweep dispersion 0.044..0.10, see above{report}"
     )
 
     total = sum(occ.opps.values())
@@ -3927,17 +3948,41 @@ def test_r10_3bet_passive_identity_freeze():
 # the jam at 0.40 fixes both and keeps the archetype's push/fold identity.
 # The FLAT continue level 0.40 (equal to 55/66, below TT/JJ's 0.50) is
 # theory-endorsed and deliberate, not a rounding artifact.
-
-
+#
+# N-M4BET (2026-07-31, maniac.json 1.4.0): this pin is UNCHANGED, and the
+# record of why matters. The slice first raised the level to jam 0.75 on the
+# argument that a 25% aggregate fold left no budget for a 60% fold on middle
+# pairs; theory review REFUTED that arithmetic — holding all of 22-99 at the
+# wave-3 {jam 0.40, fold 0.60} the arrival-weighted aggregate lands at fold
+# 0.286, inside every bound the gate asserts. Nothing in the fit required the
+# move, so the wave-3 weights are restored: 22-99 are now ONE push/fold mix
+# ("22-99") at exactly this level, which also makes the 99 -> TT jam step
+# 0.40 -> 0.45 RISING instead of the 0.75 -> 0.45 inversion the raised level
+# introduced.
+#
+# The rationale ABOVE is narrowed at the same review: "no set-mining price"
+# holds for 22-66, but for 77-99 the honest test is the DIRECT price — at
+# SPR ~1.5, calling ~14 into ~35.5 needs ~28% equity, which 77-99 clear
+# against a 4-betting range. Whether 77-99 deserve a call leg is therefore
+# OPEN and FILED as a follow-up; this slice authors no new call legs.
 _MANIAC_VS_4BET_MID_PAIR_MIX = {"5bet_shove": 0.4, "fold": 0.6}
 
 
 def _vs_4bet_policy(pack) -> dict[str, dict[str, float]]:
     """Authored vs_4bet weights per class, sampler semantics (first matching
-    mix wins; classes no mix covers are absent = fold 1.0)."""
+    mix wins; classes no mix covers are absent = fold 1.0).
+
+    Asserts the single-node assumption (review LOW): no shipped pack stratifies
+    `vs_4bet` by role, and a silent `next()` would read only the first stratum
+    if one ever did."""
     from app.domain.content.notation import parse_range
 
-    node = next(n for n in pack.preflop if n.facing == "vs_4bet")
+    nodes = [n for n in pack.preflop if n.facing == "vs_4bet"]
+    assert len(nodes) == 1, (
+        f"vs_4bet policy assumes ONE un-stratified node; found {len(nodes)} "
+        f"(roles {[n.role for n in nodes]}) — read the stratum explicitly"
+    )
+    node = nodes[0]
     policy: dict[str, dict[str, float]] = {}
     for mix in node.mixes:
         for cls in parse_range(mix.combos):
@@ -3981,7 +4026,22 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
     non-decreasing UP the row, 55 -> 99. That is the assertion the first draft
     violated — it continued 77-99 at the right total (0.40) while jamming them
     less than the weaker 55/66 — and continue-monotonicity alone could never
-    have caught it, because the inversion lived inside the split."""
+    have caught it, because the inversion lived inside the split.
+
+    N-M4BET (2026-07-31) EXTENDS both ladders to the bottom of the row rather
+    than replacing them: 44/33/22 were uncovered (continue 0.0, fold 1.0) when
+    this gate was written, so the continue ladder stopped at 55 and the jam
+    ladder started there. Both now run the full pair row — continue
+    non-increasing AA -> 22, jam non-decreasing 22 -> 99 — which is strictly
+    more than the old gate asserted. 22-99 ship as ONE push/fold mix at the
+    wave-3 level, so both ladders hold as LEVEL across that block (0.40), and
+    the step out of it into TT rises 0.40 -> 0.45.
+
+    JJ/TT and up are deliberately OUTSIDE the jam ladder: those tiers are
+    call-capable (continue 1.00, split call 0.55 / jam 0.45), and QQ/AK jam
+    1.00 because they most want no showdown, so jam mass is NOT monotone
+    across the top of the row. Continue mass is, and that is the leg that
+    carries the strength claim."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -3993,20 +4053,28 @@ def test_tf3_maniac_vs_4bet_pair_continue_ladder_is_monotone():
     def cont(cls: str) -> float:
         return leg(cls, "call") + leg(cls, "5bet_shove")
 
-    ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55"]
+    ladder = ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22"]
     bad = [
         f"{a} {cont(a):.2f} < {b} {cont(b):.2f}"
         for a, b in zip(ladder, ladder[1:], strict=False)
         if cont(a) < cont(b)
     ]
     assert not bad, f"maniac vs_4bet pair continue ladder inverted: {bad}"
-    jam_ladder = ["55", "66", "77", "88", "99"]
+    jam_ladder = ["22", "33", "44", "55", "66", "77", "88", "99"]
     jam_bad = [
         f"{a} {leg(a, '5bet_shove'):.2f} > {b} {leg(b, '5bet_shove'):.2f}"
         for a, b in zip(jam_ladder, jam_ladder[1:], strict=False)
         if leg(a, "5bet_shove") > leg(b, "5bet_shove")
     ]
     assert not jam_bad, f"maniac vs_4bet jam mass falls as pairs get stronger: {jam_bad}"
+    # Delta-review D1: the docstring's "step out of the block into TT rises"
+    # claim was advertised but unasserted (TT sits outside jam_ladder by
+    # design). Pin just the boundary step so re-raising 99's jam above TT's
+    # cannot recreate the wave-3 R-3 inversion silently.
+    assert leg("99", "5bet_shove") <= leg("TT", "5bet_shove"), (
+        f"99 jam {leg('99', '5bet_shove'):.2f} exceeds TT's "
+        f"{leg('TT', '5bet_shove'):.2f} — the 99->TT boundary inverted"
+    )
 
 
 def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
@@ -4023,6 +4091,333 @@ def test_tf3_vs_4bet_edit_leaves_the_4bet_shares_untouched():
         for vt in (VillainType.MANIAC, VillainType.LAG, VillainType.TAG, VillainType.NIT)
     }
     assert shares == {"maniac": 15.16, "lag": 2.33, "tag": 1.81, "nit": 0.41}, shares
+
+
+# ------------------------- N-M4BET — the maniac's ARRIVAL-WEIGHTED 4-bet response
+# Theory finding T-R2 (HIGH, wave-3 lane B): T-F3 above fixed the ONE pair-row
+# hole RR-LINT could see, but the node's behaviour is not a per-class ordering
+# question — it is the AGGREGATE the bot actually produces, and that aggregate
+# is set by which classes ARRIVE at the node and with how much mass.
+#
+# ARRIVAL DERIVATION (deterministic, no sampling) — a CONDITIONAL, and the
+# condition is load-bearing (review fold, 3-way convergent: theory HIGH, Codex
+# MED, refuter MED). The channel modeled here is "the maniac 3-bet an RFI and
+# got 4-bet": its own `vs_rfi` 3-bet mass under first-match-wins, i.e. for each
+# of the 169 classes combos(class) x P(3bet | class), summing to 284.4 combos =
+# 21.45% of all 1326 (the figure T-R2 measured). Weighting the `vs_4bet` policy
+# by that mass (uncovered class => fold 1.0, weight remainder => fold, exactly
+# as `sample_preflop_action` resolves it) gives the response triple below.
+#
+# WHAT THE MODEL DOES NOT COVER. `play._preflop_facing` labels `vs_4bet` off the
+# raise COUNT (n >= 3) and reads no history, so the same node also serves: the
+# opener facing a cold 4-bet, a cold caller, the ISO-raiser over limpers, and
+# n >= 4 re-entrant arrivals — where "5bet_shove" is a misnomer and, facing an
+# all-in, degrades to a CALL through play.py's legality fallback. Measured on a
+# seeded 4000-hand PRODUCTION-SIZING probe (the REPORTED test below): 70.2% of
+# the maniac's vs_4bet decisions are n=3 and 45.9% are this modeled channel.
+#
+# THE vs_limpers QUESTION, SETTLED BY TRACE (review item 1b): the iso channel IS
+# reachable — Codex's construction is right, the "never reaches vs_4bet" reading
+# is wrong. Concrete production-sizing hand (seed 447515414, button seat 4):
+# UTG1 limps, the maniac at UTG2 ISO-raises to 5.5 (raise #1), LJ re-raises to
+# 18.15 (#2), HJ re-raises to 54.45 (#3) — when action returns to the
+# ISO-raiser it reads `vs_4bet` at n=3, which is the load-bearing claim. (In
+# the replayed deal the iso-raiser then folds; a 5-bet to 100 in that hand
+# comes from a DIFFERENT maniac seat on the modeled channel. The seed is an
+# illustrative constructed replay, not drawn from the probe's own hand
+# stream — delta-review D3.) The iso channel is 3.2% of the maniac's vs_4bet
+# decisions in the probe; that mass arrives with the ISO range, not the
+# 3-bet range, and is NOT modeled here.
+#
+# ⚠️ INSTRUMENT WARNING (refuter, filed to the instrument owner): the band
+# harness's own `_preflop_decision` sizes every raise at `la.min_bb`, while
+# production sizes from persona levers and a `5bet` is all-in — so HARNESS
+# measurements of this node overstate re-entrant depth (min-raise ping-pong
+# wars that production cannot have). Every channel figure quoted here comes
+# from the production-sizing probe, never from the harness.
+#
+# TARGET: docs/.../playstyle-research/maniac.md, "Facing a 4-bet after
+# 3-betting", ONLINE row — fold 25% / call 35% / 5-bet jam 40%.
+# PROVENANCE: (Online full-ring cash, online 2NL-100NL, maniac.md "Facing a
+# 4-bet after 3-betting", author-asserted calibration band — UNVERIFIED, never
+# HARD while unverified). maniac.md:383 says in terms "do NOT present as
+# measured", so the triple is NOT a two-sided CI gate here (theory MED): the
+# ASSERTED form is one-sided red-first bounds, each of which fails HEAD~1 on
+# its own, and the exact triple + the +-0.05 comparison are PRINTED as a report.
+_M4BET_DOSSIER = {"fold": 0.25, "call": 0.35, "5bet_shove": 0.40}
+_M4BET_TOL = 0.05  # report-only distance from the triple, NOT asserted
+# One-sided asserted bounds. Direction = the defect's direction, level = far
+# enough from the dossier point to survive an authoring re-fit but close enough
+# that each fails at pre-slice HEAD (0.8143 / 0.0408 / 0.1449) individually.
+_M4BET_BOUNDS = {"fold": ("<", 0.40), "call": (">", 0.15), "5bet_shove": (">", 0.25)}
+
+
+def _vs_rfi_threebet_arrival(pack) -> dict[str, float]:
+    """class -> combo mass this pack ARRIVES at `vs_4bet` with THROUGH THE
+    MODELED CHANNEL, i.e. its own `vs_rfi` 3-bet mass under first-match-wins
+    (later mentions are dead). See the block comment for the channels this
+    deliberately excludes.
+
+    COUPLING IS INTENDED: the aggregate gate reads the `vs_rfi` node, so a
+    future slice that rewrites `vs_rfi` moves this arrival distribution and can
+    turn the gate red WITHOUT touching `vs_4bet`. That is the design — the
+    response is only meaningful against the range it is answered with — and the
+    failure message says to re-derive rather than to re-weight."""
+    from app.domain.content.notation import parse_range
+
+    nodes = [n for n in pack.preflop if n.facing == "vs_rfi"]
+    assert len(nodes) == 1, (
+        f"arrival derivation assumes ONE un-stratified vs_rfi node; found "
+        f"{len(nodes)} (roles {[n.role for n in nodes]}) — re-derive arrival "
+        f"per stratum before trusting this gate"
+    )
+    node = nodes[0]
+    seen: set[str] = set()
+    arrival: dict[str, float] = {}
+    for mix in node.mixes:
+        w = mix.weights.get("3bet", 0.0)
+        for cls in parse_range(mix.combos):
+            if cls in seen:
+                continue
+            seen.add(cls)
+            if w > 0.0:
+                arrival[cls] = _combo_count(cls) * w
+    return arrival
+
+
+def _vs_4bet_arrival_weighted(pack) -> dict[str, float]:
+    """The pack's `vs_4bet` response averaged over its OWN arriving 3-bet mass.
+    Resolves weights exactly as `sample_preflop_action` does: the remainder of
+    a mix is an implicit fold, and a class no mix covers folds 1.0."""
+    policy = _vs_4bet_policy(pack)
+    arrival = _vs_rfi_threebet_arrival(pack)
+    agg = {"fold": 0.0, "call": 0.0, "5bet_shove": 0.0}
+    for cls, mass in arrival.items():
+        weights = dict(policy.get(cls, {}))
+        remainder = 1.0 - sum(weights.values())
+        if remainder > 1e-9:
+            weights["fold"] = weights.get("fold", 0.0) + remainder
+        for act, w in weights.items():
+            agg[act] += mass * w
+    total = sum(arrival.values())
+    return {act: v / total for act, v in agg.items()}
+
+
+def test_nm4bet_maniac_arrival_weighted_vs_4bet_matches_dossier():
+    """🔴 N-M4BET defect gate (deterministic, no sampling): the maniac's
+    response over the MODELED ARRIVAL CHANNEL (its own vs_rfi 3-bet mass; see
+    the block comment for what that excludes and why) must clear three
+    ONE-SIDED bounds — fold < 0.40, call > 0.15, jam > 0.25.
+
+    WHY ONE-SIDED (theory MED): the dossier row is an author-asserted
+    calibration band the source itself says not to present as measured, so it
+    may not act as a two-sided CI gate. Each bound above fails at pre-slice
+    HEAD ON ITS OWN — HEAD reads fold 0.8143 (not < 0.40), call 0.0408 (not >
+    0.15), jam 0.1449 (not > 0.25) — so the gate is red-first three times over
+    while asserting nothing the source cannot support. The exact triple and
+    the +-0.05 distance from it are PRINTED as a report, not asserted.
+
+    PRE-SLICE HEAD cause (recorded per the gate-design rule): coverage, not
+    weights — 73.63% of arriving mass (151 of 169 classes: AQo, KQo, KJo, QJo,
+    JTo, ATo, AJo, A9o, AJs, 44-22 and the whole light-3-bet tail) matched NO
+    mix and folded 1.0."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    got = _vs_4bet_arrival_weighted(packs[VillainType.MANIAC])
+    print(
+        "maniac arrival-weighted vs_4bet (modeled n=3 3-bettor channel): "
+        + " ".join(f"{a} {got[a]:.4f}" for a in ("fold", "call", "5bet_shove"))
+    )
+    print(
+        "  REPORT vs dossier 25/35/40 (author-asserted, UNVERIFIED): "
+        + " ".join(
+            f"{a} {got[a] - _M4BET_DOSSIER[a]:+.4f}"
+            f"{'' if abs(got[a] - _M4BET_DOSSIER[a]) <= _M4BET_TOL else ' OUT'}"
+            for a in ("fold", "call", "5bet_shove")
+        )
+        + f" (report tolerance +-{_M4BET_TOL}, NOT asserted)"
+    )
+    bad = {
+        act: round(got[act], 4)
+        for act, (op, bound) in _M4BET_BOUNDS.items()
+        if not (got[act] < bound if op == "<" else got[act] > bound)
+    }
+    assert not bad, (
+        f"maniac arrival-weighted vs_4bet response breaks its one-sided "
+        f"bounds {_M4BET_BOUNDS}: {bad}. If `vs_rfi` moved rather than "
+        f"`vs_4bet`, RE-DERIVE the arrival distribution — do not re-weight "
+        f"the response to chase it"
+    )
+
+
+def test_nm4bet_maniac_vs_4bet_covers_its_own_arriving_3bet_range():
+    """🔴 N-M4BET coverage gate (the disease T-R2 named, gated directly):
+    EVERY class the maniac 3-bets must hit an explicit `vs_4bet` mix. An
+    uncovered class is not a policy choice — `sample_preflop_action` folds it
+    1.0 with no fall-through, which is how 73.63% of the arriving mass became
+    an invisible fold. FAILED at pre-slice HEAD on 151 classes.
+
+    Weakest-link form on purpose: the aggregate gate above can be satisfied
+    with holes left in (over-continuing elsewhere to compensate), so the two
+    assertions are not redundant.
+
+    ⚠️ OBSERVABILITY TRADE (refuter MED) — the node ends in a `*` catch-all, so
+    (a) RR-LINT's row-gap lint is permanently blind to this node (every class
+    is "played", so no row can have a gap) and (b) the coverage assertion above
+    can never fail again while `*` is last. The trade buys the thing the defect
+    was: no class can silently fold 1.0. The replacement watch is the TAIL-MASS
+    tripwire below — a future edit that "covers" classes by dumping them into
+    the `*` tier instead of authoring them goes red at 0.15 of arriving mass
+    (today 0.1181, the any-two light-3-bet tail alone). Same trade documented
+    in tests/test_pack_range_lint.py's inventory block."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    pack = packs[VillainType.MANIAC]
+    policy = _vs_4bet_policy(pack)
+    arrival = _vs_rfi_threebet_arrival(pack)
+    total = sum(arrival.values())
+    uncovered = {cls: round(m / total, 5) for cls, m in arrival.items() if cls not in policy}
+    assert not uncovered, (
+        f"maniac 3-bets {len(uncovered)} classes it has no vs_4bet mix for "
+        f"({sum(uncovered.values()):.4f} of arriving mass): {sorted(uncovered)}"
+    )
+    from app.domain.content.notation import parse_range
+
+    node = next(n for n in pack.preflop if n.facing == "vs_4bet")
+    assert node.mixes[-1].combos.strip() == "*", (
+        "the tail tripwire assumes the catch-all is the LAST mix; it is "
+        f"{node.mixes[-1].combos[:40]!r}"
+    )
+    earlier: set[str] = set()
+    for mix in node.mixes[:-1]:
+        earlier |= parse_range(mix.combos)
+    tail = sum(m for cls, m in arrival.items() if cls not in earlier) / total
+    print(f"maniac vs_4bet '*' tail claims {tail:.4f} of arriving mass")
+    assert tail <= 0.15, (
+        f"the vs_4bet `*` catch-all now absorbs {tail:.4f} of arriving mass "
+        f"(cap 0.15): classes are being covered by dumping them in the tail "
+        f"instead of being authored — the coverage gate cannot see that"
+    )
+
+
+def test_nm4bet_maniac_vs_4bet_suited_ace_construction_is_pinned():
+    """🔴 REPLACEMENT gate for the RR-LINT row-gap entry this slice retires
+    (red at pre-slice HEAD, where the wheel tier read {5bet_shove 0.5, fold
+    0.5} and the middle suited aces were uncovered, i.e. jam 0.0 — it fails
+    HEAD on both halves).
+
+    RR-LINT recorded ("maniac", "vs_4bet", "*", "As", (AJs..A6s)) as a
+    DELIBERATE polar/blocker construction: the node continued AKs and the
+    wheel aces A5s-A2s while the middle suited aces were unplayed. N-M4BET
+    covers every class explicitly, so that gap is no longer visible to a
+    coverage-based lint — the construction now lives in the WEIGHTS. This pin
+    keeps it watched: the wheel-ace tier stays a jam-or-fold block (no call
+    leg, the card-removal story), and it jams STRICTLY more than the middle
+    suited aces do, which is the whole content of the old entry."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    policy = _vs_4bet_policy(packs[VillainType.MANIAC])
+    for cls in ("A5s", "A4s", "A3s", "A2s"):
+        assert policy.get(cls, {}) == {"5bet_shove": 0.7, "fold": 0.3}, (
+            f"wheel-ace blocker tier moved off jam-or-fold on {cls}: {policy.get(cls, {})}"
+        )
+    for cls in ("AJs", "ATs", "A9s", "A8s", "A7s", "A6s"):
+        jam = policy.get(cls, {}).get("5bet_shove", 0.0)
+        assert 0.0 < jam < 0.7, (
+            f"middle suited ace {cls} jams {jam} — the wheel-ace blockers must "
+            f"jam strictly more, and no arriving class may be a silent fold"
+        )
+
+
+def _maniac_vs_4bet_channels(packs, n_hands: int) -> tuple[int, dict[tuple, int]]:
+    """(total decisions, {(raise_count, prior (facing, action)) -> count}) for
+    maniac seats acting at `vs_4bet`, over PRODUCTION-SIZING play.
+
+    Deliberately NOT the band harness (refuter instrument finding): the harness
+    mirror sizes every raise at `la.min_bb`, which lets min-raise wars run to
+    depths production cannot reach (production sizes from the persona levers
+    and `5bet` = all-in). This probe drives `play.bot_decision` — the live path
+    — and stops at the end of the preflop street, which is all it measures.
+    Same seed/lineup convention as `_persona_stats_ext`."""
+    from app.domain.table.play import _preflop_facing as _live_facing
+    from app.domain.table.play import bot_decision
+
+    rng = random.Random(20260710)
+    fillers = [p for p in ALL_PERSONAS if p != "maniac"]
+    lineup = (["maniac"] * 3 + [fillers[i % len(fillers)] for i in range(6)])[:9]
+    persona_by_seat = {i: lineup[i] for i in range(9)}
+    tested = {i for i, p in persona_by_seat.items() if p == "maniac"}
+    total = 0
+    channels: dict[tuple, int] = {}
+    for i in range(n_hands):
+        hand_seed = rng.randrange(1_000_000_000)
+        dealt = deal_hand(random.Random(hand_seed))
+        state = start_hand(dealt, button_seat=i % 9, stacks_bb=[100.0] * 9)
+        prior: dict[int, tuple[str, str]] = {}
+        guard = 0
+        while (
+            not state.hand_over
+            and state.to_act_seat is not None
+            and state.street is Street.PREFLOP
+        ):
+            guard += 1
+            assert guard < 200, "preflop playout did not terminate"
+            seat = state.to_act_seat
+            facing = _live_facing(state)
+            raises = sum(
+                1
+                for h in state.action_history
+                if h.street is Street.PREFLOP and h.action == ActionType.RAISE
+            )
+            if facing == "vs_4bet" and seat in tested:
+                total += 1
+                key = (raises, prior.get(seat, ("(first decision)", "-")))
+                channels[key] = channels.get(key, 0) + 1
+            decision = bot_decision(state, seat, packs[VillainType(persona_by_seat[seat])], rng)
+            prior[seat] = (facing, decision.action.value)
+            state = apply(state, decision)
+    return total, channels
+
+
+def test_nm4bet_vs_4bet_arrival_channels_report():
+    """📋 REPORTED, NOT GATED (review item 1c) — the live stratification of the
+    node the deterministic gates model with ONE channel.
+
+    `_preflop_facing` labels `vs_4bet` on raise-count n >= 3 and reads no
+    history, so this one node serves several arrival strata with incomparable
+    ranges. This probe prints the split so the conditional in the gates above
+    is a measured claim rather than an assumption. Reference reading at the
+    pinned seed, n=4000 hands (621 maniac decisions, shipped 1.4.0 pack):
+
+        n=3 total                             0.7021
+        n>=4 total                            0.2979
+        n=3, seat 3-bet at vs_rfi  [MODELED]  0.4589
+        n=4, seat 4-bet at vs_3bet            0.1965
+        n=3, seat opened unopened             0.0821
+        n=3, seat's FIRST decision (cold)     0.0548
+        n=3, seat ISO-raised limpers          0.0322
+
+    NOT ASSERTED, on purpose: it is a Monte Carlo reading of an occupancy
+    distribution with no dossier target, and gating it would freeze an
+    instrument, not a behaviour. It exists so the next slice can see whether
+    the modeled channel is still the dominant one. n is small enough to run in
+    the suite (~6.5s measured) and large enough to read shares to ~2pp."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    total, channels = _maniac_vs_4bet_channels(packs, 4000)
+    assert total > 200, f"only {total} maniac vs_4bet decisions — too few to report"
+    depth: dict[int, int] = {}
+    for (raises, _prior), count in channels.items():
+        depth[raises] = depth.get(raises, 0) + count
+    print(f"maniac vs_4bet decisions (production sizing, n=4000 hands): {total}")
+    for raises in sorted(depth):
+        print(f"  raises={raises}: {depth[raises]} ({depth[raises] / total:.4f})")
+    for (raises, prior), count in sorted(channels.items(), key=lambda kv: -kv[1]):
+        print(f"  n={raises} prior={prior}: {count} ({count / total:.4f})")
 
 
 def _wilson95(k: int, n: int) -> tuple[float, float]:
@@ -5571,5 +5966,27 @@ def test_nlagladder_lag_vpip_pfr_reported_not_gated():
         f"lag VPIP {s.vpip:.3f} (§5 0.21-0.27) PFR {s.pfr:.3f} (§5 0.17-0.23) "
         f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
         f"10-seed n=2000 means: pre-slice 23.51/17.32/6.19, shipped 23.88/17.32/6.55"
+    )
+    assert s.vpip is not None and s.pfr is not None
+
+
+def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
+    """REPORT-ONLY (same rule as the lag row above — the single population-band
+    anchor is W4-b). Added at the wave-4 delta review (D4): N-TAGCOMP's `_doc`
+    cites a 10-seed metric-#3 sweep (pre-slice VPIP 16.07 ±0.53 / PFR 12.80
+    ±0.46 · shipped 16.46 ±0.37 / 12.95 ±0.25, all inside §5 TAG 15-20 /
+    12-17) that previously had no in-repo reproduction path. §5 provenance is
+    stated once in content/personas/ladders/tag.unopened.json's `_doc`; the
+    lag row's instrument caveat (3×persona+filler lineup, one-sidedly LOW vs
+    §5) applies verbatim.
+    """
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    s = _persona_stats_ext(packs, "tag", 600)
+    print(
+        f"tag VPIP {s.vpip:.3f} (§5 0.15-0.20) PFR {s.pfr:.3f} (§5 0.12-0.17) "
+        f"gap {s.gap:.3f} — n=600, REPORTED, band anchor is W4-b; "
+        f"10-seed n=2000 means: pre-slice 16.07/12.80/3.27, shipped 16.46/12.95/3.51"
     )
     assert s.vpip is not None and s.pfr is not None

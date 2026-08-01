@@ -1,6 +1,6 @@
 """RR-EMIT — the build-time `unopened` range emitter and its proving gates.
 
-TWO SPECS ARE PROVED HERE, and they prove different things:
+THREE SPECS ARE PROVED HERE, and they prove different things:
   - `nit.unopened.json` (W5-b3) is a RE-ENCODING of content that already
     shipped; its gate is evidence the model is lossless.
   - `lag.unopened.json` (N-LAGLADDER) is RR-EMIT's first PRODUCTION authoring
@@ -9,7 +9,9 @@ TWO SPECS ARE PROVED HERE, and they prove different things:
     committed pack has not drifted away from the spec that is supposed to
     generate it, so `python -m tools.rr_emit content/personas/ladders/
     lag.unopened.json` stays the way that ladder is edited.
-Both are the same assertion in code, run in both directions of authorship.
+  - `tag.unopened.json` (N-TAGCOMP) is the second production run, same
+    direction and same guarantee, for `content/personas/tag.json`.
+All three are the same assertion in code, run in both directions of authorship.
 
 THE PROVING GATE (`test_proving_gate_*`): the emitter, fed the nit curve spec
 checked in at `content/personas/ladders/nit.unopened.json`, reproduces the
@@ -417,6 +419,122 @@ def test_lag_authored_raise_pct_annotations_match_emitted_widths(lag_emitted):
     honest, so it can never quietly become a fitted width parameter."""
     spec = _load_lag_spec()
     for node in lag_emitted:
+        seat = node["positions"][0]
+        assert _raise_width_pct(node) == pytest.approx(
+            spec["seats"][seat]["raise_pct"], abs=0.005
+        ), seat
+
+
+# ======================================== N-TAGCOMP — the tag production spec
+# The THIRD spec proved here, and the second in the production direction (the
+# spec generated the pack, so this asserts the committed pack is still what the
+# spec emits). Its content claim is different from the lag's: the lag slice
+# moved dominated offsuit into suited to stop feeding `vs_3bet` call mass, the
+# tag slice moves it because a TAG that plays 51% of the offsuit universe and
+# only 70% of the suited one from the BTN is not shaped like a TAG at all
+# (theory T-M2). Both are constant-width swaps and both are proved the same way.
+
+TAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "tag.unopened.json"
+TAG_PACK_PATH = CONTENT.parent / json.loads(
+    TAG_SPEC_PATH.read_text(encoding="utf-8")
+)["emits"]
+# Review law (3-way convergent on the lag/nit specs: Codex, theory, lane B):
+# deriving the pack path from the spec's own `emits` makes the metadata audited
+# rather than dead, but ONLY if the resolved target is itself pinned —
+# otherwise repointing `emits` at a scratch copy would keep every gate below
+# green while the pack the ENGINE loads drifted. Assert the resolution before
+# any fixture uses it.
+assert TAG_PACK_PATH == CONTENT / "personas" / "tag.json", (
+    f"tag spec 'emits' resolves to {TAG_PACK_PATH}, not content/personas/tag.json"
+)
+
+
+def _load_tag_spec() -> dict:
+    return json.loads(TAG_SPEC_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def tag_emitted() -> list[dict]:
+    return emit_nodes(_load_tag_spec())
+
+
+@pytest.fixture(scope="module")
+def tag_shipped() -> list[dict]:
+    pack = json.loads(TAG_PACK_PATH.read_text(encoding="utf-8"))
+    return [n for n in pack["preflop"] if n["facing"] == "unopened"]
+
+
+def test_tag_proving_gate_seat_list_matches_shipped(tag_emitted, tag_shipped):
+    assert [n["positions"] for n in tag_emitted] == [
+        n["positions"] for n in tag_shipped
+    ]
+    assert all(n["facing"] == "unopened" for n in tag_emitted)
+
+
+def test_tag_proving_gate_unopened_is_semantically_identical(tag_emitted, tag_shipped):
+    """Per seat, per mix, in order: same classes (parsed) and same weights."""
+    for emit_node, ship_node in zip(tag_emitted, tag_shipped, strict=True):
+        seat = ship_node["positions"][0]
+        assert len(emit_node["mixes"]) == len(ship_node["mixes"]), (
+            f"{seat}: emitted {len(emit_node['mixes'])} mixes, "
+            f"shipped {len(ship_node['mixes'])}"
+        )
+        for i, (emit_mix, ship_mix) in enumerate(
+            zip(emit_node["mixes"], ship_node["mixes"], strict=True)
+        ):
+            emit_classes = parse_range(emit_mix["combos"])
+            ship_classes = parse_range(ship_mix["combos"])
+            assert emit_classes == ship_classes, (
+                f"{seat} mix {i}: only-shipped={sorted(ship_classes - emit_classes)} "
+                f"only-emitted={sorted(emit_classes - ship_classes)} "
+                f"({ship_mix['combos']!r} -> {emit_mix['combos']!r})"
+            )
+            assert emit_mix["weights"] == ship_mix["weights"], f"{seat} mix {i}"
+
+
+def test_tag_proving_gate_corpus_is_non_trivial(tag_emitted, tag_shipped):
+    """Belt on the gate itself (the nit gate's rule): a mismatch must not be
+    passable by emitting an empty ladder."""
+    def union(nodes):
+        return {
+            cls
+            for node in nodes
+            for mix in node["mixes"]
+            for cls in parse_range(mix["combos"])
+        }
+
+    played = union(tag_shipped)
+    assert len(played) == 126, "shipped tag unopened corpus changed size"
+    assert union(tag_emitted) == played
+    assert sum(len(n["mixes"]) for n in tag_emitted) == 18  # 9 seats x 2 tiers
+
+
+def test_tag_emitted_nodes_are_legal_persona_nodes(tag_emitted):
+    for node in tag_emitted:
+        PersonaNode.model_validate(node)
+
+
+def test_tag_emission_is_byte_deterministic():
+    first = emit_json(_load_tag_spec())
+    assert emit_json(_load_tag_spec()) == first
+    assert first.endswith("\n") and "\n \n" not in first
+
+
+def test_tag_ladder_widths_strictly_increase_toward_the_button(tag_emitted):
+    spec = _load_tag_spec()
+    by_seat = {n["positions"][0]: n for n in tag_emitted}
+    widths = [_raise_width_pct(by_seat[s]) for s in spec["monotone_seats"]]
+    assert widths == sorted(widths) and len(set(widths)) == len(widths), (
+        f"tag ladder not strictly increasing over {spec['monotone_seats']}: "
+        f"{[round(w, 2) for w in widths]}"
+    )
+
+
+def test_tag_authored_raise_pct_annotations_match_emitted_widths(tag_emitted):
+    """`raise_pct` is documentation the emitter never reads — assert it is
+    honest, so it can never quietly become a fitted width parameter."""
+    spec = _load_tag_spec()
+    for node in tag_emitted:
         seat = node["positions"][0]
         assert _raise_width_pct(node) == pytest.approx(
             spec["seats"][seat]["raise_pct"], abs=0.005

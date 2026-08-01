@@ -225,9 +225,13 @@ _PRE_M3_FIRES = {
     # nit CO/BTN pair opens + maniac vs_4bet pairs + the lag composition swap
     # compound their rng-stream displacement, so every pair moves (lane B
     # alone moved only (LJ,1) 116 -> 117).
-    ("UTG2", 1): 86, ("LJ", 1): 124, ("HJ", 1): 108, ("CO", 1): 112,
-    ("CO", 2): 40, ("SB", 1): 70, ("SB", 2): 31, ("BTN", 1): 90,
-    ("BTN", 2): 35,
+    # RE-RECORDED for WAVE 4 COMBINED (persona-realism-wave4, 2026-08-01 —
+    # wave-authorized, recorded once on the combined lane-C + lane-D tip):
+    # N-M4BET + N-TAGCOMP preflop content compound the stream displacement;
+    # every pair moves.
+    ("UTG2", 1): 105, ("LJ", 1): 125, ("HJ", 1): 133, ("CO", 1): 102,
+    ("CO", 2): 26, ("SB", 1): 71, ("SB", 2): 39, ("BTN", 1): 80,
+    ("BTN", 2): 38,
 }
 
 

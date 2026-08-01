@@ -1,0 +1,200 @@
+{
+  "id": "ladder_tag_unopened",
+  "version": "1.0.0",
+  "domain": "persona_ladder",
+  "_doc": [
+    "N-TAGCOMP curve spec — the THIRD RR-EMIT spec and the second PRODUCTION",
+    "authoring run (nit was a lossless re-encoding; lag and this one author new",
+    "content). NOT loaded at runtime: app/domain/personas.py globs",
+    "content/personas/*.json non-recursively, so this subdirectory is invisible",
+    "to the pack loader. It is read only by backend/tools/rr_emit.py, which",
+    "emits the `unopened` nodes of the file named in `emits`.",
+    "",
+    "PROVENANCE OF THE IDENTITY TARGET, stated ONCE here so the tests and the",
+    "pack can point at it instead of repeating a bare number: §5 TAG VPIP 15-20",
+    "/ PFR 12-17 (9-max full ring, online micro-low NL cash, ledger #14",
+    "full-ring-specialist source; confidence MEDIUM, band edges DIRECTIONAL).",
+    "Nothing in this slice gates on those edges — they are the reason the width",
+    "was HELD, not a target the content was fitted to. Measured population",
+    "readings quoted below come from metric #3",
+    "(tests/test_personas_postflop.py::_persona_stats_ext), whose lineup is 3x",
+    "the tested persona + 5 fillers, NOT the §5 reference pool: its readings are",
+    "one-sidedly biased and are comparable to EACH OTHER (before vs after), not",
+    "to a live tracker's population.",
+    "",
+    "WHAT THIS REPAIRS (theory finding T-M2, wave-3 ledger; roadmap N-TAGCOMP):",
+    "the tag's opening composition was INVERTED against the shape the archetype",
+    "is named for. A TAG is the persona that plays nearly all of its suited",
+    "hands and is severely selective offsuit; the shipped ladder did the",
+    "opposite — at BTN it opened 69.9% of the suited universe against 51.3% of",
+    "the (three-times-larger) offsuit universe, i.e. 36.20% of ALL combos",
+    "offsuit against 16.44% suited. The surplus is dominated offsuit broadway",
+    "and offsuit kicker junk (K3o, Q4o, J6o from the button), which is exactly",
+    "the mass that plays worst multiway and worst out of position postflop.",
+    "",
+    "THE FIX IS A COMPOSITION SWAP AT CONSTANT WIDTH, NOT A WIDEN OR A TRIM —",
+    "the N-LAGLADDER lesson, inherited deliberately. Offsuit falls and suited",
+    "rises at every one of the nine seats:",
+    "  offsuit  UTG 7.24->4.52 · UTG1 8.14->4.98 · UTG2 9.95->7.24 ·",
+    "           LJ 14.03->9.95 · HJ 19.46->14.03 · CO 29.41->23.53 ·",
+    "           BTN 36.20->29.86 · SB 27.15->22.62 · BB 15.84->10.86",
+    "  suited   UTG 5.43->7.99 · UTG1 5.58->8.75 · UTG2 6.49->9.20 ·",
+    "           LJ 8.45->12.52 · HJ 11.01->15.99 · CO 13.42->19.00 ·",
+    "           BTN 16.44->22.47 · SB 13.57->18.10 · BB 9.50->14.18",
+    "The combo-weighted TOTAL never RISES at any seat, and falls by at most",
+    "0.4525pp (HJ); seat-average 34.0204 -> 33.8529. Suited share of the suited",
+    "universe rises at every seat (BTN 69.9 -> 95.5, CO 57.1 -> 80.8, UTG 23.1",
+    "-> 34.0); offsuit share falls at every seat (BTN 51.3 -> 42.3, CO 41.7 ->",
+    "33.3, UTG 10.3 -> 6.4). Early seats cannot reach a high suited share at all",
+    "— the whole suited universe is 23.53% of combos, wider than the UTG range —",
+    "so the reachable statement there is the SUBSTITUTION, not the level.",
+    "",
+    "WHY THE WIDTH IS NOT SPENT UPWARD — measured, not assumed. A 10-seed",
+    "metric-#3 sweep at n=2000 reads the pre-slice pack at VPIP 16.07 +- 0.53",
+    "and PFR 12.80 +- 0.46 — PFR sits 1.7 sd above the §5 floor of 12, i.e. with",
+    "no meaningful room to spend. Any real width increase pushes a persona that",
+    "is already wide per seat further from its dossier, and N-LAGLADDER's",
+    "abandoned first cut proved the symmetric hazard downward for the lag. So",
+    "the whole deliverable is the shape. Post-slice the same sweep reads VPIP",
+    "16.46 +- 0.37 / PFR 12.95 +- 0.25 — deltas of +0.39 / +0.15, both well",
+    "under one sd, which is what a constant-width swap should do and is",
+    "REPORTED, not gated (the single population band anchor is W4-b). Both stay",
+    "inside §5, as does the gap row (2-5): 3.27 -> 3.51.",
+    "",
+    "⚠️ NOT CLAIMED: that these per-seat widths are RIGHT. They are the widths",
+    "this slice inherited, and at CO/BTN they sit well above a TAG dossier",
+    "envelope. Trimming toward it is filed work (N-TAGWIDTH) and needs the §5",
+    "PFR floor decision first; the width gate this slice ships is deliberately",
+    "ONE-SIDED so that trim is never blocked by a green test (see",
+    "tests/test_personas.py::test_tagcomp_total_width_never_rises).",
+    "",
+    "PAIRS ARE UNTOUCHED at every seat (55+ UTG, 44+ UTG1/UTG2, 33+ LJ/BB, 22+",
+    "from HJ on), class-for-class and weight-for-weight. The swap is offsuit-for-",
+    "suited only; moving the pair band too would confound the measurement and is",
+    "not what T-M2 found.",
+    "",
+    "AUTHORING RULE used for the offsuit rows (not enforced by the emitter, and",
+    "deliberately not gated — an authoring habit, not a law; carried over from",
+    "lag.unopened.json): a row never plays a weak kicker that a STRONGER high",
+    "card of the same kicker does not also play, so the weakest full-weight",
+    "kicker is non-decreasing down the rows (BTN: A2o, K5o, Q7o, J8o, T8o, 98o).",
+    "Suited rows are exempt: 65s outranks 95s on connectedness, so the",
+    "same-kicker comparison is not a domination relation there.",
+    "",
+    "`depths[row]` = how many classes down that row the CORE tier plays, with",
+    "rows ordered strongest-kicker-first (As = AKs, AQs, ...). Rows absent from",
+    "`depths` are not played at all; a row present with depth 0 is played by the",
+    "slope tier only (the curve's leading edge spilling into a fresh row).",
+    "`slopes[row]` overrides the slope tier width for one row (one width per",
+    "slope tier); the tag uses `[0]` to stop a row cleanly at its core. A row",
+    "whose depth already covers the whole row needs no override — the emitter",
+    "clamps at the row end.",
+    "",
+    "`raise_pct` is an ASSERTED ANNOTATION, never an emitter input: the combo-",
+    "weighted raise width the emitted node actually produces, cross-checked by",
+    "test_rr_emit.py. Floors are authored; they are never fitted to a target.",
+    "There is deliberately nowhere in this file to put a percentile or width",
+    "parameter (range-representation-design.md sec.1)."
+  ],
+  "persona": "tag",
+  "facing": "unopened",
+  "emits": "content/personas/tag.json",
+  "tiers": [
+    {
+      "name": "core",
+      "kind": "core",
+      "weights": { "raise": 1.0 }
+    },
+    {
+      "name": "edge",
+      "kind": "slope",
+      "width": 1,
+      "weights": { "raise": 0.5, "fold": 0.5 }
+    }
+  ],
+  "monotone_seats": ["UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN"],
+  "seats": {
+    "UTG": {
+      "raise_pct": 17.04,
+      "depths": {
+        "pairs": 10, "As": 12, "Ks": 5, "Qs": 3, "Js": 2, "Ts": 1, "9s": 1,
+        "8s": 0,
+        "Ao": 3, "Ko": 1
+      },
+      "slopes": { "pairs": [0], "9s": [0] }
+    },
+    "UTG1": {
+      "raise_pct": 18.70,
+      "depths": {
+        "pairs": 11, "As": 12, "Ks": 6, "Qs": 4, "Js": 2, "Ts": 2, "9s": 1,
+        "8s": 0,
+        "Ao": 3, "Ko": 1, "Qo": 0
+      },
+      "slopes": { "pairs": [0], "Qs": [0], "Ts": [0] }
+    },
+    "UTG2": {
+      "raise_pct": 21.42,
+      "depths": {
+        "pairs": 11, "As": 12, "Ks": 7, "Qs": 4, "Js": 3, "Ts": 2, "9s": 1,
+        "Ao": 4, "Ko": 2, "Qo": 1
+      },
+      "slopes": { "pairs": [0], "Ks": [0], "Js": [0], "Qo": [0] }
+    },
+    "LJ": {
+      "raise_pct": 27.90,
+      "depths": {
+        "pairs": 12, "As": 12, "Ks": 9, "Qs": 6, "Js": 4, "Ts": 3, "9s": 2,
+        "8s": 2, "7s": 1, "6s": 1,
+        "Ao": 5, "Ko": 3, "Qo": 1, "Jo": 0
+      },
+      "slopes": {
+        "pairs": [0], "Ts": [0], "9s": [0], "8s": [0], "7s": [0], "6s": [0]
+      }
+    },
+    "HJ": {
+      "raise_pct": 35.90,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 8, "Js": 6, "Ts": 4, "9s": 3,
+        "8s": 2, "7s": 2, "6s": 1, "5s": 1,
+        "Ao": 6, "Ko": 4, "Qo": 2, "Jo": 1, "To": 0
+      },
+      "slopes": { "pairs": [0], "7s": [0], "5s": [0] }
+    },
+    "CO": {
+      "raise_pct": 48.42,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 4,
+        "8s": 3, "7s": 2, "6s": 2, "5s": 1, "4s": 1,
+        "Ao": 9, "Ko": 6, "Qo": 4, "Jo": 3, "To": 1, "9o": 0
+      },
+      "slopes": { "pairs": [0], "6s": [0], "4s": [0] }
+    },
+    "BTN": {
+      "raise_pct": 58.22,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 8, "9s": 6,
+        "8s": 5, "7s": 4, "6s": 3, "5s": 2, "4s": 1, "3s": 0,
+        "Ao": 12, "Ko": 8, "Qo": 5, "Jo": 3, "To": 2, "9o": 1, "8o": 0
+      },
+      "slopes": { "pairs": [0], "To": [0], "9o": [0] }
+    },
+    "SB": {
+      "raise_pct": 46.61,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 9, "Js": 7, "Ts": 5, "9s": 4,
+        "8s": 3, "7s": 2, "6s": 2, "5s": 1, "4s": 1,
+        "Ao": 9, "Ko": 6, "Qo": 4, "Jo": 3, "To": 1
+      },
+      "slopes": { "pairs": [0], "6s": [0], "5s": [0], "4s": [0], "Jo": [0] }
+    },
+    "BB": {
+      "raise_pct": 30.47,
+      "depths": {
+        "pairs": 12, "As": 12, "Ks": 10, "Qs": 7, "Js": 5, "Ts": 3, "9s": 2,
+        "8s": 2, "7s": 1, "6s": 1,
+        "Ao": 5, "Ko": 3, "Qo": 2, "Jo": 1
+      },
+      "slopes": { "pairs": [0], "Qo": [0], "Jo": [0] }
+    }
+  }
+}
