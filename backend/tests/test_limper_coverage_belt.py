@@ -237,9 +237,19 @@ _PRE_M3_FIRES = {
     # SB¹ 71, SB² 39, BTN¹ 80, BTN² 38). No limper-belt content changed;
     # every _WANT_* coverage shape still fires (verified: BB¹ 55, BB² 23,
     # BB³ 5) — stream displacement, not a coverage regression.
-    ("UTG2", 1): 92, ("LJ", 1): 117, ("HJ", 1): 122, ("CO", 1): 99,
-    ("CO", 2): 26, ("SB", 1): 62, ("SB", 2): 40, ("BTN", 1): 93,
-    ("BTN", 2): 29,
+    # RE-PINNED for the WAVE-6 lane-A landing (persona-realism-wave6,
+    # 2026-08-01 — wave-authorized, single-recorder): these counts were STALE
+    # AT THE WAVE BASE b54fe6e — the wave-5 #152/#153 squash-merge chain lost
+    # that wave's re-record, so main itself failed here (('UTG2',1) 87 != 92).
+    # This belt runs PRODUCTION bot_decision (no harness), and lane A touches
+    # no production code: the measured counts below are IDENTICAL on b54fe6e
+    # and on this tip — pure restoration of the lost record, zero behavior
+    # change (lost-record counts: UTG2¹ 92, LJ¹ 117, HJ¹ 122, CO¹ 99,
+    # CO² 26, SB¹ 62, SB² 40, BTN¹ 93, BTN² 29). _WANT_* all fire
+    # (BB¹ 45, BB² 39, BB³ 12).
+    ("UTG2", 1): 87, ("LJ", 1): 128, ("HJ", 1): 114, ("CO", 1): 99,
+    ("CO", 2): 36, ("SB", 1): 69, ("SB", 2): 28, ("BTN", 1): 78,
+    ("BTN", 2): 32,
 }
 
 

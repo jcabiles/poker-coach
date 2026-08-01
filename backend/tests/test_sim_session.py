@@ -309,9 +309,28 @@ def test_bot_decision_parity_with_harness():
             got = play.bot_decision(state, seat, pack, random.Random(decision_seed))
             if state.street is Street.PREFLOP:
                 facing = harness._preflop_facing(state)
+                # R-L2 (instrument-repair wave, 2026-08-01): the harness mirror
+                # now delegates to `play._preflop_decision`, whose sizing needs
+                # the last raise-TO and the limper count — derived here EXACTLY
+                # as `play.bot_decision` derives them. Both are required
+                # positionals on purpose (a defaulted 0.0/0 would silently
+                # restore min-raise sizing at every re-raise node). `is_opener`
+                # is threaded too (delta-review MED, 2026-08-01): production
+                # always passes a real boolean (play.bot_decision), and a None
+                # here never selects a role-tagged node — the parity replay
+                # measured 87/3973 preflop divergences (2.2%) at N-3BSTRATA
+                # vs_3bet nodes with it omitted; the five seeds below just
+                # happened to miss every such node.
+                limpers = sum(
+                    1
+                    for h in state.action_history
+                    if h.street is Street.PREFLOP and h.action is ActionType.CALL
+                )
                 expected = harness._preflop_decision(
                     pack, seat_state.position, facing, seat_state.hole_cards,
                     legal, random.Random(decision_seed),
+                    state.current_bet_bb, limpers,
+                    is_opener=play._preflop_opener(state) == seat_state.position,
                 )
             else:
                 pot_bb = sum(s.invested_total_bb for s in state.seats)
@@ -351,12 +370,19 @@ def test_bot_decision_parity_with_harness():
                     context=context,
                     street_aggressions=street_aggressions,
                 )
-            # R2: play.bot_decision now sizes bets from the persona levers /
-            # node-aware distribution, while the harness mirror stays on the
-            # min-raise / flat sizing that anchors the statistical bands — so
-            # the two INTENTIONALLY diverge on bet SIZE. The decision LOGIC
-            # (which action is chosen) must still match exactly; size
-            # correctness is covered by test_bet_sizing.py.
+            # Only the ACTION is compared here. R-L2 (2026-08-01) removed the
+            # PREFLOP half of the old caveat this comment used to carry ("the
+            # harness mirror stays on min-raise sizing, so the two INTENTIONALLY
+            # diverge on bet SIZE"): preflop, the mirror now IS
+            # `play._preflop_decision` with all three situational inputs
+            # (raise-TO, limpers, is_opener) threaded, so sizes match by
+            # construction and
+            # `test_personas_postflop.py::test_harness_preflop_raise_sizing_uses_
+            # production_args` asserts that. POSTFLOP the caveat still stands —
+            # `play.bot_decision` sizes from the persona levers / node-aware
+            # distribution while `harness._postflop_decision` stays flat, so
+            # postflop SIZE still diverges by design and is covered by
+            # test_bet_sizing.py.
             assert got.action == expected.action, (
                 f"action parity break: hand_seed={hand_seed} guard={guard} seat={seat}"
             )

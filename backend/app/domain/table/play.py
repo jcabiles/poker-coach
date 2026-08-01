@@ -2,8 +2,12 @@
 
 Productionizes the per-decision logic of the closed-loop harness in
 `tests/test_personas_postflop.py` (`_preflop_facing`, `_preflop_decision`,
-`_postflop_decision`, `_live_opponents`, `_play_hand`) EXACTLY — preflop raise
-size = `la.min_bb`, postflop threads `current_bet_to=state.current_bet_bb`.
+`_postflop_decision`, `_live_opponents`, `_play_hand`) EXACTLY — postflop threads
+`current_bet_to=state.current_bet_bb`. (Corrected 2026-08-01, comment only: this
+line used to add "preflop raise size = `la.min_bb`". Since R2 that has been false
+of THIS module — `_preflop_decision` below sizes from the persona levers via
+`preflop_raise_to`, and a 5-bet is all-in — and since R-L2 it is false of the
+harness too, which no longer has its own copy and imports this one.)
 The ONE behavioral change vs `_play_hand`: `advance_to_hero` stops when
 `to_act_seat == hero_seat` (control returns to the caller) instead of sampling
 the hero's persona. Parity with the harness is per-DECISION only — a full-hand
