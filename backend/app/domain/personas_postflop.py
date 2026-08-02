@@ -1035,19 +1035,37 @@ def sample_postflop_decision(
     # the 23 frozen exact-equality vectors in tests/test_price_tail.py
     # (ledger R2-1).
     #
-    # The guard is not dead code: model validation cannot protect this division
-    # because `model_copy(update=...)` bypasses it, and the suite uses that
-    # idiom routinely (ledger R2-5). NaN fails both comparisons and so lands in
-    # the same branch as an out-of-range anchor.
+    # TWO REACH CHANGES, both disclosed (build review, ledger B-9 / B-10) and
+    # both gated so they cannot move silently. They are mirror images:
+    #  - GAINED reach, river polar-bluff cell: `call_merit` is hard-zeroed there
+    #    (:884-885), so RAISE is the only continue and the lever now moves the
+    #    bluff-raise rate, which at HEAD it could not. Largest on ACE_HIGH at a
+    #    small faced price (lag: P(raise) 0.104 / 0.318 / 0.651 over ×0.25/×1/×4
+    #    against a flat HEAD 0.318). G4 pins it.
+    #  - LOST reach, SPR-committed nodes: `_commit_transform` zeroes the FOLD
+    #    merit while FOLD stays legal, so the vector is (0, C₀·L, 3·R₀·L/ref) and
+    #    L cancels out of the WHOLE distribution — `call_looseness` is inert
+    #    there, where at HEAD it was the dominant lever. That is the same
+    #    orthogonality property with no fold leg left to absorb the change, but
+    #    it does mean a future looseness fit has no reach over committed nodes.
+    #    G-COMMIT pins it.
+    #
+    # The range guard is not dead code: model validation cannot protect this
+    # division because `model_copy(update=...)` bypasses it, and the suite uses
+    # that idiom routinely (ledger R2-5). NaN fails both comparisons and so
+    # lands in the same branch as an out-of-range anchor. It is checked BEFORE
+    # the facing-node test, not inside it, so a corrupted anchor fails at the
+    # persona's first decision rather than at its first facing node.
     ref = pf.continue_ref
-    if ref is not None and ActionType.FOLD in by_kind:
+    if ref is not None:
         if not _CONTINUE_REF_MIN <= ref <= _CONTINUE_REF_MAX:
             raise ValueError(
                 f"persona pack {pack.id!r} has continue_ref={ref!r}, outside the "
                 f"safe range [{_CONTINUE_REF_MIN}, {_CONTINUE_REF_MAX}]"
             )
-        rscale = looseness / ref
-        entries = [(a, m * rscale) if a is ActionType.RAISE else (a, m) for a, m in entries]
+        if ActionType.FOLD in by_kind:
+            rscale = looseness / ref
+            entries = [(a, m * rscale) if a is ActionType.RAISE else (a, m) for a, m in entries]
 
     # Normalize (rule 1, pinned): clamp >= 0, divide by sum; sum 0 fallback.
     weights = [max(m, 0.0) for _, m in entries]
