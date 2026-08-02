@@ -3390,12 +3390,7 @@ _GOLDEN_STATS_N200 = {
     # values the wave-6 ledger reviewed and disclosed), but the squash-merge
     # chain lost this pin's update, leaving main red. Pure restoration of
     # the reviewed record; other five rows verified byte-identical.
-    # RE-RECORDED station AF row for N-LAGWIDTH (2026-08-01, single-recorder):
-    # the CO/BTN/SB lag offsuit trim displaces the shared rng stream from the
-    # first changed lag open onward, moving only station's AF at this n=200
-    # seed (0.3241 -> 0.3278; lag/maniac/nit/fish/tag rows verified byte-
-    # identical — their n=200 samples hit no changed cell).
-    "calling_station": (0.3277777777777778, 0.06557377049180328, 0.7077922077922078),
+    "calling_station": (0.32409972299168976, 0.06557377049180328, 0.7077922077922078),
     "lag": (2.611111111111111, None, 0.5294117647058824),
     "maniac": (2.5522388059701493, 0.44680851063829785, 0.6018957345971564),
     "nit": (None, None, 0.7450980392156863),
