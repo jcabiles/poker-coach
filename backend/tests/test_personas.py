@@ -400,7 +400,14 @@ BANDS = {
     # seed 42.63), so the existing (41, 45) still is "exact ±2.0pp" — an edit
     # here would have been cosmetic. Rows 3-4: the vs_rfi AQo carve-out holds
     # 3-bet width constant by construction; pinned seed reads 9.74 / 26.75.
-    "lag": ((41, 45), (41, 45), (8, 12), (25, 42)),
+    # N-LAGWIDTH (2026-08-01) RE-PINS rows 1-2: (41, 45) -> (39.4868, 43.4868),
+    # exact ±2.0pp of the new pinned-seed reading 41.4868 (open-freq ==
+    # first-in-raise for lag, as noted above) — the CO/BTN/SB offsuit trim
+    # takes the seat-average down ~1.7pp. Rows 3-4 are UNTOUCHED (no response
+    # node moved); pinned seed reads 9.85 / 26.61, both still inside (8, 12) /
+    # (25, 42) — the small shift from 9.74/26.75 is `unopened`-stream
+    # displacement, not a `vs_rfi` edit (see `_stats` docstring above).
+    "lag": ((39.4868, 43.4868), (39.4868, 43.4868), (8, 12), (25, 42)),
     # maniac rows 1-2 RE-ANCHORED by R10-PRE2 (2026-07-30): the ladder-separation
     # slice widened every maniac `unopened` node so the authored per-seat RFI
     # sits above the LAG's at every seat (R10-1a defect: it sat BELOW at all 9).
@@ -724,9 +731,13 @@ _LAG_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
 # identical across this slice and asserted by
 # test_rr_emit.py::test_lag_authored_raise_pct_annotations_match_emitted_widths.
 # So the ceiling here cannot be met by deleting range, twice over.
+# CO/BTN/SB LOWERED by N-LAGWIDTH (2026-08-01): 27.5/37.5/27.0 -> 22.5/29.0/
+# 21.5, re-pinning the composition to the new offsuit-only trim (measured
+# post-slice: CO 22.08, BTN 28.42, SB 20.81 — each ceiling sits just above the
+# landed value, same margin convention as the other six seats).
 _LAG_OFFSUIT_CEILING = {
     "UTG": 10.5, "UTG1": 10.5, "UTG2": 14.5, "LJ": 17.0, "HJ": 24.5, "BB": 22.5,
-    "CO": 27.5, "BTN": 37.5, "SB": 27.0,
+    "CO": 22.5, "BTN": 29.0, "SB": 21.5,
 }
 _LAG_SUITED_FLOOR = {
     "UTG": 9.5, "UTG1": 11.5, "UTG2": 14.0, "LJ": 15.0, "HJ": 17.5, "BB": 17.0,
@@ -989,6 +1000,40 @@ def test_lag_first_in_ladder_monotone_and_sb_under_btn_preservation():
     assert rfi["SB"] < rfi["BTN"], (
         f"lag SB {rfi['SB']:.4f} opens at least as wide as BTN {rfi['BTN']:.4f}"
     )
+
+
+# ------------------------------------------------ N-LAGWIDTH — late-seat trim
+# Theory-MED finding (wave-5 filing, unblocked by PR #154's §5a per-seat
+# governance ruling): CO/BTN authored the LAG nearer the MANIAC (53.1/66.0 vs
+# 63.5/73.3) than the TAG, defect evidence intra-roster only — the only
+# late-seat anchor is docs/ai-dlc/research/rfi-seat-provenance.md:127, "a LAG
+# UTG ~ 15-18 and BTN ~ 50+ is the recalled folklore [UNVERIFIED]" (§5a rule a:
+# never gate-grade). The repair is an OFFSUIT-ONLY trim (not the composition
+# swap N-LAGLADDER/N-LAGCOMP2 did) — suited/pair rows are byte-untouched, see
+# `test_lagcomp2_late_seat_suited_covers_the_tag` above.
+_LAG_LATE_SEAT_CEILING = {"CO": 49.0, "BTN": 58.0, "SB": 47.0}
+
+
+def test_lag_late_seat_first_in_width_ceiling():
+    """🔴 N-LAGWIDTH defect gate (red-first proof at the base tip, verified
+    2026-08-01: CO 53.122 > 49, BTN 65.973 > 58, SB 51.855 > 47 — all above
+    their one-sided ceilings). One-sided authored-width ceiling per §5a rule
+    (a): no per-seat target is gate-grade, only a bound. Post-slice the
+    combo-weighted authored first-in raise is CO 48.60, BTN 57.83, SB 46.43 —
+    inside (47.632, 49] / [56, 58] / [45, 47] as chosen in
+    docs/ai-dlc/specs/n-lagwidth.md rev 2 (CO's floor is the untouched HJ
+    width, held by the strict spec-side monotone gate
+    `test_rr_emit.py::test_lag_ladder_widths_strictly_increase_toward_the_button`)."""
+    packs = load_persona_packs()
+    if not packs:
+        pytest.skip("no persona packs")
+    rfi = _authored_first_in_raise(packs[VillainType.LAG])
+    over = {
+        pos: round(rfi[pos], 3)
+        for pos, cap in _LAG_LATE_SEAT_CEILING.items()
+        if rfi[pos] > cap
+    }
+    assert not over, f"lag late-seat authored RFI above ceiling: {over}"
 
 
 def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():

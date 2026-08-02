@@ -5163,8 +5163,17 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
           floor, because a suited-heavier open range meets a table that folds
           it less. The band is the gate and must not be widened, so the opener
           weights were brought back per the slice's own remit.
-    Component lands at 0.6166 (deterministic, no CI); pre-slice was 0.6034.
-    The `cold` node is still untouched."""
+    Component landed at 0.6166 (deterministic, no CI) after N-LAGLADDER;
+    pre-slice was 0.6034. The `cold` node is still untouched.
+
+    RE-PINNED for N-LAGWIDTH (2026-08-01, lag.json 1.5.0): the CO/BTN/SB
+    late-seat offsuit trim strengthens the opener's arriving range by
+    construction (a narrower open range is a stronger one), so the component
+    FALLS again — 0.6166 -> 0.6012 (update-the-pin law, N-LAGLADDER
+    precedent). No vs_3bet edit was needed this time: the production blend
+    moved 0.4914 -> 0.4722 @ n=12000 (CI [0.447, 0.498]), still comfortably
+    inside the [0.43, 0.53] dossier band (see
+    `test_n3bstrata_production_opener_blend_in_dossier_band`)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -5172,7 +5181,7 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     lag = _opener_fold_to_3bet(packs[VillainType.LAG])
     print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.4f} lag {lag:.4f}")
     assert maniac == pytest.approx(0.3073, abs=0.02), f"maniac component {maniac:.4f} moved"
-    assert lag == pytest.approx(0.6166, abs=0.02), f"lag component {lag:.4f} moved"
+    assert lag == pytest.approx(0.6012, abs=0.02), f"lag component {lag:.4f} moved"
 
 
 def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
@@ -5339,7 +5348,14 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     settling n) — so no compensating edit was needed and N-LAGCOMP2 leaves the
     `vs_3bet` opener node untouched. The authored-COMPONENT sibling pin
     (test_n3bstrata_opener_fold_to_3bet_targets) is likewise unmoved:
-    0.6166 -> 0.6170, well inside its ±0.02."""
+    0.6166 -> 0.6170, well inside its ±0.02.
+
+    N-LAGWIDTH (2026-08-01) re-reads at n=12000: the CO/BTN/SB late-seat
+    offsuit TRIM (not a swap this time) moves the blend back DOWN — 0.4914 ->
+    0.4722, CI [0.447, 0.498] — still comfortably inside [0.43, 0.53], so
+    (unlike N-LAGLADDER) no `vs_3bet` opener re-tune was required. The
+    authored-COMPONENT sibling pin moves the same direction and is re-pinned:
+    0.6170 -> 0.6012 (see test_n3bstrata_opener_fold_to_3bet_targets)."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
