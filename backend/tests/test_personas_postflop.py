@@ -6988,15 +6988,28 @@ def test_nlogit_g1_orthogonality_raise_share_is_lever_invariant():
 
     This is the one gate an empty diff cannot pass, and the one gate a
     schema-and-content-only change cannot pass either. It FAILED on this
-    branch with the packs authored and the engine untouched (worst drift
-    0.5932 on five personas, 0.5000 on calling_station).
+    branch with the packs authored and the engine untouched: worst drift
+    nit 0.332927 · tag 0.333327 · lag 0.333318 · maniac 0.333332 ·
+    calling_station 0.293076 · passive_fish 0.333303.
 
-    Cells where `P(call) + P(raise) == 0` are skipped, not asserted: a
-    river-air FOLD+CALL node has the call merit hard-zeroed and no raise leg,
-    so the ratio is 0/0 (ledger R2-2)."""
+    A cell whose ANCHOR distribution has no continue mass is skipped, not
+    asserted: a river-air FOLD+CALL node has the call merit hard-zeroed and no
+    raise leg, so the ratio is 0/0 (ledger R2-2). But once the anchor HAS
+    continue mass, a tuned lever losing all of it is a FAILURE, not a skip.
+    Codex Sol found that hole at build review: a mutant that zeroed CALL and
+    RAISE below the anchor — five personas folding 100% instead of preserving
+    the raise:call odds — passed all 24 gates, because both the skip here and
+    G2's sign test accepted the collapse (ledger B-8).
+
+    The comparison count is asserted too. `worst` is keyed by persona and only
+    written when a comparison actually happens, so a persona whose every cell
+    was skipped would never appear and the DECISIVE gate would pass having
+    measured nothing on it."""
     sweep = _nlogit_sweep()
     cells = sweep["_cells"]
     worst = {}
+    compared = dict.fromkeys(_NLOGIT_ANCHORS, 0)
+    collapsed = []
     for persona in _NLOGIT_ANCHORS:
         per = sweep[persona]
         for i, cell in enumerate(cells):
@@ -7009,10 +7022,18 @@ def test_nlogit_g1_orthogonality_raise_share_is_lever_invariant():
                 d = per[mult][i]
                 den = _nlogit_p(d, ActionType.CALL) + _nlogit_p(d, ActionType.RAISE)
                 if den <= 0.0:
+                    collapsed.append((persona, cell.key, mult))
                     continue
+                compared[persona] += 1
                 drift = abs(_nlogit_p(d, ActionType.RAISE) / den - ref_share)
                 if drift > worst.get(persona, (0.0, ""))[0]:
                     worst[persona] = (drift, f"{cell.key} x{mult}")
+    assert not collapsed, (
+        f"{len(collapsed)} cells lost ALL continue mass when the lever moved, "
+        f"though the anchor had some: {collapsed[:5]}"
+    )
+    thin = {p: n for p, n in compared.items() if n < 1000}
+    assert not thin, f"gate measured almost nothing for {thin}"
     bad = {p: v for p, v in worst.items() if v[0] > 1e-12}
     assert not bad, f"raise-share moved with the calling lever: {bad}"
 
@@ -7077,17 +7098,22 @@ def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
                 assert a[k] == b[k], (persona, cell.key, k, a[k], b[k])
 
 
-def _nlogit_bluff_cell():
-    """The river polar-bluff cell: air on the river, where `call_merit` is
-    hard-zeroed (:874-875) and a RAISE is legal."""
+def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
+    """A river polar-bluff cell: `bluff_cell` on the river, where `call_merit`
+    is hard-zeroed (:884-885) and a RAISE is legal.
+
+    `bluff_cell` is `bucket in (AIR, ACE_HIGH) and draw is NONE` (:789), so the
+    hard-zeroed class has TWO members and both must be pinned. The default
+    (AIR, half-pot) is the mild one; ACE_HIGH at a small faced price is ~6x
+    larger in span."""
     return _NlogitCell(
-        "air/river",
+        "polar_bluff/river",
         Street.RIVER,
-        ("7h", "4c"),
+        hole,
         ["Kc", "9s", "3h", "2d", "Tc"],
         None,
         6.0,
-        4.0,
+        to_call,
         100.0,
         1,
         False,
@@ -7095,14 +7121,22 @@ def _nlogit_bluff_cell():
     )
 
 
-# G4 pins: `P(raise)` on the river polar-bluff cell at call_looseness
+# G4 pins: `P(raise)` on the river polar-bluff cells at call_looseness
 # x0.25 / x0.5 / x1 / x2 / x4, measured on this branch with the engine scale
-# applied. These are a DISCLOSURE record, not a fitted magnitude — nothing was
-# tuned to hit them and no band depends on them. At the base engine every row
-# is flat at its x1 value (asserted below), which is the whole point of the
-# gate: the coupling is new, small in absolute terms (the largest, maniac at
-# x4, is 0.157) and now visible.
+# applied. A DISCLOSURE record, not a fitted magnitude — nothing was tuned to
+# hit these and no band depends on them. At the base engine every row is flat
+# at its x1 value (asserted below), which is the point of the gate.
+#
+# TWO cells, because `bluff_cell` has two members (`bucket in (AIR, ACE_HIGH)
+# and draw is NONE`, :789) and their magnitudes differ by ~6x. An earlier
+# revision of this gate pinned only the AIR / half-pot cell and its comment
+# claimed the largest response in the class was maniac's 0.157 — the build
+# refuter showed that is false of the CLASS: on ACE_HIGH at a small faced price
+# lag alone spans 0.104 -> 0.651 and maniac reaches 0.773 (ledger B-9). Pinning
+# the mild member and describing it as the maximum would have handed the theory
+# reviewer the weakest number in the class as the headline.
 _NLOGIT_BLUFF_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
+# AIR, half-pot faced price — the mild member.
 _NLOGIT_BLUFF_PINS = {
     "lag": [
         0.00632707830738665,
@@ -7147,6 +7181,51 @@ _NLOGIT_BLUFF_PINS = {
         0.02239958815474058,
     ],
 }
+# ACE_HIGH, an eighth-pot faced price — the LARGEST member of the class.
+_NLOGIT_BLUFF_PINS_ACE_HIGH = {
+    "nit": [
+        0.013536493779643619,
+        0.026711408741018922,
+        0.05203294424043299,
+        0.09891884950047973,
+        0.1800293980678262,
+    ],
+    "tag": [
+        0.06415590151832302,
+        0.12057613255122913,
+        0.21520382069304297,
+        0.35418555641194427,
+        0.523097524906994,
+    ],
+    "lag": [
+        0.10420685164292329,
+        0.1887451639842234,
+        0.31755361822313727,
+        0.4820352110624423,
+        0.6505043975532546,
+    ],
+    "maniac": [
+        0.17531219717470822,
+        0.2983244751413881,
+        0.45955303293331273,
+        0.6297174855095653,
+        0.7727934333510216,
+    ],
+    "calling_station": [
+        0.004958847880376452,
+        0.009868758090613319,
+        0.019544634907356577,
+        0.03833992988278056,
+        0.07384851295684795,
+    ],
+    "passive_fish": [
+        0.037460110066186665,
+        0.07221503690160545,
+        0.1347025259229459,
+        0.23742350588914288,
+        0.38373847718133286,
+    ],
+}
 
 
 def test_nlogit_g4_river_bluff_cell_response_is_pinned():
@@ -7161,30 +7240,117 @@ def test_nlogit_g4_river_bluff_cell_response_is_pinned():
     continue IS to raise — but it does put `call_looseness` on a magnitude the
     spec assigns to `bluff_freq`. It is DISCLOSED and gated here, and was put
     to the persona-realism theory reviewer at fan-in; it is not settled by this
-    test. G1 is vacuous on this cell (CALL = 0 ⇒ the ratio is identically 1)
+    test. G1 is vacuous on these cells (CALL = 0 ⇒ the ratio is identically 1)
     and G3 passes (identity at the authored value), so without this pin
-    nothing in the gate set would see the coupling at all."""
-    cell = _nlogit_bluff_cell()
-    for persona, pins in _NLOGIT_BLUFF_PINS.items():
+    nothing in the gate set would see the coupling at all.
+
+    BOTH members of the hard-zeroed class are pinned — see the comment on the
+    pin tables. On the larger one the response is not small: lag's bluff-raise
+    rate spans 0.104 -> 0.651 across the sweep."""
+    for label, pins, cell in (
+        ("air/half_pot", _NLOGIT_BLUFF_PINS, _nlogit_bluff_cell()),
+        (
+            "ace_high/small_price",
+            _NLOGIT_BLUFF_PINS_ACE_HIGH,
+            _nlogit_bluff_cell(hole=("Ah", "8d"), to_call=0.5),
+        ),
+    ):
+        for persona, expected in pins.items():
+            scaled = [
+                _nlogit_p(_nlogit_dist(_nlogit_probe(persona, m), cell), ActionType.RAISE)
+                for m in _NLOGIT_BLUFF_SWEEP
+            ]
+            base = [
+                _nlogit_p(
+                    _nlogit_dist(_nlogit_probe(persona, m, continue_ref=None), cell),
+                    ActionType.RAISE,
+                )
+                for m in _NLOGIT_BLUFF_SWEEP
+            ]
+            # The magnitude, pinned to 9 significant figures.
+            assert scaled == pytest.approx(expected, rel=1e-9), (label, persona, scaled)
+            # The base path is EXACTLY flat — the half that shows the coupling
+            # is new, rather than something the lever always had.
+            assert max(base) - min(base) == 0.0, (label, persona, base)
+            # ...and the scaled path is monotone in the lever.
+            assert scaled == sorted(scaled), (label, persona, scaled)
+            assert scaled[0] < scaled[2], (label, persona, scaled)
+
+
+def _nlogit_commit_cell():
+    """A facing node BELOW `spr_commit`: pot 6bb, stack 6bb => SPR 1.0, which
+    is under every persona's `spr_commit`. `_commit_transform` zeroes the FOLD
+    merit there while FOLD stays legal."""
+    return _NlogitCell(
+        "overpair/turn_committed",
+        Street.TURN,
+        ("Ah", "Ad"),
+        ["Kc", "9s", "3h", "2d"],
+        None,
+        6.0,
+        4.0,
+        6.0,
+        1,
+        False,
+        True,
+    )
+
+
+# G-COMMIT pins: `P(raise)` on the committed facing cell across the sweep,
+# measured on this branch. Each row is a SINGLE number because the cell is now
+# lever-inert; the base row for the same cell is not (see the gate).
+_NLOGIT_COMMIT_PINS = {
+    "nit": 0.5172413793103449,
+    "tag": 0.8108108108108109,
+    "lag": 0.8617594254937164,
+    "maniac": 0.9160305343511451,
+    "calling_station": 0.11811023622047245,
+    "passive_fish": 0.6048387096774193,
+}
+
+
+def test_nlogit_gcommit_spr_committed_nodes_are_lever_inert():
+    """The SECOND reach change, disclosed at build review (ledger B-10) and the
+    mirror image of G4's.
+
+    `_commit_transform` zeroes the FOLD merit on an SPR-committed node while
+    FOLD stays in `by_kind`, so after the scale the vector is
+    `(0, C0*L, 3*R0*L/ref)` and `L` cancels out of the WHOLE distribution, not
+    merely out of the raise:call ratio. `call_looseness` is therefore INERT on
+    committed facing nodes, where at the base engine it was the dominant lever
+    (tag, AA on Kc9s3h2d at SPR 1.0: base P(raise) 0.9449 / 0.8108 / 0.5172
+    across x0.25 / x1 / x4, now flat at 0.8108).
+
+    This is the same orthogonality property with no fold leg left to absorb the
+    change — internally consistent, but a real loss of reach that no other gate
+    could see: G2 skips these cells by construction (P(fold) is pinned at 0, so
+    they are not interior) and G1 is vacuously satisfied, because inertness is
+    a superset of orthogonality. It matters for the fit slice this one unblocks:
+    a `call_looseness` fit has NO reach over committed nodes.
+
+    Pinned in both directions so the inertness cannot silently reverse and the
+    base engine's sensitivity cannot silently return."""
+    cell = _nlogit_commit_cell()
+    for persona, pinned in _NLOGIT_COMMIT_PINS.items():
         scaled = [
-            _nlogit_p(_nlogit_dist(_nlogit_probe(persona, m), cell), ActionType.RAISE)
-            for m in _NLOGIT_BLUFF_SWEEP
+            _nlogit_dist(_nlogit_probe(persona, m), cell)
+            for m in (1.0,) + _NLOGIT_MULTS
         ]
         base = [
-            _nlogit_p(
-                _nlogit_dist(_nlogit_probe(persona, m, continue_ref=None), cell),
-                ActionType.RAISE,
-            )
-            for m in _NLOGIT_BLUFF_SWEEP
+            _nlogit_dist(_nlogit_probe(persona, m, continue_ref=None), cell)
+            for m in (1.0,) + _NLOGIT_MULTS
         ]
-        # The magnitude, pinned to 9 significant figures.
-        assert scaled == pytest.approx(pins, rel=1e-9), (persona, scaled)
-        # The base path is EXACTLY flat — this is the half that shows the
-        # coupling is new, rather than something the lever always had.
-        assert max(base) - min(base) == 0.0, (persona, base)
-        # ...and the scaled path is monotone in the lever, ~proportional to it.
-        assert scaled == sorted(scaled), (persona, scaled)
-        assert scaled[0] < scaled[-1] / 8, (persona, scaled)
+        assert all(_nlogit_p(d, ActionType.FOLD) == 0.0 for d in scaled), persona
+        # Inert: every action's probability is bit-identical across the sweep.
+        for d in scaled[1:]:
+            assert d == scaled[0], (persona, d, scaled[0])
+        assert _nlogit_p(scaled[0], ActionType.RAISE) == pytest.approx(pinned, rel=1e-9), (
+            persona,
+            _nlogit_p(scaled[0], ActionType.RAISE),
+        )
+        # The base engine was NOT inert here — the discriminating half.
+        base_raise = [_nlogit_p(d, ActionType.RAISE) for d in base]
+        assert max(base_raise) - min(base_raise) > 0.05, (persona, base_raise)
 
 
 def test_nlogit_g5_unopened_branch_is_untouched():
@@ -7351,6 +7517,116 @@ def test_nlogit_g8_runtime_guard_survives_unvalidated_injection(bad):
         )
 
 
+def test_nlogit_g8_guard_fires_on_the_unopened_branch_too():
+    """G8 (fail-fast) — the range check runs whenever an anchor is present, not
+    only once the bot happens to face chips.
+
+    Build review, refuter LOW: the check used to sit inside the
+    `ActionType.FOLD in by_kind` test, so a corrupted anchor was tolerated on
+    CHECK+BET / CHECK+RAISE nodes and only raised at the first facing node —
+    a late, input-dependent failure for a defect that is present from load."""
+    legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 100.0)]
+    probe = _nlogit_probe("tag", continue_ref=0.0)
+    with pytest.raises(ValueError, match="continue_ref"):
+        sample_postflop_decision(
+            probe,
+            ("Kh", "4d"),
+            ["Kc", "9s", "3h"],
+            legal,
+            6.0,
+            100.0,
+            1,
+            _CaptureWeights(),  # type: ignore[arg-type]
+            street=Street.FLOP,
+        )
+
+
+def test_nlogit_g8_explicit_none_via_model_copy_is_the_documented_opt_out():
+    """G8 (accepted behaviour, pinned) — injecting `continue_ref=None` through
+    an unvalidated `model_copy` does NOT raise; it takes the legacy path and
+    the feature is off for that pack.
+
+    Codex Sol raised this at build review as a guard gap: the range check sits
+    under `if ref is not None`, so an explicit programmatic null slips past it
+    and silently disables N-logit. ADJUDICATED AS DESIGNED, not fixed — `None`
+    IS the opt-out (spec §3.5), it is how G3 obtains the base-engine path to
+    compare against, and no production caller constructs a postflop block that
+    way (the loader validates JSON, and nothing in `app/` calls `model_copy` on
+    a `PersonaPostflop`). Pinned here so the behaviour is a decision on record
+    rather than an accident (ledger B-11)."""
+    cell = _nlogit_bluff_cell()
+    legal = [personas_postflop_legal_fold(), personas_postflop_legal_call(cell.to_call)]
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _nlogit_probe("tag", 0.5, continue_ref=None),
+        cell.hole,
+        cell.board,
+        legal,
+        cell.pot_bb,
+        cell.stack_bb,
+        cell.opponents,
+        cap,  # type: ignore[arg-type]
+        street=cell.street,
+    )
+    assert cap.dist is not None  # no exception: legacy path
+
+
+def test_nlogit_g8_null_roundtrip_matches_the_stickiness_precedent():
+    """G8 (authorship, disclosed limitation) — `model_dump()` emits an explicit
+    `null` for an un-opted field, so `model_validate(pack.model_dump())` is not
+    idempotent for a pack using the legacy opt-out.
+
+    Both reviewers raised this at build review. It is REAL and it is NOT new:
+    `stickiness`'s authorship rule has the identical shape and the identical
+    round-trip behaviour, as this test measures side by side. Accepting it here
+    keeps one authorship convention in the model instead of two; changing it
+    would be a `stickiness` change wearing a `continue_ref` costume, which is
+    outside this slice. No production path round-trips a persona pack — the
+    loader reads JSON authored by hand (ledger B-12)."""
+    from pydantic import ValidationError
+
+    from app.domain.content.models import PersonaPostflop
+
+    legacy = PersonaPostflop(**_nlogit_postflop_kwargs())  # continue_ref absent
+    assert legacy.continue_ref is None
+    with pytest.raises(ValidationError, match="continue_ref"):
+        PersonaPostflop.model_validate(legacy.model_dump())
+
+    split = _nlogit_postflop_kwargs()
+    split.pop("stickiness")
+    split["size_elasticity"] = 1.0
+    both_authored = PersonaPostflop(**split)  # stickiness absent, as required
+    assert both_authored.stickiness is None
+    with pytest.raises(ValidationError, match="stickiness"):
+        PersonaPostflop.model_validate(both_authored.model_dump())
+
+
+def test_nlogit_pack_versions_were_bumped_with_the_content_change():
+    """Contract map C8 — nothing in the loader enforces a `version` bump when a
+    pack's content changes, so it is asserted here.
+
+    A FLOOR rather than an equality: a later slice that edits a pack bumps past
+    this and stays green without editing the test, but a missed or reverted bump
+    reds. Codex Sol demonstrated the hole by reverting calling_station to 1.1.1
+    at build review — all 24 gates still passed (ledger B-13)."""
+    import json
+
+    from app.domain.personas import PERSONA_DIR
+
+    floors = {
+        "nit": (1, 4, 0),
+        "tag": (1, 4, 0),
+        "lag": (1, 6, 0),
+        "maniac": (1, 6, 0),
+        "calling_station": (1, 2, 0),
+        "passive_fish": (1, 2, 0),
+    }
+    for persona, floor in floors.items():
+        raw = json.loads((PERSONA_DIR / f"{persona}.json").read_text())
+        got = tuple(int(x) for x in raw["version"].split("."))
+        assert got >= floor, f"{persona} version {raw['version']} is below the N-LOGIT floor"
+
+
 def test_nlogit_g9_a_looseness_refit_does_not_move_the_reference():
     """G9 (lifecycle) — the frozen-ness contract, enforced through the real
     validated-JSON path rather than argued in prose.
@@ -7371,7 +7647,18 @@ def test_nlogit_g9_a_looseness_refit_does_not_move_the_reference():
         raw = json.loads((PERSONA_DIR / f"{persona}.json").read_text())
         assert raw["postflop"]["continue_ref"] == anchor, persona
         if raw["postflop"].get("call_looseness") is None:
-            continue  # maniac: no calling lever to refit, covered below
+            # maniac: no calling lever to refit — its effective looseness IS
+            # `stickiness`. TRIPWIRE (theory review, Q2): that field is ALSO
+            # `_price_exponent`'s fallback, so editing it for price reasons
+            # would desynchronise this anchor from the lever it anchors — and
+            # every N-logit probe authors `call_looseness` on its copy, so no
+            # other gate here would observe it. Split maniac's levers before
+            # changing this number.
+            assert raw["postflop"]["stickiness"] == anchor, (
+                f"{persona}'s anchor is a frozen copy of the SHARED `stickiness` "
+                f"fallback; split its levers before moving stickiness"
+            )
+            continue
         raw["postflop"]["call_looseness"] = anchor * 1.5  # a refit, nothing else
         refit = PersonaPack.model_validate(raw)
         assert refit.postflop.call_looseness == anchor * 1.5, persona
