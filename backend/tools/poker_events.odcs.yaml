@@ -1,0 +1,398 @@
+# Data contract for the poker-coach -> poker-analytics seam.
+#
+# Standard: Open Data Contract Standard (ODCS) v3.1.0, Bitol / LF AI & Data.
+# Consumer-defined (this repo states what it needs); the producer runs the
+# SAME file after every export (advisory), this repo's ingestion gate runs it
+# before dbt (authoritative). Compatibility policy: BACKWARD within a major —
+# new columns must be nullable or defaulted; breaking changes bump the major
+# and move data to data/raw/v2/. See docs/upstream.md.
+apiVersion: v3.1.0
+kind: DataContract
+id: poker-events
+name: Poker simulation events
+version: 1.0.0
+status: active
+domain: poker-analytics
+dataProduct: poker-analytics warehouse
+tenant: personal
+
+description:
+  purpose: >
+    Seeded self-play exports from the poker-coach simulation engine: one
+    Parquet batch = hands, seat_outcomes, decisions plus a JSON _SUCCESS
+    manifest written last (batch-completeness marker; carries git SHA, RNG
+    seed, persona lineup, engine + contract version, row counts).
+  usage: >
+    Read-only analytical consumption by the dbt/DuckDB warehouse in this
+    repo. Grain contracts: hands = one simulated hand; seat_outcomes = one
+    seat in one hand (always 9 rows per hand); decisions = one action event
+    including blind posts.
+  limitations: >
+    Simulated data from a bot roster the producer's own review scored 3-4/10
+    for realism. Findings measure the simulation, not real poker.
+
+servers:
+  - server: local-sample
+    type: local
+    path: ./data/raw/v1/sample/{model}.parquet
+    format: parquet
+    description: Committed 5,000-hand sample (seed 42); default target.
+  - server: local-full
+    type: local
+    path: ./data/raw/v1/full/{model}.parquet
+    format: parquet
+    description: Full dataset, downloaded from the tag-pinned GitHub Release.
+
+schema:
+  - name: hands
+    logicalType: object
+    physicalType: parquet
+    description: One row per simulated hand.
+    properties:
+      - name: hand_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        unique: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Surrogate key "<run_id>-h<zero-padded hand_no>".
+      - name: run_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        description: Export batch id "run-s<seed>-n<hands>"; joins to the _SUCCESS manifest.
+      - name: hand_no
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+      - name: button_seat
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 8
+      - name: hand_seed
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        description: Per-hand deal seed (derived from the run seed; replayable).
+      - name: board
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        description: >
+          Space-separated revealed board cards; empty string when the hand
+          ended preflop. 0, 3, 4 or 5 cards.
+        quality:
+          - type: sql
+            description: Board is empty or 3-5 space-separated cards matching rank+suit.
+            query: >
+              SELECT COUNT(*) FROM hands
+              WHERE board <> ''
+                AND board NOT SIMILAR TO
+                  '([2-9TJQKA][cdhs] ){2,4}[2-9TJQKA][cdhs]'
+            mustBe: 0
+      - name: final_street
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: final_street is one of the four streets.
+            query: >
+              SELECT COUNT(*) FROM hands
+              WHERE final_street NOT IN ('preflop','flop','turn','river')
+            mustBe: 0
+      - name: total_pot_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: 1.5
+          maximum: 900
+        description: Sum of all chips invested; floor = SB + BB with 100bb stacks x 9 seats cap.
+      - name: went_to_showdown
+        logicalType: boolean
+        physicalType: BOOLEAN
+        required: true
+      - name: n_saw_flop
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 9
+      - name: exported_at
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        description: UTC ISO-8601 load timestamp; dbt source freshness reads this.
+        logicalTypeOptions:
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
+    quality:
+      - type: sql
+        description: hand_no is unique within a run (no duplicate or replayed hands).
+        query: >
+          SELECT COUNT(*) FROM
+            (SELECT run_id, hand_no FROM hands GROUP BY 1, 2 HAVING COUNT(*) > 1)
+        mustBe: 0
+
+  - name: seat_outcomes
+    logicalType: object
+    physicalType: parquet
+    description: One row per (hand, seat); exactly 9 rows per hand.
+    properties:
+      - name: hand_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: seat
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 8
+      - name: persona
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: persona is one of the six roster archetypes.
+            query: >
+              SELECT COUNT(*) FROM seat_outcomes
+              WHERE persona NOT IN
+                ('calling_station','lag','maniac','nit','passive_fish','tag')
+            mustBe: 0
+      - name: position
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: position is one of the nine 9-max seats.
+            query: >
+              SELECT COUNT(*) FROM seat_outcomes
+              WHERE position NOT IN
+                ('UTG','UTG1','UTG2','LJ','HJ','CO','BTN','SB','BB')
+            mustBe: 0
+      - name: hole_cards
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        logicalTypeOptions:
+          pattern: '^[2-9TJQKA][cdhs] [2-9TJQKA][cdhs]$'
+      - name: starting_stack_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: 100
+          maximum: 100
+        description: Constant 100bb in contract v1; widens (nullable-safe) if stack variation ships.
+      - name: invested_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 100
+      - name: delta_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: -100
+          maximum: 800
+        description: Net chips won/lost; bounded by own stack down, 8 stacks up.
+      - name: final_status
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: final_status is in/folded/allin.
+            query: >
+              SELECT COUNT(*) FROM seat_outcomes
+              WHERE final_status NOT IN ('in','folded','allin')
+            mustBe: 0
+      - name: saw_flop
+        logicalType: boolean
+        physicalType: BOOLEAN
+        required: true
+      - name: went_to_showdown
+        logicalType: boolean
+        physicalType: BOOLEAN
+        required: true
+      - name: won_pot
+        logicalType: boolean
+        physicalType: BOOLEAN
+        required: true
+      - name: exported_at
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        logicalTypeOptions:
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
+    quality:
+      - type: sql
+        description: Chip conservation — per-hand seat deltas sum to zero (2dp rounding tolerance).
+        query: >
+          SELECT COUNT(*) FROM
+            (SELECT hand_id FROM seat_outcomes
+             GROUP BY hand_id HAVING ABS(SUM(delta_bb)) > 0.05)
+        mustBe: 0
+      - type: sql
+        description: Exactly 9 seats per hand.
+        query: >
+          SELECT COUNT(*) FROM
+            (SELECT hand_id FROM seat_outcomes
+             GROUP BY hand_id HAVING COUNT(*) <> 9)
+        mustBe: 0
+      - type: sql
+        description: Referential integrity — every seat_outcomes.hand_id exists in hands.
+        query: >
+          SELECT COUNT(*) FROM seat_outcomes s
+          WHERE NOT EXISTS (SELECT 1 FROM hands h WHERE h.hand_id = s.hand_id)
+        mustBe: 0
+
+  - name: decisions
+    logicalType: object
+    physicalType: parquet
+    description: One row per action event (blind posts included), ordered by seq within a hand.
+    properties:
+      - name: hand_id
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: seq
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+        logicalTypeOptions:
+          minimum: 0
+      - name: seat
+        logicalType: integer
+        physicalType: BIGINT
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 8
+      - name: street
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: street is one of the four streets.
+            query: >
+              SELECT COUNT(*) FROM decisions
+              WHERE street NOT IN ('preflop','flop','turn','river')
+            mustBe: 0
+      - name: position
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: position is one of the nine 9-max seats.
+            query: >
+              SELECT COUNT(*) FROM decisions
+              WHERE position NOT IN
+                ('UTG','UTG1','UTG2','LJ','HJ','CO','BTN','SB','BB')
+            mustBe: 0
+      - name: action
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        quality:
+          - type: sql
+            description: action is an engine action type (post = blind).
+            query: >
+              SELECT COUNT(*) FROM decisions
+              WHERE action NOT IN ('fold','check','call','bet','raise','post')
+            mustBe: 0
+      - name: raise_to_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: false
+        description: Raise-TO amount for bet/raise; null otherwise.
+        quality:
+          - type: sql
+            description: raise_to_bb is present exactly on bet/raise rows.
+            query: >
+              SELECT COUNT(*) FROM decisions
+              WHERE (action IN ('bet','raise')) <> (raise_to_bb IS NOT NULL)
+            mustBe: 0
+      - name: chips_committed_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 100
+      - name: pot_before_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 900
+      - name: to_call_bb
+        logicalType: number
+        physicalType: DOUBLE
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+          maximum: 100
+      - name: exported_at
+        logicalType: string
+        physicalType: VARCHAR
+        required: true
+        logicalTypeOptions:
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
+    quality:
+      - type: sql
+        description: Referential integrity — every decisions.hand_id exists in hands.
+        query: >
+          SELECT COUNT(*) FROM decisions d
+          WHERE NOT EXISTS (SELECT 1 FROM hands h WHERE h.hand_id = d.hand_id)
+        mustBe: 0
+      - type: sql
+        description: Pot reconciliation — committed chips equal the hand's total pot (2dp tolerance).
+        query: >
+          SELECT COUNT(*) FROM
+            (SELECT d.hand_id
+             FROM decisions d JOIN hands h USING (hand_id)
+             GROUP BY d.hand_id, h.total_pot_bb
+             HAVING ABS(SUM(d.chips_committed_bb) - h.total_pot_bb) > 0.05)
+        mustBe: 0
+
+customProperties:
+  - property: compatibilityPolicy
+    value: BACKWARD
+  - property: producer
+    value: poker-coach backend/tools/export_analytics.py
+  - property: manifest
+    value: >
+      JSON _SUCCESS file written last in each batch directory; carries run_id,
+      seed, lineup, git SHA, engine + contract version, row counts. Consumers
+      must refuse batches without it.
+
+team:
+  - username: johncabiles
+    role: owner
+    description: Owns both producer and consumer; seam modeled as if separate teams.

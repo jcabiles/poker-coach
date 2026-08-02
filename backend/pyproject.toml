@@ -21,6 +21,10 @@ dev = [
   "httpx>=0.27",
   "ruff>=0.6",
 ]
+# Analytics export (tools/export_analytics.py) — Parquet writer only.
+export = [
+  "pyarrow>=18",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
