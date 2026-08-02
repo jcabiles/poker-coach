@@ -247,17 +247,9 @@ _PRE_M3_FIRES = {
     # change (lost-record counts: UTG2¹ 92, LJ¹ 117, HJ¹ 122, CO¹ 99,
     # CO² 26, SB¹ 62, SB² 40, BTN¹ 93, BTN² 29). _WANT_* all fire
     # (BB¹ 45, BB² 39, BB³ 12).
-    # RE-PINNED for the WAVE-6 lane-C landing (T-M4, 2026-08-01 —
-    # wave-authorized, single-recorder): the maniac 77-99 vs_4bet call leg is
-    # PRODUCTION content, so 4-bet pots those pairs used to fold now play on,
-    # displacing the shared-rng organic stream at this seed (lane-A-landing
-    # counts: UTG2¹ 87, LJ¹ 128, HJ¹ 114, CO¹ 99, CO² 36, SB¹ 69, SB² 28,
-    # BTN¹ 78, BTN² 32). Every _WANT_* coverage shape still fires
-    # (BB¹ 49, BB² 36, BB³ 8) — stream displacement, not a coverage
-    # regression.
-    ("UTG2", 1): 91, ("LJ", 1): 118, ("HJ", 1): 114, ("CO", 1): 99,
-    ("CO", 2): 38, ("SB", 1): 72, ("SB", 2): 35, ("BTN", 1): 76,
-    ("BTN", 2): 30,
+    ("UTG2", 1): 87, ("LJ", 1): 128, ("HJ", 1): 114, ("CO", 1): 99,
+    ("CO", 2): 36, ("SB", 1): 69, ("SB", 2): 28, ("BTN", 1): 78,
+    ("BTN", 2): 32,
 }
 
 

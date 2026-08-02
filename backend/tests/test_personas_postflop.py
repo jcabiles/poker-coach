@@ -3384,18 +3384,9 @@ _GOLDEN_STATS_N200 = {
     # 0.2628 → 0.3241 between base and tip is the instrument repair, not a
     # bot change — zero production code in this slice). Exact tripwire
     # re-record; population bands stay frozen to W4-b.
-    # RE-RECORDED for the WAVE-6 lane-C landing (T-M4, 2026-08-01 —
-    # wave-authorized, single-recorder): the maniac 77-99 vs_4bet call leg.
-    # ONLY the maniac row moves at this n=200 seed (2.6812/0.34/0.5782 →
-    # 2.5522/0.4468/0.6019) — the other five rows are byte-identical to the
-    # lane-A record, a clean attribution: the changed cells are maniac's own
-    # vs_4bet mixes and its n=200 sample window re-deals only pots the maniac
-    # plays differently. Exact tripwire re-record; population bands stay
-    # frozen to W4-b (maniac stable-n AF 3.5357, in band, per the lane-C
-    # triple review).
     "calling_station": (0.32409972299168976, 0.06557377049180328, 0.7077922077922078),
     "lag": (2.611111111111111, None, 0.5294117647058824),
-    "maniac": (2.5522388059701493, 0.44680851063829785, 0.6018957345971564),
+    "maniac": (2.681159420289855, 0.34, 0.5781990521327014),
     "nit": (None, None, 0.7450980392156863),
     "passive_fish": (0.7049180327868853, 0.4358974358974359, 0.514018691588785),
     "tag": (2.2580645161290325, None, 0.6385542168674698),
