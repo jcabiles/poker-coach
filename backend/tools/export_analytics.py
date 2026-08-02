@@ -22,6 +22,13 @@ tables modulo the `exported_at` load-timestamp column.
 Usage (from backend/):
     python -m tools.export_analytics --hands 5000 --seed 42 --out /path/to/data/raw/v1
 Requires the `export` extra: pip install -e '.[export]' (pyarrow).
+
+Producer-side contract check (ADVISORY — the consumer's ingestion gate is
+the authoritative one): after writing, the script runs `datacontract test`
+against the vendored copy of the consumer's ODCS contract
+(tools/poker_events.odcs.yaml) if datacontract-cli is on PATH, and warns
+(without failing the export) when it isn't installed. Keep the vendored
+contract in sync with the consumer repo's contracts/poker_events.odcs.yaml.
 """
 
 from __future__ import annotations
@@ -195,15 +202,49 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     return manifest
 
 
+def _advisory_contract_test(out_dir: Path) -> None:
+    """Producer-side `datacontract test` (advisory): warn, never fail the
+    export. The consumer repo's ingestion gate is the authoritative check."""
+    import shutil
+    import tempfile
+
+    contract = Path(__file__).resolve().parent / "poker_events.odcs.yaml"
+    if shutil.which("datacontract") is None:
+        print("ADVISORY: datacontract-cli not on PATH — producer-side contract "
+              "check skipped (pip install 'datacontract-cli[duckdb,parquet]').")
+        return
+    # The vendored contract's server paths are consumer-repo-relative; point a
+    # temp copy at the actual export directory instead.
+    text = contract.read_text().replace(
+        "./data/raw/v1/sample/{model}.parquet",
+        f"{out_dir.resolve()}/{{model}}.parquet",
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".odcs.yaml", delete=False) as f:
+        f.write(text)
+        tmp = f.name
+    res = subprocess.run(
+        ["datacontract", "test", tmp, "--server", "local-sample"])
+    Path(tmp).unlink(missing_ok=True)
+    if res.returncode != 0:
+        print("ADVISORY: export does NOT conform to the vendored contract — "
+              "the consumer's ingestion gate will reject this batch.")
+    else:
+        print("Producer-side contract check passed.")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--hands", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=Path, required=True,
                     help="target directory, e.g. <analytics-repo>/data/raw/v1/sample")
+    ap.add_argument("--skip-contract-test", action="store_true",
+                    help="skip the advisory producer-side datacontract test")
     args = ap.parse_args()
     manifest = run_export(args.hands, args.seed, args.out)
     print(json.dumps(manifest, indent=2))
+    if not args.skip_contract_test:
+        _advisory_contract_test(args.out)
 
 
 if __name__ == "__main__":
