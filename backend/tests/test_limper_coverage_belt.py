@@ -256,9 +256,17 @@ _PRE_M3_FIRES = {
     # content changed; every _WANT_* coverage shape still fires (verified:
     # BB¹ 49, BB² 36, BB³ 8) — stream displacement, not a coverage
     # regression.
-    ("UTG2", 1): 91, ("LJ", 1): 118, ("HJ", 1): 114, ("CO", 1): 99,
-    ("CO", 2): 38, ("SB", 1): 72, ("SB", 2): 35, ("BTN", 1): 76,
-    ("BTN", 2): 30,
+    # RE-PINNED for N-LAGWIDTH (persona-realism-n-lagwidth, 2026-08-01 —
+    # single-recorder): the lag CO/BTN/SB offsuit trim (a real width
+    # reduction, not a swap) displaces the shared organic rng stream from the
+    # first changed lag open onward, moving 8 of 9 pairs (old: UTG2¹ 91,
+    # LJ¹ 118, HJ¹ 114, CO¹ 99, CO² 38, SB¹ 72, SB² 35, BTN¹ 76, BTN² 30). No
+    # limper-belt content changed; every _WANT_* coverage shape still fires
+    # (verified: BB¹ 45, BB² 34, BB³ 9) — stream displacement, not a
+    # coverage regression.
+    ("UTG2", 1): 84, ("LJ", 1): 122, ("HJ", 1): 98, ("CO", 1): 99,
+    ("CO", 2): 33, ("SB", 1): 70, ("SB", 2): 29, ("BTN", 1): 75,
+    ("BTN", 2): 36,
 }
 
 

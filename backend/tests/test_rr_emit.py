@@ -395,7 +395,11 @@ def test_lag_proving_gate_corpus_is_non_trivial(lag_emitted, lag_shipped):
     # before: 92s 82s 72s 62s 52s 42s 32s) and drops four weak-kicker offsuit
     # classes that only the BTN opened (J4o T5o 96o 86o); CO and SB add and drop
     # nothing, every class they gain or lose is opened at another seat.
-    assert len(played) == 135, "shipped lag unopened corpus changed size"
+    # 135 -> 127 (N-LAGWIDTH, 2026-08-01). The CO/BTN/SB offsuit trim drops the
+    # bottom class of the Ao/Ko/Qo/Jo/To rows at CO, the Ko/Qo/Jo/To rows at
+    # BTN, and the Ko/Qo rows at SB — 8 classes, all unique to the seat that
+    # dropped them (97o, J5o, J6o, K2o, K3o, Q4o, Q5o, T6o); nothing is added.
+    assert len(played) == 127, "shipped lag unopened corpus changed size"
     assert union(lag_emitted) == played
     assert sum(len(n["mixes"]) for n in lag_emitted) == 18  # 9 seats x 2 tiers
 

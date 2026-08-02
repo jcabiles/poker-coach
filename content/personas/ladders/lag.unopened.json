@@ -1,6 +1,6 @@
 {
   "id": "ladder_lag_unopened",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "domain": "persona_ladder",
   "_doc": [
     "N-LAGLADDER curve spec — RR-EMIT's first PRODUCTION authoring run (the nit",
@@ -89,7 +89,24 @@
     "weighted raise width the emitted node actually produces, cross-checked by",
     "test_rr_emit.py. Floors are authored; they are never fitted to a target.",
     "There is deliberately nowhere in this file to put a percentile or width",
-    "parameter (range-representation-design.md sec.1)."
+    "parameter (range-representation-design.md sec.1).",
+    "",
+    "N-LAGWIDTH (2026-08-01, lag.json 1.5.0) — LATE-SEAT TRIM, offsuit-only,",
+    "at CO/BTN/SB (see docs/ai-dlc/specs/n-lagwidth.md rev 2). Unlike",
+    "N-LAGLADDER/N-LAGCOMP2 above, this IS a width reduction, not a",
+    "composition swap: the §5 PFR floor argument that forced those two slices",
+    "to hold width constant does not bind here (owner 2026-08-01 accepted the",
+    "PFR dip as a disclosed side effect). Per seat, combo-weighted %:",
+    "    CO   53.12 -> 48.60   (offsuit 26.61 -> 22.08, suited untouched 20.63)",
+    "    BTN  65.97 -> 57.83   (offsuit 36.56 -> 28.42, suited untouched 23.53)",
+    "    SB   51.86 -> 46.43   (offsuit 26.24 -> 20.81, suited untouched 19.73)",
+    "Suited and pair rows at all three seats are byte-untouched (why the",
+    "suited-superset-of-tag gate stays green); the cut removes the bottom",
+    "class of the Ao/Ko/Qo/Jo/To offsuit rows at CO, the Ko/Qo/Jo/To rows at",
+    "BTN, and the Ao/Ko/Qo rows at SB (SB's Jo row is left at depth 2 so J9o",
+    "stays in the raising core, per test_w3r1_preflop_cleanup.py:236). CO's",
+    "floor is the untouched HJ width (47.63) plus margin, per the strict",
+    "spec-side monotone gate (test_rr_emit.py:414)."
   ],
   "persona": "lag",
   "facing": "unopened",
@@ -157,33 +174,33 @@
       }
     },
     "CO": {
-      "raise_pct": 53.12,
+      "raise_pct": 48.6,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 7, "9s": 5,
         "8s": 4, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
-        "Ao": 11, "Ko": 7, "Qo": 4, "Jo": 3, "To": 2, "9o": 0
+        "Ao": 10, "Ko": 6, "Qo": 3, "Jo": 2, "To": 1, "9o": 0
       },
       "slopes": {
         "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "4s": [0]
       }
     },
     "BTN": {
-      "raise_pct": 65.97,
+      "raise_pct": 57.83,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 9, "Ts": 8, "9s": 7,
         "8s": 6, "7s": 5, "6s": 4, "5s": 3, "4s": 2, "3s": 1,
-        "Ao": 12, "Ko": 10, "Qo": 7, "Jo": 5, "To": 3, "9o": 1, "8o": 0
+        "Ao": 12, "Ko": 8, "Qo": 5, "Jo": 3, "To": 1, "9o": 0, "8o": 0
       },
       "slopes": {
         "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "Js": [0], "Ao": [0]
       }
     },
     "SB": {
-      "raise_pct": 51.86,
+      "raise_pct": 46.43,
       "depths": {
         "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 5,
         "8s": 4, "7s": 3, "6s": 2, "5s": 1, "4s": 1,
-        "Ao": 11, "Ko": 7, "Qo": 4, "Jo": 3, "To": 2
+        "Ao": 10, "Ko": 5, "Qo": 2, "Jo": 2, "To": 2
       },
       "slopes": {
         "pairs": [0], "As": [0], "Ks": [0], "Qs": [0], "5s": [0], "4s": [0]

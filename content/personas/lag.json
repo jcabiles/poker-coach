@@ -1,8 +1,22 @@
 {
   "id": "persona_lag",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "domain": "persona",
   "_doc": [
+    "1.5.0 (N-LAGWIDTH, 2026-08-01) — one change: the CO, BTN and SB `unopened`",
+    "nodes are re-emitted from the same curve spec (now 1.3.0) with an",
+    "offsuit-only TRIM (not a swap) at those three seats — the first lag lane",
+    "slice to actually reduce width, since the §5 PFR floor argument that held",
+    "1.3.0/1.4.0 at constant width does not bind here (owner 2026-08-01",
+    "accepted the PFR dip as a disclosed side effect). Suited and pair rows at",
+    "CO/BTN/SB are byte-identical to 1.4.0. Combo-weighted %:",
+    "  total    CO 53.12->48.60 · BTN 65.97->57.83 · SB 51.86->46.43",
+    "  offsuit  CO 26.61->22.08 · BTN 36.56->28.42 · SB 26.24->20.81",
+    "Full rationale, per-row edits and the SB J9o preservation constraint: the",
+    "N-LAGWIDTH section of content/personas/ladders/lag.unopened.json `_doc`.",
+    "The six other seats and every response node (`vs_rfi` / `vs_3bet` /",
+    "`vs_4bet`) are untouched — the 1.3.0 opener re-tune below still stands.",
+    "",
     "1.4.0 (N-LAGCOMP2, 2026-07-31) — one change: the CO, BTN and SB `unopened`",
     "nodes are re-emitted from the same curve spec, again offsuit -> suited and",
     "again a swap rather than a trim, but here EXACTLY width-neutral (the",
@@ -120,24 +134,24 @@
       "facing": "unopened",
       "positions": ["CO"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T3s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, A3o+, K6o+, Q8o+, J8o+, T8o+", "weights": { "raise": 1.0 } },
-        { "combos": "T2s, 93s, 83s, 73s, 63s, 52s, A2o, K5o, Q7o, J7o, T7o, 98o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T3s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, A4o+, K7o+, Q9o+, J9o+, T9o", "weights": { "raise": 1.0 } },
+        { "combos": "T2s, 93s, 83s, 73s, 63s, 52s, A3o, K6o, Q8o, J8o, T8o, 98o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["BTN"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, A2o+, K3o+, Q5o+, J6o+, T7o+, 98o", "weights": { "raise": 1.0 } },
-        { "combos": "K2o, Q4o, J5o, T6o, 97o, 87o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, A2o+, K5o+, Q7o+, J8o+, T9o", "weights": { "raise": 1.0 } },
+        { "combos": "K4o, Q6o, J7o, T8o, 98o, 87o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
       "facing": "unopened",
       "positions": ["SB"],
       "mixes": [
-        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 74s+, 64s+, 54s, 43s, A3o+, K6o+, Q8o+, J8o+, T8o+", "weights": { "raise": 1.0 } },
-        { "combos": "J2s, T3s, 93s, 83s, 73s, 63s, A2o, K5o, Q7o, J7o, T7o", "weights": { "raise": 0.4, "fold": 0.6 } }
+        { "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 74s+, 64s+, 54s, 43s, A4o+, K8o+, QTo+, J9o+, T8o+", "weights": { "raise": 1.0 } },
+        { "combos": "J2s, T3s, 93s, 83s, 73s, 63s, A3o, K7o, Q9o, J8o, T7o", "weights": { "raise": 0.4, "fold": 0.6 } }
       ]
     },
     {
