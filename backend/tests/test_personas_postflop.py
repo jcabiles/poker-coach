@@ -3390,7 +3390,19 @@ _GOLDEN_STATS_N200 = {
     # values the wave-6 ledger reviewed and disclosed), but the squash-merge
     # chain lost this pin's update, leaving main red. Pure restoration of
     # the reviewed record; other five rows verified byte-identical.
-    "calling_station": (0.32409972299168976, 0.06557377049180328, 0.7077922077922078),
+    # RE-RECORDED for the #160 merge (chore repair, 2026-08-02): N-LAGWIDTH
+    # trimmed lag's CO/BTN/SB offsuit opening width, which displaces the
+    # shared harness stream and moved ONLY the station AF cell
+    # (0.32409972299168976 → 0.3277777777777778). The #160 squash chain lost
+    # this pin's update, leaving main red — the FOURTH occurrence of the
+    # lost-re-record pattern (see #159 and the two wave-6 entries above).
+    # ATTRIBUTION PROVEN, not assumed: reverting ONLY
+    # content/personas/lag.json + ladders/lag.unopened.json to 8729e14 at
+    # this tip turns this test green again, so the lag pack change is the
+    # sole cause. The other FIVE rows — including lag's own — are verified
+    # byte-identical, so this is a narrow stream displacement, not a
+    # roster-wide behavior shift. Population bands stay frozen to W4-b.
+    "calling_station": (0.3277777777777778, 0.06557377049180328, 0.7077922077922078),
     "lag": (2.611111111111111, None, 0.5294117647058824),
     "maniac": (2.5522388059701493, 0.44680851063829785, 0.6018957345971564),
     "nit": (None, None, 0.7450980392156863),

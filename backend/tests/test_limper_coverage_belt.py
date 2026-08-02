@@ -256,9 +256,22 @@ _PRE_M3_FIRES = {
     # content changed; every _WANT_* coverage shape still fires (verified:
     # BB¹ 49, BB² 36, BB³ 8) — stream displacement, not a coverage
     # regression.
-    ("UTG2", 1): 91, ("LJ", 1): 118, ("HJ", 1): 114, ("CO", 1): 99,
-    ("CO", 2): 38, ("SB", 1): 72, ("SB", 2): 35, ("BTN", 1): 76,
-    ("BTN", 2): 30,
+    # RE-PINNED for the #160 merge (chore repair, 2026-08-02): N-LAGWIDTH
+    # trimmed lag's CO/BTN/SB offsuit opening width, so the lag opens fewer
+    # hands late and the shared organic rng stream drifts at this seed,
+    # moving 8 of 9 pairs (old: UTG2¹ 91, LJ¹ 118, HJ¹ 114, CO¹ 99, CO² 38,
+    # SB¹ 72, SB² 35, BTN¹ 76, BTN² 30). The #160 squash chain lost this
+    # pin's update, leaving main red (('UTG2',1) 84 != 91) — the FOURTH
+    # occurrence of the lost-re-record pattern (see #159 and the two wave-6
+    # entries above). ATTRIBUTION PROVEN, not assumed: reverting ONLY
+    # content/personas/lag.json + ladders/lag.unopened.json to 8729e14 at
+    # this tip turns this test AND the N200 golden green again, so the lag
+    # pack change is the sole cause. No limper-belt content changed; every
+    # _WANT_* coverage shape still fires (verified: BB¹ 45, BB² 34, BB³ 9)
+    # — stream displacement, not a coverage regression.
+    ("UTG2", 1): 84, ("LJ", 1): 122, ("HJ", 1): 98, ("CO", 1): 99,
+    ("CO", 2): 33, ("SB", 1): 70, ("SB", 2): 29, ("BTN", 1): 75,
+    ("BTN", 2): 36,
 }
 
 
