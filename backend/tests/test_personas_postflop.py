@@ -6726,3 +6726,689 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
         f"N-TAGWIDTH 15.34/12.04/3.30 (n=4000, PFR 95% CI [11.91, 12.17])"
     )
     assert s.vpip is not None and s.pfr is not None
+
+
+# =====================================================================
+# N-LOGIT — the frozen continue reference (`continue_ref`)
+# =====================================================================
+#
+# WHAT THE SLICE DOES. At a facing-chips node the three merits (FOLD, CALL,
+# RAISE) share one normalization, and `call_looseness` multiplies the CALL
+# merit only (:873). Mass taken off CALL is therefore shared out to FOLD *and*
+# RAISE in proportion to their merits, which on an aggressive persona lands
+# mostly on RAISE — measured at the base engine, halving each pack's effective
+# looseness moved raise-share the WRONG way for all six (+0.17; roadmap R10-4).
+# N-logit scales the RAISE merit by `effective_looseness / continue_ref`, the
+# frozen looseness the persona's facing-node raise behaviour was calibrated
+# against, so `P(raise | continue)` no longer depends on the lever and freed
+# mass routes to FOLD.
+#
+# WHY THESE GATES ARE SHAPED THIS WAY (spec rev 3 §6; ledger R-1, R2-1..R2-10).
+# Rev 1 of this slice shipped a mechanism that cancelled algebraically — a
+# measured no-op — and it passed 8 of its own 10 criteria while doing nothing,
+# because those criteria were IDENTITY measurements ("output unchanged"). An
+# identity measurement cannot tell a behaviour-preserving fix from a fix that
+# does nothing; only a SENSITIVITY measurement can. G1 below is that
+# measurement and is the decisive gate. Recorded RED-FIRST evidence, taken on
+# this branch with the packs authored but the engine scale NOT yet applied:
+#
+#   G1 worst |Δ P(raise | continue)| over x0.25/x0.5/x2/x4, per persona
+#     (gate: <= 1e-12)
+#       nit 0.332927 · tag 0.333327 · lag 0.333318 · maniac 0.333332
+#       calling_station 0.293076 · passive_fish 0.333303
+#   G2: 15,624 routing-sign violations out of 41,472 interior (cell, multiplier)
+#     pairs. Representative — nit, two_pair/flop, price 2.0, x0.25:
+#     ΔP(fold) = +0.0217 but ΔP(raise) = +0.2974. The calling lever went DOWN
+#     and the raise rate went UP by 14x the fold rate's move: the R10-4
+#     misroute, measured.
+#
+# If G1 ever passes with the engine block removed, the gate is broken, not the
+# engine fixed.
+
+_NLOGIT_ANCHORS = {  # spec §3.2 — each pack's authored anchor == its effective looseness
+    "nit": 0.6,
+    "tag": 0.6,
+    "lag": 0.55,
+    "maniac": 0.55,  # from `stickiness` — maniac authors no `call_looseness`
+    "calling_station": 4.0,
+    "passive_fish": 0.42,
+}
+_NLOGIT_MULTS = (0.25, 0.5, 2.0, 4.0)
+_NLOGIT_KEEP = object()
+
+
+def _nlogit_probe(persona: str, mult: float = 1.0, *, continue_ref=_NLOGIT_KEEP):
+    """A pack copy whose effective looseness is the anchor scaled by `mult`.
+
+    `call_looseness` is authored on the copy for EVERY persona, maniac
+    included. Maniac's effective looseness is the `stickiness` fallback, and
+    `stickiness` is ALSO `_price_exponent`'s fallback (ledger R2-10), so
+    sweeping maniac by editing `stickiness` would move the FOLD merit at the
+    same time and confound the measurement — on the RIVER/AIR cell where the
+    call merit is literally 0.0, base maniac's P(raise) still moves under a
+    `stickiness` halving while lag and tag stay flat. Authoring the split lever
+    on the probe copy sweeps the call axis alone.
+
+    `model_copy` bypasses validation by construction; that is the same
+    unvalidated-injection path G8 pins the engine's runtime guard against.
+    `mult=1.0` reproduces the authored float exactly (x*1.0 == x).
+    """
+    pack = _pack(persona)
+    update = {"call_looseness": _NLOGIT_ANCHORS[persona] * mult}
+    if continue_ref is not _NLOGIT_KEEP:
+        update["continue_ref"] = continue_ref
+    probe = pack.model_copy(deep=True)
+    probe.postflop = pack.postflop.model_copy(update=update)
+    return probe
+
+
+class _NlogitCell(NamedTuple):
+    label: str
+    street: Street
+    hole: tuple
+    board: list
+    context: object  # PostflopContext | None
+    pot_bb: float
+    to_call: float
+    stack_bb: float
+    opponents: int
+    facing_raise: bool
+    with_raise: bool
+
+    @property
+    def key(self) -> str:
+        return (
+            f"{self.label} price={self.to_call} stack={self.stack_bb} "
+            f"opp={self.opponents} facing_raise={self.facing_raise} "
+            f"raise_legal={self.with_raise}"
+        )
+
+
+def _nlogit_spots():
+    """(label, street, hole, board, context) — the 7 strength buckets on all
+    three streets, BOTH draw categories on the two streets that have draws
+    (the river resets DrawCategory to NONE by construction), and the river
+    busted-draw `PostflopContext` states that feed the story-bluff term
+    (ledger R2-7). Each template's classification is asserted by
+    `test_nlogit_grid_covers_every_hand_class`, so a mis-chosen board can
+    never silently shrink the grid."""
+    flop = ["Kc", "9s", "3h"]
+    turn = ["Kc", "9s", "3h", "2d"]
+    river = ["Kc", "9s", "3h", "2d", "Tc"]
+    made = [
+        ("monster", ("9h", "9d")),
+        ("two_pair", ("Kh", "9c")),
+        ("overpair", ("Ah", "Ad")),
+        ("top_pair", ("Kh", "4d")),
+        ("middle_pair", ("9h", "4c")),
+        ("ace_high", ("Ah", "8d")),
+        ("air", ("7h", "4c")),
+    ]
+    spots = []
+    for street, board in ((Street.FLOP, flop), (Street.TURN, turn), (Street.RIVER, river)):
+        for label, hole in made:
+            spots.append((f"{label}/{street.value}", street, hole, board, None))
+    for street, board in (  # STRONG: flush draw (ace-high, no pair)
+        (Street.FLOP, ["2h", "9h", "Kc"]),
+        (Street.TURN, ["2h", "9h", "Kc", "7d"]),
+    ):
+        spots.append((f"strong_draw/{street.value}", street, ("Ah", "5h"), board, None))
+    for street, board in (  # WEAK: gutshot, no flush draw (air)
+        (Street.FLOP, ["7h", "9s", "9d"]),
+        (Street.TURN, ["7h", "9s", "9d", "6s"]),
+    ):
+        spots.append((f"weak_draw/{street.value}", street, ("Td", "Jh"), board, None))
+    for busted in (BustedDraw.STRAIGHT, BustedDraw.FLUSH):
+        spots.append(
+            (
+                f"river_busted_{busted.name.lower()}",
+                Street.RIVER,
+                ("7h", "4c"),
+                river,
+                PostflopContext(bet_prev_street=True, busted_draw=busted),
+            )
+        )
+    return spots
+
+
+_NLOGIT_PRICES = (2.0, 4.0, 6.0, 12.0)  # to_call into a 6bb pot: 1/3 pot … 2x pot
+# (stack, opponents) — heads-up and multiway, above and BELOW spr_commit
+# (pot is 6bb, so stack 12 = SPR 2.0 commits every persona; 30 = SPR 5 does not).
+_NLOGIT_STACKS = ((100.0, 1), (100.0, 3), (12.0, 1), (30.0, 2))
+
+
+def _nlogit_cells():
+    cells = []
+    for label, street, hole, board, ctx in _nlogit_spots():
+        for to_call in _NLOGIT_PRICES:
+            for stack_bb, opponents in _NLOGIT_STACKS:
+                for facing_raise in (False, True):
+                    for with_raise in (False, True):  # both facing legal shapes
+                        cells.append(
+                            _NlogitCell(
+                                label,
+                                street,
+                                hole,
+                                board,
+                                ctx,
+                                6.0,
+                                to_call,
+                                stack_bb,
+                                opponents,
+                                facing_raise,
+                                with_raise,
+                            )
+                        )
+    return cells
+
+
+def _nlogit_dist(pack, cell: _NlogitCell) -> dict:
+    """The cell's EXACT normalized action distribution — the first
+    `rng.choices` weights, so there is no Monte-Carlo noise anywhere in these
+    gates."""
+    legal = [personas_postflop_legal_fold(), personas_postflop_legal_call(cell.to_call)]
+    if cell.with_raise:
+        legal.append(personas_postflop_legal_raise(cell.to_call * 3, 200.0))
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        pack,
+        cell.hole,
+        cell.board,
+        legal,
+        cell.pot_bb,
+        cell.stack_bb,
+        cell.opponents,
+        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=cell.to_call,
+        street=cell.street,
+        latest_aggressor_contribution_bb=cell.to_call,
+        context=cell.context,
+        facing_raise=cell.facing_raise,
+    )
+    return cap.dist or {}
+
+
+_NLOGIT_SWEEP: dict = {}
+
+
+def _nlogit_sweep():
+    """{persona: {mult: [dist per cell]}} plus `_cells`. Computed ONCE and
+    shared by G1/G2/G4 — the grid is 1,728 cells x 6 personas x 5 lever
+    settings, and re-deriving it per gate would triple the file's cost."""
+    if not _NLOGIT_SWEEP:
+        cells = _nlogit_cells()
+        for persona in _NLOGIT_ANCHORS:
+            per = {}
+            for mult in (1.0,) + _NLOGIT_MULTS:
+                probe = _nlogit_probe(persona, mult)
+                per[mult] = [_nlogit_dist(probe, c) for c in cells]
+            _NLOGIT_SWEEP[persona] = per
+        _NLOGIT_SWEEP["_cells"] = cells
+    return _NLOGIT_SWEEP
+
+
+def _nlogit_p(dist, kind) -> float:
+    return dist.get(kind, 0.0)
+
+
+def test_nlogit_grid_covers_every_hand_class():
+    """The grid's coverage claim, asserted rather than asserted-in-prose: all
+    seven strength buckets on all three streets, plus STRONG and WEAK draws on
+    the two streets that have draws. A board edit that silently demoted a
+    template (say a gutshot that stops being one) would otherwise shrink G1's
+    reach without any gate noticing."""
+    expect = {
+        "monster": StrengthBucket.MONSTER,
+        "two_pair": StrengthBucket.TWO_PAIR_PLUS,
+        "overpair": StrengthBucket.OVERPAIR_TPTK,
+        "top_pair": StrengthBucket.TOP_PAIR,
+        "middle_pair": StrengthBucket.MIDDLE_PAIR,
+        "ace_high": StrengthBucket.ACE_HIGH,
+        "air": StrengthBucket.AIR,
+        "strong_draw": DrawCategory.STRONG,
+        "weak_draw": DrawCategory.WEAK,
+    }
+    seen = set()
+    for label, _street, hole, board, _ctx in _nlogit_spots():
+        bucket, draw = strength_bucket(hole, board)
+        name = label.split("/")[0]
+        if name in ("strong_draw", "weak_draw"):
+            assert draw is expect[name], (label, draw)
+        elif name in expect:
+            assert bucket is expect[name], (label, bucket)
+        seen.add((bucket, draw))
+    buckets = {b for b, _ in seen}
+    assert buckets == set(StrengthBucket), sorted(b.value for b in buckets)
+    assert {d for _, d in seen} == set(DrawCategory)
+
+
+def test_nlogit_g1_orthogonality_raise_share_is_lever_invariant():
+    """G1 (RED-FIRST, DECISIVE) — `P(raise) / (P(call) + P(raise))` does not
+    move when `call_looseness` is swept over x0.25 / x0.5 / x2 / x4.
+
+    This is the one gate an empty diff cannot pass, and the one gate a
+    schema-and-content-only change cannot pass either. It FAILED on this
+    branch with the packs authored and the engine untouched (worst drift
+    0.5932 on five personas, 0.5000 on calling_station).
+
+    Cells where `P(call) + P(raise) == 0` are skipped, not asserted: a
+    river-air FOLD+CALL node has the call merit hard-zeroed and no raise leg,
+    so the ratio is 0/0 (ledger R2-2)."""
+    sweep = _nlogit_sweep()
+    cells = sweep["_cells"]
+    worst = {}
+    for persona in _NLOGIT_ANCHORS:
+        per = sweep[persona]
+        for i, cell in enumerate(cells):
+            base = per[1.0][i]
+            denom = _nlogit_p(base, ActionType.CALL) + _nlogit_p(base, ActionType.RAISE)
+            if denom <= 0.0:
+                continue
+            ref_share = _nlogit_p(base, ActionType.RAISE) / denom
+            for mult in _NLOGIT_MULTS:
+                d = per[mult][i]
+                den = _nlogit_p(d, ActionType.CALL) + _nlogit_p(d, ActionType.RAISE)
+                if den <= 0.0:
+                    continue
+                drift = abs(_nlogit_p(d, ActionType.RAISE) / den - ref_share)
+                if drift > worst.get(persona, (0.0, ""))[0]:
+                    worst[persona] = (drift, f"{cell.key} x{mult}")
+    bad = {p: v for p, v in worst.items() if v[0] > 1e-12}
+    assert not bad, f"raise-share moved with the calling lever: {bad}"
+
+
+def test_nlogit_g2_routing_sign_freed_mass_goes_to_fold():
+    """G2 (RED-FIRST) — SIGN only, per direction (ledger R2-2 killed rev 2's
+    version of this gate for stating it on the wrong quantity).
+
+      lever DOWN (x0.25, x0.5): P(fold) rises, P(raise) does not rise
+      lever UP   (x2, x4):      signs invert
+
+    Strict movement is required only on INTERIOR cells (`0 < P(fold) < 1`) —
+    an SPR-committed node has P(fold) pinned at 0 by `_commit_transform` and a
+    zero-continue node has it pinned at 1; neither can move, and demanding
+    that they do is what made rev 2's gate unpassable by a correct build.
+    G1 owns orthogonality; this gate owns direction only."""
+    sweep = _nlogit_sweep()
+    cells = sweep["_cells"]
+    violations = []
+    interior = 0
+    for persona in _NLOGIT_ANCHORS:
+        per = sweep[persona]
+        for i, cell in enumerate(cells):
+            base = per[1.0][i]
+            f0 = _nlogit_p(base, ActionType.FOLD)
+            if not 0.0 < f0 < 1.0:
+                continue
+            interior += 1
+            for mult in _NLOGIT_MULTS:
+                d = per[mult][i]
+                df = _nlogit_p(d, ActionType.FOLD) - f0
+                dr = _nlogit_p(d, ActionType.RAISE) - _nlogit_p(base, ActionType.RAISE)
+                if mult < 1.0 and not (df > 0.0 and dr <= 0.0):
+                    violations.append((persona, cell.key, mult, df, dr))
+                if mult > 1.0 and not (df < 0.0 and dr >= 0.0):
+                    violations.append((persona, cell.key, mult, df, dr))
+    assert interior > 1000, f"grid degenerated: only {interior} interior cells"
+    assert not violations, f"{len(violations)} routing-sign violations: {violations[:5]}"
+
+
+def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
+    """G3 — at the authored anchor the opted-in path is BIT-identical to the
+    un-opted path over the whole grid.
+
+    The un-opted path IS the base engine: `continue_ref is None` short-circuits
+    the new block, so the code that runs is HEAD's, unmodified (spec §3.5).
+    That makes this a base comparison without needing a golden file, and
+    bit-exactness (not approx) is what the comparison asserts — the scale is
+    `looseness / continue_ref` with the two equal, i.e. exactly 1.0. The
+    external absolute anchors are the 23 frozen exact-equality vectors in
+    `tests/test_price_tail.py` and the byte-identical persona-stats golden,
+    both untouched by this slice and both still green."""
+    cells = _nlogit_cells()
+    for persona in _NLOGIT_ANCHORS:
+        opted = _nlogit_probe(persona)
+        unopted = _nlogit_probe(persona, continue_ref=None)
+        for cell in cells:
+            a = _nlogit_dist(opted, cell)
+            b = _nlogit_dist(unopted, cell)
+            assert list(a.keys()) == list(b.keys()), (persona, cell.key)
+            for k in a:
+                assert a[k] == b[k], (persona, cell.key, k, a[k], b[k])
+
+
+def _nlogit_bluff_cell():
+    """The river polar-bluff cell: air on the river, where `call_merit` is
+    hard-zeroed (:874-875) and a RAISE is legal."""
+    return _NlogitCell(
+        "air/river",
+        Street.RIVER,
+        ("7h", "4c"),
+        ["Kc", "9s", "3h", "2d", "Tc"],
+        None,
+        6.0,
+        4.0,
+        100.0,
+        1,
+        False,
+        True,
+    )
+
+
+# G4 pins: `P(raise)` on the river polar-bluff cell at call_looseness
+# x0.25 / x0.5 / x1 / x2 / x4, measured on this branch with the engine scale
+# applied. These are a DISCLOSURE record, not a fitted magnitude — nothing was
+# tuned to hit them and no band depends on them. At the base engine every row
+# is flat at its x1 value (asserted below), which is the whole point of the
+# gate: the coupling is new, small in absolute terms (the largest, maniac at
+# x4, is 0.157) and now visible.
+_NLOGIT_BLUFF_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
+_NLOGIT_BLUFF_PINS = {
+    "lag": [
+        0.00632707830738665,
+        0.012574596160184052,
+        0.02483687860206759,
+        0.04846991578981119,
+        0.09245838160897324,
+    ],
+    "tag": [
+        0.0038414637314893936,
+        0.007653526717674855,
+        0.0151907903158051,
+        0.029926966360834605,
+        0.05811473500218986,
+    ],
+    "nit": [
+        0.0007713033771600229,
+        0.001541417853524008,
+        0.0030780910824986796,
+        0.006137291024224993,
+        0.012199708884614285,
+    ],
+    "maniac": [
+        0.011501900750328245,
+        0.02274222271217914,
+        0.044473029874272194,
+        0.08515879032247602,
+        0.15695175873232234,
+    ],
+    "calling_station": [
+        0.0007768892732132065,
+        0.0015525723696065783,
+        0.003100331250576883,
+        0.006181497810317068,
+        0.012287043289445158,
+    ],
+    "passive_fish": [
+        0.0014300037870682053,
+        0.0028559235925834387,
+        0.0056955810408987045,
+        0.011326650227504741,
+        0.02239958815474058,
+    ],
+}
+
+
+def test_nlogit_g4_river_bluff_cell_response_is_pinned():
+    """G4 — the disclosed behavioural coupling on the river polar-bluff cell
+    (spec §3.4, ledger R2-3), pinned so it can never move silently.
+
+    On that cell `call_merit` is hard-zeroed, so at the base engine the
+    bluff-raise frequency is EXACTLY independent of `call_looseness`. Under the
+    scale it is not: the raise leg is the only continue candidate there, so
+    scaling it by the continue lever moves the bluff-raise rate directly. That
+    is the mechanism behaving correctly on a degenerate node — the only way to
+    continue IS to raise — but it does put `call_looseness` on a magnitude the
+    spec assigns to `bluff_freq`. It is DISCLOSED and gated here, and was put
+    to the persona-realism theory reviewer at fan-in; it is not settled by this
+    test. G1 is vacuous on this cell (CALL = 0 ⇒ the ratio is identically 1)
+    and G3 passes (identity at the authored value), so without this pin
+    nothing in the gate set would see the coupling at all."""
+    cell = _nlogit_bluff_cell()
+    for persona, pins in _NLOGIT_BLUFF_PINS.items():
+        scaled = [
+            _nlogit_p(_nlogit_dist(_nlogit_probe(persona, m), cell), ActionType.RAISE)
+            for m in _NLOGIT_BLUFF_SWEEP
+        ]
+        base = [
+            _nlogit_p(
+                _nlogit_dist(_nlogit_probe(persona, m, continue_ref=None), cell),
+                ActionType.RAISE,
+            )
+            for m in _NLOGIT_BLUFF_SWEEP
+        ]
+        # The magnitude, pinned to 9 significant figures.
+        assert scaled == pytest.approx(pins, rel=1e-9), (persona, scaled)
+        # The base path is EXACTLY flat — this is the half that shows the
+        # coupling is new, rather than something the lever always had.
+        assert max(base) - min(base) == 0.0, (persona, base)
+        # ...and the scaled path is monotone in the lever, ~proportional to it.
+        assert scaled == sorted(scaled), (persona, scaled)
+        assert scaled[0] < scaled[-1] / 8, (persona, scaled)
+
+
+def test_nlogit_g5_unopened_branch_is_untouched():
+    """G5 — the unopened / matched-with-option branch is exactly unaffected,
+    over BOTH of its legal shapes (CHECK+BET and CHECK+RAISE).
+
+    Two things are asserted, both bitwise: the opted-in pack equals the
+    un-opted pack, and the distribution does not move when `call_looseness` is
+    swept. The second half is the discriminating one — it would catch a scale
+    applied outside the `FOLD in by_kind` guard, which the first half alone
+    could not (both packs would move together). Rev 2 claimed this property
+    from a gate that only covered facing shapes (ledger R2-7)."""
+    shapes = {
+        "check_bet": [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 100.0)],
+        "check_raise": [personas_postflop_legal_check(), personas_postflop_legal_raise(4.0, 100.0)],
+    }
+    for persona in _NLOGIT_ANCHORS:
+        for label, street, hole, board, ctx in _nlogit_spots():
+            for shape, legal in shapes.items():
+                dists = []
+                for mult in (1.0,) + _NLOGIT_MULTS:
+                    for continue_ref in (_NLOGIT_KEEP, None):
+                        probe = _nlogit_probe(persona, mult, continue_ref=continue_ref)
+                        cap = _CaptureWeights()
+                        sample_postflop_decision(
+                            probe,
+                            hole,
+                            board,
+                            legal,
+                            6.0,
+                            100.0,
+                            1,
+                            cap,  # type: ignore[arg-type]
+                            street=street,
+                            context=ctx,
+                        )
+                        dists.append(cap.dist)
+                for d in dists[1:]:
+                    assert d == dists[0], (persona, label, shape, d, dists[0])
+
+
+class _NlogitAllChoices:
+    """Records EVERY choices() call, and always draws the LAST candidate — on
+    a FOLD/CALL/RAISE node that is RAISE, so the sizing draw is reached."""
+
+    def __init__(self):
+        self.calls = []
+
+    def choices(self, population, weights, k=1):
+        self.calls.append((list(population), list(weights)))
+        return [population[-1]]
+
+
+def test_nlogit_g6_one_action_draw_then_one_sizing_draw():
+    """G6 — the action draw stays the FIRST `rng.choices` call and the sizing
+    draw the SECOND, with nothing inserted between them.
+
+    Eight capture rngs across the suite and the range estimator key on exactly
+    that (contract map C1); a literal two-stage nested logit — draw
+    {FOLD, CONTINUE} then {CALL, RAISE} — would break all of them. This slice
+    achieves the nesting algebraically inside the single existing
+    normalization, so the property holds by construction; the gate exists so a
+    later refactor cannot lose it silently."""
+    cell = _nlogit_bluff_cell()
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(cell.to_call),
+        personas_postflop_legal_raise(cell.to_call * 3, 200.0),
+    ]
+    for persona in _NLOGIT_ANCHORS:
+        rng = _NlogitAllChoices()
+        sample_postflop_decision(
+            _nlogit_probe(persona),
+            cell.hole,
+            cell.board,
+            legal,
+            cell.pot_bb,
+            cell.stack_bb,
+            cell.opponents,
+            rng,  # type: ignore[arg-type]
+            street=cell.street,
+        )
+        assert len(rng.calls) == 2, (persona, len(rng.calls))
+        assert rng.calls[0][0] == [ActionType.FOLD, ActionType.CALL, ActionType.RAISE], persona
+        assert all(isinstance(x, float) for x in rng.calls[1][0]), persona  # pot fractions
+
+
+def _nlogit_postflop_kwargs(persona: str = "nit") -> dict:
+    """A shipped postflop block as plain kwargs, with `continue_ref` stripped so
+    the caller supplies it — or deliberately does not."""
+    d = _pack(persona).postflop.model_dump()
+    return {k: v for k, v in d.items() if v is not None and k != "continue_ref"}
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        0.0,  # the rev-1/rev-2 ZeroDivisionError
+        -1.0,
+        5e-324,  # the smallest subnormal: passes `gt=0.0`, makes the scale inf
+        1e-8,  # validates under `gt=0.0`, yields a degenerate P(raise) ~ 0.99999997
+        0.049,
+        8.01,
+        float("nan"),
+        float("inf"),
+    ],
+)
+def test_nlogit_g8_model_rejects_unsafe_continue_ref(bad):
+    """G8 (validation, not inspection) — the MODEL rejects unsafe anchors.
+
+    Inspecting the six shipped values would still pass if the constraint were
+    deleted, which is precisely the defect ledger R-2 found in an earlier
+    wording of this gate. `ge=0.05` rather than `gt=0.0` because the dangerous
+    end is near zero: `5e-324` validates under `gt=0.0` and makes the scale
+    `inf`, so the emitted vector is `[0.0, 0.0, nan]` and `random.choices`
+    raises "Total of weights must be finite"."""
+    from pydantic import ValidationError
+
+    from app.domain.content.models import PersonaPostflop
+
+    with pytest.raises(ValidationError):
+        PersonaPostflop(**_nlogit_postflop_kwargs(), continue_ref=bad)
+
+
+def test_nlogit_g8_absence_is_the_opt_out_but_explicit_null_is_not():
+    """G8 (authorship) — the decision, pinned: field ABSENCE is the legacy
+    opt-out (an un-opted pack runs the base code path), while an explicit
+    `"continue_ref": null` is REJECTED. Same key-presence rule `stickiness`
+    already uses: an authored key that claims a calibration anchor and supplies
+    none is a lie about the pack's behaviour, not a default."""
+    from pydantic import ValidationError
+
+    from app.domain.content.models import PersonaPostflop
+
+    absent = PersonaPostflop(**_nlogit_postflop_kwargs())
+    assert absent.continue_ref is None
+    with pytest.raises(ValidationError, match="continue_ref"):
+        PersonaPostflop(**_nlogit_postflop_kwargs(), continue_ref=None)
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, 5e-324, float("nan"), float("inf"), 8.01])
+def test_nlogit_g8_runtime_guard_survives_unvalidated_injection(bad):
+    """G8 (runtime guard) — model validation is NOT sufficient, because
+    `model_copy(update=...)` bypasses it entirely and the suite uses that idiom
+    routinely (`:227`, `:5790`). The engine therefore re-checks the anchor at
+    the division site and raises a NAMED error instead of dividing by zero,
+    emitting `nan` weights, or silently degrading to an unscaled raise leg.
+    The comparison is written so NaN — which fails every ordering test — lands
+    in the same branch."""
+    cell = _nlogit_bluff_cell()
+    legal = [personas_postflop_legal_fold(), personas_postflop_legal_call(cell.to_call)]
+    probe = _nlogit_probe("tag", continue_ref=bad)
+    with pytest.raises(ValueError, match="continue_ref"):
+        sample_postflop_decision(
+            probe,
+            cell.hole,
+            cell.board,
+            legal,
+            cell.pot_bb,
+            cell.stack_bb,
+            cell.opponents,
+            _CaptureWeights(),  # type: ignore[arg-type]
+            street=cell.street,
+        )
+
+
+def test_nlogit_g9_a_looseness_refit_does_not_move_the_reference():
+    """G9 (lifecycle) — the frozen-ness contract, enforced through the real
+    validated-JSON path rather than argued in prose.
+
+    Change ONLY `call_looseness` in a shipped pack, re-validate, and the
+    anchor must be unchanged — no validator, loader or service cache may
+    re-derive it. A validator that synchronised the two fields would recreate
+    rev 1's cancellation across authored revisions and would still pass a
+    shipped-values inspection (ledger R2-6). THE RULE: a looseness fit never
+    updates the reference; only an explicit re-calibration of the raise side
+    may."""
+    import json
+
+    from app.domain.content.models import PersonaPack
+    from app.domain.personas import PERSONA_DIR
+
+    for persona, anchor in _NLOGIT_ANCHORS.items():
+        raw = json.loads((PERSONA_DIR / f"{persona}.json").read_text())
+        assert raw["postflop"]["continue_ref"] == anchor, persona
+        if raw["postflop"].get("call_looseness") is None:
+            continue  # maniac: no calling lever to refit, covered below
+        raw["postflop"]["call_looseness"] = anchor * 1.5  # a refit, nothing else
+        refit = PersonaPack.model_validate(raw)
+        assert refit.postflop.call_looseness == anchor * 1.5, persona
+        assert refit.postflop.continue_ref == anchor, persona
+
+
+def test_nlogit_g9_maniac_split_lever_migration_keeps_the_anchor():
+    """G9 (migration) — the maniac case, which is the fragile one: its anchor
+    is a copy of `stickiness`, and `stickiness` is a SHARED fallback (also
+    `_price_exponent`'s, ledger R2-10). Author both split levers, drop
+    `stickiness` as `_stickiness_authorship` then requires, and the anchor must
+    still be 0.55 with orthogonality intact — i.e. the migration that removes
+    the shared fallback does not disturb the calibration it was copied from."""
+    import json
+
+    from app.domain.content.models import PersonaPack
+    from app.domain.personas import PERSONA_DIR
+
+    raw = json.loads((PERSONA_DIR / "maniac.json").read_text())
+    pf = raw["postflop"]
+    assert pf["stickiness"] == 0.55 and "call_looseness" not in pf
+    pf["call_looseness"] = 0.55
+    pf["size_elasticity"] = 1.0
+    del pf["stickiness"]
+    migrated = PersonaPack.model_validate(raw)
+    assert migrated.postflop.continue_ref == 0.55
+    assert migrated.postflop.stickiness is None
+
+    cell = _NlogitCell(
+        "top_pair/turn", Street.TURN, ("Kh", "4d"), ["Kc", "9s", "3h", "2d"],
+        None, 6.0, 4.0, 100.0, 1, False, True,
+    )
+    shares = []
+    for mult in (0.5, 1.0, 2.0):
+        probe = migrated.model_copy(deep=True)
+        probe.postflop = migrated.postflop.model_copy(update={"call_looseness": 0.55 * mult})
+        d = _nlogit_dist(probe, cell)
+        denom = _nlogit_p(d, ActionType.CALL) + _nlogit_p(d, ActionType.RAISE)
+        shares.append(_nlogit_p(d, ActionType.RAISE) / denom)
+    assert max(shares) - min(shares) <= 1e-12, shares

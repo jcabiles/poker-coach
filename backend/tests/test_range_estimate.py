@@ -881,3 +881,73 @@ def test_estimator_unchanged_by_the_barrel_run_signal(packs):
                 facing_raise=ctx.facing_raise, aggressor_bet_prev_street=flag,
             )
             assert estimator == live.dist, (hole, flag)
+
+
+# =====================================================================
+# N-LOGIT — G7: the estimator sees the node's real legal set
+# =====================================================================
+
+
+def test_nlogit_g7_estimator_dist_keys_are_exactly_the_nodes_legal_set(packs):
+    """G7 — `_postflop_action_dist` returns exactly the node's LEGAL action
+    set, on every legal shape a postflop node can present.
+
+    Why this gate exists at all, given the two parity tests above already pass
+    unmodified: those tests compare the estimator against the live sampler
+    using the SAME capture mechanism on both sides, so they detect divergence
+    between the two but are structurally blind to a fault SHARED by both
+    (contract map C3, trap 1). A literal two-stage nested logit — draw
+    {FOLD, CONTINUE}, then {CALL, RAISE} — would hand every capture rng in the
+    repo a 2-outcome vector where a 3-outcome one is expected, and the parity
+    tests would keep passing while the villain-range reveal quietly reported
+    a distribution over the wrong outcome space. N-logit does the nesting
+    algebraically inside the existing single normalization, so the shape is
+    preserved by construction; this asserts it.
+
+    Conditioned on the node's legal set, NOT hard-coded to three keys: a facing
+    node may legally omit RAISE, and unopened nodes are CHECK+BET or
+    CHECK+RAISE. The zero-total-merit path (`range_estimate.py:364`) is
+    excluded, since it deliberately returns a deterministic singleton rather
+    than a distribution over the legal set."""
+    from app.domain.table.range_estimate import _Ctx
+
+    shapes = [
+        frozenset({ActionType.FOLD, ActionType.CALL}),
+        frozenset({ActionType.FOLD, ActionType.CALL, ActionType.RAISE}),
+        frozenset({ActionType.CHECK, ActionType.BET}),
+        frozenset({ActionType.CHECK, ActionType.RAISE}),
+    ]
+    holes = [("As", "Ad"), ("9c", "4d"), ("7s", "5s"), ("Ah", "5h")]
+    boards = [
+        (Street.FLOP, ("Kh", "7d", "2c")),
+        (Street.TURN, ("Kh", "7d", "2c", "9s")),
+        (Street.RIVER, ("Kh", "7d", "2c", "9s", "3h")),
+    ]
+    checked = 0
+    for vt, pack in packs.items():
+        for kinds in shapes:
+            facing = ActionType.FOLD in kinds
+            for street, board in boards:
+                for hole in holes:
+                    ctx = _Ctx(
+                        street=street,
+                        board=board,
+                        position=Position.BB,
+                        facing=None,
+                        kinds=kinds,
+                        pot_bb=6.0,
+                        stack_bb=100.0,
+                        opponents=1,
+                        current_bet_to=4.0 if facing else 0.0,
+                        observed=ActionType.CALL if facing else ActionType.CHECK,
+                        facing_raise=False,
+                        to_call_bb=4.0 if facing else 0.0,
+                        aggressor_contribution_bb=4.0 if facing else 0.0,
+                    )
+                    dist = _postflop_action_dist(pack, hole, ctx)
+                    if len(dist) == 1 and sum(dist.values()) == 1.0 and len(kinds) > 1:
+                        continue  # zero-total-merit singleton (range_estimate.py:364)
+                    assert set(dist) == set(kinds), (vt, kinds, street, hole, dist)
+                    assert sum(dist.values()) == pytest.approx(1.0), (vt, kinds, dist)
+                    checked += 1
+    assert checked > 200, checked

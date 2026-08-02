@@ -1,8 +1,14 @@
 {
   "id": "persona_tag",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "domain": "persona",
   "_doc": [
+    "1.4.0 (N-LOGIT, 2026-08-02) — ONE new postflop number, `continue_ref`:",
+    "0.6, a FROZEN copy of today's effective `call_looseness`. It is the anchor",
+    "the facing-node RAISE merit is divided by, so the raise:call odds stop",
+    "moving when `call_looseness` is tuned. At the authored value the ratio is",
+    "exactly 1.0 and play is bit-identical. NEVER re-sync it with",
+    "`call_looseness` — that restores the old coupling and deletes the feature.",
     "1.3.0 (N-TAGWIDTH, 2026-07-31) — the UTG / HJ / CO / BTN / SB `unopened`",
     "nodes are TRIMMED toward the per-seat RFI bands in the repo's committed",
     "provenance doc (docs/ai-dlc/research/rfi-seat-provenance.md). Still",
@@ -62,6 +68,7 @@
     "aggression": 2.4,
     "stickiness": 0.6,
     "call_looseness": 0.6,
+    "continue_ref": 0.6,
     "position_sensitivity": 1.0,
     "bluff_freq": 0.22,
     "sizing": { "0.33": 0.25, "0.5": 0.35, "0.75": 0.3, "1.0": 0.1 },

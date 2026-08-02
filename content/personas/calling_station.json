@@ -1,6 +1,6 @@
 {
   "id": "persona_calling_station",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "domain": "persona",
   "persona": "calling_station",
   "display_name": "Calling Station",
@@ -9,6 +9,7 @@
     "aggression": 0.5,
     "size_elasticity": 0.55,
     "call_looseness": 4.0,
+    "continue_ref": 4.0,
     "bluff_freq": 0.03,
     "sizing": { "0.33": 0.6, "0.5": 0.3, "0.75": 0.1 },
     "spr_commit": 1.5,

@@ -1,7 +1,17 @@
 {
   "id": "persona_maniac",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "_doc": [
+    "1.6.0 (N-LOGIT, 2026-08-02) — ONE new postflop number, `continue_ref`:",
+    "0.55. Maniac authors no `call_looseness`, so its effective looseness IS",
+    "`stickiness` (0.55) and that is what this anchor freezes. The facing-node",
+    "RAISE merit is divided by it, so the raise:call odds stop moving when the",
+    "calling lever is tuned; at the authored value the ratio is exactly 1.0 and",
+    "play is bit-identical. TWO cautions specific to this pack: (a) `stickiness`",
+    "is ALSO the `size_elasticity` fallback, so editing it for price reasons",
+    "would desynchronise this anchor from the lever it anchors — split the",
+    "levers first; (b) NEVER re-sync `continue_ref` with the calling lever, that",
+    "restores the old coupling and deletes the feature.",
     "1.5.0 (N-M4CALL, 2026-08-01) — ONE change: 77, 88 and 99 are carved out of",
     "the `vs_4bet` `22-99` push/fold mix into their own mix with a CALL leg,",
     "{call 0.30, 5bet_shove 0.40, fold 0.30}. 22-66 keep {5bet_shove 0.40,",
@@ -156,6 +166,7 @@
   "postflop": {
     "aggression": 15.0,
     "stickiness": 0.55,
+    "continue_ref": 0.55,
     "bluff_freq": 0.55,
     "sizing": { "0.75": 0.4, "1.0": 0.35, "1.5": 0.25 },
     "sizing_by_node": {
