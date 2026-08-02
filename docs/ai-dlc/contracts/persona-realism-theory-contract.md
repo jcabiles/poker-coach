@@ -42,6 +42,22 @@ Jam `B` into pot `P`, where **P = pot BEFORE the jam** (see §7 denominator unif
   `F* = (B − E·(P+2B)) / (P + B − E·(P+2B))`, collapsing to the classic `B/(P+B)` at `E=0`.
 - **T3 — pure-call break-even:** `E ≥ B / (P+B)`. Note **T1 < T3 always** (a jam is committable at lower equity than a call).
 
+**Stack-coverage caveat (CT-1, wave-6 lane C theory, 2026-08-02) — T1/T2 assume the villain covers `B`.**
+When the villain's remaining stack cannot cover the jam (which is the case at **every re-raise-jam node** — the
+re-raiser's `B` includes chips the original bettor no longer has behind), the exact break-even must be computed on
+the **CAPPED final pot**: effective `B` = the amount the villain can actually call, not the hero's full jam.
+Worked instance (T-M4, maniac 77-99 vs 4-bet): hero-behind 90.1 with villain holding only 76.24 gives a true T1
+threshold of **0.447**, not the uncapped 0.419. Uncapped T1/T2 at such a node understates the threshold — cite the
+capped form or state explicitly that the uncapped figure is a lower bound.
+
+**Realization scope line (CT-2, wave-6 lane C theory, 2026-08-02) — the identities assume all-in equity
+realization.** T1/T2/T3 price an ALL-IN: equity realizes fully because no further betting exists. At a node that
+**leaves postflop play behind** (e.g. a call leaving SPR ≈ 1.5, OOP), T3 bounds a **RAW price only**, and any
+slice citing it there must **state a realization discount** (equity × realization factor vs the price) rather than
+present the raw T3 pass as sufficient. A gate may stay DIRECTIONAL if the discount is unquantified — but the
+assumption must be stated, never silent. (T-M4's shipped behavior survives any plausible discount:
+`.36 × .80 = .288 > .283`.)
+
 **Corrected 3×-pot threshold (RECONCILE RP3 "T1 3×-POT EXAMPLE ARITHMETIC — WRONG" / audit §10.1-P3c):**
 B = 3P ⇒ `3P/(P+6P) = 3/7 = ` **42.9%**, NOT 60%. The 60% figure is the α / fold-ceiling for a 1.5× bet, not T1 for a 3× jam. **RECONCILE corrected this — 42.9% is authoritative; never write 60% for the 3×-pot T1.** The F5/F6 illustration survives: a flush draw at E ≈ 0.35 < 0.429 fails T1 ⇒ keeps fold mass — but the number reads 42.9%.
 
@@ -332,6 +348,18 @@ Pulled from RECONCILE + the §10 capstone corrections. Any worker or reviewer re
     - **⚠ Single-author dependency.** Most of the keystone's format evidence — preflop *and* postflop — now traces to **one** full-ring practitioner. Only WTSD has a genuinely independent second opinion, which is why only WTSD moved. A second independent full-ring postflop source should re-open c-bet, fold-to-c-bet and turn barrel.
     - **Demotion of the fold-to-c-bet and AF HARD gates: DEFERRED, not dropped** — the gating file was owned by a concurrent slice. Logged as follow-up **W5-a2-f** in §5a, and must land before W4-b.
     - **Scope:** documentation only. **No bot behavior, band fit, lever, test, or content pack was touched.**
+16. **§3's T1/T2/T3 identities carried two silent assumptions — now stated in §3 (wave-6 lane C theory CT-1/CT-2, filed 2026-08-02).**
+    - **CT-1 (stacks-cap):** T1/T2 assumed the villain covers `B`; at every re-raise-jam node he does not, and the
+      exact break-even uses the CAPPED final pot (T-M4 instance: threshold 0.447, not 0.419). Uncapped T1/T2 at a
+      capped node understates the threshold; the T-M4 slice conclusion was STRENGTHENED a fortiori, not weakened.
+    - **CT-2 (realization):** the identities are all-in prices; at a node leaving postflop play, T3 bounds a RAW
+      price and a realization discount must be stated (T-M4: `.36 × .80 = .288 > .283` — survives any plausible
+      discount).
+    - Do not re-introduce either silent form: a slice citing T1/T2 at a node where the villain cannot cover `B`
+      must use the capped form (or label the uncapped figure a lower bound), and a slice citing T3 at a
+      postflop-continuing node must state its realization assumption.
+    - **Scope:** documentation only. Source: `docs/ai-dlc/ledger/persona-realism-wave6-instruments-m4call.md`
+      (lane C theory findings CT-1 MED / CT-2 MED, both CONTRACT-DEFECT class). No code, band, or pack touched.
 
 ---
 
