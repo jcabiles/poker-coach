@@ -449,6 +449,16 @@ def _wetness_bet_mult(board: list[Card]) -> float:
 # the F3 tests.
 _AGGRESSION_CAP = 5.6
 
+# N-LOGIT: the runtime safety range for `continue_ref`, the frozen facing-node
+# calibration anchor the RAISE merit is divided by. Mirrors the model's
+# `Field(ge=0.05, le=8.0)` on purpose — validation cannot protect the division
+# on its own, because `model_copy(update=...)` skips it and the suite builds
+# unvalidated postflop blocks that way routinely (ledger R2-5). The lower bound
+# is the load-bearing one: the smallest subnormal passes a bare `> 0` test and
+# turns the scale into `inf`, emitting `[0.0, 0.0, nan]`.
+_CONTINUE_REF_MIN = 0.05
+_CONTINUE_REF_MAX = 8.0
+
 # F1 price-aware defense (RES-D §1a/§2 + RES-E buckets). α = B/(P+B) is the
 # fold-CEILING for the bucket's representative size — an anchor the fold merit
 # scales AGAINST, never a floor the engine clamps folds up to (A1 guardrail:
@@ -994,6 +1004,50 @@ def sample_postflop_decision(
                     m -= _DRAW_RAISE_BONUS[draw] * agg_scale * removed
                 damped.append((a, m))
             entries = damped
+
+    # N-LOGIT: nested-logit routing on the facing node.
+    #
+    # `looseness` multiplies the CALL merit only (:873), so mass taken off CALL
+    # is shared out to FOLD *and* RAISE in proportion to their merits — which
+    # on an aggressive persona lands mostly on RAISE. Measured at HEAD, halving
+    # each pack's effective looseness moved raise-share the WRONG way for every
+    # persona (+0.17; roadmap R10-4). Scaling the RAISE merit by
+    # `looseness / continue_ref` gives
+    #     P(raise | continue) = (R0·L/ref) / (C0·L + R0·L/ref)
+    #                         = (R0/ref) / (C0 + R0/ref)
+    # in which L CANCELS: the calling lever now controls WHETHER the bot
+    # continues, the raise-side calibration controls HOW, and mass freed from
+    # CALL routes to FOLD.
+    #
+    # The divisor is the FROZEN authored anchor, NEVER the live lever. Rev 1 of
+    # this slice divided the raise leg by the live lever and multiplied the
+    # defend pair by the same live lever; the two cancelled exactly, so the
+    # mechanism was a measured no-op that still passed 8 of its 10 gates
+    # (ledger R-1). If `continue_ref` is ever re-synchronised with
+    # `call_looseness`, `rscale` collapses to 1.0 forever and this feature
+    # silently disappears — which is why the pack comments call it frozen and
+    # why a lifecycle test (G9) pins that it does not move under a refit.
+    #
+    # While the lever sits at its anchor, `looseness == ref`, so `rscale` is
+    # EXACTLY 1.0 (float division of equal values) and the opted-in path is
+    # bit-identical to the un-opted one. That bit-exactness is load-bearing:
+    # rev 2 applied a divide-then-multiply pair whose 1-ulp residue broke 6 of
+    # the 23 frozen exact-equality vectors in tests/test_price_tail.py
+    # (ledger R2-1).
+    #
+    # The guard is not dead code: model validation cannot protect this division
+    # because `model_copy(update=...)` bypasses it, and the suite uses that
+    # idiom routinely (ledger R2-5). NaN fails both comparisons and so lands in
+    # the same branch as an out-of-range anchor.
+    ref = pf.continue_ref
+    if ref is not None and ActionType.FOLD in by_kind:
+        if not _CONTINUE_REF_MIN <= ref <= _CONTINUE_REF_MAX:
+            raise ValueError(
+                f"persona pack {pack.id!r} has continue_ref={ref!r}, outside the "
+                f"safe range [{_CONTINUE_REF_MIN}, {_CONTINUE_REF_MAX}]"
+            )
+        rscale = looseness / ref
+        entries = [(a, m * rscale) if a is ActionType.RAISE else (a, m) for a, m in entries]
 
     # Normalize (rule 1, pinned): clamp >= 0, divide by sum; sum 0 fallback.
     weights = [max(m, 0.0) for _, m in entries]

@@ -174,6 +174,17 @@ class PersonaPostflop(BaseModel):
     # required while any fallback path is live, FORBIDDEN once both split
     # levers are authored — a value there would be dead weight that lies about
     # controlling behaviour.
+    #
+    # N-LOGIT correction (2026-08-02, ledger R-4 / R2-9): "read only where a
+    # split lever is unset" is still true of the READ, but the *reach* of the
+    # call-merit read grew. The facing node now also scales the RAISE merit by
+    # `effective_looseness / continue_ref` (see `continue_ref` below), and for
+    # a pack whose `call_looseness` is unset the effective looseness IS
+    # `stickiness` — so on `maniac` this field moves the raise leg as well as
+    # the call leg. Two live consequences: editing maniac's `stickiness` for
+    # price-elasticity reasons silently desynchronises its calibration anchor
+    # from its lever, and maniac's effective looseness cannot be swept in
+    # isolation (a sweep must author `call_looseness` on the probe copy).
     stickiness: float | None = Field(default=None, gt=0.0)
     # W2-a: the `stickiness` axis split into two independent identity levers.
     # Both OPTIONAL — unset falls back to `stickiness`, keeping un-opted-in packs
@@ -186,6 +197,28 @@ class PersonaPostflop(BaseModel):
     call_looseness: float | None = Field(default=None, gt=0.0)
     # direct price exponent; 0 = size-blind; None → legacy stickiness formula
     size_elasticity: float | None = Field(default=None, ge=0.0)
+    # N-LOGIT: the effective `call_looseness` this persona's FACING-NODE raise
+    # behaviour was calibrated against. The engine scales the RAISE merit by
+    # `effective_looseness / continue_ref` immediately before the facing-node
+    # normalization, which makes `P(raise | continue)` independent of the
+    # calling lever: `call_looseness` then controls WHETHER the bot continues
+    # and the raise-side calibration controls HOW, so mass freed from CALL
+    # routes to FOLD instead of RAISE (roadmap R10-4).
+    #
+    # FROZEN BY DESIGN — it must NOT be updated when `call_looseness` is tuned.
+    # Re-synchronising the two pins the ratio at 1.0 forever, which reproduces
+    # the rev-1 cancellation and silently deletes this feature (ledger R-1,
+    # R2-6). A looseness FIT never touches this number; only an explicit
+    # re-calibration of the raise side may.
+    #
+    # `ge=0.05`, NOT `gt=0.0`: the dangerous end is near zero, not above 8. The
+    # smallest subnormal `5e-324` passes `gt=0.0` and makes the scale `inf`,
+    # emitting `[0.0, 0.0, nan]`; `1e-8` validates and yields a degenerate
+    # `P(raise) ≈ 0.99999997`. `le=8.0` is 2x the largest shipped value
+    # (calling_station 4.0). Validation is not sufficient on its own —
+    # `model_copy(update=...)` bypasses it entirely — so `personas_postflop`
+    # carries a runtime guard at the division site as well.
+    continue_ref: float | None = Field(default=None, ge=0.05, le=8.0)
     # W3-b (B1, F1): how strongly this persona's aggressor-side c-bet/barrel
     # frequency swings with position. 0.0 (or None) = position-blind (an intended
     # leak for stations/fish/maniac); 1.0 = full IP-boost / OOP-damp. Scales a
@@ -210,7 +243,11 @@ class PersonaPostflop(BaseModel):
         (i) any unset split lever means the engine reads `stickiness` at sample
         time — it must be authored, or the fallback dereferences None;
         (ii) both split levers authored means `stickiness` is provably unread —
-        it must be absent, so a dead value can never masquerade as a lever."""
+        it must be absent, so a dead value can never masquerade as a lever.
+
+        N-LOGIT note: (ii) is unchanged, but "unread" now means unread by the
+        call merit, the price exponent AND the facing-node raise scale, since
+        that scale's numerator is the same effective looseness."""
         split_complete = self.call_looseness is not None and self.size_elasticity is not None
         if not split_complete and self.stickiness is None:
             raise ValueError(
@@ -223,6 +260,20 @@ class PersonaPostflop(BaseModel):
             raise ValueError(
                 "stickiness must be absent when both call_looseness and "
                 "size_elasticity are authored (it would be unread dead weight)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _continue_ref_authorship(self) -> PersonaPostflop:
+        """N-LOGIT: field ABSENCE is the legacy opt-out — an un-opted pack runs
+        HEAD's code path unmodified. An explicit `"continue_ref": null` is an
+        authored key that claims a calibration anchor and supplies none, so it
+        is rejected. Key PRESENCE, not value — the same rule `stickiness`
+        already uses (review C-1)."""
+        if self.continue_ref is None and "continue_ref" in self.model_fields_set:
+            raise ValueError(
+                "continue_ref must be ABSENT rather than null when a pack does "
+                "not opt in (an explicit null authors a key with no anchor)"
             )
         return self
 

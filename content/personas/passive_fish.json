@@ -1,6 +1,6 @@
 {
   "id": "persona_passive_fish",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "domain": "persona",
   "persona": "passive_fish",
   "display_name": "Passive Fish",
@@ -9,6 +9,7 @@
     "aggression": 0.6,
     "size_elasticity": 1.3,
     "call_looseness": 0.42,
+    "continue_ref": 0.42,
     "bluff_freq": 0.12,
     "sizing": { "0.33": 0.6, "0.5": 0.3, "0.75": 0.1 },
     "spr_commit": 1.4,
