@@ -247,9 +247,18 @@ _PRE_M3_FIRES = {
     # change (lost-record counts: UTG2¹ 92, LJ¹ 117, HJ¹ 122, CO¹ 99,
     # CO² 26, SB¹ 62, SB² 40, BTN¹ 93, BTN² 29). _WANT_* all fire
     # (BB¹ 45, BB² 39, BB³ 12).
-    ("UTG2", 1): 87, ("LJ", 1): 128, ("HJ", 1): 114, ("CO", 1): 99,
-    ("CO", 2): 36, ("SB", 1): 69, ("SB", 2): 28, ("BTN", 1): 78,
-    ("BTN", 2): 32,
+    # RE-PINNED for the WAVE-6 #157 merge (chore repair, 2026-08-01): the
+    # T-M4 maniac vs_4bet call-leg content displaces the shared organic rng
+    # stream (maniac decisions consume different draws), moving 7 of 9 pairs
+    # (old: UTG2¹ 87, LJ¹ 128, HJ¹ 114, CO¹ 99, CO² 36, SB¹ 69, SB² 28,
+    # BTN¹ 78, BTN² 32); the wave-6 squash chain lost the final-tip
+    # re-record, leaving main red (('UTG2',1) 91 != 87). No limper-belt
+    # content changed; every _WANT_* coverage shape still fires (verified:
+    # BB¹ 49, BB² 36, BB³ 8) — stream displacement, not a coverage
+    # regression.
+    ("UTG2", 1): 91, ("LJ", 1): 118, ("HJ", 1): 114, ("CO", 1): 99,
+    ("CO", 2): 38, ("SB", 1): 72, ("SB", 2): 35, ("BTN", 1): 76,
+    ("BTN", 2): 30,
 }
 
 

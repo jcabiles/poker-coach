@@ -3384,9 +3384,15 @@ _GOLDEN_STATS_N200 = {
     # 0.2628 → 0.3241 between base and tip is the instrument repair, not a
     # bot change — zero production code in this slice). Exact tripwire
     # re-record; population bands stay frozen to W4-b.
+    # RE-RECORDED maniac row for the WAVE-6 #157 merge (chore repair,
+    # 2026-08-01): the T-M4 maniac vs_4bet call-leg content moved ONLY the
+    # maniac row (2.6812/0.34/0.5782 → 2.5522/0.4468/0.6019 — the exact
+    # values the wave-6 ledger reviewed and disclosed), but the squash-merge
+    # chain lost this pin's update, leaving main red. Pure restoration of
+    # the reviewed record; other five rows verified byte-identical.
     "calling_station": (0.32409972299168976, 0.06557377049180328, 0.7077922077922078),
     "lag": (2.611111111111111, None, 0.5294117647058824),
-    "maniac": (2.681159420289855, 0.34, 0.5781990521327014),
+    "maniac": (2.5522388059701493, 0.44680851063829785, 0.6018957345971564),
     "nit": (None, None, 0.7450980392156863),
     "passive_fish": (0.7049180327868853, 0.4358974358974359, 0.514018691588785),
     "tag": (2.2580645161290325, None, 0.6385542168674698),
