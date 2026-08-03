@@ -718,15 +718,25 @@ def _position_agg_mult(pf: PersonaPostflop, context: PostflopContext | None) -> 
 # is the log-odds shift applied to the continue-vs-fold split at a facing node
 # whose aggressor also bet/raised the previous postflop street.
 #
-# _LINE_DELTA is PINNED at 1.0, deliberately NOT derived from (or "mirrored on")
-# `_POSITION_AGG_DELTA` or any other constant (ledger R-1). Two independent
-# checks fix the value: at 1.0 the reference node (nit / MIDDLE_PAIR / turn / HU
-# / SPR 20 / faced 0.5-pot) reproduces the design pass's predicted
-# ΔP(fold) = +0.1312, while 0.25 gives +0.030; and the model's `le=2.0` bound on
-# `line_sensitivity` is only the ">= 7x continue-odds cut" ceiling its comment
-# claims when this constant is 1.0. Rev 1 of the spec left the value unstated
-# and a `1e-12` no-op passed 11 of its 12 acceptance criteria — a magnitude
-# nobody pins is a magnitude that can silently be zero.
+# _LINE_DELTA is PINNED at 1.0 as a NORMALISATION, deliberately NOT derived from
+# (or "mirrored on") `_POSITION_AGG_DELTA` or any other constant (ledger R-1).
+# `λ_p` is a single product, so the 1.0/lever split is a choice of units: it makes
+# `line_sensitivity` READ AS λ directly, which is what lets a pack author reason
+# about the authored number in odds space.
+#
+# Honest status of the supporting numbers (theory review, ledger R-30): they are
+# IMPLEMENTATION checks, NOT evidence about the constant. At 1.0 the reference
+# node (nit / MIDDLE_PAIR / turn / HU / SPR 20 / faced 0.5-pot) reproduces the
+# design pass's ΔP(fold) = +0.1312 — a prediction published BEFORE the build, so
+# reproducing it proves the code matches arithmetic that already assumed 1.0. The
+# `le=2.0` bound being a ">= 7x continue-odds cut" only at 1.0 is a consistency
+# relation between two authored numbers. Neither is independent of the value; an
+# earlier draft of this comment called them "two independent checks" and that was
+# wrong.
+#
+# What IS load-bearing: rev 1 of the spec left the value unstated and a `1e-12`
+# no-op passed 11 of its 12 acceptance criteria. A magnitude nobody pins is a
+# magnitude that can silently be zero.
 _LINE_DELTA = 1.0
 
 # Runtime safety range for `line_sensitivity`, mirroring the model's
@@ -744,10 +754,26 @@ _LINE_SENSITIVITY_MAX = 2.0
 # documented no-op); TWO_PAIR_PLUS (P(fold) 0.007-0.036 roster-wide — no room,
 # and two pair does not fold to a barrel); OVERPAIR_TPTK (the bucket BUNDLES
 # true overpairs, which must never fold to a barrel, with TPTK — pre-registered
-# behind W3R-7's bucket split); any draw (its continue is already priced by
-# equity + the T1 threshold, and that machinery already moves with street — an
-# un-jointly-calibrated line factor on top is the W3R-5 compounding mistake,
-# pre-registered as v2).
+# behind W3R-7's bucket split); any draw — see below, the reason is NOT the one
+# an earlier draft of this comment gave.
+#
+# WHY DRAWS ARE OUT (corrected by theory review, ledger R-26). An earlier draft
+# said "its continue is already priced by equity + the T1 threshold, and that
+# machinery already moves with street". Both limbs are FALSE for the CALL leg:
+# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` consults no
+# equity and no street — `_DRAW_CALL_BONUS` is a flat lookup — and the cited
+# street-decay machinery (`_STREET_WEAK_DRAW_MULT`, `_DRAW_RAISE_BONUS`) is
+# AGGRESSION-side only. Measured: a naked gutshot's P(call) facing a half-pot bet
+# goes UP flop -> turn (nit 0.3556 -> 0.3696), not down.
+# The exclusion still stands, for the honest reason: `_DRAW_CALL_BONUS[WEAK]` is
+# the un-equity-gated F7 defect, and stacking an un-jointly-calibrated line factor
+# on an already-inflated call merit compounds it (the W3R-5 mistake). STRONG draws
+# are out pending joint calibration. KNOWN CONSEQUENCE, disclosed rather than
+# discovered: a nit facing a second barrel now continues MORE with a naked 4-out
+# gutshot (0.4224) than with ace-high (0.3932), where it was 0.4224 vs 0.5415
+# before. Directionally a gutshot does gain against a narrowed range; what is
+# unrealistic is that its response to the line is exactly ZERO. v2 must depend on
+# F7's separate equity gate landing first.
 _LINE_SCOPE_BUCKETS = frozenset(
     {
         StrengthBucket.MIDDLE_PAIR,
