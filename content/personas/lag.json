@@ -1,8 +1,14 @@
 {
   "id": "persona_lag",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "domain": "persona",
   "_doc": [
+    "1.7.0 (R9-DEFENCE-a T1, 2026-08-02) — ONE new postflop number,",
+    "`line_sensitivity`: 0.35 (directional fit seed, tied with passive_fish —",
+    "a deliberate tie tier, do not break it). Nothing reads it yet — a later",
+    "ticket scales the facing-node CALL and RAISE merits by",
+    "`exp(-λ·line)` where `λ = _LINE_DELTA · line_sensitivity`, so a lag folds",
+    "more to a persistent hostile line. This ticket authors the dial only.",
     "1.6.0 (N-LOGIT, 2026-08-02) — ONE new postflop number, `continue_ref`:",
     "0.55, a FROZEN copy of today's effective `call_looseness`. It is the",
     "anchor the facing-node RAISE merit is divided by, so the raise:call odds",
@@ -83,6 +89,7 @@
     "call_looseness": 0.55,
     "continue_ref": 0.55,
     "position_sensitivity": 0.6,
+    "line_sensitivity": 0.35,
     "bluff_freq": 0.35,
     "sizing": { "0.33": 0.15, "0.5": 0.3, "0.75": 0.35, "1.0": 0.2 },
     "sizing_by_node": {

@@ -228,6 +228,18 @@ class PersonaPostflop(BaseModel):
     # Bounded to [0, 1] so the symmetric OOP multiplier 1 − 0.25·s stays strictly
     # positive — a larger s would drive it <= 0 and silently zero every OOP bet.
     position_sensitivity: float | None = Field(default=None, ge=0.0, le=1.0)
+    # R9-DEFENCE-a T1: how strongly this persona folds to a hostile LINE
+    # (repeated aggression across streets), not just the current bet's size.
+    # A later ticket scales the CALL and RAISE merits at a facing-chips node
+    # by `exp(-λ·line)` where `λ = _LINE_DELTA · line_sensitivity` — this
+    # ticket only authors the dial, nothing reads it yet. Absence = line-blind
+    # and byte-identical; all six shipped packs opt in, so the un-opted path
+    # is for third-party packs, not for a roster archetype. A LOW seed is an
+    # archetype, NOT a leak: calling_station's 0.10 IS the line-blind
+    # call-down. Bounded to [0, 2] because at `_LINE_DELTA = 1.0` that ceiling
+    # already cuts the continue-odds by >= 7x — far outside the fitted region,
+    # which is what a bound is for.
+    line_sensitivity: float | None = Field(default=None, ge=0.0, le=2.0)
     bluff_freq: float = Field(ge=0.0, le=1.0)  # baseline bet/raise rate with air
     sizing: dict[str, float]  # pot-fraction str -> weight; weights sum to ~1
     # R2: optional per-node override, keyed by postflop node name (e.g.
@@ -274,6 +286,20 @@ class PersonaPostflop(BaseModel):
             raise ValueError(
                 "continue_ref must be ABSENT rather than null when a pack does "
                 "not opt in (an explicit null authors a key with no anchor)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _line_sensitivity_authorship(self) -> PersonaPostflop:
+        """R9-DEFENCE-a T1: field ABSENCE is the legacy opt-out — an un-opted
+        pack runs line-blind. An explicit `"line_sensitivity": null` is an
+        authored key that claims a dial and supplies none, so it is rejected.
+        Key PRESENCE, not value — the same rule `stickiness` and
+        `continue_ref` already use (review C-1)."""
+        if self.line_sensitivity is None and "line_sensitivity" in self.model_fields_set:
+            raise ValueError(
+                "line_sensitivity must be ABSENT rather than null when a pack "
+                "does not opt in (an explicit null authors a key with no dial)"
             )
         return self
 
