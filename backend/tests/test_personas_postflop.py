@@ -1903,6 +1903,7 @@ _STREET_BY_BOARD_LEN = {3: Street.FLOP, 4: Street.TURN, 5: Street.RIVER}
 # mirror's context kwargs — the SAME helpers `play.bot_decision` uses.
 from app.domain.table.play import _preflop_opener  # noqa: E402
 from app.domain.table.postflop_context import (  # noqa: E402
+    aggressor_barrel_run,
     derive_postflop_context,
     street_aggression_count,
 )
@@ -1915,7 +1916,7 @@ from app.domain.table.sizing import (  # noqa: E402
 def _postflop_decision(
     pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to,
     *, is_aggressor=_OMIT, latest_aggressor_contribution_bb=_OMIT, context=_OMIT,
-    facing_raise=_OMIT, street_aggressions=_OMIT,
+    facing_raise=_OMIT, street_aggressions=_OMIT, aggressor_bet_prev_street=_OMIT,
 ) -> Decision:
     # The context kwargs default to _OMIT so `_play_hand` (the band/stat sim,
     # below) calls this EXACTLY as before -> its WTSD/texture/VPIP stats stay
@@ -1932,6 +1933,14 @@ def _postflop_decision(
     # gate on the count, e.g. `== 1`) without duplicating the >= 2 rule at
     # every call site; it derives `facing_raise` when the caller didn't
     # already supply one.
+    #
+    # R9-DEFENCE-a (T5): `aggressor_bet_prev_street` is the opponent-LINE flag —
+    # the `>= 1` threshold of `table.postflop_context.aggressor_barrel_run` for
+    # the seat whose wager is being faced. It follows the SAME `_OMIT` discipline
+    # as every kwarg above: unless a caller supplies it, the key never reaches
+    # `sample_postflop_decision`, so the population bands and goldens below stay
+    # byte-identical. `_play_hand`'s `line_aware=True` opt-in is the only caller
+    # in the population path, and it is off by default (spec P-7).
     kinds = {la.action for la in legal}
     _kw = {
         "current_bet_to": current_bet_to,
@@ -1947,6 +1956,8 @@ def _postflop_decision(
         _kw["facing_raise"] = facing_raise
     elif street_aggressions is not _OMIT:
         _kw["facing_raise"] = street_aggressions >= 2
+    if aggressor_bet_prev_street is not _OMIT:
+        _kw["aggressor_bet_prev_street"] = aggressor_bet_prev_street
     d = sample_postflop_decision(
         pack,
         hole,
@@ -1989,6 +2000,24 @@ class PostflopDecision(NamedTuple):
     bet_fraction: float | None  # size_bb / pot_bb for a BET/RAISE, else None
 
 
+class LineNode(NamedTuple):
+    """R9-DEFENCE-a (T5): one organically-reached LINE-AWARE node — a seat facing
+    chips from an aggressor that also bet/raised the previous postflop street.
+
+    Recorded as RAW FACTS so the S-5 gate can apply the scope predicate itself:
+    `bucket`/`draw` are exactly what `strength_bucket` returned at the node, and
+    the mechanism is scoped to `bucket ∈ {MIDDLE_PAIR, TOP_PAIR, ACE_HIGH, AIR}`
+    AND `draw is DrawCategory.NONE` (spec §4). Off-scope rows are kept, not
+    dropped, because "how much of the barrel population is even in scope" is
+    itself a thing the report has to be able to say."""
+
+    seat: int
+    street: str
+    bucket: object  # StrengthBucket
+    draw: object  # DrawCategory
+    action: str
+
+
 class HandResult(NamedTuple):
     """`_play_hand` return. `log`/`saw_flop`/`settlement` drive the existing
     (byte-identical) AF/FtC/WTSD path; `decisions`/`preflop_log` feed the new
@@ -2002,6 +2031,15 @@ class HandResult(NamedTuple):
     had_3bet_plus: bool
     decisions: list  # list[PostflopDecision]
     preflop_log: list  # (seat, action) for the APPLIED preflop decision only
+    line_nodes: list  # R9-DEFENCE-a (T5): list[LineNode] — one row per postflop
+    # decision this hand taken at a LINE-AWARE node: the derived
+    # `aggressor_bet_prev_street` was True AND the seat was facing chips (FOLD
+    # legal), i.e. the node class the mechanism can actually fire on. Empty
+    # unless `line_aware` is set. RAW ROWS, not a rate: `_play_hand` records what
+    # happened (seat / street / bucket / draw / action) and the S-5 gate does the
+    # scope classification, so the harness never carries a second copy of the
+    # scope predicate. Purely an observer — it consumes no rng and feeds nothing
+    # but S-5, so every existing band and golden is untouched by its presence.
     preflop_nodes: list  # T-ARR: (seat, position, facing, is_first) for EVERY
     # preflop decision this hand. Deliberately NOT folded into `preflop_log`
     # (whose 2-tuple shape `_preflop_aggressor` / `_hand_cbet_stats` unpack
@@ -2031,7 +2069,15 @@ def _in_position(state, seat: int) -> bool:
     return not any(state.seats[j].status is PlayerStatus.IN for j in order[idx + 1 :])
 
 
-def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_aware=False):
+# R9-DEFENCE-a (T5): `_play_hand`'s line-BLIND control mode — derive and record
+# the barrel node, but do not tell the sampler. See `_play_hand`'s docstring.
+_LINE_OBSERVE = "observe"
+
+
+def _play_hand(
+    rng, hand_seed, button_seat, persona_by_seat, packs, *,
+    context_aware=False, line_aware=False,
+):
     """One full-hand playout; every seat runs its persona's sampler.
 
     Returns (final HandState, Settlement, per-seat postflop action log for
@@ -2047,7 +2093,45 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     does, making the band sampler's postflop decisions match the live,
     context-aware bot -- opt-in only, so a caller must deliberately ask for
     the (currently unbanded) context-aware measurement.
+
+    `line_aware` (default False, R9-DEFENCE-a T5) is the SAME discipline for the
+    opponent-LINE signal, and it is deliberately ORTHOGONAL to `context_aware`.
+    It is TRI-STATE, and the middle state is what makes S-5's decisive gate a
+    NODE-MATCHED comparison rather than two differently-populated samples:
+
+      False               -- derive nothing. The pinned default path: the kwargs
+                             dict is empty, both `_postflop_decision` call sites
+                             below are byte-identical to what they were before
+                             this ticket, and every `BANDS` row and golden stays
+                             frozen (spec P-7: if one of them moves, the
+                             threading leaked into the default path, and that is
+                             a DEFECT, not a re-record).
+      _LINE_OBSERVE       -- derive the flag and RECORD the node, but DO NOT pass
+                             it to the sampler. Play is bit-for-bit the `False`
+                             path (the kwarg never reaches the sampler at all),
+                             so this is a line-BLIND control that nonetheless
+                             knows which nodes were barrel nodes. That is the
+                             only way to ask "what did this persona do at a
+                             barrel node WITHOUT the mechanism?" on the same node
+                             population the treatment arm sees.
+      True                -- derive, record, and thread.
+
+    The derivation is the SHIPPED `aggressor_barrel_run`, used exactly as
+    `play.bot_decision` uses it (`play.py:262-267`), and it reads only
+    `state.action_history` -- it draws NO rng, so even the treated arm's stream
+    displacement is entirely the mechanism's own doing.
     """
+    # The three states are dispatched by a truthy test (`if line_aware:`) and
+    # then an identity test (`is True`), so ANY truthy value that is not `True`
+    # would silently land in observe-mode: the flag derived, the node recorded,
+    # and NOTHING threaded -- a control arm masquerading as the treatment. That
+    # failure is invisible (the run completes, every rise reads 0.0) which is
+    # exactly the class of silent-no-op this slice exists to make impossible.
+    # Reject the input instead of trusting call sites.
+    if line_aware is not False and line_aware is not True and line_aware != _LINE_OBSERVE:
+        raise ValueError(
+            f"line_aware must be False, True or _LINE_OBSERVE; got {line_aware!r}"
+        )
     dealt = deal_hand(random.Random(hand_seed))
     state = start_hand(dealt, button_seat=button_seat, stacks_bb=[100.0] * 9)
     log: list[tuple[int, str, str]] = []
@@ -2058,6 +2142,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     saw_flop: set[int] = set()
     had_limper = False
     had_3bet_plus = False
+    line_nodes: list[LineNode] = []
     guard = 0
     while not state.hand_over:
         guard += 1
@@ -2116,6 +2201,33 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         else:
             pot_bb = sum(s.invested_total_bb for s in state.seats)
             opponents = _live_opponents(state, seat)
+            # R9-DEFENCE-a (T5): the opponent-LINE kwarg, assembled as a dict so
+            # that OFF it is `{}` and BOTH `_postflop_decision` calls below are
+            # character-for-character the calls they were before this ticket.
+            # The derivation is `play.bot_decision`'s, copied verbatim rather
+            # than re-expressed: the aggressor is the last BET/RAISE on THIS
+            # street (so the flag is about the seat whose wager is actually
+            # outstanding, NOT "anyone was aggressive last street"), and the run
+            # itself comes from the SHIPPED `aggressor_barrel_run` — re-deriving
+            # the run rule here is forbidden (`postflop_context.py:183-186`
+            # warns against a second taxonomy). In `_LINE_OBSERVE` the flag is
+            # derived and the node recorded, but `line_kw` stays EMPTY, so the
+            # control arm plays byte-identically to the pinned default path
+            # while still knowing where the barrels were.
+            line_kw: dict = {}
+            barrelled = False
+            if line_aware:
+                street_aggressor = last_aggressor_position(
+                    [h for h in state.action_history if h.street is state.street]
+                )
+                barrelled = street_aggressor is not None and (
+                    aggressor_barrel_run(
+                        state.action_history, state.street, street_aggressor
+                    )
+                    >= 1
+                )
+                if line_aware is True:
+                    line_kw["aggressor_bet_prev_street"] = barrelled
             if context_aware:
                 # W5-a3-iii: the SAME derivation `play.bot_decision` uses —
                 # see `backend/app/domain/table/play.py:bot_decision`.
@@ -2143,6 +2255,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
                     latest_aggressor_contribution_bb=contribution,
                     context=context,
                     street_aggressions=street_aggressions,
+                    **line_kw,
                 )
             else:
                 decision = _postflop_decision(
@@ -2155,8 +2268,24 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
                     opponents,
                     rng,
                     state.current_bet_bb,
+                    **line_kw,
                 )
             log.append((seat, state.street.value, decision.action.value))
+            if barrelled and any(la.action is ActionType.FOLD for la in legal):
+                # Facing chips AND facing a barrel: the node class the mechanism
+                # can fire on, and the population S-5's decisive gate measures
+                # P(fold) over. `strength_bucket` is called ONLY here (a few
+                # hundred times a run), so the default path pays nothing.
+                _bucket, _draw = strength_bucket(seat_state.hole_cards, state.board)
+                line_nodes.append(
+                    LineNode(
+                        seat=seat,
+                        street=state.street.value,
+                        bucket=_bucket,
+                        draw=_draw,
+                        action=decision.action.value,
+                    )
+                )
             bet_fraction = (
                 round(decision.size_bb / pot_bb, 6)
                 if decision.action in (ActionType.BET, ActionType.RAISE)
@@ -2191,6 +2320,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         had_3bet_plus=had_3bet_plus,
         decisions=decisions,
         preflop_log=preflop_log,
+        line_nodes=line_nodes,
         preflop_nodes=preflop_nodes,
     )
 
@@ -8820,3 +8950,561 @@ def test_r9d_p6_price_tail_vectors_needed_no_line_edit():
             f"{token!r} leaked into tests/test_price_tail.py — that file's frozen "
             f"vectors must not need this slice to stay green"
         )
+
+
+# ===================================================================
+# R9-DEFENCE-a — S-5: the PAIRED population-sensitivity run
+# ===================================================================
+#
+# WHAT THIS MEASURES, and why it is built the way it is.
+#
+# Every gate above is a NODE measurement: hand it a cell, read the vector. S-5
+# is the one POPULATION measurement — does making bots read the opponent's line
+# change how the simulated table actually plays out? Before this ticket the
+# question could not even be asked: `_postflop_decision` had no
+# `aggressor_bet_prev_street` parameter in EITHER `context_aware` state, so the
+# population run was structurally blind to the whole slice and S-5 was
+# unfalsifiable. That blindness is the identity-vs-sensitivity trap one level up
+# from the node gates.
+#
+# ── THE PAIRING (ledger R-4 — the reason this is not "call `_persona_stats`
+#    twice"). `_persona_stats` builds ONE `random.Random(20260710)` and uses it
+#    BOTH to draw each hand's seed (`hand_seed = rng.randrange(...)`) AND as the
+#    action/sizing rng inside `_play_hand`. The instant line-aware play changes a
+#    single draw count, the NEXT `hand_seed` differs and the two arms stop
+#    playing the same hands — the comparison would measure deal noise, not the
+#    mechanism. So this run:
+#      * pre-generates an IMMUTABLE tuple of (hand_seed, action_seed) pairs from
+#        two DEDICATED rngs that drive nothing else, and
+#      * gives every hand its OWN freshly-seeded action rng, so divergence cannot
+#        leak from hand i to hand i+1 — each hand is independently paired.
+#    Everything else (lineup, button rotation, stacks, `context_aware`, packs) is
+#    held identical; the line signal is the ONLY input that differs.
+#
+# ── THE CONTROL IS NODE-MATCHED, not merely line-blind. The control arm runs
+#    `_play_hand(line_aware=_LINE_OBSERVE)`: it DERIVES the barrel flag and
+#    records the node, but never passes it to the sampler, so its play is
+#    bit-for-bit the pinned default path while it still knows which nodes were
+#    barrel nodes. That is what makes "P(fold) at a barrel node, with and
+#    without the mechanism" a real comparison rather than two differently
+#    populated samples.
+#
+# ── THE PAIRING IS ASSERTED, NOT ASSUMED. `aggressor_barrel_run` is 0 on the
+#    FLOP by construction (its walk over preceding POSTFLOP streets is empty
+#    there), so no preflop or flop decision can differ between the arms — only
+#    turn and river ones can. `saw_flop` is snapshotted the moment the board
+#    reaches three cards, i.e. strictly before any flop action, so the arms must
+#    produce IDENTICAL flop-arrival counts for every persona.
+#    `test_r9d_s5_the_arms_are_a_true_pair` demands exactly that: if it ever
+#    breaks, something upstream of the turn moved and every number below is
+#    noise.
+#
+# ── THE DECISIVE GATE IS THE DIRECT ONE (owner ruling, 2026-08-02).
+#    `test_r9d_s5_fold_rate_at_barrel_nodes_rises` measures what the mechanism
+#    actually claims to do — P(fold) at an IN-SCOPE barrel node in organic play —
+#    and showdown frequency is demoted to a directional companion. The history
+#    matters and is kept deliberately:
+#
+#    Spec §7 S-5 originally asked for a showdown-frequency fall of >= 0.01 for
+#    nit / tag / lag / passive_fish. **That literal was measured FALSE at four
+#    sample sizes and has been RETIRED by the owner** — it was set a priori,
+#    before anything had been measured. Paired, shared nine-seat lineup,
+#    `context_aware=False`:
+#
+#      persona          N=2000    N=4000    N=8000   N=24000
+#      nit             -0.0177   -0.0088   -0.0154   -0.0121
+#      tag             -0.0117   -0.0078   -0.0079   -0.0061
+#      lag             -0.0042   -0.0042   -0.0053   -0.0072
+#      passive_fish    -0.0044   -0.0052   -0.0037   -0.0043
+#      maniac          -0.0044   -0.0044   -0.0036   -0.0031
+#      calling_station -0.0030   -0.0027   -0.0023   -0.0023
+#
+#    Only `nit` ever clears 0.01, and not stably. Re-measured `context_aware=
+#    True` at N=8000 the shape is the same (lag -0.0081, passive_fish -0.0063,
+#    tag -0.0069, nit -0.0132); with the per-persona `_persona_stats` lineup at
+#    N=3000 it is smaller still (tag -0.0017).
+#
+#    The reason is dilution, not a weak mechanism. Showdown frequency divides a
+#    node-level effect by a denominator two orders of magnitude larger: the
+#    mechanism fires only where a seat faces a sustained barrel holding an
+#    in-scope bucket, and in a nine-max full-ring sim that node is RARE — a few
+#    thousand across N hands x 9 seats, of which `nit` reaches a few dozen.
+#    Measured AT those nodes instead, the effect is large and orderly (the table
+#    in `test_r9d_s5_fold_rate_at_barrel_nodes_rises`). Recording the retired
+#    literal here, rather than deleting it, is the point: it is the evidence the
+#    retirement rests on.
+#
+# ── COST. Two arms x `_R9D_S5_N` hands ~= 34s on this maker's box, plus ~3s for
+#    the no-op discriminator. The shared nine-seat lineup is what keeps that
+#    affordable: it reads ALL SIX personas out of ONE pair of arms instead of six
+#    pairs. N is set by the DECISIVE gate's thinnest sample — `nit` reaches only
+#    41 in-scope barrel nodes even at N=8000 (14 at N=4000), and a literal
+#    effect-size floor asserted over 14 observations would not be worth the ink.
+
+_R9D_S5_N = 8000
+
+# Two DEDICATED rngs (ledger R-4). Neither ever acts as an action/sizing rng —
+# that is the whole point: the deal sequence must not be able to move when play
+# does. Seeds are distinct from the `_persona_stats` 20260710 stream so this run
+# can never be confused with, or accidentally reuse, a banded measurement.
+_R9D_S5_DEAL_SEED = 20260802
+_R9D_S5_ACTION_SEED = 20260803
+
+# One seat per persona plus three repeats, in `ALL_PERSONAS` (alphabetical)
+# order — published rather than derived at call time so the arms are reproducible
+# from this module alone, and deliberately NOT weighted towards the thin personas
+# (a nit-heavy lineup would buy `nit` more nodes at the price of measuring every
+# other persona against a table that is not the roster).
+_R9D_S5_LINEUP = tuple(ALL_PERSONAS[i % len(ALL_PERSONAS)] for i in range(9))
+
+# The scope predicate, applied test-side to the raw `LineNode` rows (spec §4).
+# Written as its own literal for the same reason `_R9D_SCOPE_BUCKETS` is: a gate
+# that reads its own scope out of the module under test goes green for free the
+# moment that module changes its mind. `test_r9d_s5_scope_matches_the_node_grid`
+# reconciles the two.
+_R9D_S5_SCOPE = _R9D_SCOPE_BUCKETS
+
+# OCCURRENCE FLOORS (spec §7 S-5: "state the occurrence floor ... below which the
+# comparison is not reported"), stated over IN-SCOPE barrel nodes because that is
+# the population the decisive gate averages over. Measured at this N: 2,538
+# table-wide, minimum 41 (`nit`). Deliberately a hard FAILURE rather than a
+# silent skip — a run that stops reaching barrel nodes means the derivation or
+# the sim broke, and a skip is exactly how that would hide.
+_R9D_S5_NODE_FLOOR = 1000  # table-wide, in-scope
+_R9D_S5_PERSONA_NODE_FLOOR = 20  # per persona, in-scope
+
+# ── THE DECISIVE LITERAL, and an honest account of its status ──────────────
+#
+# `nit` — the tightest lever (0.60) and the persona the closed form predicts
+# hardest — must show a rise in P(fold) at in-scope barrel nodes of at least
+# this much. It is a FLOOR WITH HEADROOM, **not a fitted value**:
+#
+#   * The closed form gives `nit` a reference-node effect of +0.131 — predicted
+#     by the design pass BEFORE the mechanism existed, and reproduced by T4 at
+#     +0.131190 (`test_r9d_s1_identity_breaks_with_a_literal_effect_floor`).
+#   * Organic play AVERAGES that over a spot mix — every street, every price,
+#     every SPR, every headcount the sim deals — so the population figure is
+#     NECESSARILY smaller than the single-node one. A population gate pinned at
+#     the reference-node number would be wrong by construction.
+#   * 0.03 sits far above any no-op (which reads exactly 0.000000 — see
+#     `test_r9d_s5_gate_is_red_under_a_no_op_mechanism`) and well below both the
+#     reference-node effect and the measured population value: `nit` reads
+#     +0.1463 here, ~4.9x the floor. An earlier, coarser diagnostic over ALL
+#     barrel nodes (in-scope and out) read +0.054, ~1.8x the floor; both
+#     readings clear it comfortably.
+#
+# What this floor is NOT: it is not the slice's unfitted effect-size gate. That
+# remains **S-1's literal 0.05 at the named reference node** (`_R9D_MIN_
+# REFERENCE_EFFECT` above), which matches a prediction made before any of this
+# was measured. This one is a conservative population backstop chosen after
+# measurement, and it is labelled as such so nobody later mistakes it for
+# independent confirmation of the closed form.
+_R9D_S5_NIT_RISE_FLOOR = 0.03
+
+# ── THE ORDERING WE CAN DEFEND, and the edge we cannot ─────────────────────
+#
+# Spec §5's ladder is `nit 0.60 > tag 0.50 > {lag 0.35 = passive_fish 0.35} >
+# maniac 0.20 > calling_station 0.10`, strict between tiers and equal within the
+# braced tie. In ODDS space at a fixed node that ordering holds exactly, and
+# `test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie` above
+# asserts it there.
+#
+# In ORGANIC PLAY it does not survive intact, and this is the caveat spec §7 S-4
+# already records for its own reason: **the probability-space ordering differs
+# from the λ ordering because base continue rates differ.** Two further things
+# push it around here — each persona meets a DIFFERENT mix of barrel spots (the
+# station is called down to the river; the nit is rarely there at all), and
+# ΔP(fold) for a given λ is steepest where the base fold rate is nearest the
+# middle. Measured (rise in P(fold) at in-scope barrel nodes):
+#
+#   persona          λ-tier  N=4000    N=8000   N=16000
+#   nit                1     +0.1429   +0.1463  +0.1272
+#   tag                2     +0.0750   +0.0856  +0.0643
+#   passive_fish       3     +0.0588   +0.0410  +0.0392
+#   lag                3     +0.0364   +0.0369  +0.0579
+#   maniac             4     +0.0470   +0.0346  +0.0294
+#   calling_station    5     +0.0046   +0.0041  +0.0051
+#
+# Stable at every N: tiers 1 and 2 sit strictly above tiers 3-4, and tier 5 sits
+# strictly below everything. NOT stable: the tier-3 / tier-4 edge — at N=4000
+# `maniac` (+0.0470) outruns `lag` (+0.0364) outright, at N=8000 it is a
+# 0.002 margin, and only by N=16000 does the ladder order return. Nor are the
+# braced tie's two members equal in organic play (+0.0410 vs +0.0369 at this N):
+# they carry equal λ, not equal spot mixes, so equality is not the prediction.
+#
+# So the gate asserts the coarse ordering — `nit > tag > {lag, passive_fish,
+# maniac} > calling_station` — and says plainly that the fine tier-3/tier-4 edge
+# is NOT asserted, rather than buying it with a bigger N. The λ-exact claim is
+# S-4's, at the node, in odds space, where it is true.
+_R9D_S5_ORDER = (("nit",), ("tag",), ("lag", "passive_fish", "maniac"), ("calling_station",))
+
+# ── THE DEMOTED COMPANION ──────────────────────────────────────────────────
+# Showdown frequency is now a DIRECTIONAL population-consequence check, not an
+# effect-size gate (owner ruling). `_R9D_S5_SPEC_FALL` is the RETIRED spec
+# literal, kept in the module so the retirement is visible at the point of the
+# gate and not only in a ledger. `_R9D_S5_MIN_FALL` is the measured floor
+# actually asserted: the smallest magnitude any of the four named personas showed
+# across four sample sizes was 0.0037, so 0.002 keeps ~1.8x headroom.
+_R9D_S5_SPEC_FALL = 0.01  # RETIRED — recorded, never asserted
+_R9D_S5_MIN_FALL = 0.002
+_R9D_S5_STATION_TOL = 0.005  # spec §7 S-5's other literal — MET at every N
+_R9D_S5_FALLERS = ("nit", "tag", "lag", "passive_fish")
+_R9D_S5_DIRECTIONAL = ("maniac",)
+
+
+def _r9d_s5_seeds() -> tuple[tuple[int, int], ...]:
+    """The immutable (hand_seed, action_seed) schedule both arms replay."""
+    deal_rng = random.Random(_R9D_S5_DEAL_SEED)
+    action_rng = random.Random(_R9D_S5_ACTION_SEED)
+    return tuple(
+        (deal_rng.randrange(1_000_000_000), action_rng.randrange(1_000_000_000))
+        for _ in range(_R9D_S5_N)
+    )
+
+
+_R9D_S5_SEEDS = _r9d_s5_seeds()
+
+
+class _R9dArm(NamedTuple):
+    wtsd: dict  # persona -> showdowns / flop-arrivals
+    saw_flop: dict  # persona -> flop arrivals (the pairing receipt)
+    showdowns: dict
+    nodes: dict  # persona -> barrel facing nodes, ALL buckets
+    in_scope: dict  # persona -> barrel facing nodes inside the §4 scope
+    folds: dict  # persona -> FOLDs among those
+    fold_rate: dict  # persona -> folds / in_scope
+
+
+_R9D_S5_ARMS: dict = {}
+
+
+def _r9d_s5_run(mode, packs, seeds) -> _R9dArm:
+    """One arm: replay `seeds` with `line_aware=mode` and tally both metrics."""
+    persona_by_seat = {i: _R9D_S5_LINEUP[i] for i in range(9)}
+    saw = dict.fromkeys(ALL_PERSONAS, 0)
+    shown = dict.fromkeys(ALL_PERSONAS, 0)
+    nodes = dict.fromkeys(ALL_PERSONAS, 0)
+    in_scope = dict.fromkeys(ALL_PERSONAS, 0)
+    folds = dict.fromkeys(ALL_PERSONAS, 0)
+    for i, (hand_seed, action_seed) in enumerate(seeds):
+        res = _play_hand(
+            random.Random(action_seed),
+            hand_seed,
+            i % 9,
+            persona_by_seat,
+            packs,
+            line_aware=mode,
+        )
+        for row in res.line_nodes:
+            persona = persona_by_seat[row.seat]
+            nodes[persona] += 1
+            if row.bucket in _R9D_S5_SCOPE and row.draw is DrawCategory.NONE:
+                in_scope[persona] += 1
+                if row.action == ActionType.FOLD.value:
+                    folds[persona] += 1
+        for seat, persona in persona_by_seat.items():
+            if seat in res.saw_flop:
+                saw[persona] += 1
+                if seat in res.settlement.showdown_seats:
+                    shown[persona] += 1
+    return _R9dArm(
+        wtsd={p: shown[p] / saw[p] for p in ALL_PERSONAS},
+        saw_flop=saw,
+        showdowns=shown,
+        nodes=nodes,
+        in_scope=in_scope,
+        folds=folds,
+        fold_rate={
+            p: (folds[p] / in_scope[p] if in_scope[p] else float("nan"))
+            for p in ALL_PERSONAS
+        },
+    )
+
+
+def _r9d_s5_arm(mode) -> _R9dArm:
+    """Cached arm of the main paired run. Several gates read the same two arms."""
+    if mode not in _R9D_S5_ARMS:
+        _R9D_S5_ARMS[mode] = _r9d_s5_run(mode, load_persona_packs(), _R9D_S5_SEEDS)
+    return _R9D_S5_ARMS[mode]
+
+
+def _r9d_s5_rise() -> dict:
+    """persona -> rise in P(fold) at in-scope barrel nodes, treatment - control."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    return {p: on.fold_rate[p] - off.fold_rate[p] for p in ALL_PERSONAS}
+
+
+def test_r9d_s5_scope_matches_the_node_grid():
+    """The S-5 scope filter is the SAME predicate the node grid publishes — the
+    population gate and the node gates must not be able to drift apart."""
+    assert _R9D_S5_SCOPE == _R9D_SCOPE_BUCKETS
+    assert set(_R9D_S5_LINEUP) == set(ALL_PERSONAS)
+    assert [p for tier in _R9D_S5_ORDER for p in tier] != []
+    assert sorted(p for tier in _R9D_S5_ORDER for p in tier) == sorted(ALL_PERSONAS)
+
+
+def test_r9d_s5_the_arms_are_a_true_pair():
+    """S-5's precondition, asserted before any number is read (ledger R-4).
+
+    Four claims, and each is a way the paired run could quietly degenerate into
+    a measurement of deal noise:
+
+    1. **The schedule is immutable and dedicated.** Regenerating it reproduces
+       the same tuple, and neither seed rng is the `_persona_stats` stream.
+    2. **The control is genuinely line-blind.** `_LINE_OBSERVE` records nodes but
+       never passes the kwarg to the sampler — pinned on the actual call kwargs
+       by `test_r9d_p7_the_population_path_never_sees_the_flag_by_default`.
+    3. **The deals did not diverge.** Flop arrivals are identical per persona
+       across the arms. Not a hope: `aggressor_barrel_run` is 0 on the flop by
+       construction, so preflop and flop play CANNOT differ, and `saw_flop` is
+       snapshotted before any flop action.
+    4. **Occurrence floors.** Over ~zero barrel nodes the comparison is not
+       reportable, so a breach fails hard rather than skipping quietly.
+
+    Note the arms' node counts are close but not identical (a handful out of
+    thousands): once turn play diverges, the downstream node population shifts
+    slightly. That is the mechanism working, not the pairing failing — the
+    pairing receipt is claim 3, which is exact."""
+    assert _r9d_s5_seeds() == _R9D_S5_SEEDS
+    assert isinstance(_R9D_S5_SEEDS, tuple) and len(_R9D_S5_SEEDS) == _R9D_S5_N
+    assert 20260710 not in (_R9D_S5_DEAL_SEED, _R9D_S5_ACTION_SEED)
+    assert len({s for s, _ in _R9D_S5_SEEDS}) > _R9D_S5_N * 0.99  # no seed reuse
+
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    assert off.saw_flop == on.saw_flop, (
+        "flop arrivals diverged between the arms, so the pair is broken: "
+        f"{off.saw_flop} vs {on.saw_flop}"
+    )
+    for arm_name, arm in (("control", off), ("treatment", on)):
+        total = sum(arm.in_scope.values())
+        assert total >= _R9D_S5_NODE_FLOOR, (
+            f"{arm_name}: only {total} in-scope barrel nodes in {_R9D_S5_N} hands "
+            f"(floor {_R9D_S5_NODE_FLOOR}) — the S-5 comparison is not reportable"
+        )
+        thin = {p: n for p, n in arm.in_scope.items() if n < _R9D_S5_PERSONA_NODE_FLOOR}
+        assert not thin, (
+            f"{arm_name}: personas under the per-persona in-scope floor "
+            f"{_R9D_S5_PERSONA_NODE_FLOOR}: {thin} — not reportable"
+        )
+
+
+def test_r9d_s5_fold_rate_at_barrel_nodes_rises():
+    """S-5, THE DECISIVE POPULATION GATE (owner ruling, 2026-08-02) — in organic
+    nine-max play, does a bot facing a SECOND BARREL actually fold more?
+
+    This is the direct measure. `P(fold)` is taken over the in-scope barrel nodes
+    the sim organically reaches (spec §4's predicate: bucket in
+    {MIDDLE_PAIR, TOP_PAIR, ACE_HIGH, AIR} AND no draw), with a NODE-MATCHED
+    control that sees the same node population with the mechanism switched off.
+    Measured at `_R9D_S5_N` = 8000:
+
+      persona          λ     in-scope   P(fold) off   P(fold) on   rise
+      nit             0.60        41        0.2927       0.4390   +0.1463
+      tag             0.50        85        0.2791       0.3647   +0.0856
+      passive_fish    0.35       268        0.4889       0.5299   +0.0410
+      lag             0.35       207        0.3592       0.3961   +0.0369
+      maniac          0.20       318        0.3774       0.4119   +0.0346
+      calling_station 0.10      1619        0.2930       0.2971   +0.0041
+
+    Two assertions: (a) a STRICTLY POSITIVE rise for every persona — all six
+    author `line_sensitivity > 0`, reconciled against the packs by
+    `test_r9d_ladder_matches_the_authored_packs`; and (b) the literal floor
+    `_R9D_S5_NIT_RISE_FLOOR` on the tightest persona. Read the block above that
+    constant before judging the 0.03: it is a conservative floor with headroom,
+    NOT a fitted value, and it is NOT the slice's unfitted effect-size gate —
+    that is still S-1's 0.05 at the named reference node.
+
+    NOT VACUOUS, which is the property that matters: under a no-op mechanism
+    both arms play byte-identically and every rise is exactly 0.000000, so (a)
+    goes red. `test_r9d_s5_gate_is_red_under_a_no_op_mechanism` runs that
+    counterfactual in-suite rather than asserting it in prose."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    rise = _r9d_s5_rise()
+    report = {
+        p: (
+            on.in_scope[p],
+            round(off.fold_rate[p], 4),
+            round(on.fold_rate[p], 4),
+            round(rise[p], 4),
+        )
+        for p in ALL_PERSONAS
+    }
+    flat = {p: r for p, r in rise.items() if not r > 0.0}
+    assert not flat, (
+        f"P(fold) at in-scope barrel nodes did not rise for {flat} — the population "
+        f"run is still line-blind there (a no-op mechanism reads exactly this). "
+        f"Full table (in_scope, off, on, rise): {report}"
+    )
+    assert rise["nit"] >= _R9D_S5_NIT_RISE_FLOOR, (
+        f"nit rose only {rise['nit']:.4f} at in-scope barrel nodes, under the literal "
+        f"floor {_R9D_S5_NIT_RISE_FLOOR}. Full table: {report}"
+    )
+
+
+def test_r9d_s5_fold_rate_rise_follows_the_defensible_ladder():
+    """S-5(c) — the ordering, and ONLY the part of it organic play supports.
+
+    Asserted: `nit > tag > {lag, passive_fish, maniac} > calling_station`,
+    strictly between those groups.
+
+    ⚠️ DELIBERATELY NOT ASSERTED, and the reason is in the `_R9D_S5_ORDER` block
+    above: the fine tier-3 / tier-4 edge (`{lag, passive_fish}` above `maniac`)
+    does NOT hold at every sample size — at N=4000 maniac outruns lag outright,
+    at this N the margin is 0.002, and only at N=16000 does the λ order return.
+    Nor are the braced tie's members equal here; they carry equal λ, not equal
+    spot mixes. This is the same caveat spec §7 S-4 records for its own reason —
+    probability-space ordering differs from the λ ordering because base continue
+    rates differ — and the λ-exact claim is asserted where it is true: at a fixed
+    node, in odds space, by
+    `test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie`.
+
+    Buying the missing edge with a bigger N was considered and rejected: it would
+    trade honesty about the population for a number, and the population is the
+    thing this gate exists to describe."""
+    rise = _r9d_s5_rise()
+    for higher, lower in zip(_R9D_S5_ORDER[:-1], _R9D_S5_ORDER[1:], strict=True):
+        worst_high = min(rise[p] for p in higher)
+        best_low = max(rise[p] for p in lower)
+        assert worst_high > best_low, (
+            f"ordering broke between {higher} (min {worst_high:.4f}) and {lower} "
+            f"(max {best_low:.4f}); full table {({p: round(r, 4) for p, r in rise.items()})}"
+        )
+
+
+def test_r9d_s5_gate_is_red_under_a_no_op_mechanism():
+    """The decisive gate's non-vacuity, PROVEN rather than argued.
+
+    Strips `line_sensitivity` from all six packs — which is the literal no-op
+    (`personas_postflop.py`: lever `None` and the merit list is not rebuilt at
+    all) and stands in for spec §10.4's mutants (a) `line_mult = 1.0` and (b)
+    `_LINE_DELTA = 1e-12` — then replays a short paired run. With the mechanism
+    inert the two arms play byte-identically, so:
+
+      * every persona's in-scope node count and FOLD count match exactly, hence
+        every rise is exactly 0.0 and
+        `test_r9d_s5_fold_rate_at_barrel_nodes_rises`'s assertion (a) is RED; and
+      * every showdown-frequency delta is exactly 0.0, so the demoted companion
+        gate is RED too.
+
+    Asserted on COUNTS, not rates, so no persona needs to reach a big enough
+    sample for a rate to be meaningful at this short N."""
+    packs = load_persona_packs()
+    no_op = {}
+    for key, pack in packs.items():
+        stripped = pack.model_copy(deep=True)
+        stripped.postflop = pack.postflop.model_copy(update={"line_sensitivity": None})
+        assert stripped.postflop.line_sensitivity is None
+        no_op[key] = stripped
+    seeds = _R9D_S5_SEEDS[:600]
+    off = _r9d_s5_run(_LINE_OBSERVE, no_op, seeds)
+    on = _r9d_s5_run(True, no_op, seeds)
+    assert sum(on.in_scope.values()) > 0, "the probe reached no in-scope barrel node at all"
+    assert off.in_scope == on.in_scope, (off.in_scope, on.in_scope)
+    assert off.folds == on.folds, (off.folds, on.folds)
+    assert off.showdowns == on.showdowns, (off.showdowns, on.showdowns)
+    assert off.saw_flop == on.saw_flop
+
+
+def test_r9d_s5_paired_population_showdown_frequency_falls():
+    """S-5's DIRECTIONAL population-consequence companion — demoted from decisive
+    by the owner ruling of 2026-08-02, and NOT an effect-size gate.
+
+    The claim is only that the population moves the way the mechanism predicts:
+    bots that fold to barrels more often ride fewer hands to showdown. Measured
+    at this N: nit -0.0154, tag -0.0079, lag -0.0053, passive_fish -0.0037,
+    maniac -0.0036, calling_station -0.0023.
+
+    Spec §7 S-5's original literal — a fall of >= `_R9D_S5_SPEC_FALL` (0.01) for
+    nit/tag/lag/passive_fish — was measured FALSE at four sample sizes and has
+    been RETIRED; the evidence table is in the ⚠️ block at the head of this
+    section and must not be trimmed. What is asserted instead is a strict fall
+    floored at the measured `_R9D_S5_MIN_FALL`.
+
+    Still falsifiable: under any no-op mechanism both arms play byte-identically
+    and every delta is exactly 0.0 (`test_r9d_s5_gate_is_red_under_a_no_op_
+    mechanism` demonstrates it), so this gate goes red too."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    report = {p: round(on.wtsd[p] - off.wtsd[p], 4) for p in ALL_PERSONAS}
+    delta = {p: on.wtsd[p] - off.wtsd[p] for p in ALL_PERSONAS}
+
+    rose = {p: d for p, d in report.items() if d > 0.0}
+    assert not rose, (
+        f"showdown frequency ROSE for {rose} — folding more to a barrel cannot "
+        f"produce more showdowns. Full table: {report}"
+    )
+    flat = {p: d for p, d in delta.items() if d == 0.0}
+    assert not flat, (
+        f"showdown frequency did not move at all for {flat} — the population run "
+        f"is still line-blind (a no-op mechanism reads exactly this). "
+        f"Full table: {report}"
+    )
+    shallow = {p: report[p] for p in _R9D_S5_FALLERS if delta[p] > -_R9D_S5_MIN_FALL}
+    assert not shallow, (
+        f"fall shallower than the measured floor {_R9D_S5_MIN_FALL} for {shallow} "
+        f"(the retired spec literal was {_R9D_S5_SPEC_FALL}). Full table: {report}"
+    )
+    for persona in _R9D_S5_DIRECTIONAL:
+        assert delta[persona] < 0.0, (persona, report[persona])
+
+
+def test_r9d_s5_calling_station_stays_line_blind():
+    """S-5's other spec literal, and this one IS met: `|Δ| <= 0.005` for the
+    station's showdown frequency.
+
+    Spec §5 — the station's near-zero lever is THE ARCHETYPE, not a leak: a
+    line-blind call-down is its defining trait, so authoring it at 0.10 must
+    leave the population read essentially where it was. Measured -0.0022 …
+    -0.0030 across N in {2000, 4000, 8000, 24000}.
+
+    A two-sided bound, so it is not satisfied by "the station is excluded": were
+    the mechanism mis-scoped and the station damped like a nit, this reads about
+    -0.02 and goes red."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    delta = on.wtsd["calling_station"] - off.wtsd["calling_station"]
+    assert abs(delta) <= _R9D_S5_STATION_TOL, delta
+
+
+def test_r9d_p7_the_population_path_never_sees_the_flag_by_default(monkeypatch):
+    """P-7's mechanism, pinned structurally rather than inferred from the bands.
+
+    Every `BANDS` row and every golden statistic in this file is measured through
+    `_play_hand`'s DEFAULT path. Those numbers stay byte-identical for exactly
+    one reason: unless `line_aware is True` the harness never puts
+    `aggressor_bet_prev_street` into the sampler call at all, so
+    `sample_postflop_decision` is invoked with the identical keyword set it was
+    invoked with before this ticket. Asserted here on the actual call kwargs —
+    an equality of measured statistics could not tell "the flag never arrived"
+    from "the flag arrived and happened not to matter on these seeds".
+
+    All three `line_aware` states are covered, and the middle one carries S-5's
+    weight: `_LINE_OBSERVE` must record nodes while passing NOTHING, or the
+    "node-matched control" is really a second treatment arm. The `True` state is
+    the discriminator that proves the two absences are the modes' doing and not a
+    wrapper quietly dropping the kwarg on the floor (which would make the whole
+    S-5 run a no-op measured against itself)."""
+    seen: list[bool] = []
+    real = sample_postflop_decision
+
+    def spy(*args, **kwargs):
+        seen.append("aggressor_bet_prev_street" in kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(sys.modules[__name__], "sample_postflop_decision", spy)
+    packs = load_persona_packs()
+    persona_by_seat = {i: _R9D_S5_LINEUP[i] for i in range(9)}
+    for line_aware, want in ((False, False), (_LINE_OBSERVE, False), (True, True)):
+        seen.clear()
+        nodes = 0
+        for i, (hand_seed, action_seed) in enumerate(_R9D_S5_SEEDS[:120]):
+            res = _play_hand(
+                random.Random(action_seed),
+                hand_seed,
+                i % 9,
+                persona_by_seat,
+                packs,
+                line_aware=line_aware,
+            )
+            nodes += len(res.line_nodes)
+        assert seen, "no postflop decision was taken at all — the probe proves nothing"
+        assert set(seen) == {want}, (line_aware, sorted(set(seen)))
+        assert (nodes > 0) is bool(line_aware), (line_aware, nodes)
