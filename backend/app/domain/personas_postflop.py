@@ -758,6 +758,29 @@ _LINE_SCOPE_BUCKETS = frozenset(
 )
 
 
+def _line_scaled(
+    entries: list[tuple[ActionType, float]], line_mult: float
+) -> list[tuple[ActionType, float]]:
+    """The line damp's transform: multiply CALL and RAISE by `line_mult`, leave
+    every other entry (in scope: FOLD) exactly as handed in.
+
+    Extracted so the ONE common factor is inspectable — like `_commit_transform`,
+    which exists for the same reason. A gate can hand this known merits and
+    assert BITWISE (`float.hex()`) that each defend entry is its own input times
+    the SAME `line_mult`, which is exact without fighting IEEE because it
+    compares one multiplication against itself. Behaviourally that is what P-1
+    checks through the sampler, but only to a relative `1e-12` — it must, since
+    downstream `(R·line_mult)·rscale` vs `(R·rscale)·line_mult` differ bitwise
+    ~35% of the time (ledger R-8). A transform applying a per-action factor that
+    differs by less than that tolerance passes every output-space gate in the
+    harness; nothing but a direct bitwise check on this function excludes it.
+    """
+    return [
+        (a, m * line_mult) if a in (ActionType.CALL, ActionType.RAISE) else (a, m)
+        for a, m in entries
+    ]
+
+
 def sample_postflop_decision(
     pack: PersonaPack,
     hole: tuple[Card, Card],
@@ -1132,10 +1155,7 @@ def sample_postflop_decision(
             and draw is DrawCategory.NONE
         ):
             line_mult = math.exp(-_LINE_DELTA * sens)
-            entries = [
-                (a, m * line_mult) if a in (ActionType.CALL, ActionType.RAISE) else (a, m)
-                for a, m in entries
-            ]
+            entries = _line_scaled(entries, line_mult)
 
     # N-LOGIT: nested-logit routing on the facing node.
     #
@@ -1170,7 +1190,9 @@ def sample_postflop_decision(
     # TWO REACH CHANGES, both disclosed (build review, ledger B-9 / B-10) and
     # both gated so they cannot move silently. They are mirror images:
     #  - GAINED reach, river polar-bluff cell: `call_merit` is hard-zeroed there
-    #    (:884-885), so RAISE is the only continue and the lever now moves the
+    #    (the `if bluff_cell and street is Street.RIVER` branch above — named,
+    #    not line-numbered, because the anchor that used to sit here went stale
+    #    twice in one slice), so RAISE is the only continue and the lever moves the
     #    bluff-raise rate, which at HEAD it could not. Largest on ACE_HIGH at a
     #    small faced price (lag: P(raise) 0.104 / 0.318 / 0.651 over ×0.25/×1/×4
     #    against a flat HEAD 0.318). G4 pins it.

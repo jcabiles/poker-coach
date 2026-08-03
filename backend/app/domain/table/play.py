@@ -252,8 +252,11 @@ def bot_decision(
     # facing also bet/raise the previous POSTFLOP street (a barrel, not a first
     # stab)? The aggressor is the last BET/RAISE on THIS street, so the flag is
     # about the wager actually outstanding; on an unopened street there is none
-    # and the run is 0. Flat flag like `faced_raise`, and READ BY NOBODY yet —
-    # no sampler branch consults it, so every decision is byte-identical.
+    # and the run is 0. Flat flag like `faced_raise`. R9-DEFENCE-a is the
+    # consumer: the sampler's line damp (`personas_postflop._line_scaled`) scales
+    # the CALL and RAISE merits by `exp(-λ_p)` at an in-scope facing node, so a
+    # pack authoring `line_sensitivity` folds to a barrel more than to a first
+    # stab. A pack that does not author it is byte-identical either way.
     # ⚠️ Consumer note (review, R9-SIGNAL): the flag is derived for EVERY
     # postflop node, including matched-with-option shapes (legal CHECK+RAISE)
     # where the seat owes nothing — there "the wager I am facing" does not

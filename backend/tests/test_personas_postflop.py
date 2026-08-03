@@ -8042,8 +8042,10 @@ class _R9dProbe:
     binding `personas_postflop.sum` to this object's `sum` shadows the builtin
     for the duration of one call (see `_r9d_probe`). The LAST `sum` observed
     before the first `choices` is `total = sum(weights)` — i.e. the clamped
-    merit vector, `personas_postflop.py:1203-1204`. Deliberately NOT anchored on
-    a line number: this file's own history is full of anchors that went stale.
+    merit vector, in the normalization block. Deliberately NOT anchored on a
+    line number: this file's own history is full of anchors that went stale, and
+    the `:1203-1204` that used to stand here was one of them (three lines off at
+    base, twenty-six after the `_line_scaled` extraction).
 
     The clamp is `max(m, 0.0)`, so the captured vector equals the raw merits
     exactly wherever every entry is strictly positive; P-1 asserts that
@@ -8587,7 +8589,32 @@ def test_r9d_p1_structural_only_call_and_raise_raw_merits_move():
     "ONE common factor" is checked per persona across the WHOLE grid, not just
     within a cell: the factor is `exp(-λ_p)` and depends on nothing about the
     node, so a spread anywhere in a persona's ratios is a defect. Cells where
-    only one continue leg survives are graded by that same constraint."""
+    only one continue leg survives are graded by that same constraint.
+
+    THE FACTOR'S VALUE IS PINNED, NOT JUST ITS CONSISTENCY (fan-in finding A,
+    both mutants reproduced). Every clause above — fold bitwise unchanged, the
+    two ratios agreeing, zero spread, the occupancy floors — is satisfied by a
+    vector in which NOTHING MOVED: the ratios are then both exactly 1.0, which
+    is maximally consistent. That made this an IDENTITY gate, and identity gates
+    are what this initiative keeps being defeated by. Two measured mutants walked
+    through the hole: one replaced the merit scale with `pass` and applied an
+    equivalent fold-side scale to `weights` AFTER the capture instant (full suite
+    green, 0 raw merits differing, nit ΔP(fold) still 0.13119); the other called
+    `_line_scaled` and DISCARDED its result, which also survives P-1b, since
+    P-1b grades the helper in isolation and its spy proves only that the helper
+    was CALLED — neither proves the returned list is the one that reaches the
+    normalization. Asserting the ratio equals the mechanism's OWN predicted
+    `exp(-λ_p)`, and is strictly below 1.0, kills both: an inert transform reads
+    1.0 and a post-capture equivalent leaves the raw merits at 1.0 too.
+
+    This survives N-LOGIT, and that was MEASURED rather than assumed: the
+    captured RAISE merit is `(R·line_mult)·rscale` at line=1 and `R·rscale` at
+    line=0, so `rscale` cancels out of the ratio. Checked directly on a
+    `model_copy` pack with `continue_ref` skewed to make `rscale = 1.6216` (the
+    six shipped packs all sit at the anchor, where `rscale` is exactly 1.0 and
+    would prove nothing): the CALL and RAISE ratios both came back at relative
+    error 0.000e+00 against `exp(-λ_p)`. `rel=1e-12` is the same tolerance the
+    spread check already carries, and is generous against that."""
     grid = _r9d_grid()
     cells = grid["_cells"]
     fold_moved, scale_split = [], []
@@ -8623,7 +8650,88 @@ def test_r9d_p1_structural_only_call_and_raise_raw_merits_move():
         lo = min(obs, key=lambda o: o[2])
         hi = max(obs, key=lambda o: o[2])
         assert hi[2] - lo[2] <= 1e-12 * hi[2], (persona, lo, hi)
+        # …and the factor they all agree on is the mechanism's OWN `exp(-λ_p)`,
+        # strictly damping. Without this the gate is an identity gate: a vector
+        # in which nothing moved has ratios of exactly 1.0 and passes every
+        # check above.
+        want = math.exp(-_R9D_SHIFT_PER_UNIT * _R9D_SENSITIVITY[persona])
+        assert want < 1.0, (persona, want)
+        inert = [o for o in obs if o[2] >= 1.0]
+        assert not inert, (
+            f"{persona}: {len(inert)} of {len(obs)} raw-merit ratios are >= 1.0 — the "
+            f"prescribed transform did NOT move the merits, so whatever moves the "
+            f"output is not it: {inert[:5]}"
+        )
+        wrong = [o for o in obs if o[2] != pytest.approx(want, rel=1e-12)]
+        assert not wrong, (
+            f"{persona}: the common factor is not `exp(-λ_p)` = {want!r}; "
+            f"{len(wrong)} of {len(obs)} ratios disagree: {wrong[:5]}"
+        )
     assert sum(len(o) for o in ratios.values()) >= 1800
+
+
+def test_r9d_p1b_line_transform_is_one_multiplication_bitwise():
+    """P-1b (REGRESSION PIN, structural) — the transform ITSELF, checked BITWISE
+    against the single multiplication it claims to perform.
+
+    WHY P-1 ABOVE IS NOT ENOUGH (fan-in review finding, reproduced). P-1 reads
+    the merits through the sampler, so it can only compare ratios of two
+    separately-computed products, and it therefore has to carry a `1e-12`
+    relative tolerance — as do S-3 (`1e-9` raise-share drift) and S-4 (`1e-12`
+    composition). Those tolerances are NOT slack to be tightened away: a CORRECT
+    implementation needs them, because downstream `(R·line_mult)·rscale` and
+    `(R·rscale)·line_mult` differ bitwise ~35% of the time (ledger R-8).
+    A reviewer built an implementation that exploits exactly that gap — CALL
+    scaled by `line_mult`, RAISE by `line_mult * (1 + 5e-13)`, with the
+    perturbation skipped at `line_mult == 1.0` so default-off byte-identity
+    still holds — and it passed all 27 gates while breaking the mechanism's core
+    promise (ONE common factor ⇒ the raise share is invariant).
+
+    This gate closes that without touching a tolerance, by calling the
+    production helper directly: each defend entry must be BITWISE its OWN input
+    times the SAME `line_mult`, computed here as literally `m * line_mult`. That
+    is exact WITHOUT fighting IEEE, because it compares one multiplication
+    against itself rather than two differently-associated products. `1 + 5e-13`
+    is ~2000 ulps at double precision, so the mutant misses by a mile.
+
+    The two gates do different jobs and both are required: P-1 proves the
+    SAMPLER applies a common per-action factor end to end; this proves the
+    factor is one unperturbed multiply. The wiring block at the end is what
+    keeps them joined — without it, moving the transform back inline would take
+    this check off the production path while leaving it green."""
+    line_scaled = personas_postflop._line_scaled
+    # Awkward mantissas on purpose: a 5e-13 relative perturbation must land in
+    # the bits, and values like 1.0 or 0.5 are the ones most likely to absorb a
+    # rounding coincidence.
+    merits = [
+        (ActionType.FOLD, 0.8377192043795371),
+        (ActionType.CALL, 1.9241503276618904),
+        (ActionType.RAISE, 0.31624903175628193),
+    ]
+    factors = [math.exp(-_R9D_SHIFT_PER_UNIT * s) for s in _R9D_SENSITIVITY.values()]
+    factors += [1.0, 0.5, 0.9999999999999999, 0.1234567890123456]
+    for line_mult in factors:
+        out = line_scaled(merits, line_mult)
+        assert [a for a, _ in out] == [a for a, _ in merits], line_mult
+        for (a, before), (_, after) in zip(merits, out, strict=True):
+            want = before if a is ActionType.FOLD else before * line_mult
+            assert float(after).hex() == float(want).hex(), (a, line_mult, after, want)
+
+    # WIRING — the sampler really does route its line damp through that helper,
+    # with the pinned factor. Same monkeypatch idiom `_r9d_probe` uses for `sum`.
+    cell = _R9dCell(StrengthBucket.MIDDLE_PAIR, Street.TURN, 1, 0.5, 20.0, True)
+    seen: list[float] = []
+
+    def _spy(entries, line_mult):
+        seen.append(line_mult)
+        return line_scaled(entries, line_mult)
+
+    personas_postflop._line_scaled = _spy
+    try:
+        _r9d_probe(_pack("nit"), cell, True)
+    finally:
+        personas_postflop._line_scaled = line_scaled
+    assert seen == [math.exp(-_R9D_SHIFT_PER_UNIT * _R9D_SENSITIVITY["nit"])]
 
 
 # Out-of-scope templates. `river` entries are dropped where the river resets

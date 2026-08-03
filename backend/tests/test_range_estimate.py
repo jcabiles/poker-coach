@@ -40,6 +40,7 @@ from app.domain.table.play import (
     assign_lineup,
     bot_decision,
 )
+from app.domain.table.postflop_context import aggressor_barrel_run
 from app.domain.table.range_estimate import (
     PublicAction,
     PublicActionHistory,
@@ -47,7 +48,7 @@ from app.domain.table.range_estimate import (
     _replay_contexts,
     estimate_range,
 )
-from app.domain.table.sizing import pot_before_current_aggression
+from app.domain.table.sizing import last_aggressor_position, pot_before_current_aggression
 
 _DECK = [r + s for r in RANKS for s in SUITS]
 _STACKS = (100.0,) * 9
@@ -1029,6 +1030,91 @@ def test_estimator_barrel_flag_matches_shipped_derivation_under_discriminators()
     ctx4 = _replay_contexts(flop_cbet, seat=3, n=len(flop_cbet.actions))[-1]
     assert ctx4.street is Street.FLOP
     assert ctx4.aggressor_bet_prev_street is False
+
+
+def test_estimator_barrel_flag_matches_production_over_organic_play():
+    """S-6 companion (fan-in finding B) — the barrel flag, node-for-node against
+    the LIVE derivation over organic playouts, not over hand-built fixtures.
+
+    WHY THE FOUR SCRIPTED DISCRIMINATORS ABOVE ARE NOT ENOUGH. In all four, the
+    target seat acts IMMEDIATELY after the street's bettor, so nothing ever
+    intervenes between the aggression and the decision. A whole bug class hides
+    in that gap: `street_aggressor` being overwritten by a NON-aggressive action.
+    Measured — adding `street_aggressor = a.position` to the CALL branch of
+    `_replay_contexts` passes the entire suite, including all four cases above,
+    while being wrong on a multiway street where seat 4 bets, seat 5 CALLS, and
+    seat 3 then acts. Fixtures are blind to it because a fixture only contains
+    the shapes its author thought of; organic play contains the ones nobody did.
+
+    Ground truth is `play.bot_decision`'s own two lines, copied here for the
+    same reason `_true_ctx` copies its fields — the derivation is inline in
+    `bot_decision`, not extracted, so parity has to be re-stated to be checked.
+
+    THE FLOORS ARE ANTI-VACUITY, and every one is a MEASURED count with
+    headroom, not a fitted number (96 hands, seed 20260712): 1,528 nodes
+    compared, 49 of them flag TRUE, 187 with an intervening caller. An
+    estimator that always returns `False` dies on the second floor; the
+    overwrite bug dies on node-for-node equality at the third shape (measured 5
+    mismatches under that mutant, and 0 at the tip)."""
+    rng = random.Random(20260712)
+    packs_ = load_persona_packs()
+    truth: list[tuple] = []  # (hand index, seat, flags in decision order)
+    hists = []
+    flagged = intervening = 0
+    for trial in range(96):
+        personas = assign_lineup(rng)
+        seat_packs = {s: packs_[personas.get(s, VillainType.TAG)] for s in range(9)}
+        dealt = deal_hand(random.Random(rng.randrange(1_000_000_000)))
+        state = start_hand(dealt, button_seat=trial % 9, stacks_bb=[100.0] * 9)
+        per: dict[int, list[bool]] = {s: [] for s in range(9)}
+        guard = 0
+        while not state.hand_over and state.to_act_seat is not None:
+            guard += 1
+            assert guard < 500
+            seat = state.to_act_seat
+            # …exactly play.bot_decision's derivation.
+            this_street = [h for h in state.action_history if h.street is state.street]
+            street_aggressor = last_aggressor_position(this_street)
+            flag = street_aggressor is not None and (
+                aggressor_barrel_run(state.action_history, state.street, street_aggressor) >= 1
+            )
+            per[seat].append(flag)
+            flagged += flag
+            if street_aggressor is not None:
+                last = max(
+                    i
+                    for i, h in enumerate(this_street)
+                    if h.action in (ActionType.BET, ActionType.RAISE)
+                )
+                # the shape the scripted fixtures never produce: a non-aggressive
+                # action standing between the wager and this decision.
+                intervening += any(h.action is ActionType.CALL for h in this_street[last + 1 :])
+            state = apply(state, bot_decision(state, seat, seat_packs[seat], rng))
+        truth.append(per)
+        hists.append(_project(state))
+
+    compared = 0
+    mismatches = []
+    for hand, (per, hist) in enumerate(zip(truth, hists, strict=True)):
+        for seat in range(9):
+            ctxs = _replay_contexts(hist, seat, len(hist.actions))
+            for ctx, live in zip(ctxs, per[seat], strict=True):
+                compared += 1
+                if ctx.aggressor_bet_prev_street != live:
+                    mismatches.append((hand, seat, ctx.street, ctx.position, live))
+    assert not mismatches, (
+        f"the replayed barrel flag disagrees with the live derivation at "
+        f"{len(mismatches)} of {compared} organic nodes: {mismatches[:5]}"
+    )
+    assert compared >= 1000, compared  # measured 1528
+    assert flagged >= 20, (
+        f"only {flagged} of {compared} organic nodes carry the flag — an estimator "
+        f"that always returns False would pass this comparison vacuously"
+    )
+    assert intervening >= 100, (
+        f"only {intervening} nodes have an action standing between the street's "
+        f"wager and the decision — that is the shape this gate exists for"
+    )
 
 
 # =====================================================================

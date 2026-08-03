@@ -228,11 +228,11 @@ class PersonaPostflop(BaseModel):
     # Bounded to [0, 1] so the symmetric OOP multiplier 1 − 0.25·s stays strictly
     # positive — a larger s would drive it <= 0 and silently zero every OOP bet.
     position_sensitivity: float | None = Field(default=None, ge=0.0, le=1.0)
-    # R9-DEFENCE-a T1: how strongly this persona folds to a hostile LINE
+    # R9-DEFENCE-a: how strongly this persona folds to a hostile LINE
     # (repeated aggression across streets), not just the current bet's size.
-    # A later ticket scales the CALL and RAISE merits at a facing-chips node
-    # by `exp(-λ·line)` where `λ = _LINE_DELTA · line_sensitivity` — this
-    # ticket only authors the dial, nothing reads it yet. Absence = line-blind
+    # `personas_postflop._line_scaled` scales the CALL and RAISE merits at an
+    # in-scope facing-chips node by `exp(-λ·line)`, where
+    # `λ = _LINE_DELTA · line_sensitivity`. Absence = line-blind
     # and byte-identical; all six shipped packs opt in, so the un-opted path
     # is for third-party packs, not for a roster archetype. A LOW seed is an
     # archetype, NOT a leak: calling_station's 0.10 IS the line-blind
