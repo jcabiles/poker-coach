@@ -15,6 +15,7 @@ Frozen interface + behavior rules: docs/ai-dlc/specs/simulate-s4.md.
 from __future__ import annotations
 
 import itertools
+import math
 import random
 from enum import StrEnum
 
@@ -713,6 +714,99 @@ def _position_agg_mult(pf: PersonaPostflop, context: PostflopContext | None) -> 
     return 1.0 + _POSITION_AGG_DELTA * s if context.in_position else 1.0 - _POSITION_AGG_DELTA * s
 
 
+# R9-DEFENCE-a: the opponent-LINE damp. `λ_p = _LINE_DELTA · pf.line_sensitivity`
+# is the log-odds shift applied to the continue-vs-fold split at a facing node
+# whose aggressor also bet/raised the previous postflop street.
+#
+# _LINE_DELTA is PINNED at 1.0 as a NORMALISATION, deliberately NOT derived from
+# (or "mirrored on") `_POSITION_AGG_DELTA` or any other constant (ledger R-1).
+# `λ_p` is a single product, so the 1.0/lever split is a choice of units: it makes
+# `line_sensitivity` READ AS λ directly, which is what lets a pack author reason
+# about the authored number in odds space.
+#
+# Honest status of the supporting numbers (theory review, ledger R-30): they are
+# IMPLEMENTATION checks, NOT evidence about the constant. At 1.0 the reference
+# node (nit / MIDDLE_PAIR / turn / HU / SPR 20 / faced 0.5-pot) reproduces the
+# design pass's ΔP(fold) = +0.1312 — a prediction published BEFORE the build, so
+# reproducing it proves the code matches arithmetic that already assumed 1.0. The
+# `le=2.0` bound being a ">= 7x continue-odds cut" only at 1.0 is a consistency
+# relation between two authored numbers. Neither is independent of the value; an
+# earlier draft of this comment called them "two independent checks" and that was
+# wrong.
+#
+# What IS load-bearing: rev 1 of the spec left the value unstated and a `1e-12`
+# no-op passed 11 of its 12 acceptance criteria. A magnitude nobody pins is a
+# magnitude that can silently be zero.
+_LINE_DELTA = 1.0
+
+# Runtime safety range for `line_sensitivity`, mirroring the model's
+# `Field(ge=0.0, le=2.0)` for the same reason `_CONTINUE_REF_MIN/MAX` mirror
+# theirs: `model_copy(update=...)` bypasses validation and the suite builds
+# postflop blocks that way routinely. NaN fails both comparisons and lands in
+# the same branch as an out-of-range lever.
+_LINE_SENSITIVITY_MIN = 0.0
+_LINE_SENSITIVITY_MAX = 2.0
+
+# The scope of the line damp: BUCKET and DRAW are INDEPENDENT axes, so the
+# predicate is the explicit product `bucket in _LINE_SCOPE_BUCKETS and draw is
+# DrawCategory.NONE` — middle pair WITH a flush draw is out (ledger R-6).
+# Excluded and why: MONSTER (`_FOLD_BASE` = 0.0 ⇒ P(fold) = 0 everywhere, a
+# documented no-op); TWO_PAIR_PLUS (P(fold) 0.007-0.036 roster-wide — no room,
+# and two pair does not fold to a barrel); OVERPAIR_TPTK (the bucket BUNDLES
+# true overpairs, which must never fold to a barrel, with TPTK — pre-registered
+# behind W3R-7's bucket split); any draw — see below, the reason is NOT the one
+# an earlier draft of this comment gave.
+#
+# WHY DRAWS ARE OUT (corrected by theory review, ledger R-26). An earlier draft
+# said "its continue is already priced by equity + the T1 threshold, and that
+# machinery already moves with street". Both limbs are FALSE for the CALL leg:
+# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` consults no
+# equity and no street — `_DRAW_CALL_BONUS` is a flat lookup — and the cited
+# street-decay machinery (`_STREET_WEAK_DRAW_MULT`, `_DRAW_RAISE_BONUS`) is
+# AGGRESSION-side only. Measured: a naked gutshot's P(call) facing a half-pot bet
+# goes UP flop -> turn (nit 0.3556 -> 0.3696), not down.
+# The exclusion still stands, for the honest reason: `_DRAW_CALL_BONUS[WEAK]` is
+# the un-equity-gated F7 defect, and stacking an un-jointly-calibrated line factor
+# on an already-inflated call merit compounds it (the W3R-5 mistake). STRONG draws
+# are out pending joint calibration. KNOWN CONSEQUENCE, disclosed rather than
+# discovered: a nit facing a second barrel now continues MORE with a naked 4-out
+# gutshot (0.4224) than with ace-high (0.3932), where it was 0.4224 vs 0.5415
+# before. Directionally a gutshot does gain against a narrowed range; what is
+# unrealistic is that its response to the line is exactly ZERO. v2 must depend on
+# F7's separate equity gate landing first.
+_LINE_SCOPE_BUCKETS = frozenset(
+    {
+        StrengthBucket.MIDDLE_PAIR,
+        StrengthBucket.TOP_PAIR,
+        StrengthBucket.ACE_HIGH,
+        StrengthBucket.AIR,
+    }
+)
+
+
+def _line_scaled(
+    entries: list[tuple[ActionType, float]], line_mult: float
+) -> list[tuple[ActionType, float]]:
+    """The line damp's transform: multiply CALL and RAISE by `line_mult`, leave
+    every other entry (in scope: FOLD) exactly as handed in.
+
+    Extracted so the ONE common factor is inspectable — like `_commit_transform`,
+    which exists for the same reason. A gate can hand this known merits and
+    assert BITWISE (`float.hex()`) that each defend entry is its own input times
+    the SAME `line_mult`, which is exact without fighting IEEE because it
+    compares one multiplication against itself. Behaviourally that is what P-1
+    checks through the sampler, but only to a relative `1e-12` — it must, since
+    downstream `(R·line_mult)·rscale` vs `(R·rscale)·line_mult` differ bitwise
+    ~35% of the time (ledger R-8). A transform applying a per-action factor that
+    differs by less than that tolerance passes every output-space gate in the
+    harness; nothing but a direct bitwise check on this function excludes it.
+    """
+    return [
+        (a, m * line_mult) if a in (ActionType.CALL, ActionType.RAISE) else (a, m)
+        for a, m in entries
+    ]
+
+
 def sample_postflop_decision(
     pack: PersonaPack,
     hole: tuple[Card, Card],
@@ -753,10 +847,12 @@ def sample_postflop_decision(
     R9-SIGNAL: `aggressor_bet_prev_street` (the `>= 1` threshold of
     `table.postflop_context.aggressor_barrel_run`) is the opponent-LINE signal —
     did the seat whose wager I face also bet/raise the previous POSTFLOP street?
-    It is accepted and READ BY NOBODY this slice: no branch consults it, it is
-    stored nowhere, and every call is byte-identical with it True or False. The
-    consumer is R9-DEFENCE. Also a FLAT kwarg for `facing_raise`'s reason (the
-    estimator must opt into this signal alone), never a `PostflopContext` field.
+    R9-DEFENCE-a consumes it: see the line-damp block below, which scales the
+    CALL and RAISE merits at an in-scope facing node by `exp(-λ_p)`. A pack that
+    does not author `line_sensitivity` is byte-identical with it True or False,
+    and so is every caller leaving it at the default `False`. Also a FLAT kwarg
+    for `facing_raise`'s reason (the estimator must opt into this signal alone),
+    never a `PostflopContext` field.
 
     Facing state is derived from the `legal` shapes (unopened: CHECK+BET;
     matched-with-option: CHECK+RAISE; facing chips: FOLD+CALL[+RAISE]).
@@ -1005,6 +1101,88 @@ def sample_postflop_decision(
                 damped.append((a, m))
             entries = damped
 
+    # R9-DEFENCE-a: the opponent-LINE damp. A bot facing a wager from a seat that
+    # also bet/raised the PREVIOUS postflop street (`aggressor_bet_prev_street`,
+    # derived by `table.postflop_context.aggressor_barrel_run >= 1`) continues
+    # less often; the freed mass goes to FOLD.
+    #
+    #     line_mult = exp(-λ_p)      λ_p = _LINE_DELTA · pf.line_sensitivity
+    #     C' = C · line_mult ;  R' = R · line_mult ;  F untouched
+    #
+    # Scaling BOTH defend merits by ONE factor is exactly a shift of the
+    # continue-vs-fold LOG-ODDS by λ_p, and it leaves the conditional raise share
+    # exactly invariant:
+    #     P'(raise | continue) = R·s / (C·s + R·s) = R / (C + R)
+    # A `call_merit`-only multiplier would NOT have that property — that is the
+    # N-LOGIT misroute, which sends freed call mass to RAISE.
+    #
+    # WHY C/R AND NEVER FOLD, given that a fold-side form would behave the same.
+    # A `fold_merit`-only implementation is *projectively identical* to this one:
+    #     normalize(F, C·s, R·t·s) == normalize(F/s, C, R·t)
+    # so NO output-space test can distinguish the two forms (both spec reviewers
+    # measured this to bit equality; rev 1 claimed a fold-side form could not pass
+    # the raise-neutrality gate and that claim was FALSE — ledger R-2). The
+    # C/R-only form is prescribed for AUDITABILITY, not for behaviour: the fold
+    # merit stays an untouched input, which keeps the A1 no-fold-floor guardrail
+    # (no code path asserts fold >= anything derived from α/MDF) inspectable at a
+    # glance. Because the choice is invisible downstream, it is pinned
+    # STRUCTURALLY on the raw merits here, never behaviourally.
+    #
+    # THE FOLD GATE IS PART OF THE MECHANISM, not a shortcut. This region sits at
+    # FUNCTION-BODY indentation — the common path shared with unopened
+    # (CHECK+BET) and matched-with-option (CHECK+RAISE) nodes — which is why
+    # N-LOGIT below re-guards with its own `ActionType.FOLD in by_kind`. Without
+    # the gate this would scale the RAISE entry on check-raise shapes, where
+    # there is no fold leg for the freed mass to reach (ledger R-7).
+    #
+    # SCOPE — see `_LINE_SCOPE_BUCKETS`. One consequence is worth stating because
+    # rev 1 got it backwards (ledger R-6): for EVERY in-scope bucket,
+    # `made = _RUNG[bucket] >= _RUNG[OVERPAIR_TPTK]` is False (in-scope rungs are
+    # 0-3, the threshold is 4) and `drawing` is False, so `value_commit` above is
+    # ALWAYS False on an in-scope cell. `_commit_transform` and the B5b draw damp
+    # therefore can NEVER co-occur with this mechanism. It is scoped AWAY from
+    # SPR-committed nodes — not inert on them, which is a different (and untested,
+    # because untestable) claim.
+    #
+    # ORDER — coded BEFORE the N-LOGIT raise scale below, and the order does not
+    # matter: both are scalar multiplies on entries ahead of the single
+    # normalization, so the final vector is (F, C·line_mult, R·rscale·line_mult)
+    # either way and `line_mult` cancels out of P(raise | continue). N-LOGIT's
+    # orthogonality survives this damp and this damp's raise-neutrality survives
+    # N-LOGIT.
+    #
+    # No street term lives here on purpose: `line = 0` on the flop is a property
+    # of the SIGNAL's derivation (its run loop over preceding postflop streets is
+    # empty on the flop), and adding a street check inside the sampler would
+    # reintroduce the `street -> scalar` term the roadmap forbids (ledger R-11 /
+    # R-15). The flat kwarg stays honest; the guarantee lives with the derivation.
+    #
+    # The range guard is not dead code, for `continue_ref`'s reason: validation
+    # cannot protect λ because `model_copy(update=...)` bypasses it and the suite
+    # uses that idiom routinely. Like that guard it is checked BEFORE the
+    # facing-node test, so a corrupted lever fails at the persona's first decision
+    # rather than at its first facing node.
+    #
+    # Adds no rng call: the ACTION draw stays the first `rng.choices` consumer
+    # (the capture rngs in range_estimate and the tests key on that ordering).
+    # Lever absent, or line = 0, and `entries` is not rebuilt at all — the
+    # un-opted path is byte-identical, not merely equal.
+    sens = pf.line_sensitivity
+    if sens is not None:
+        if not _LINE_SENSITIVITY_MIN <= sens <= _LINE_SENSITIVITY_MAX:
+            raise ValueError(
+                f"persona pack {pack.id!r} has line_sensitivity={sens!r}, outside "
+                f"the safe range [{_LINE_SENSITIVITY_MIN}, {_LINE_SENSITIVITY_MAX}]"
+            )
+        if (
+            aggressor_bet_prev_street
+            and ActionType.FOLD in by_kind
+            and bucket in _LINE_SCOPE_BUCKETS
+            and draw is DrawCategory.NONE
+        ):
+            line_mult = math.exp(-_LINE_DELTA * sens)
+            entries = _line_scaled(entries, line_mult)
+
     # N-LOGIT: nested-logit routing on the facing node.
     #
     # `looseness` multiplies the CALL merit only (:873), so mass taken off CALL
@@ -1038,7 +1216,9 @@ def sample_postflop_decision(
     # TWO REACH CHANGES, both disclosed (build review, ledger B-9 / B-10) and
     # both gated so they cannot move silently. They are mirror images:
     #  - GAINED reach, river polar-bluff cell: `call_merit` is hard-zeroed there
-    #    (:884-885), so RAISE is the only continue and the lever now moves the
+    #    (the `if bluff_cell and street is Street.RIVER` branch above — named,
+    #    not line-numbered, because the anchor that used to sit here went stale
+    #    twice in one slice), so RAISE is the only continue and the lever moves the
     #    bluff-raise rate, which at HEAD it could not. Largest on ACE_HIGH at a
     #    small faced price (lag: P(raise) 0.104 / 0.318 / 0.651 over ×0.25/×1/×4
     #    against a flat HEAD 0.318). G4 pins it.

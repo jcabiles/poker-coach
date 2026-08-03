@@ -180,8 +180,9 @@ def aggressor_barrel_run(
       report's pin 2 and `test_barrel_run_is_consecutive_not_cumulative` both
       encode the 0.
 
-    Derivation only this slice — `sample_postflop_decision` takes the `>= 1`
-    boolean as a dead kwarg and no branch reads it; the consumer is R9-DEFENCE.
+    The consumer is R9-DEFENCE-a: `sample_postflop_decision` takes the `>= 1`
+    boolean and its line damp scales the CALL and RAISE merits by `exp(-λ_p)` at
+    an in-scope facing node (`personas_postflop._line_scaled`).
     Same shape as `street_aggression_count` -> `facing_raise` above: one
     derivation, one taxonomy, and a richer `g(run)` costs nothing later.
     """

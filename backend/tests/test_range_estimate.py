@@ -40,6 +40,7 @@ from app.domain.table.play import (
     assign_lineup,
     bot_decision,
 )
+from app.domain.table.postflop_context import aggressor_barrel_run
 from app.domain.table.range_estimate import (
     PublicAction,
     PublicActionHistory,
@@ -47,7 +48,7 @@ from app.domain.table.range_estimate import (
     _replay_contexts,
     estimate_range,
 )
-from app.domain.table.sizing import pot_before_current_aggression
+from app.domain.table.sizing import last_aggressor_position, pot_before_current_aggression
 
 _DECK = [r + s for r in RANKS for s in SUITS]
 _STACKS = (100.0,) * 9
@@ -544,6 +545,7 @@ def test_estimator_river_dist_equals_live_polarized_policy(packs):
             current_bet_to=ctx.current_bet_to,
             street=Street.RIVER,
             latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
+            aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
         )
         assert estimator == live.dist, hole
         streetless = _CaptureFirstChoices()
@@ -833,17 +835,24 @@ def test_river_depth_estimate_under_150ms(packs):
 # ------------------------------------------------ R9-SIGNAL estimator parity
 
 
-def test_estimator_unchanged_by_the_barrel_run_signal(packs):
-    """R9-SIGNAL estimator parity: the opponent-LINE signal is derived, plumbed
-    and READ BY NOBODY, so the villain-range reveal cannot have moved.
+def test_estimator_barrel_run_signal_is_wired_and_moves_the_reveal(packs):
+    """R9-DEFENCE-a / S-6 estimator parity (a)+(b): the opponent-LINE signal is
+    now READ by the live policy, so the villain-range reveal must have moved.
 
-    On a replayed TURN node where the aggressor really did barrel (bet the flop,
-    bet the turn) the derivation says `run == 1` — and the estimator's recovered
-    distribution equals the live sampler with `aggressor_bet_prev_street` BOTH
-    True and False. Equality on the True leg is the dead-kwarg proof (contrast
+    Was `test_estimator_unchanged_by_the_barrel_run_signal`, pre-registered
+    under R9-SIGNAL (the signal derived, plumbed, and read by nobody) to assert
+    the estimator equalled the live sampler with `aggressor_bet_prev_street`
+    BOTH True and False — satisfiable only while the kwarg was dead. Its own
+    docstring named this the RED-FIRST failure that would prove the mechanic
+    wired once R9-DEFENCE-a landed a consumer. It has now turned: on a replayed
+    TURN node where the aggressor really did barrel (bet the flop, bet the
+    turn — the derivation says `run == 1`, satisfying S-6's "fixture node with
+    `aggressor_barrel_run(...) >= 1`"), the estimator's recovered distribution
+    equals the live sampler with the flag True, and now DIFFERS from the live
+    sampler with the flag False — the reveal is sensitive to the signal, which
+    is exactly S-6's "differs from the line-blind one" (contrast
     `test_estimator_facing_raise_parity_with_live_sampler`, where the live
-    signal makes the two legs differ); when R9-DEFENCE lands its consumer, this
-    leg is the RED-FIRST failure that proves the mechanic is wired.
+    W3R-6 signal already made the two legs differ before this slice).
     """
     from app.domain.table.postflop_context import aggressor_barrel_run
 
@@ -871,6 +880,7 @@ def test_estimator_unchanged_by_the_barrel_run_signal(packs):
 
     for hole in (("9c", "4d"), ("7s", "5s")):
         estimator = _postflop_action_dist(tag, hole, ctx)
+        dists = {}
         for flag in (False, True):
             live = _CaptureFirstChoices()
             sample_postflop_decision(
@@ -880,7 +890,231 @@ def test_estimator_unchanged_by_the_barrel_run_signal(packs):
                 latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
                 facing_raise=ctx.facing_raise, aggressor_bet_prev_street=flag,
             )
-            assert estimator == live.dist, (hole, flag)
+            dists[flag] = live.dist
+        # the replay derived the flag True at this node (asserted above via
+        # aggressor_barrel_run == 1), so the estimator must match the live
+        # sampler's True leg...
+        assert estimator == dists[True], hole
+        # ...and DIFFER from the False (line-blind) leg — S-6's sensitivity
+        # half. Without this half an estimator that always passes `False`
+        # would still pass the True-leg assertion at a line-BLIND node, and
+        # nothing here would prove the reveal is actually sensitive to line.
+        assert estimator != dists[False], hole
+
+
+def test_estimator_barrel_flag_matches_shipped_derivation_under_discriminators():
+    """S-6 estimator parity discriminators (spec §7 S-6, ledger R-9): the
+    replay-derived `_Ctx.aggressor_bet_prev_street` flag must equal the shipped
+    derivation (`aggressor_barrel_run`) node-for-node under four cases picked
+    to kill two specific wrong implementations:
+
+    - an estimator that always passes `False` (killed by case 1: `True`)
+    - an estimator reading "ANY aggression on the previous street" instead of
+      the SAME SEAT's (killed by case 2: it passes heads-up-shaped case 1 but
+      is wrong here, where a DIFFERENT seat bet the previous street multiway)
+
+    Cases 1 and 2 share the same board and the same multiway (3-handed) shape,
+    turn bet made by seat 4 in both — the ONLY difference is who bet the flop
+    (also seat 4 in case 1, seat 5 in case 2) — so the discriminator isolates
+    the SAME-SEAT requirement, not some other confound.
+    """
+    from app.domain.table.postflop_context import aggressor_barrel_run
+
+    board = ["Kh", "7d", "2c", "9s", "3h"]
+
+    # Case 1 — same-seat consecutive barrel, multiway: seat 4 bets flop AND
+    # turn; seat 3 faces the turn bet. Also satisfies S-6 (a): a fixture node
+    # with aggressor_barrel_run(...) >= 1.
+    same_seat = _hand_history(
+        0,
+        [
+            (3, Street.PREFLOP, ActionType.RAISE, 3.0),
+            (4, Street.PREFLOP, ActionType.CALL, 3.0),
+            (5, Street.PREFLOP, ActionType.CALL, 3.0),
+            (1, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (2, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (4, Street.FLOP, ActionType.BET, 4.0),
+            (5, Street.FLOP, ActionType.CALL, 4.0),
+            (3, Street.FLOP, ActionType.CALL, 4.0),
+            (4, Street.TURN, ActionType.BET, 8.0),
+            (3, Street.TURN, ActionType.CALL, 8.0),
+        ],
+        board=board[:4],
+    )
+    ctx1 = _replay_contexts(same_seat, seat=3, n=len(same_seat.actions))[-1]
+    assert ctx1.street is Street.TURN
+    seat4_pos = next(
+        a.position
+        for a in same_seat.actions
+        if a.street is Street.FLOP and a.action is ActionType.BET
+    )
+    assert (
+        aggressor_barrel_run(same_seat.actions[:-1], Street.TURN, seat4_pos) >= 1
+    ), "fixture must satisfy S-6(a): a node with aggressor_barrel_run(...) >= 1"
+    assert ctx1.aggressor_bet_prev_street is True
+
+    # Case 2 — DIFFERENT seat bet the previous street, multiway: seat 5 (a
+    # flop CALLER, not the flop bettor) bets the turn; seat 3 faces IT
+    # instead. The naive "any aggression last street" reading sees a bet on
+    # the flop (by seat 4) and a bet on the turn and would say True — wrong,
+    # because the turn's own aggressor (seat 5) did not bet the flop.
+    diff_seat = _hand_history(
+        0,
+        [
+            (3, Street.PREFLOP, ActionType.RAISE, 3.0),
+            (4, Street.PREFLOP, ActionType.CALL, 3.0),
+            (5, Street.PREFLOP, ActionType.CALL, 3.0),
+            (1, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (2, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (4, Street.FLOP, ActionType.BET, 4.0),
+            (5, Street.FLOP, ActionType.CALL, 4.0),
+            (3, Street.FLOP, ActionType.CALL, 4.0),
+            (5, Street.TURN, ActionType.BET, 8.0),
+            (3, Street.TURN, ActionType.CALL, 8.0),
+        ],
+        board=board[:4],
+    )
+    ctx2 = _replay_contexts(diff_seat, seat=3, n=len(diff_seat.actions))[-1]
+    assert ctx2.street is Street.TURN
+    seat5_pos = next(
+        a.position
+        for a in diff_seat.actions
+        if a.street is Street.TURN and a.action is ActionType.BET
+    )
+    assert aggressor_barrel_run(diff_seat.actions[:-1], Street.TURN, seat5_pos) == 0
+    assert ctx2.aggressor_bet_prev_street is False
+
+    # Case 3 — broken consecutive line: bet flop, CHECK turn, bet river. The
+    # river's own bet is the wager being faced, never part of its own run;
+    # the intervening check breaks it.
+    broken = _hand_history(
+        0,
+        [
+            (4, Street.PREFLOP, ActionType.RAISE, 3.0),
+            (3, Street.PREFLOP, ActionType.CALL, 3.0),
+            (1, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (2, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (4, Street.FLOP, ActionType.BET, 4.0),
+            (3, Street.FLOP, ActionType.CALL, 4.0),
+            (4, Street.TURN, ActionType.CHECK, 0.0),
+            (3, Street.TURN, ActionType.CHECK, 0.0),
+            (4, Street.RIVER, ActionType.BET, 9.0),
+            (3, Street.RIVER, ActionType.CALL, 9.0),
+        ],
+        board=board,
+    )
+    ctx3 = _replay_contexts(broken, seat=3, n=len(broken.actions))[-1]
+    assert ctx3.street is Street.RIVER
+    seat4_river_pos = next(
+        a.position
+        for a in broken.actions
+        if a.street is Street.RIVER and a.action is ActionType.BET
+    )
+    assert aggressor_barrel_run(broken.actions[:-1], Street.RIVER, seat4_river_pos) == 0
+    assert ctx3.aggressor_bet_prev_street is False
+
+    # Case 4 — flop node: the derivation is postflop-only, 0 by construction —
+    # a preflop raise never counts as a barrel.
+    flop_cbet = _hand_history(
+        0,
+        [
+            (4, Street.PREFLOP, ActionType.RAISE, 3.0),
+            (3, Street.PREFLOP, ActionType.CALL, 3.0),
+            (1, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (2, Street.PREFLOP, ActionType.FOLD, 0.0),
+            (4, Street.FLOP, ActionType.BET, 4.0),
+            (3, Street.FLOP, ActionType.CALL, 4.0),
+        ],
+        board=board[:3],
+    )
+    ctx4 = _replay_contexts(flop_cbet, seat=3, n=len(flop_cbet.actions))[-1]
+    assert ctx4.street is Street.FLOP
+    assert ctx4.aggressor_bet_prev_street is False
+
+
+def test_estimator_barrel_flag_matches_production_over_organic_play():
+    """S-6 companion (fan-in finding B) — the barrel flag, node-for-node against
+    the LIVE derivation over organic playouts, not over hand-built fixtures.
+
+    WHY THE FOUR SCRIPTED DISCRIMINATORS ABOVE ARE NOT ENOUGH. In all four, the
+    target seat acts IMMEDIATELY after the street's bettor, so nothing ever
+    intervenes between the aggression and the decision. A whole bug class hides
+    in that gap: `street_aggressor` being overwritten by a NON-aggressive action.
+    Measured — adding `street_aggressor = a.position` to the CALL branch of
+    `_replay_contexts` passes the entire suite, including all four cases above,
+    while being wrong on a multiway street where seat 4 bets, seat 5 CALLS, and
+    seat 3 then acts. Fixtures are blind to it because a fixture only contains
+    the shapes its author thought of; organic play contains the ones nobody did.
+
+    Ground truth is `play.bot_decision`'s own two lines, copied here for the
+    same reason `_true_ctx` copies its fields — the derivation is inline in
+    `bot_decision`, not extracted, so parity has to be re-stated to be checked.
+
+    THE FLOORS ARE ANTI-VACUITY, and every one is a MEASURED count with
+    headroom, not a fitted number (96 hands, seed 20260712): 1,528 nodes
+    compared, 49 of them flag TRUE, 187 with an intervening caller. An
+    estimator that always returns `False` dies on the second floor; the
+    overwrite bug dies on node-for-node equality at the third shape (measured 5
+    mismatches under that mutant, and 0 at the tip)."""
+    rng = random.Random(20260712)
+    packs_ = load_persona_packs()
+    truth: list[tuple] = []  # (hand index, seat, flags in decision order)
+    hists = []
+    flagged = intervening = 0
+    for trial in range(96):
+        personas = assign_lineup(rng)
+        seat_packs = {s: packs_[personas.get(s, VillainType.TAG)] for s in range(9)}
+        dealt = deal_hand(random.Random(rng.randrange(1_000_000_000)))
+        state = start_hand(dealt, button_seat=trial % 9, stacks_bb=[100.0] * 9)
+        per: dict[int, list[bool]] = {s: [] for s in range(9)}
+        guard = 0
+        while not state.hand_over and state.to_act_seat is not None:
+            guard += 1
+            assert guard < 500
+            seat = state.to_act_seat
+            # …exactly play.bot_decision's derivation.
+            this_street = [h for h in state.action_history if h.street is state.street]
+            street_aggressor = last_aggressor_position(this_street)
+            flag = street_aggressor is not None and (
+                aggressor_barrel_run(state.action_history, state.street, street_aggressor) >= 1
+            )
+            per[seat].append(flag)
+            flagged += flag
+            if street_aggressor is not None:
+                last = max(
+                    i
+                    for i, h in enumerate(this_street)
+                    if h.action in (ActionType.BET, ActionType.RAISE)
+                )
+                # the shape the scripted fixtures never produce: a non-aggressive
+                # action standing between the wager and this decision.
+                intervening += any(h.action is ActionType.CALL for h in this_street[last + 1 :])
+            state = apply(state, bot_decision(state, seat, seat_packs[seat], rng))
+        truth.append(per)
+        hists.append(_project(state))
+
+    compared = 0
+    mismatches = []
+    for hand, (per, hist) in enumerate(zip(truth, hists, strict=True)):
+        for seat in range(9):
+            ctxs = _replay_contexts(hist, seat, len(hist.actions))
+            for ctx, live in zip(ctxs, per[seat], strict=True):
+                compared += 1
+                if ctx.aggressor_bet_prev_street != live:
+                    mismatches.append((hand, seat, ctx.street, ctx.position, live))
+    assert not mismatches, (
+        f"the replayed barrel flag disagrees with the live derivation at "
+        f"{len(mismatches)} of {compared} organic nodes: {mismatches[:5]}"
+    )
+    assert compared >= 1000, compared  # measured 1528
+    assert flagged >= 20, (
+        f"only {flagged} of {compared} organic nodes carry the flag — an estimator "
+        f"that always returns False would pass this comparison vacuously"
+    )
+    assert intervening >= 100, (
+        f"only {intervening} nodes have an action standing between the street's "
+        f"wager and the decision — that is the shape this gate exists for"
+    )
 
 
 # =====================================================================

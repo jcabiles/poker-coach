@@ -43,6 +43,7 @@ this maker's own re-derivation (documented per-persona below) widens them.
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import math
 import random
@@ -1902,6 +1903,7 @@ _STREET_BY_BOARD_LEN = {3: Street.FLOP, 4: Street.TURN, 5: Street.RIVER}
 # mirror's context kwargs — the SAME helpers `play.bot_decision` uses.
 from app.domain.table.play import _preflop_opener  # noqa: E402
 from app.domain.table.postflop_context import (  # noqa: E402
+    aggressor_barrel_run,
     derive_postflop_context,
     street_aggression_count,
 )
@@ -1914,7 +1916,7 @@ from app.domain.table.sizing import (  # noqa: E402
 def _postflop_decision(
     pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to,
     *, is_aggressor=_OMIT, latest_aggressor_contribution_bb=_OMIT, context=_OMIT,
-    facing_raise=_OMIT, street_aggressions=_OMIT,
+    facing_raise=_OMIT, street_aggressions=_OMIT, aggressor_bet_prev_street=_OMIT,
 ) -> Decision:
     # The context kwargs default to _OMIT so `_play_hand` (the band/stat sim,
     # below) calls this EXACTLY as before -> its WTSD/texture/VPIP stats stay
@@ -1931,6 +1933,14 @@ def _postflop_decision(
     # gate on the count, e.g. `== 1`) without duplicating the >= 2 rule at
     # every call site; it derives `facing_raise` when the caller didn't
     # already supply one.
+    #
+    # R9-DEFENCE-a (T5): `aggressor_bet_prev_street` is the opponent-LINE flag —
+    # the `>= 1` threshold of `table.postflop_context.aggressor_barrel_run` for
+    # the seat whose wager is being faced. It follows the SAME `_OMIT` discipline
+    # as every kwarg above: unless a caller supplies it, the key never reaches
+    # `sample_postflop_decision`, so the population bands and goldens below stay
+    # byte-identical. `_play_hand`'s `line_aware=True` opt-in is the only caller
+    # in the population path, and it is off by default (spec P-7).
     kinds = {la.action for la in legal}
     _kw = {
         "current_bet_to": current_bet_to,
@@ -1946,6 +1956,8 @@ def _postflop_decision(
         _kw["facing_raise"] = facing_raise
     elif street_aggressions is not _OMIT:
         _kw["facing_raise"] = street_aggressions >= 2
+    if aggressor_bet_prev_street is not _OMIT:
+        _kw["aggressor_bet_prev_street"] = aggressor_bet_prev_street
     d = sample_postflop_decision(
         pack,
         hole,
@@ -1988,6 +2000,24 @@ class PostflopDecision(NamedTuple):
     bet_fraction: float | None  # size_bb / pot_bb for a BET/RAISE, else None
 
 
+class LineNode(NamedTuple):
+    """R9-DEFENCE-a (T5): one organically-reached LINE-AWARE node — a seat facing
+    chips from an aggressor that also bet/raised the previous postflop street.
+
+    Recorded as RAW FACTS so the S-5 gate can apply the scope predicate itself:
+    `bucket`/`draw` are exactly what `strength_bucket` returned at the node, and
+    the mechanism is scoped to `bucket ∈ {MIDDLE_PAIR, TOP_PAIR, ACE_HIGH, AIR}`
+    AND `draw is DrawCategory.NONE` (spec §4). Off-scope rows are kept, not
+    dropped, because "how much of the barrel population is even in scope" is
+    itself a thing the report has to be able to say."""
+
+    seat: int
+    street: str
+    bucket: object  # StrengthBucket
+    draw: object  # DrawCategory
+    action: str
+
+
 class HandResult(NamedTuple):
     """`_play_hand` return. `log`/`saw_flop`/`settlement` drive the existing
     (byte-identical) AF/FtC/WTSD path; `decisions`/`preflop_log` feed the new
@@ -2001,6 +2031,15 @@ class HandResult(NamedTuple):
     had_3bet_plus: bool
     decisions: list  # list[PostflopDecision]
     preflop_log: list  # (seat, action) for the APPLIED preflop decision only
+    line_nodes: list  # R9-DEFENCE-a (T5): list[LineNode] — one row per postflop
+    # decision this hand taken at a LINE-AWARE node: the derived
+    # `aggressor_bet_prev_street` was True AND the seat was facing chips (FOLD
+    # legal), i.e. the node class the mechanism can actually fire on. Empty
+    # unless `line_aware` is set. RAW ROWS, not a rate: `_play_hand` records what
+    # happened (seat / street / bucket / draw / action) and the S-5 gate does the
+    # scope classification, so the harness never carries a second copy of the
+    # scope predicate. Purely an observer — it consumes no rng and feeds nothing
+    # but S-5, so every existing band and golden is untouched by its presence.
     preflop_nodes: list  # T-ARR: (seat, position, facing, is_first) for EVERY
     # preflop decision this hand. Deliberately NOT folded into `preflop_log`
     # (whose 2-tuple shape `_preflop_aggressor` / `_hand_cbet_stats` unpack
@@ -2030,7 +2069,15 @@ def _in_position(state, seat: int) -> bool:
     return not any(state.seats[j].status is PlayerStatus.IN for j in order[idx + 1 :])
 
 
-def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_aware=False):
+# R9-DEFENCE-a (T5): `_play_hand`'s line-BLIND control mode — derive and record
+# the barrel node, but do not tell the sampler. See `_play_hand`'s docstring.
+_LINE_OBSERVE = "observe"
+
+
+def _play_hand(
+    rng, hand_seed, button_seat, persona_by_seat, packs, *,
+    context_aware=False, line_aware=False,
+):
     """One full-hand playout; every seat runs its persona's sampler.
 
     Returns (final HandState, Settlement, per-seat postflop action log for
@@ -2046,7 +2093,45 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     does, making the band sampler's postflop decisions match the live,
     context-aware bot -- opt-in only, so a caller must deliberately ask for
     the (currently unbanded) context-aware measurement.
+
+    `line_aware` (default False, R9-DEFENCE-a T5) is the SAME discipline for the
+    opponent-LINE signal, and it is deliberately ORTHOGONAL to `context_aware`.
+    It is TRI-STATE, and the middle state is what makes S-5's decisive gate a
+    NODE-MATCHED comparison rather than two differently-populated samples:
+
+      False               -- derive nothing. The pinned default path: the kwargs
+                             dict is empty, both `_postflop_decision` call sites
+                             below are byte-identical to what they were before
+                             this ticket, and every `BANDS` row and golden stays
+                             frozen (spec P-7: if one of them moves, the
+                             threading leaked into the default path, and that is
+                             a DEFECT, not a re-record).
+      _LINE_OBSERVE       -- derive the flag and RECORD the node, but DO NOT pass
+                             it to the sampler. Play is bit-for-bit the `False`
+                             path (the kwarg never reaches the sampler at all),
+                             so this is a line-BLIND control that nonetheless
+                             knows which nodes were barrel nodes. That is the
+                             only way to ask "what did this persona do at a
+                             barrel node WITHOUT the mechanism?" on the same node
+                             population the treatment arm sees.
+      True                -- derive, record, and thread.
+
+    The derivation is the SHIPPED `aggressor_barrel_run`, used exactly as
+    `play.bot_decision` uses it (`play.py:262-267`), and it reads only
+    `state.action_history` -- it draws NO rng, so even the treated arm's stream
+    displacement is entirely the mechanism's own doing.
     """
+    # The three states are dispatched by a truthy test (`if line_aware:`) and
+    # then an identity test (`is True`), so ANY truthy value that is not `True`
+    # would silently land in observe-mode: the flag derived, the node recorded,
+    # and NOTHING threaded -- a control arm masquerading as the treatment. That
+    # failure is invisible (the run completes, every rise reads 0.0) which is
+    # exactly the class of silent-no-op this slice exists to make impossible.
+    # Reject the input instead of trusting call sites.
+    if line_aware is not False and line_aware is not True and line_aware != _LINE_OBSERVE:
+        raise ValueError(
+            f"line_aware must be False, True or _LINE_OBSERVE; got {line_aware!r}"
+        )
     dealt = deal_hand(random.Random(hand_seed))
     state = start_hand(dealt, button_seat=button_seat, stacks_bb=[100.0] * 9)
     log: list[tuple[int, str, str]] = []
@@ -2057,6 +2142,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
     saw_flop: set[int] = set()
     had_limper = False
     had_3bet_plus = False
+    line_nodes: list[LineNode] = []
     guard = 0
     while not state.hand_over:
         guard += 1
@@ -2115,6 +2201,33 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         else:
             pot_bb = sum(s.invested_total_bb for s in state.seats)
             opponents = _live_opponents(state, seat)
+            # R9-DEFENCE-a (T5): the opponent-LINE kwarg, assembled as a dict so
+            # that OFF it is `{}` and BOTH `_postflop_decision` calls below are
+            # character-for-character the calls they were before this ticket.
+            # The derivation is `play.bot_decision`'s, copied verbatim rather
+            # than re-expressed: the aggressor is the last BET/RAISE on THIS
+            # street (so the flag is about the seat whose wager is actually
+            # outstanding, NOT "anyone was aggressive last street"), and the run
+            # itself comes from the SHIPPED `aggressor_barrel_run` — re-deriving
+            # the run rule here is forbidden (`postflop_context.py:183-186`
+            # warns against a second taxonomy). In `_LINE_OBSERVE` the flag is
+            # derived and the node recorded, but `line_kw` stays EMPTY, so the
+            # control arm plays byte-identically to the pinned default path
+            # while still knowing where the barrels were.
+            line_kw: dict = {}
+            barrelled = False
+            if line_aware:
+                street_aggressor = last_aggressor_position(
+                    [h for h in state.action_history if h.street is state.street]
+                )
+                barrelled = street_aggressor is not None and (
+                    aggressor_barrel_run(
+                        state.action_history, state.street, street_aggressor
+                    )
+                    >= 1
+                )
+                if line_aware is True:
+                    line_kw["aggressor_bet_prev_street"] = barrelled
             if context_aware:
                 # W5-a3-iii: the SAME derivation `play.bot_decision` uses —
                 # see `backend/app/domain/table/play.py:bot_decision`.
@@ -2142,6 +2255,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
                     latest_aggressor_contribution_bb=contribution,
                     context=context,
                     street_aggressions=street_aggressions,
+                    **line_kw,
                 )
             else:
                 decision = _postflop_decision(
@@ -2154,8 +2268,24 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
                     opponents,
                     rng,
                     state.current_bet_bb,
+                    **line_kw,
                 )
             log.append((seat, state.street.value, decision.action.value))
+            if barrelled and any(la.action is ActionType.FOLD for la in legal):
+                # Facing chips AND facing a barrel: the node class the mechanism
+                # can fire on, and the population S-5's decisive gate measures
+                # P(fold) over. `strength_bucket` is called ONLY here (a few
+                # hundred times a run), so the default path pays nothing.
+                _bucket, _draw = strength_bucket(seat_state.hole_cards, state.board)
+                line_nodes.append(
+                    LineNode(
+                        seat=seat,
+                        street=state.street.value,
+                        bucket=_bucket,
+                        draw=_draw,
+                        action=decision.action.value,
+                    )
+                )
             bet_fraction = (
                 round(decision.size_bb / pot_bb, 6)
                 if decision.action in (ActionType.BET, ActionType.RAISE)
@@ -2190,6 +2320,7 @@ def _play_hand(rng, hand_seed, button_seat, persona_by_seat, packs, *, context_a
         had_3bet_plus=had_3bet_plus,
         decisions=decisions,
         preflop_log=preflop_log,
+        line_nodes=line_nodes,
         preflop_nodes=preflop_nodes,
     )
 
@@ -7699,3 +7830,1789 @@ def test_nlogit_g9_maniac_split_lever_migration_keeps_the_anchor():
         denom = _nlogit_p(d, ActionType.CALL) + _nlogit_p(d, ActionType.RAISE)
         shares.append(_nlogit_p(d, ActionType.RAISE) / denom)
     assert max(shares) - min(shares) <= 1e-12, shares
+
+
+# ===================================================================
+# R9-DEFENCE-a — the opponent-LINE damp: node-grid acceptance harness
+# ===================================================================
+#
+# Mechanism under test (spec `docs/ai-dlc/specs/r9-defence-a.md` rev 2 §3): at a
+# facing-chips node whose aggressor ALSO bet/raised the previous POSTFLOP street
+# (`aggressor_bet_prev_street`, the `>= 1` threshold of
+# `table.postflop_context.aggressor_barrel_run`), the CALL and RAISE merits are
+# scaled by `exp(-λ_p)` with `λ_p = _LINE_DELTA · pf.line_sensitivity`. The FOLD
+# merit is never touched, so the freed mass lands on FOLD and the conditional
+# raise share is invariant.
+#
+# WHY THESE GATES ARE SHAPED THIS WAY. Rev 1 of this spec was reviewed by two
+# independent reviewers and BOTH returned FAIL — neither on the mechanism, both
+# on the GATES. A `_LINE_DELTA = 1e-12` no-op passed ELEVEN of rev 1's twelve
+# criteria, and a mutant that satisfied the anti-collapse gate BY COLLAPSING
+# (`C' = R' = 0`) passed too. The governing law, the same one the N-LOGIT block
+# above records: an IDENTITY measurement ("output unchanged") cannot distinguish
+# a behaviour-preserving fix from one that does nothing — only a SENSITIVITY
+# measurement can. Ledger `docs/ai-dlc/ledger/r9-defence-a.md`, findings R-1,
+# R-3, R-5, R-6, R-7, R-8, R-10, R-12.
+#
+# TWO CLASSES OF GATE, and the distinction is load-bearing (ledger R-5):
+#   * S-gates (SENSITIVITY) — `test_r9d_s*`. These MUST be RED without the
+#     engine block. Demanding they pass at base is what proves the change does
+#     something.
+#   * P-pins (REGRESSION) — `test_r9d_p*`. These are GREEN with the engine
+#     block absent and must STAY green. Never re-record, never widen. Rev 1
+#     demanded RED-FIRST of these too, which is incoherent and invites weakening
+#     a pin until it fails.
+#
+# RED-FIRST EVIDENCE, measured on a detached worktree at the T1 commit — packs
+# authored with the lever, `personas_postflop.py` UNTOUCHED:
+#
+#   S-1  ΔP(fold) at the reference node (nit/MIDDLE_PAIR/turn/HU/SPR 20/0.5-pot)
+#        against a gate demanding a LITERAL >= 0.05:
+#          nit +0.000000 · tag +0.000000 · lag +0.000000 · passive_fish
+#          +0.000000 · maniac +0.000000 · calling_station +0.000000
+#        …and 0 of 288 in-scope S-1 cells showed ANY rise in P(fold). With the
+#        engine block present the same six read +0.131190 / +0.097658 /
+#        +0.064975 / +0.081425 / +0.031156 / +0.005434 and 288 of 288 rise.
+#   S-4  RED four ways: `_LINE_DELTA` does not exist; the measured logit shift
+#        is 0.000000 against λ_p ∈ {0.10 … 0.60}; the injected-lever sweep is
+#        flat; and the reordered-composition arms differ by the whole factor.
+#   S-1's P-2 discriminator, and the §4 joint-product gate: RED.
+#   P-1 … P-6: all GREEN at that same reference, as REGRESSION pins must be.
+#
+# HONEST LIMIT, reported rather than papered over: **S-2 and S-3 cannot be RED
+# at base, and no rewriting of them makes it possible.** Both compare the anchor
+# against the TUNED point, and with the engine untouched those are the same
+# vector — so "continue mass did not collapse" and "the raise share did not
+# move" are trivially true. Their teeth are on MUTANTS, which is exactly the job
+# the spec's §10.4 gives them: S-2 catches the `C' = R' = 0` collapse that
+# passed rev 1's anti-collapse gate, S-3 catches the `call_merit`-only misroute.
+# Spec §7's blanket "every S-gate must be demonstrated RED at base" is therefore
+# unsatisfiable for these two; the RED evidence that belongs to them is T7's,
+# not a base measurement.
+#
+# If any OTHER S-gate here ever passes with the engine block removed, the GATE
+# is broken, not the engine fixed.
+#
+# ---------------------------------------------------------------------------
+# THE CELL GRID (spec §7 — "axes are published in the test module").
+#
+#   bucket   × {MIDDLE_PAIR, TOP_PAIR, ACE_HIGH, AIR}   (the scope predicate)
+#   draw     × {NONE}                                   (the scope predicate)
+#   street   × {flop, turn, river}
+#   headcount× {HU (1 opponent), 3-way (2 opponents)}
+#   faced    × {0.25, 0.5, 0.75, 1.5} of the PRE-aggression pot
+#   SPR      × {1, 4, 20}
+#   shape    × {FOLD+CALL, FOLD+CALL+RAISE}
+#   = 576 cells, over all six packs = 3,456 (pack, cell) pairs per line state.
+#
+# The faced fraction is EXACT, not nominal: the villain bets `frac · 6bb` into a
+# 6bb pre-aggression pot, so the live pot is `6 + bet`, `to_call == bet`, and
+# `latest_aggressor_contribution_bb == bet` — which is the branch the live loop
+# and the range estimator both take, so `faced_frac` is literally `frac`
+# (`personas_postflop.py:905-908`). SPR is measured against the LIVE pot, the
+# same quantity the SPR-commit block reads.
+#
+# SPR 1 is below every pack's `spr_commit` (1.2 … 3.3) ON PURPOSE: it is where
+# ledger R-6's consequence is exercised. For every in-scope bucket `made` is
+# False (rungs 0-3 vs the threshold 4) and `drawing` is False, so `value_commit`
+# is always False and `_commit_transform` / B5b can never co-occur with this
+# mechanism. The grid keeps those cells rather than declaring a no-reach zone,
+# because a gate on a combination that cannot occur always passes.
+
+_R9D_POT_PRE = 6.0  # the pot the villain's wager is made INTO
+
+# The authored seed ladder (spec §5), written as a LITERAL. Not read from the
+# packs: a gate that reads its own expectation out of the thing under test
+# cannot fail. `test_r9d_ladder_matches_the_authored_packs` reconciles the two.
+_R9D_SENSITIVITY = {
+    "nit": 0.60,
+    "tag": 0.50,
+    "lag": 0.35,
+    "passive_fish": 0.35,
+    "maniac": 0.20,
+    "calling_station": 0.10,
+}
+# Ordering: STRICT between tiers, EQUAL within the braced tier. Rev 1 demanded
+# strict monotonicity over a ladder containing an authored tie, which is
+# unsatisfiable (ledger R-10).
+_R9D_TIERS = (("nit",), ("tag",), ("lag", "passive_fish"), ("maniac",), ("calling_station",))
+
+# `λ_p = <this literal> · line_sensitivity`. Spec §3.1 pins `_LINE_DELTA = 1.0`;
+# this is that value RE-STATED as a test-side literal so the shift gate is not
+# self-referential. `test_r9d_s4_shift_scale_is_the_pinned_literal` asserts the
+# module constant equals it — an engine that quietly re-derives the constant
+# from `_POSITION_AGG_DELTA` (= 0.25) fails there, not silently everywhere.
+_R9D_SHIFT_PER_UNIT = 1.0
+
+# S-1's minimum effect size at the named reference node, as a LITERAL (ledger
+# R-1). NEVER derive this from `_LINE_DELTA` or from `line_sensitivity`: a
+# self-referential floor passes at ANY magnitude, which is exactly how the
+# `1e-12` no-op survived rev 1. Measured at the pinned constant: +0.131190,
+# which independently reproduces the design pass's predicted +0.1312.
+_R9D_MIN_REFERENCE_EFFECT = 0.05
+
+# The scope predicate, written test-side as a LITERAL for the same reason the
+# ladder is: a P-pin that reads its own scope out of the module under test would
+# go green for free the moment that module changed its mind about scope, and it
+# would ERROR (not fail) against a tree where the constant does not exist yet —
+# which is precisely the state a REGRESSION pin has to be green in.
+# `test_r9d_s4_shift_scale_is_the_pinned_literal` reconciles the two.
+_R9D_SCOPE_BUCKETS = frozenset(
+    {
+        StrengthBucket.MIDDLE_PAIR,
+        StrengthBucket.TOP_PAIR,
+        StrengthBucket.ACE_HIGH,
+        StrengthBucket.AIR,
+    }
+)
+
+_R9D_FRACS = (0.25, 0.5, 0.75, 1.5)
+_R9D_SPRS = (1.0, 4.0, 20.0)
+_R9D_HEADCOUNTS = ((1, "HU"), (2, "3way"))
+_R9D_SHAPES = ((False, "FOLD+CALL"), (True, "FOLD+CALL+RAISE"))
+_R9D_BOARDS = {
+    Street.FLOP: ["Kc", "9s", "3h"],
+    Street.TURN: ["Kc", "9s", "3h", "2d"],
+    Street.RIVER: ["Kc", "9s", "3h", "2d", "Tc"],
+}
+# One hole per in-scope bucket, classifying the same way on all three streets
+# (asserted by `test_r9d_grid_is_entirely_in_scope`, so a board edit can never
+# silently shrink the grid).
+_R9D_HOLES = {
+    StrengthBucket.MIDDLE_PAIR: ("9h", "4c"),
+    StrengthBucket.TOP_PAIR: ("Kh", "4d"),
+    StrengthBucket.ACE_HIGH: ("Ah", "8d"),
+    StrengthBucket.AIR: ("7h", "4c"),
+}
+
+
+class _R9dCell(NamedTuple):
+    bucket: object
+    street: Street
+    opponents: int
+    frac: float
+    spr: float
+    with_raise: bool
+
+    @property
+    def key(self) -> str:
+        head = dict(_R9D_HEADCOUNTS)[self.opponents]
+        shape = dict(_R9D_SHAPES)[self.with_raise]
+        return (
+            f"{self.bucket.value}/{self.street.value} {head} faced={self.frac} "
+            f"spr={self.spr} {shape}"
+        )
+
+    @property
+    def bet(self) -> float:
+        return round(self.frac * _R9D_POT_PRE, 2)
+
+    @property
+    def pot(self) -> float:
+        return _R9D_POT_PRE + self.bet
+
+    @property
+    def stack(self) -> float:
+        return self.spr * self.pot
+
+
+def _r9d_cells() -> list[_R9dCell]:
+    return [
+        _R9dCell(bucket, street, opponents, frac, spr, with_raise)
+        for bucket in _R9D_HOLES
+        for street in _R9D_BOARDS
+        for opponents, _ in _R9D_HEADCOUNTS
+        for frac in _R9D_FRACS
+        for spr in _R9D_SPRS
+        for with_raise, _ in _R9D_SHAPES
+    ]
+
+
+class _R9dProbe:
+    """Duck-typed rng that captures BOTH the normalized action vector and the
+    RAW merit vector the single normalization was handed.
+
+    The raw side exists for P-1, and P-1 cannot be built any other way: a
+    fold-side implementation is PROJECTIVELY IDENTICAL to the specified one
+    (`normalize(F, C·s, R·t·s) == normalize(F/s, C, R·t)`), so no output-space
+    test can tell the two apart — both spec reviewers measured that to bit
+    equality (ledger R-2). The distinction only exists BEFORE the normalization.
+
+    How: `sum` is a module-global lookup inside `sample_postflop_decision`, so
+    binding `personas_postflop.sum` to this object's `sum` shadows the builtin
+    for the duration of one call (see `_r9d_probe`). The LAST `sum` observed
+    before the first `choices` is `total = sum(weights)` — i.e. the clamped
+    merit vector, in the normalization block. Deliberately NOT anchored on a
+    line number: this file's own history is full of anchors that went stale, and
+    the `:1203-1204` that used to stand here was one of them (three lines off at
+    base, twenty-six after the `_line_scaled` extraction).
+
+    The clamp is `max(m, 0.0)`, so the captured vector equals the raw merits
+    exactly wherever every entry is strictly positive; P-1 asserts that
+    positivity on the cells it grades rather than assuming it.
+    """
+
+    def __init__(self):
+        self.dist = None
+        self.merits = None
+        self._pending = None
+
+    def choices(self, population, weights, k=1):
+        if self.dist is None:
+            self.dist = dict(zip(population, weights, strict=True))
+            self.merits = dict(zip(population, self._pending, strict=True))
+        return [population[0]]
+
+    def sum(self, iterable, /, start=0):
+        vals = list(iterable)
+        if self.dist is None:
+            self._pending = vals
+        return builtins.sum(vals, start)
+
+
+def _r9d_probe(pack, cell: _R9dCell, line: bool, *, facing_raise: bool = False) -> _R9dProbe:
+    """One production call at `cell`, returning the captured vectors.
+
+    `latest_aggressor_contribution_bb` is supplied (spec S-1), which is the
+    exact-denominator branch the live loop and the estimator both take.
+    """
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(cell.bet),
+    ]
+    if cell.with_raise:
+        legal.append(personas_postflop_legal_raise(3 * cell.bet, 400.0))
+    probe = _R9dProbe()
+    personas_postflop.sum = probe.sum
+    try:
+        sample_postflop_decision(
+            pack,
+            _R9D_HOLES[cell.bucket],
+            _R9D_BOARDS[cell.street],
+            legal,
+            cell.pot,
+            cell.stack,
+            cell.opponents,
+            probe,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=cell.bet,
+            street=cell.street,
+            latest_aggressor_contribution_bb=cell.bet,
+            facing_raise=facing_raise,
+            aggressor_bet_prev_street=line,
+        )
+    finally:
+        personas_postflop.__dict__.pop("sum", None)
+    return probe
+
+
+_R9D_GRID: dict = {}
+
+
+def _r9d_grid():
+    """{persona: {line: [probe per cell]}} plus `_cells`. Computed ONCE and
+    shared by every gate below — 576 cells x 6 packs x 2 line states = 6,912
+    production calls, measured at ~0.3s in total."""
+    if not _R9D_GRID:
+        cells = _r9d_cells()
+        for persona in _R9D_SENSITIVITY:
+            pack = _pack(persona)
+            _R9D_GRID[persona] = {
+                line: [_r9d_probe(pack, c, line) for c in cells] for line in (False, True)
+            }
+        _R9D_GRID["_cells"] = cells
+    return _R9D_GRID
+
+
+def _r9d_p(dist, kind) -> float:
+    return dist.get(kind, 0.0)
+
+
+def _r9d_continue(dist) -> float:
+    return _r9d_p(dist, ActionType.CALL) + _r9d_p(dist, ActionType.RAISE)
+
+
+def _r9d_logit(p: float) -> float:
+    return math.log(p / (1.0 - p))
+
+
+def _r9d_hex(dist) -> tuple:
+    """An exact, order-independent fingerprint of a probability vector.
+    `float.hex()` round-trips every bit pattern, including the -0.0 / +0.0
+    distinction that `==` erases."""
+    return tuple(sorted((a.value, float(v).hex()) for a, v in dist.items()))
+
+
+_R9D_REFERENCE = _R9dCell(StrengthBucket.MIDDLE_PAIR, Street.TURN, 1, 0.5, 20.0, True)
+
+
+def test_r9d_grid_is_entirely_in_scope():
+    """The grid's own scope claim, asserted rather than asserted-in-prose.
+
+    Every cell must classify to the bucket its template names AND to
+    `DrawCategory.NONE` — the scope predicate is the explicit PRODUCT of two
+    INDEPENDENT axes (`personas_postflop.py:33-51`), which is the thing rev 1
+    never defined: middle pair WITH a flush draw was undefined and is now
+    explicitly OUT (ledger R-6). A board edit that demoted a template would
+    otherwise shrink every gate below without any of them noticing."""
+    cells = _r9d_cells()
+    assert len(cells) == 576, len(cells)
+    for cell in cells:
+        bucket, draw = strength_bucket(_R9D_HOLES[cell.bucket], _R9D_BOARDS[cell.street])
+        assert bucket is cell.bucket, cell.key
+        assert draw is DrawCategory.NONE, cell.key
+        assert bucket in _R9D_SCOPE_BUCKETS, cell.key
+    # every published axis actually appears
+    assert {c.bucket for c in cells} == set(_R9D_HOLES)
+    assert {c.street for c in cells} == set(_R9D_BOARDS)
+    assert {c.opponents for c in cells} == {1, 2}
+    assert {c.frac for c in cells} == set(_R9D_FRACS)
+    assert {c.spr for c in cells} == set(_R9D_SPRS)
+    assert {c.with_raise for c in cells} == {False, True}
+    assert set(_R9D_SENSITIVITY) == set(ALL_PERSONAS)
+
+
+def test_r9d_ladder_matches_the_authored_packs():
+    """The test-side literal ladder reconciles with the six shipped packs, and
+    every persona is opted in with a STRICTLY POSITIVE lever — S-1's "for every
+    persona with `line_sensitivity > 0`" quantifier is therefore over all six,
+    not over a silently empty set."""
+    for persona, expected in _R9D_SENSITIVITY.items():
+        authored = _pack(persona).postflop.line_sensitivity
+        assert authored == pytest.approx(expected, abs=1e-12), (persona, authored)
+        assert authored > 0.0, persona
+
+
+# ------------------------------------------------------------------ S-gates
+
+
+def test_r9d_s1_identity_breaks_with_a_literal_effect_floor():
+    """S-1 (RED-FIRST, DECISIVE) — the identity breaks, WITH A FLOOR.
+
+    Two assertions, and the second is the one that matters. Direction alone
+    ("strictly greater") is what a `_LINE_DELTA = 1e-12` no-op satisfies while
+    doing nothing, and that no-op passed 11 of rev 1's 12 criteria (ledger R-1).
+    So this gate also carries a MINIMUM EFFECT SIZE at a named reference node,
+    written as a LITERAL (`_R9D_MIN_REFERENCE_EFFECT = 0.05`) and never derived
+    from `_LINE_DELTA` — a floor computed from the constant under test passes at
+    any magnitude, including zero.
+
+    Scope per spec §7: MIDDLE_PAIR and TOP_PAIR, heads-up, SPR >= 10, facing a
+    BET at a fixed fraction, with `latest_aggressor_contribution_bb` supplied.
+
+    Measured at the pinned `_LINE_DELTA = 1.0`, reference node ΔP(fold):
+      nit +0.131190 · tag +0.097658 · passive_fish +0.081425 · lag +0.064975 ·
+      maniac +0.031156 · calling_station +0.005434.
+    RED-FIRST at the engine-untouched reference: every one of those is
+    +0.000000, and 0 of 288 cells rose."""
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    scope = (StrengthBucket.MIDDLE_PAIR, StrengthBucket.TOP_PAIR)
+    flat = []
+    compared = dict.fromkeys(_R9D_SENSITIVITY, 0)
+    for persona in _R9D_SENSITIVITY:
+        for i, cell in enumerate(cells):
+            if cell.bucket not in scope or cell.opponents != 1 or cell.spr < 10.0:
+                continue
+            f0 = _r9d_p(grid[persona][False][i].dist, ActionType.FOLD)
+            f1 = _r9d_p(grid[persona][True][i].dist, ActionType.FOLD)
+            compared[persona] += 1
+            if not f1 > f0:
+                flat.append((persona, cell.key, f0, f1))
+    assert compared == dict.fromkeys(_R9D_SENSITIVITY, 48), compared
+    assert not flat, (
+        f"{len(flat)} of {sum(compared.values())} in-scope S-1 cells did not raise "
+        f"P(fold) when the aggressor's line was revealed: {flat[:5]}"
+    )
+
+    ref = _r9d_cells().index(_R9D_REFERENCE)
+    table = {
+        p: _r9d_p(grid[p][True][ref].dist, ActionType.FOLD)
+        - _r9d_p(grid[p][False][ref].dist, ActionType.FOLD)
+        for p in _R9D_SENSITIVITY
+    }
+    assert table["nit"] >= _R9D_MIN_REFERENCE_EFFECT, (
+        f"reference node ({_R9D_REFERENCE.key}) effect {table['nit']:.6f} is below the "
+        f"literal floor {_R9D_MIN_REFERENCE_EFFECT}; full table {table}"
+    )
+
+
+def test_r9d_s2_continue_mass_never_collapses_at_either_end():
+    """S-2 (RED-FIRST) — anti-collapse, ON BOTH ENDS.
+
+    Rev 1 constrained only the ANCHOR, and Codex Sol measured a mutant setting
+    `C' = R' = 0` from a non-degenerate anchor (continue mass 0.588 → fold
+    1.000) passing BOTH S-1 and that anti-collapse gate: the gate added to close
+    N-LOGIT's collapse hole did not stop the collapse (ledger R-3). So the
+    constraint is stated at the TUNED point as well — an anchor with continue
+    mass whose tuned end has none is a FAILURE, never a skip.
+
+    Zero-continue cells ARE reachable in scope, so they are counted, not
+    silently dropped: the river polar-bluff cell hard-zeroes `call_merit`
+    (`personas_postflop.py:931-932`) and RAISE is appended only when legal, so
+    the 48 river x {ACE_HIGH, AIR} x FOLD+CALL cells per pack have `C + R == 0`
+    at BOTH ends. P-5 pins them inert. Measured: 528 graded / 48 skipped per
+    persona, identical for all six."""
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    collapsed, nonfinite = [], []
+    graded = dict.fromkeys(_R9D_SENSITIVITY, 0)
+    skipped = dict.fromkeys(_R9D_SENSITIVITY, 0)
+    for persona in _R9D_SENSITIVITY:
+        for i, cell in enumerate(cells):
+            d0, d1 = grid[persona][False][i].dist, grid[persona][True][i].dist
+            c0, c1 = _r9d_continue(d0), _r9d_continue(d1)
+            if not all(math.isfinite(v) for v in (*d0.values(), *d1.values())):
+                nonfinite.append((persona, cell.key))
+                continue
+            if c0 <= 0.0:
+                skipped[persona] += 1
+                continue
+            graded[persona] += 1
+            if not c1 > 0.0:
+                collapsed.append((persona, cell.key, c0, c1))
+    assert not nonfinite, nonfinite[:5]
+    assert not collapsed, (
+        f"{len(collapsed)} cells lost ALL continue mass once the line was revealed, "
+        f"though the anchor had some: {collapsed[:5]}"
+    )
+    thin = {p: n for p, n in graded.items() if n < 480}
+    assert not thin, f"S-2 graded almost nothing for {thin} (skips: {skipped})"
+    loud = {p: n for p, n in skipped.items() if n > 96}
+    assert not loud, f"too many cells skipped as zero-continue: {loud}"
+
+
+def test_r9d_s3_raise_share_is_line_invariant():
+    """S-3 (RED-FIRST) — `P(raise) / (P(call) + P(raise))` is invariant between
+    line = 0 and line = 1 to 1e-9.
+
+    Scaling BOTH defend merits by ONE factor cancels out of the conditional
+    raise share; a `call_merit`-only multiplier does not, and that is exactly
+    the N-LOGIT misroute this slice must not reintroduce.
+
+    Restricted to cells with STRICTLY POSITIVE continue mass at BOTH ends
+    (ledger R-3): where `C + R == 0` the ratio is 0/0. Those cells are excluded
+    HERE and pinned inert by P-5 — the exclusion is not a hole, because S-2
+    above already forbids a cell from ARRIVING at zero continue mass."""
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    worst: dict = {}
+    compared = dict.fromkeys(_R9D_SENSITIVITY, 0)
+    for persona in _R9D_SENSITIVITY:
+        for i, cell in enumerate(cells):
+            d0, d1 = grid[persona][False][i].dist, grid[persona][True][i].dist
+            c0, c1 = _r9d_continue(d0), _r9d_continue(d1)
+            if c0 <= 0.0 or c1 <= 0.0:
+                continue
+            compared[persona] += 1
+            drift = abs(
+                _r9d_p(d1, ActionType.RAISE) / c1 - _r9d_p(d0, ActionType.RAISE) / c0
+            )
+            if drift > worst.get(persona, (0.0, ""))[0]:
+                worst[persona] = (drift, cell.key)
+    thin = {p: n for p, n in compared.items() if n < 480}
+    assert not thin, f"S-3 measured almost nothing for {thin}"
+    bad = {p: v for p, v in worst.items() if v[0] > 1e-9}
+    assert not bad, f"the raise:call split moved with the line signal: {bad}"
+
+
+def test_r9d_s4_shift_scale_is_the_pinned_literal():
+    """S-4 (RED-FIRST) — `_LINE_DELTA` is the value the spec pinned.
+
+    Restated as a test-side literal on purpose. Rev 1 left the constant
+    unstated, described it as "mirroring" `_POSITION_AGG_DELTA` (= 0.25), and a
+    `1e-12` no-op walked through the harness (ledger R-1). At 1.0 the reference
+    node reproduces the design pass's own predicted +0.1312; at 0.25 it gives
+    +0.030, which does not. The lever's `le=2.0` bound is likewise only the
+    ">= 7x continue-odds cut" ceiling its own comment claims at 1.0."""
+    assert personas_postflop._LINE_DELTA == _R9D_SHIFT_PER_UNIT
+    assert personas_postflop._LINE_DELTA != personas_postflop._POSITION_AGG_DELTA
+    # …and the engine's scope predicate is the one this harness grades against.
+    assert personas_postflop._LINE_SCOPE_BUCKETS == _R9D_SCOPE_BUCKETS
+
+
+def test_r9d_s4_logit_shift_equals_lambda_at_every_interior_cell():
+    """S-4 (RED-FIRST) — the lever IS the shift, measured in ODDS space.
+
+    `logit P(continue | line=0) − logit P(continue | line=1) == λ_p` to 1e-9 at
+    every finite-interior cell, with `λ_p = 1.0 · line_sensitivity` taken from
+    the test-side literals.
+
+    ODDS space, not probability space, and that is not a stylistic choice: base
+    continue rates differ across personas, so the PROBABILITY-space ordering of
+    ΔP(fold) does not follow the λ ordering (passive_fish 0.081 outranks lag
+    0.065 at the reference node although both author 0.35). Only the log-odds
+    shift is the lever."""
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    worst: dict = {}
+    compared = dict.fromkeys(_R9D_SENSITIVITY, 0)
+    for persona, sens in _R9D_SENSITIVITY.items():
+        lam = _R9D_SHIFT_PER_UNIT * sens
+        for i, cell in enumerate(cells):
+            c0 = _r9d_continue(grid[persona][False][i].dist)
+            c1 = _r9d_continue(grid[persona][True][i].dist)
+            if not (0.0 < c0 < 1.0 and 0.0 < c1 < 1.0):
+                continue
+            compared[persona] += 1
+            err = abs((_r9d_logit(c0) - _r9d_logit(c1)) - lam)
+            if err > worst.get(persona, (0.0, ""))[0]:
+                worst[persona] = (err, cell.key)
+    thin = {p: n for p, n in compared.items() if n < 480}
+    assert not thin, f"S-4 measured almost nothing for {thin}"
+    bad = {p: v for p, v in worst.items() if v[0] > 1e-9}
+    assert not bad, f"the continue-odds shift is not the authored lever: {bad}"
+
+
+_R9D_SWEEP = (0.0, 0.05, 0.35, 1.0, 2.0)
+
+
+def test_r9d_s4_lever_sweep_including_injected_values():
+    """S-4 (RED-FIRST) — the shift tracks the lever over a SWEEP, including
+    values no pack authors, injected through `model_copy(update=...)`.
+
+    Without this, a hard-coded per-persona response table — six numbers that
+    happen to reproduce the six authored ladder rungs — passes the gate above
+    while being no mechanism at all (ledger R-10). The sweep also spans the
+    lever's full validated range `[0.0, 2.0]`, and `model_copy` is the same
+    unvalidated-injection path the engine's runtime guard exists for.
+
+    `sensitivity = 0.0` is a BIT-IDENTITY case, not an approximate one:
+    `exp(-0.0) == 1.0` exactly and `m * 1.0 == m` bitwise, so the opted-in path
+    at a zero lever is byte-for-byte the un-opted path."""
+    cells = [
+        _R9D_REFERENCE,
+        _R9dCell(StrengthBucket.TOP_PAIR, Street.RIVER, 2, 1.5, 4.0, True),
+        _R9dCell(StrengthBucket.AIR, Street.FLOP, 1, 0.25, 1.0, False),
+        _R9dCell(StrengthBucket.ACE_HIGH, Street.TURN, 2, 0.75, 20.0, True),
+    ]
+    bad, identity, compared = [], [], 0
+    for persona in _R9D_SENSITIVITY:
+        base = _pack(persona)
+        for sens in _R9D_SWEEP:
+            pack = base.model_copy(deep=True)
+            pack.postflop = base.postflop.model_copy(update={"line_sensitivity": sens})
+            for cell in cells:
+                d0 = _r9d_probe(pack, cell, False).dist
+                d1 = _r9d_probe(pack, cell, True).dist
+                if sens == 0.0:
+                    if _r9d_hex(d0) != _r9d_hex(d1):
+                        identity.append((persona, cell.key))
+                    continue
+                c0, c1 = _r9d_continue(d0), _r9d_continue(d1)
+                if not (0.0 < c0 < 1.0 and 0.0 < c1 < 1.0):
+                    continue
+                compared += 1
+                err = abs((_r9d_logit(c0) - _r9d_logit(c1)) - _R9D_SHIFT_PER_UNIT * sens)
+                if err > 1e-9:
+                    bad.append((persona, sens, cell.key, err))
+    assert not identity, f"a zero lever was not bit-identical: {identity[:5]}"
+    assert compared >= 60, compared
+    assert not bad, f"the shift did not track an injected lever value: {bad[:5]}"
+
+
+def test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie():
+    """S-4 (RED-FIRST) — the ladder's ORDER, in odds space, with the authored
+    tie honoured.
+
+    `{lag, passive_fish}` both author 0.35, so the ordering is STRICT BETWEEN
+    tiers and EQUAL WITHIN the braced tier. Rev 1 demanded strict monotonicity
+    over a ladder containing that tie — unsatisfiable, and a builder chasing it
+    would have had to move an authored seed (ledger R-10)."""
+    grid = _r9d_grid()
+    ref = _r9d_cells().index(_R9D_REFERENCE)
+    shift = {}
+    for persona in _R9D_SENSITIVITY:
+        c0 = _r9d_continue(grid[persona][False][ref].dist)
+        c1 = _r9d_continue(grid[persona][True][ref].dist)
+        shift[persona] = _r9d_logit(c0) - _r9d_logit(c1)
+    for tier in _R9D_TIERS:
+        for other in tier[1:]:
+            assert shift[other] == pytest.approx(shift[tier[0]], abs=1e-12), (tier, shift)
+    tops = [shift[t[0]] for t in _R9D_TIERS]
+    assert all(a > b for a, b in zip(tops, tops[1:], strict=False)), (tops, shift)
+    # …and the probability-space view genuinely does NOT preserve that order,
+    # which is why this gate lives in odds space at all.
+    dfold = {
+        p: _r9d_p(grid[p][True][ref].dist, ActionType.FOLD)
+        - _r9d_p(grid[p][False][ref].dist, ActionType.FOLD)
+        for p in _R9D_SENSITIVITY
+    }
+    assert dfold["passive_fish"] > dfold["lag"], dfold
+
+
+_R9D_LOOSENESS_MULTS = (0.3, 0.7, 1.3, 3.0)
+
+
+def test_r9d_s4_composition_with_nlogit_commutes():
+    """S-4 (RED-FIRST) — the line scale and the N-LOGIT raise scale COMMUTE, to
+    a RELATIVE tolerance of 1e-12, and NEVER to bit-equality.
+
+    Both are scalar multiplies on entries ahead of one normalization, so coded
+    order cannot change the result mathematically — but it does change it in
+    IEEE arithmetic. The refuter measured `(R·k)·s` vs `(R·s)·k` differing
+    bitwise 34.9% of the time (ledger R-8); on this grid the reordering differs
+    bitwise on 7.6% of the compared entries with a worst RELATIVE gap of
+    3.4e-16. A bit-equality gate here would fail a CORRECT implementation, and
+    the assertion at the end that a mismatch actually OCCURRED is what keeps
+    that tolerance load-bearing rather than decorative.
+
+    The counterfactual is a REORDERED COPY OF THE PRODUCTION PIPELINE, not
+    algebra recomputed from scratch (ledger R-12): the baseline arm is
+    production's own pre-normalization merit vector at line = 0 — which already
+    contains the SPR block, the price-aware fold merit, the W3R-6 damps and the
+    N-LOGIT raise scale, in production's coded order — and the line factor is
+    applied at the OTHER end of that chain. If the engine attached the line
+    multiply anywhere but inside the facing branch, on the CALL/RAISE pair, the
+    two arms diverge far beyond 1e-12.
+
+    `call_looseness` is swept off its frozen `continue_ref` anchor so
+    `rscale != 1.0` — at the authored values `looseness == continue_ref` and the
+    raise scale is EXACTLY 1.0, which would make this gate vacuous. The
+    multipliers are deliberately NOT powers of two (a power-of-two rescale is
+    exact in binary floating point, and the reordering then agrees bit-for-bit
+    on every cell, which would ALSO make the gate vacuous)."""
+    cells = [
+        _R9D_REFERENCE,
+        _R9dCell(StrengthBucket.TOP_PAIR, Street.TURN, 1, 0.25, 20.0, True),
+        _R9dCell(StrengthBucket.ACE_HIGH, Street.FLOP, 2, 0.75, 4.0, True),
+        _R9dCell(StrengthBucket.AIR, Street.RIVER, 1, 1.5, 20.0, True),
+    ]
+    worst, mismatched, compared = (0.0, ""), 0, 0
+    for persona, sens in _R9D_SENSITIVITY.items():
+        k = math.exp(-_R9D_SHIFT_PER_UNIT * sens)
+        base = _pack(persona)
+        for mult in _R9D_LOOSENESS_MULTS:
+            pack = base.model_copy(deep=True)
+            pack.postflop = base.postflop.model_copy(
+                update={"call_looseness": _NLOGIT_ANCHORS[persona] * mult}
+            )
+            for cell in cells:
+                produced = _r9d_probe(pack, cell, True).dist
+                raw = _r9d_probe(pack, cell, False).merits
+                reordered = {
+                    a: (m * k if a in (ActionType.CALL, ActionType.RAISE) else m)
+                    for a, m in raw.items()
+                }
+                total = builtins.sum(reordered.values())
+                if total <= 0.0:
+                    continue
+                for action, produced_p in produced.items():
+                    expected = reordered[action] / total
+                    compared += 1
+                    if float(produced_p).hex() != float(expected).hex():
+                        mismatched += 1
+                    scale = max(abs(produced_p), abs(expected))
+                    if scale > 0.0:
+                        rel = abs(produced_p - expected) / scale
+                        if rel > worst[0]:
+                            worst = (rel, f"{persona} x{mult} {cell.key} {action.value}")
+    assert compared >= 200, compared
+    assert worst[0] <= 1e-12, f"the two scales did not commute: {worst}"
+    assert mismatched > 0, (
+        "the reordering agreed BIT-FOR-BIT on every entry, so this gate's 1e-12 "
+        "relative tolerance is untested — the multipliers have gone exact "
+        "(ledger R-8 measured 34.9% bitwise disagreement)"
+    )
+
+
+def test_r9d_joint_product_with_the_within_street_raise_damps():
+    """Spec §4's stated obligation: where the line damp and the two landed
+    `facing_raise`-gated damps BOTH fire (facing a turn RAISE from a seat that
+    bet the flop), the joint effect is a clean PRODUCT — the line factor is
+    still exactly `exp(-λ_p)` on the CALL/RAISE pair, applied on top of whatever
+    those damps left, and the log-odds shift is still λ_p.
+
+    That matters because a third un-calibrated factor stacking on that axis is
+    the W3R-5 collision this slice is scoped away from. The α-relevant node
+    class — the flop facing a first c-bet — is untouched here by construction
+    and pinned by P-3.
+
+    Deliberately BEHAVIOURAL, never structural. Everything except P-1 in this
+    harness must be blind to the fold-side/defend-side choice, because those two
+    forms are projectively identical (ledger R-2) and the spec requires that
+    exactly ONE gate distinguish them. Reading the raw merits here would give
+    the fold-side form a second executioner and make the "P-1 alone" property
+    untrue."""
+    for persona, sens in _R9D_SENSITIVITY.items():
+        pack = _pack(persona)
+        for bucket in (
+            StrengthBucket.MIDDLE_PAIR,
+            StrengthBucket.TOP_PAIR,
+            StrengthBucket.ACE_HIGH,
+        ):
+            cell = _R9dCell(bucket, Street.TURN, 1, 0.5, 20.0, True)
+            damped = _r9d_probe(pack, cell, False, facing_raise=True).dist
+            bare = _r9d_probe(pack, cell, False, facing_raise=False).dist
+            joint = _r9d_probe(pack, cell, True, facing_raise=True).dist
+            # a within-street damp really is firing at this node…
+            assert _r9d_hex(damped) != _r9d_hex(bare), (persona, bucket)
+            # …and the line factor rides on top of it as the SAME λ_p shift…
+            c0, c1 = _r9d_continue(damped), _r9d_continue(joint)
+            assert _r9d_logit(c0) - _r9d_logit(c1) == pytest.approx(
+                _R9D_SHIFT_PER_UNIT * sens, abs=1e-9
+            ), (persona, bucket)
+            # …leaving the raise:call split of the damped node untouched.
+            assert _r9d_p(joint, ActionType.RAISE) / c1 == pytest.approx(
+                _r9d_p(damped, ActionType.RAISE) / c0, abs=1e-9
+            ), (persona, bucket)
+
+
+# ------------------------------------------------------------------- P-pins
+
+
+def test_r9d_p1_structural_only_call_and_raise_raw_merits_move():
+    """P-1 (REGRESSION PIN, green without the engine block) — STRUCTURAL, on the
+    RAW merits before normalization: the FOLD entry is BITWISE unchanged and
+    CALL/RAISE are scaled by ONE common factor.
+
+    THIS PIN IS THE ONLY THING THAT DISTINGUISHES THE PRESCRIBED FORM FROM A
+    FOLD-SIDE ONE. `normalize(F, C·s, R·t·s) == normalize(F/s, C, R·t)`: a
+    `fold_merit`-only implementation is projectively identical and passes every
+    behavioural gate in this file — both spec reviewers measured that to bit
+    equality, and rev 1's claim that raise-neutrality excluded it was simply
+    false (ledger R-2). No output-space test can do this job.
+
+    C/R-only is prescribed for AUDITABILITY: the fold merit stays an untouched
+    input, which keeps the A1 no-fold-floor guardrail inspectable at a glance.
+
+    The engine short-circuits when the flag is False (`entries` is not rebuilt
+    at all), so the flag is driven TRUE here — an identity comparison against
+    the un-opted path would observe nothing.
+
+    Scale equality is asserted only where BOTH ends are strictly positive: the
+    captured vector is post-`max(m, 0.0)`, so positivity is what makes it
+    equal to the raw merit, and a ratio out of a clamped zero is 0/0. That
+    leaves 1,920 graded (persona, cell, action) ratios out of a possible 2,304 —
+    the shortfall is exactly the river's two hard zeroes (bluff-catchers never
+    value-raise, the polar-bluff cell never calls).
+
+    "ONE common factor" is checked per persona across the WHOLE grid, not just
+    within a cell: the factor is `exp(-λ_p)` and depends on nothing about the
+    node, so a spread anywhere in a persona's ratios is a defect. Cells where
+    only one continue leg survives are graded by that same constraint.
+
+    THE FACTOR'S VALUE IS PINNED, NOT JUST ITS CONSISTENCY (fan-in finding A,
+    both mutants reproduced). Every clause above — fold bitwise unchanged, the
+    two ratios agreeing, zero spread, the occupancy floors — is satisfied by a
+    vector in which NOTHING MOVED: the ratios are then both exactly 1.0, which
+    is maximally consistent. That made this an IDENTITY gate, and identity gates
+    are what this initiative keeps being defeated by. Two measured mutants walked
+    through the hole: one replaced the merit scale with `pass` and applied an
+    equivalent fold-side scale to `weights` AFTER the capture instant (full suite
+    green, 0 raw merits differing, nit ΔP(fold) still 0.13119); the other called
+    `_line_scaled` and DISCARDED its result, which also survives P-1b, since
+    P-1b grades the helper in isolation and its spy proves only that the helper
+    was CALLED — neither proves the returned list is the one that reaches the
+    normalization. Asserting the ratio equals the mechanism's OWN predicted
+    `exp(-λ_p)`, and is strictly below 1.0, kills both: an inert transform reads
+    1.0 and a post-capture equivalent leaves the raw merits at 1.0 too.
+
+    This survives N-LOGIT, and that was MEASURED rather than assumed: the
+    captured RAISE merit is `(R·line_mult)·rscale` at line=1 and `R·rscale` at
+    line=0, so `rscale` cancels out of the ratio. Checked directly on a
+    `model_copy` pack with `continue_ref` skewed to make `rscale = 1.6216` (the
+    six shipped packs all sit at the anchor, where `rscale` is exactly 1.0 and
+    would prove nothing): the CALL and RAISE ratios both came back at relative
+    error 0.000e+00 against `exp(-λ_p)`. `rel=1e-12` is the same tolerance the
+    spread check already carries, and is generous against that."""
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    fold_moved, scale_split = [], []
+    ratios: dict[str, list] = {p: [] for p in _R9D_SENSITIVITY}
+    for persona in _R9D_SENSITIVITY:
+        for i, cell in enumerate(cells):
+            m0 = grid[persona][False][i].merits
+            m1 = grid[persona][True][i].merits
+            assert set(m0) == set(m1), cell.key
+            f0, f1 = m0[ActionType.FOLD], m1[ActionType.FOLD]
+            if float(f0).hex() != float(f1).hex():
+                fold_moved.append((persona, cell.key, f0, f1))
+            here = [
+                (a, m1[a] / m0[a])
+                for a in (ActionType.CALL, ActionType.RAISE)
+                if a in m0 and m0[a] > 0.0 and m1[a] > 0.0
+            ]
+            if len(here) == 2 and abs(here[0][1] - here[1][1]) > 1e-12 * max(
+                here[0][1], here[1][1]
+            ):
+                scale_split.append((persona, cell.key, here))
+            ratios[persona].extend((cell.key, a, r) for a, r in here)
+    assert not fold_moved, (
+        f"the FOLD merit is an INPUT and must never be rewritten; {len(fold_moved)} "
+        f"cells moved it: {fold_moved[:5]}"
+    )
+    assert not scale_split, (
+        f"CALL and RAISE were not scaled by ONE common factor — that is the "
+        f"N-LOGIT misroute: {scale_split[:5]}"
+    )
+    for persona, obs in ratios.items():
+        assert len(obs) >= 300, (persona, len(obs))
+        lo = min(obs, key=lambda o: o[2])
+        hi = max(obs, key=lambda o: o[2])
+        assert hi[2] - lo[2] <= 1e-12 * hi[2], (persona, lo, hi)
+        # …and the factor they all agree on is the mechanism's OWN `exp(-λ_p)`,
+        # strictly damping. Without this the gate is an identity gate: a vector
+        # in which nothing moved has ratios of exactly 1.0 and passes every
+        # check above.
+        want = math.exp(-_R9D_SHIFT_PER_UNIT * _R9D_SENSITIVITY[persona])
+        assert want < 1.0, (persona, want)
+        inert = [o for o in obs if o[2] >= 1.0]
+        assert not inert, (
+            f"{persona}: {len(inert)} of {len(obs)} raw-merit ratios are >= 1.0 — the "
+            f"prescribed transform did NOT move the merits, so whatever moves the "
+            f"output is not it: {inert[:5]}"
+        )
+        wrong = [o for o in obs if o[2] != pytest.approx(want, rel=1e-12)]
+        assert not wrong, (
+            f"{persona}: the common factor is not `exp(-λ_p)` = {want!r}; "
+            f"{len(wrong)} of {len(obs)} ratios disagree: {wrong[:5]}"
+        )
+    assert sum(len(o) for o in ratios.values()) >= 1800
+
+
+def test_r9d_p1b_line_transform_is_one_multiplication_bitwise():
+    """P-1b (REGRESSION PIN, structural) — the transform ITSELF, checked BITWISE
+    against the single multiplication it claims to perform.
+
+    WHY P-1 ABOVE IS NOT ENOUGH (fan-in review finding, reproduced). P-1 reads
+    the merits through the sampler, so it can only compare ratios of two
+    separately-computed products, and it therefore has to carry a `1e-12`
+    relative tolerance — as do S-3 (`1e-9` raise-share drift) and S-4 (`1e-12`
+    composition). Those tolerances are NOT slack to be tightened away: a CORRECT
+    implementation needs them, because downstream `(R·line_mult)·rscale` and
+    `(R·rscale)·line_mult` differ bitwise ~35% of the time (ledger R-8).
+    A reviewer built an implementation that exploits exactly that gap — CALL
+    scaled by `line_mult`, RAISE by `line_mult * (1 + 5e-13)`, with the
+    perturbation skipped at `line_mult == 1.0` so default-off byte-identity
+    still holds — and it passed all 27 gates while breaking the mechanism's core
+    promise (ONE common factor ⇒ the raise share is invariant).
+
+    This gate closes that without touching a tolerance, by calling the
+    production helper directly: each defend entry must be BITWISE its OWN input
+    times the SAME `line_mult`, computed here as literally `m * line_mult`. That
+    is exact WITHOUT fighting IEEE, because it compares one multiplication
+    against itself rather than two differently-associated products. `1 + 5e-13`
+    is ~2000 ulps at double precision, so the mutant misses by a mile.
+
+    The two gates do different jobs and both are required: P-1 proves the
+    SAMPLER applies a common per-action factor end to end; this proves the
+    factor is one unperturbed multiply. The wiring block at the end is what
+    keeps them joined — without it, moving the transform back inline would take
+    this check off the production path while leaving it green."""
+    line_scaled = personas_postflop._line_scaled
+    # Awkward mantissas on purpose: a 5e-13 relative perturbation must land in
+    # the bits, and values like 1.0 or 0.5 are the ones most likely to absorb a
+    # rounding coincidence.
+    merits = [
+        (ActionType.FOLD, 0.8377192043795371),
+        (ActionType.CALL, 1.9241503276618904),
+        (ActionType.RAISE, 0.31624903175628193),
+    ]
+    factors = [math.exp(-_R9D_SHIFT_PER_UNIT * s) for s in _R9D_SENSITIVITY.values()]
+    factors += [1.0, 0.5, 0.9999999999999999, 0.1234567890123456]
+    for line_mult in factors:
+        out = line_scaled(merits, line_mult)
+        assert [a for a, _ in out] == [a for a, _ in merits], line_mult
+        for (a, before), (_, after) in zip(merits, out, strict=True):
+            want = before if a is ActionType.FOLD else before * line_mult
+            assert float(after).hex() == float(want).hex(), (a, line_mult, after, want)
+
+    # WIRING — the sampler really does route its line damp through that helper,
+    # with the pinned factor. Same monkeypatch idiom `_r9d_probe` uses for `sum`.
+    cell = _R9dCell(StrengthBucket.MIDDLE_PAIR, Street.TURN, 1, 0.5, 20.0, True)
+    seen: list[float] = []
+
+    def _spy(entries, line_mult):
+        seen.append(line_mult)
+        return line_scaled(entries, line_mult)
+
+    personas_postflop._line_scaled = _spy
+    try:
+        _r9d_probe(_pack("nit"), cell, True)
+    finally:
+        personas_postflop._line_scaled = line_scaled
+    assert seen == [math.exp(-_R9D_SHIFT_PER_UNIT * _R9D_SENSITIVITY["nit"])]
+
+
+# Out-of-scope templates. `river` entries are dropped where the river resets
+# DrawCategory to NONE (which would make them IN scope) — the filter is applied
+# by classification, not by hand, and the coverage claim is asserted below.
+_R9D_OUT_OF_SCOPE = {
+    "monster": (("9h", "9d"), ["Kc", "9s", "3h"]),
+    "two_pair": (("Kh", "9c"), ["Kc", "9s", "3h"]),
+    "overpair_tptk": (("Ah", "Ad"), ["Kc", "9s", "3h"]),
+    "middle_pair+flush_draw": (("9h", "4h"), ["Kh", "9s", "3h"]),
+    "top_pair+flush_draw": (("Kh", "4h"), ["Kc", "9h", "3h"]),
+    "ace_high+flush_draw": (("Ah", "5h"), ["2h", "9h", "Kc"]),
+    "air+gutshot": (("Td", "Jh"), ["7h", "9s", "9d"]),
+}
+_R9D_RUNOUT = ["2d", "8c"]
+
+
+def _r9d_out_of_scope_spots():
+    spots = []
+    for label, (hole, flop) in _R9D_OUT_OF_SCOPE.items():
+        for extra in (0, 1, 2):
+            board = flop + _R9D_RUNOUT[:extra]
+            bucket, draw = strength_bucket(hole, board)
+            in_scope = bucket in _R9D_SCOPE_BUCKETS and draw is DrawCategory.NONE
+            if not in_scope:
+                spots.append((f"{label}/{len(board)}", hole, board, bucket, draw))
+    return spots
+
+
+def test_r9d_p2_out_of_scope_cells_are_byte_identical():
+    """P-2 (REGRESSION PIN, green without the engine block) — every out-of-scope
+    cell is byte-identical between line = 0 and line = 1.
+
+    Three families, and rev 1 had a gate for none of them:
+      * every EXCLUDED bucket — MONSTER, TWO_PAIR_PLUS, OVERPAIR_TPTK;
+      * every `draw != NONE`, INCLUDING in-scope buckets carrying a draw. Bucket
+        and draw are INDEPENDENT axes, so "middle pair with a flush draw" is a
+        common cell that rev 1's single excluded-column left undefined (R-6);
+      * every NON-FACING node — unopened CHECK+BET and matched-with-option
+        CHECK+RAISE. The engine region this mechanism attaches to sits at
+        FUNCTION-BODY indentation, i.e. the path SHARED with those shapes, which
+        is why the `ActionType.FOLD in by_kind` gate is part of the mechanism
+        and not a shortcut; without it the RAISE entry on a check-raise shape
+        would be scaled and there would be no fold leg to receive the mass
+        (R-7).
+
+    The coverage claim is asserted, not assumed: the excluded buckets and both
+    draw categories must all actually appear in the spot list."""
+    spots = _r9d_out_of_scope_spots()
+    buckets = {b for _, _, _, b, _ in spots}
+    draws = {d for _, _, _, _, d in spots}
+    assert {
+        StrengthBucket.MONSTER,
+        StrengthBucket.TWO_PAIR_PLUS,
+        StrengthBucket.OVERPAIR_TPTK,
+    } <= buckets, buckets
+    assert {DrawCategory.STRONG, DrawCategory.WEAK} <= draws, draws
+    assert {
+        StrengthBucket.MIDDLE_PAIR,
+        StrengthBucket.TOP_PAIR,
+        StrengthBucket.ACE_HIGH,
+        StrengthBucket.AIR,
+    } <= {b for _, _, _, b, d in spots if d is not DrawCategory.NONE}, spots
+
+    moved, graded = [], 0
+    for persona in _R9D_SENSITIVITY:
+        pack = _pack(persona)
+        for label, hole, board, _bucket, _draw in spots:
+            street = _STREET_BY_BOARD_LEN[len(board)]
+            for frac in _R9D_FRACS:
+                bet = round(frac * _R9D_POT_PRE, 2)
+                pot = _R9D_POT_PRE + bet
+                shapes = {
+                    "facing": [
+                        personas_postflop_legal_fold(),
+                        personas_postflop_legal_call(bet),
+                        personas_postflop_legal_raise(3 * bet, 400.0),
+                    ],
+                    "unopened CHECK+BET": [
+                        personas_postflop_legal_check(),
+                        personas_postflop_legal_bet(1.0, 400.0),
+                    ],
+                    "matched CHECK+RAISE": [
+                        personas_postflop_legal_check(),
+                        personas_postflop_legal_raise(3 * bet, 400.0),
+                    ],
+                }
+                for shape, legal in shapes.items():
+                    vecs = []
+                    for line in (False, True):
+                        cap = _CaptureWeights()
+                        sample_postflop_decision(
+                            pack,
+                            hole,
+                            board,
+                            legal,
+                            pot,
+                            20.0 * pot,
+                            1,
+                            cap,  # type: ignore[arg-type] — duck-typed capture rng
+                            current_bet_to=bet,
+                            street=street,
+                            latest_aggressor_contribution_bb=bet,
+                            aggressor_bet_prev_street=line,
+                        )
+                        vecs.append(_r9d_hex(cap.dist or {}))
+                    graded += 1
+                    if vecs[0] != vecs[1]:
+                        moved.append((persona, label, shape, frac))
+    assert not moved, f"{len(moved)} out-of-scope cells moved with the line signal: {moved[:5]}"
+    assert graded >= 1000, graded
+
+
+def test_r9d_s1_p2_discriminator_in_scope_nodes_do_move():
+    """S-class (RED-FIRST) — P-2's discriminator, and it belongs to the
+    SENSITIVITY class, not the pin class.
+
+    Byte-identity over out-of-scope cells is only meaningful if the SAME call
+    shape MOVES on an in-scope cell; otherwise P-2 is green because nothing
+    anywhere responds to the signal. A gate that can only ever pass is not a
+    gate — so this one is stated separately and is RED without the engine
+    block, exactly like the rest of the S class."""
+    grid = _r9d_grid()
+    ref = _r9d_cells().index(_R9D_REFERENCE)
+    for persona in _R9D_SENSITIVITY:
+        d0 = _r9d_hex(grid[persona][False][ref].dist)
+        d1 = _r9d_hex(grid[persona][True][ref].dist)
+        assert d0 != d1, persona
+
+
+def _r9d_cbet_history(bettor: Position, *, through: Street) -> list:
+    """The textbook single-raised-pot line: `bettor` raises preflop, then bets
+    each postflop street up to and including `through`."""
+    from app.domain.spot import HistoryAction
+
+    hist = [
+        HistoryAction(
+            street=Street.PREFLOP, position=bettor, action=ActionType.RAISE, amount_bb=3.0
+        ),
+        HistoryAction(
+            street=Street.PREFLOP, position=Position.BB, action=ActionType.CALL, amount_bb=3.0
+        ),
+    ]
+    for street in (Street.FLOP, Street.TURN, Street.RIVER):
+        hist.append(
+            HistoryAction(street=street, position=bettor, action=ActionType.BET, amount_bb=3.0)
+        )
+        if street is through:
+            break
+    return hist
+
+
+def test_r9d_p3_flop_is_line_blind_through_the_production_derivation():
+    """P-3 (REGRESSION PIN, green without the engine block) — the flop is
+    unchanged, pinned WHERE THE GUARANTEE ACTUALLY LIVES.
+
+    The honest limit (ledger R-11): `sample_postflop_decision` takes an
+    unconstrained boolean, so a DIRECT caller can pass True with
+    `street=FLOP`. The sampler is deliberately left honest — a street check
+    inside the mechanic would reintroduce the `street -> scalar` term the
+    roadmap forbids. So this pin does NOT assert a sampler property the flat
+    kwarg does not have; it pins the DERIVATION's flop-zero property and then
+    threads the derived flag through every flop grid cell.
+
+    Two node classes matter and both are flop-facing-a-first-c-bet:
+      * the balanced-villain α fixture (`catcher_fold_by_size`) — a 3-card
+        board, the pre-aggression pot, no `aggressor_bet_prev_street` argument
+        at all;
+      * the population fold-to-first-c-bet statistic — computed only from
+        `street == "flop"` decisions facing the hand's first flop bet.
+    Both live at `run == 0` by construction, so the α ceiling and the
+    fold-to-c-bet band cannot move. The turn/river assertions are the
+    discriminator: the flop zero is structural, not vacuous."""
+    from app.domain.table.postflop_context import aggressor_barrel_run
+
+    flop_line = _r9d_cbet_history(Position.BTN, through=Street.FLOP)
+    assert aggressor_barrel_run(flop_line, Street.FLOP, Position.BTN) == 0
+    assert aggressor_barrel_run(flop_line, Street.TURN, Position.BTN) == 1
+    turn_line = _r9d_cbet_history(Position.BTN, through=Street.TURN)
+    assert aggressor_barrel_run(turn_line, Street.RIVER, Position.BTN) == 2
+    # the α fixture / fold-to-c-bet node class: a 3-card board is always FLOP
+    assert _STREET_BY_BOARD_LEN[3] is Street.FLOP
+
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    for persona in _R9D_SENSITIVITY:
+        pack = _pack(persona)
+        for i, cell in enumerate(cells):
+            if cell.street is not Street.FLOP:
+                continue
+            derived = aggressor_barrel_run(flop_line, cell.street, Position.BTN) >= 1
+            assert derived is False, cell.key
+            produced = _r9d_probe(pack, cell, derived).dist
+            assert _r9d_hex(produced) == _r9d_hex(grid[persona][False][i].dist), (persona, cell.key)
+
+
+def test_r9d_p4_default_off_is_byte_identical_over_the_whole_grid():
+    """P-4 (REGRESSION PIN, green without the engine block) — an un-opted pack
+    is byte-identical across the FULL grid, and the flat kwarg defaults False.
+
+    `line_sensitivity` absent ⇒ `entries` is never rebuilt, so this is identity
+    by construction rather than by cancellation — the distinction that matters,
+    since a mechanism whose two halves cancel is exactly the N-LOGIT rev-1
+    defect this project has now hit twice."""
+    cells = _r9d_cells()
+    moved, defaulted = [], []
+    for persona in _R9D_SENSITIVITY:
+        base = _pack(persona)
+        unopted = base.model_copy(deep=True)
+        unopted.postflop = base.postflop.model_copy(update={"line_sensitivity": None})
+        assert unopted.postflop.line_sensitivity is None
+        for cell in cells:
+            a = _r9d_hex(_r9d_probe(unopted, cell, False).dist)
+            b = _r9d_hex(_r9d_probe(unopted, cell, True).dist)
+            if a != b:
+                moved.append((persona, cell.key))
+        # the flat kwarg's default, on the OPTED-IN pack: omitting it must equal
+        # passing False, or every legacy caller silently opted in.
+        for cell in (_R9D_REFERENCE, _R9dCell(StrengthBucket.AIR, Street.RIVER, 2, 1.5, 1.0, True)):
+            legal = [personas_postflop_legal_fold(), personas_postflop_legal_call(cell.bet)]
+            if cell.with_raise:
+                legal.append(personas_postflop_legal_raise(3 * cell.bet, 400.0))
+            omitted = _CaptureWeights()
+            sample_postflop_decision(
+                base,
+                _R9D_HOLES[cell.bucket],
+                _R9D_BOARDS[cell.street],
+                legal,
+                cell.pot,
+                cell.stack,
+                cell.opponents,
+                omitted,  # type: ignore[arg-type] — duck-typed capture rng
+                current_bet_to=cell.bet,
+                street=cell.street,
+                latest_aggressor_contribution_bb=cell.bet,
+            )
+            explicit = _r9d_probe(base, cell, False).dist
+            if _r9d_hex(omitted.dist or {}) != _r9d_hex(explicit):
+                defaulted.append((persona, cell.key))
+    assert not moved, f"an un-opted pack responded to the line signal: {moved[:5]}"
+    assert not defaulted, f"the flat kwarg does not default to False: {defaulted[:5]}"
+
+
+def test_r9d_p4_mechanism_adds_no_rng_call():
+    """P-4 (REGRESSION PIN) — the ACTION draw stays the FIRST `rng.choices`
+    consumer and the sizing draw the second, with the line signal ON.
+
+    Every capture rng in this file and in `range_estimate` keys on that
+    ordering; the mechanism is a scalar multiply on existing entries and must
+    add no draw."""
+    cell = _R9dCell(StrengthBucket.AIR, Street.TURN, 1, 0.5, 20.0, True)
+    legal = [
+        personas_postflop_legal_fold(),
+        personas_postflop_legal_call(cell.bet),
+        personas_postflop_legal_raise(3 * cell.bet, 400.0),
+    ]
+    for persona in _R9D_SENSITIVITY:
+        rng = _NlogitAllChoices()
+        sample_postflop_decision(
+            _pack(persona),
+            _R9D_HOLES[cell.bucket],
+            _R9D_BOARDS[cell.street],
+            legal,
+            cell.pot,
+            cell.stack,
+            cell.opponents,
+            rng,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=cell.bet,
+            street=cell.street,
+            latest_aggressor_contribution_bb=cell.bet,
+            aggressor_bet_prev_street=True,
+        )
+        assert len(rng.calls) == 2, (persona, len(rng.calls))
+        assert rng.calls[0][0] == [ActionType.FOLD, ActionType.CALL, ActionType.RAISE], persona
+        assert all(isinstance(x, float) for x in rng.calls[1][0]), persona
+
+
+def test_r9d_p5_zero_continue_cells_are_inert():
+    """P-5 (REGRESSION PIN, green without the engine block) — where
+    `C + R == 0`, the vector is unchanged between line = 0 and line = 1.
+
+    These cells are REACHABLE in scope, which is the whole point: the river
+    polar-bluff cell hard-zeroes `call_merit` and RAISE is appended only when
+    legal, so a river ACE_HIGH/AIR hand at a FOLD+CALL node has no continue mass
+    at all. S-3 and S-4 exclude them because their ratios are 0/0; this pin is
+    what stops that exclusion from being a hole (ledger R-3).
+
+    Their existence is asserted, not hoped for: an empty set here would make the
+    exclusions in S-3/S-4 unaudited."""
+    grid = _r9d_grid()
+    cells = grid["_cells"]
+    moved, found = [], dict.fromkeys(_R9D_SENSITIVITY, 0)
+    for persona in _R9D_SENSITIVITY:
+        for i, cell in enumerate(cells):
+            d0 = grid[persona][False][i].dist
+            if _r9d_continue(d0) > 0.0:
+                continue
+            found[persona] += 1
+            if _r9d_hex(d0) != _r9d_hex(grid[persona][True][i].dist):
+                moved.append((persona, cell.key))
+    assert not moved, f"a zero-continue cell was not inert: {moved[:5]}"
+    empty = {p: n for p, n in found.items() if n == 0}
+    assert not empty, (
+        f"no zero-continue cells reached for {empty} — S-3/S-4's exclusion is unaudited"
+    )
+
+
+def test_r9d_p6_price_tail_vectors_needed_no_line_edit():
+    """P-6 (REGRESSION PIN, green without the engine block) —
+    `tests/test_price_tail.py`'s 23 frozen exact-equality vectors stay green
+    WITHOUT EDIT, doubly protected: those callers pass no line signal (so the
+    flat kwarg defaults False) and the mechanism is a no-op at line = 0.
+
+    Asserted structurally here, and re-asserted by running that module: if the
+    implementation had diverged enough to need those vectors re-recorded, the
+    file would have had to learn about this slice. It has not, and it must not.
+    IF YOU FIND YOURSELF EDITING THAT FILE, STOP — the implementation has
+    diverged from the spec."""
+    from pathlib import Path
+
+    src = Path(__file__).with_name("test_price_tail.py").read_text()
+    for token in ("line_sensitivity", "aggressor_bet_prev_street", "R9-DEFENCE", "_LINE_DELTA"):
+        assert token not in src, (
+            f"{token!r} leaked into tests/test_price_tail.py — that file's frozen "
+            f"vectors must not need this slice to stay green"
+        )
+
+
+# ===================================================================
+# R9-DEFENCE-a — S-5: the PAIRED population-sensitivity run
+# ===================================================================
+#
+# WHAT THIS MEASURES, and why it is built the way it is.
+#
+# Every gate above is a NODE measurement: hand it a cell, read the vector. S-5
+# is the one POPULATION measurement — does making bots read the opponent's line
+# change how the simulated table actually plays out? Before this ticket the
+# question could not even be asked: `_postflop_decision` had no
+# `aggressor_bet_prev_street` parameter in EITHER `context_aware` state, so the
+# population run was structurally blind to the whole slice and S-5 was
+# unfalsifiable. That blindness is the identity-vs-sensitivity trap one level up
+# from the node gates.
+#
+# ── THE PAIRING (ledger R-4 — the reason this is not "call `_persona_stats`
+#    twice"). `_persona_stats` builds ONE `random.Random(20260710)` and uses it
+#    BOTH to draw each hand's seed (`hand_seed = rng.randrange(...)`) AND as the
+#    action/sizing rng inside `_play_hand`. The instant line-aware play changes a
+#    single draw count, the NEXT `hand_seed` differs and the two arms stop
+#    playing the same hands — the comparison would measure deal noise, not the
+#    mechanism. So this run:
+#      * pre-generates an IMMUTABLE tuple of (hand_seed, action_seed) pairs from
+#        two DEDICATED rngs that drive nothing else, and
+#      * gives every hand its OWN freshly-seeded action rng, so divergence cannot
+#        leak from hand i to hand i+1 — each hand is independently paired.
+#    Everything else (lineup, button rotation, stacks, `context_aware`, packs) is
+#    held identical; the line signal is the ONLY input that differs.
+#
+# ── THE CONTROL IS NODE-MATCHED, not merely line-blind. The control arm runs
+#    `_play_hand(line_aware=_LINE_OBSERVE)`: it DERIVES the barrel flag and
+#    records the node, but never passes it to the sampler, so its play is
+#    bit-for-bit the pinned default path while it still knows which nodes were
+#    barrel nodes. That is what makes "P(fold) at a barrel node, with and
+#    without the mechanism" a real comparison rather than two differently
+#    populated samples.
+#
+# ── THE PAIRING IS ASSERTED, NOT ASSUMED. `aggressor_barrel_run` is 0 on the
+#    FLOP by construction (its walk over preceding POSTFLOP streets is empty
+#    there), so no preflop or flop decision can differ between the arms — only
+#    turn and river ones can. `saw_flop` is snapshotted the moment the board
+#    reaches three cards, i.e. strictly before any flop action, so the arms must
+#    produce IDENTICAL flop-arrival counts for every persona.
+#    `test_r9d_s5_the_arms_are_a_true_pair` demands exactly that: if it ever
+#    breaks, something upstream of the turn moved and every number below is
+#    noise.
+#
+# ── THE DECISIVE GATE IS THE DIRECT ONE (owner ruling, 2026-08-02).
+#    `test_r9d_s5_fold_rate_at_barrel_nodes_rises` measures what the mechanism
+#    actually claims to do — P(fold) at an IN-SCOPE barrel node in organic play —
+#    and showdown frequency is demoted to a directional companion. The history
+#    matters and is kept deliberately:
+#
+#    Spec §7 S-5 originally asked for a showdown-frequency fall of >= 0.01 for
+#    nit / tag / lag / passive_fish. **That literal was measured FALSE at four
+#    sample sizes and has been RETIRED by the owner** — it was set a priori,
+#    before anything had been measured. Paired, shared nine-seat lineup,
+#    `context_aware=False`:
+#
+#      persona          N=2000    N=4000    N=8000   N=24000
+#      nit             -0.0177   -0.0088   -0.0154   -0.0121
+#      tag             -0.0117   -0.0078   -0.0079   -0.0061
+#      lag             -0.0042   -0.0042   -0.0053   -0.0072
+#      passive_fish    -0.0044   -0.0052   -0.0037   -0.0043
+#      maniac          -0.0044   -0.0044   -0.0036   -0.0031
+#      calling_station -0.0030   -0.0027   -0.0023   -0.0023
+#
+#    Only `nit` ever clears 0.01, and not stably. Re-measured `context_aware=
+#    True` at N=8000 the shape is the same (lag -0.0081, passive_fish -0.0063,
+#    tag -0.0069, nit -0.0132); with the per-persona `_persona_stats` lineup at
+#    N=3000 it is smaller still (tag -0.0017).
+#
+#    The reason is dilution, not a weak mechanism. Showdown frequency divides a
+#    node-level effect by a denominator two orders of magnitude larger: the
+#    mechanism fires only where a seat faces a sustained barrel holding an
+#    in-scope bucket, and in a nine-max full-ring sim that node is RARE — a few
+#    thousand across N hands x 9 seats, of which `nit` reaches a few dozen.
+#    Measured AT those nodes instead, the effect is large and orderly (the table
+#    in `test_r9d_s5_fold_rate_at_barrel_nodes_rises`). Recording the retired
+#    literal here, rather than deleting it, is the point: it is the evidence the
+#    retirement rests on.
+#
+# ── COST. Two arms x `_R9D_S5_N` hands ~= 34s on this maker's box, plus ~3s for
+#    the no-op discriminator. The shared nine-seat lineup is what keeps that
+#    affordable: it reads ALL SIX personas out of ONE pair of arms instead of six
+#    pairs. N is set by the DECISIVE gate's thinnest sample — `nit` reaches only
+#    41 in-scope barrel nodes even at N=8000 (14 at N=4000), and a literal
+#    effect-size floor asserted over 14 observations would not be worth the ink.
+
+_R9D_S5_N = 8000
+
+# Two DEDICATED rngs (ledger R-4). Neither ever acts as an action/sizing rng —
+# that is the whole point: the deal sequence must not be able to move when play
+# does. Seeds are distinct from the `_persona_stats` 20260710 stream so this run
+# can never be confused with, or accidentally reuse, a banded measurement.
+_R9D_S5_DEAL_SEED = 20260802
+_R9D_S5_ACTION_SEED = 20260803
+
+# One seat per persona plus three repeats, in `ALL_PERSONAS` (alphabetical)
+# order — published rather than derived at call time so the arms are reproducible
+# from this module alone, and deliberately NOT weighted towards the thin personas
+# (a nit-heavy lineup would buy `nit` more nodes at the price of measuring every
+# other persona against a table that is not the roster).
+_R9D_S5_LINEUP = tuple(ALL_PERSONAS[i % len(ALL_PERSONAS)] for i in range(9))
+
+# The scope predicate, applied test-side to the raw `LineNode` rows (spec §4).
+# Written as its own literal for the same reason `_R9D_SCOPE_BUCKETS` is: a gate
+# that reads its own scope out of the module under test goes green for free the
+# moment that module changes its mind. `test_r9d_s5_scope_matches_the_node_grid`
+# reconciles the two.
+_R9D_S5_SCOPE = _R9D_SCOPE_BUCKETS
+
+# OCCURRENCE FLOORS (spec §7 S-5: "state the occurrence floor ... below which the
+# comparison is not reported"), stated over IN-SCOPE barrel nodes because that is
+# the population the decisive gate averages over. Measured at this N: 2,538
+# table-wide, minimum 41 (`nit`). Deliberately a hard FAILURE rather than a
+# silent skip — a run that stops reaching barrel nodes means the derivation or
+# the sim broke, and a skip is exactly how that would hide.
+_R9D_S5_NODE_FLOOR = 1000  # table-wide, in-scope
+_R9D_S5_PERSONA_NODE_FLOOR = 20  # per persona, in-scope
+
+# ── THE DECISIVE LITERAL, and an honest account of its status ──────────────
+#
+# `nit` — the tightest lever (0.60) and the persona the closed form predicts
+# hardest — must show a rise in P(fold) at in-scope barrel nodes of at least
+# this much. It is a FLOOR WITH HEADROOM, **not a fitted value**:
+#
+#   * The closed form gives `nit` a reference-node effect of +0.131 — predicted
+#     by the design pass BEFORE the mechanism existed, and reproduced by T4 at
+#     +0.131190 (`test_r9d_s1_identity_breaks_with_a_literal_effect_floor`).
+#   * Organic play AVERAGES that over a spot mix — every street, every price,
+#     every SPR, every headcount the sim deals — so the population figure is
+#     NECESSARILY smaller than the single-node one. A population gate pinned at
+#     the reference-node number would be wrong by construction.
+#   * 0.03 sits far above any no-op (which reads exactly 0.000000 — see
+#     `test_r9d_s5_gate_is_red_under_a_no_op_mechanism`) and well below both the
+#     reference-node effect and the measured population value: `nit` reads
+#     +0.1463 here, ~4.9x the floor. An earlier, coarser diagnostic over ALL
+#     barrel nodes (in-scope and out) read +0.054, ~1.8x the floor; both
+#     readings clear it comfortably.
+#
+# What this floor is NOT: it is not the slice's unfitted effect-size gate. That
+# remains **S-1's literal 0.05 at the named reference node** (`_R9D_MIN_
+# REFERENCE_EFFECT` above), which matches a prediction made before any of this
+# was measured. This one is a conservative population backstop chosen after
+# measurement, and it is labelled as such so nobody later mistakes it for
+# independent confirmation of the closed form.
+_R9D_S5_NIT_RISE_FLOOR = 0.03
+
+# ── THE ORDERING WE CAN DEFEND, and the edge we cannot ─────────────────────
+#
+# Spec §5's ladder is `nit 0.60 > tag 0.50 > {lag 0.35 = passive_fish 0.35} >
+# maniac 0.20 > calling_station 0.10`, strict between tiers and equal within the
+# braced tie. In ODDS space at a fixed node that ordering holds exactly, and
+# `test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie` above
+# asserts it there.
+#
+# In ORGANIC PLAY it does not survive intact, and this is the caveat spec §7 S-4
+# already records for its own reason: **the probability-space ordering differs
+# from the λ ordering because base continue rates differ.** Two further things
+# push it around here — each persona meets a DIFFERENT mix of barrel spots (the
+# station is called down to the river; the nit is rarely there at all), and
+# ΔP(fold) for a given λ is steepest where the base fold rate is nearest the
+# middle. Measured (rise in P(fold) at in-scope barrel nodes):
+#
+#   persona          λ-tier  N=4000    N=8000   N=16000
+#   nit                1     +0.1429   +0.1463  +0.1272
+#   tag                2     +0.0750   +0.0856  +0.0643
+#   passive_fish       3     +0.0588   +0.0410  +0.0392
+#   lag                3     +0.0364   +0.0369  +0.0579
+#   maniac             4     +0.0470   +0.0346  +0.0294
+#   calling_station    5     +0.0046   +0.0041  +0.0051
+#
+# Stable at every N: tiers 1 and 2 sit strictly above tiers 3-4, and tier 5 sits
+# strictly below everything. NOT stable: the tier-3 / tier-4 edge — at N=4000
+# `maniac` (+0.0470) outruns `lag` (+0.0364) outright, at N=8000 it is a
+# 0.002 margin, and only by N=16000 does the ladder order return. Nor are the
+# braced tie's two members equal in organic play (+0.0410 vs +0.0369 at this N):
+# they carry equal λ, not equal spot mixes, so equality is not the prediction.
+#
+# So the gate asserts the coarse ordering — `nit > tag > {lag, passive_fish,
+# maniac} > calling_station` — and says plainly that the fine tier-3/tier-4 edge
+# is NOT asserted, rather than buying it with a bigger N. The λ-exact claim is
+# S-4's, at the node, in odds space, where it is true.
+_R9D_S5_ORDER = (("nit",), ("tag",), ("lag", "passive_fish", "maniac"), ("calling_station",))
+
+# ── THE DEMOTED COMPANION ──────────────────────────────────────────────────
+# Showdown frequency is now a DIRECTIONAL population-consequence check, not an
+# effect-size gate (owner ruling). `_R9D_S5_SPEC_FALL` is the RETIRED spec
+# literal, kept in the module so the retirement is visible at the point of the
+# gate and not only in a ledger. `_R9D_S5_MIN_FALL` is the measured floor
+# actually asserted: the smallest magnitude any of the four named personas showed
+# across four sample sizes was 0.0037, so 0.002 keeps ~1.8x headroom.
+_R9D_S5_SPEC_FALL = 0.01  # RETIRED — recorded, never asserted
+_R9D_S5_MIN_FALL = 0.002
+_R9D_S5_STATION_TOL = 0.005  # spec §7 S-5's other literal — MET at every N
+_R9D_S5_FALLERS = ("nit", "tag", "lag", "passive_fish")
+_R9D_S5_DIRECTIONAL = ("maniac",)
+
+
+def _r9d_s5_seeds() -> tuple[tuple[int, int], ...]:
+    """The immutable (hand_seed, action_seed) schedule both arms replay."""
+    deal_rng = random.Random(_R9D_S5_DEAL_SEED)
+    action_rng = random.Random(_R9D_S5_ACTION_SEED)
+    return tuple(
+        (deal_rng.randrange(1_000_000_000), action_rng.randrange(1_000_000_000))
+        for _ in range(_R9D_S5_N)
+    )
+
+
+_R9D_S5_SEEDS = _r9d_s5_seeds()
+
+
+class _R9dArm(NamedTuple):
+    wtsd: dict  # persona -> showdowns / flop-arrivals
+    saw_flop: dict  # persona -> flop arrivals (the pairing receipt)
+    showdowns: dict
+    nodes: dict  # persona -> barrel facing nodes, ALL buckets
+    in_scope: dict  # persona -> barrel facing nodes inside the §4 scope
+    folds: dict  # persona -> FOLDs among those
+    fold_rate: dict  # persona -> folds / in_scope
+
+
+_R9D_S5_ARMS: dict = {}
+
+
+def _r9d_s5_run(mode, packs, seeds) -> _R9dArm:
+    """One arm: replay `seeds` with `line_aware=mode` and tally both metrics."""
+    persona_by_seat = {i: _R9D_S5_LINEUP[i] for i in range(9)}
+    saw = dict.fromkeys(ALL_PERSONAS, 0)
+    shown = dict.fromkeys(ALL_PERSONAS, 0)
+    nodes = dict.fromkeys(ALL_PERSONAS, 0)
+    in_scope = dict.fromkeys(ALL_PERSONAS, 0)
+    folds = dict.fromkeys(ALL_PERSONAS, 0)
+    for i, (hand_seed, action_seed) in enumerate(seeds):
+        res = _play_hand(
+            random.Random(action_seed),
+            hand_seed,
+            i % 9,
+            persona_by_seat,
+            packs,
+            line_aware=mode,
+        )
+        for row in res.line_nodes:
+            persona = persona_by_seat[row.seat]
+            nodes[persona] += 1
+            if row.bucket in _R9D_S5_SCOPE and row.draw is DrawCategory.NONE:
+                in_scope[persona] += 1
+                if row.action == ActionType.FOLD.value:
+                    folds[persona] += 1
+        for seat, persona in persona_by_seat.items():
+            if seat in res.saw_flop:
+                saw[persona] += 1
+                if seat in res.settlement.showdown_seats:
+                    shown[persona] += 1
+    return _R9dArm(
+        wtsd={p: shown[p] / saw[p] for p in ALL_PERSONAS},
+        saw_flop=saw,
+        showdowns=shown,
+        nodes=nodes,
+        in_scope=in_scope,
+        folds=folds,
+        fold_rate={
+            p: (folds[p] / in_scope[p] if in_scope[p] else float("nan"))
+            for p in ALL_PERSONAS
+        },
+    )
+
+
+def _r9d_s5_arm(mode) -> _R9dArm:
+    """Cached arm of the main paired run. Several gates read the same two arms."""
+    if mode not in _R9D_S5_ARMS:
+        _R9D_S5_ARMS[mode] = _r9d_s5_run(mode, load_persona_packs(), _R9D_S5_SEEDS)
+    return _R9D_S5_ARMS[mode]
+
+
+def _r9d_s5_rise() -> dict:
+    """persona -> rise in P(fold) at in-scope barrel nodes, treatment - control."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    return {p: on.fold_rate[p] - off.fold_rate[p] for p in ALL_PERSONAS}
+
+
+def test_r9d_s5_scope_matches_the_node_grid():
+    """The S-5 scope filter is the SAME predicate the node grid publishes — the
+    population gate and the node gates must not be able to drift apart."""
+    assert _R9D_S5_SCOPE == _R9D_SCOPE_BUCKETS
+    assert set(_R9D_S5_LINEUP) == set(ALL_PERSONAS)
+    assert [p for tier in _R9D_S5_ORDER for p in tier] != []
+    assert sorted(p for tier in _R9D_S5_ORDER for p in tier) == sorted(ALL_PERSONAS)
+
+
+def test_r9d_s5_the_arms_are_a_true_pair():
+    """S-5's precondition, asserted before any number is read (ledger R-4).
+
+    Four claims, and each is a way the paired run could quietly degenerate into
+    a measurement of deal noise:
+
+    1. **The schedule is immutable and dedicated.** Regenerating it reproduces
+       the same tuple, and neither seed rng is the `_persona_stats` stream.
+    2. **The control is genuinely line-blind.** `_LINE_OBSERVE` records nodes but
+       never passes the kwarg to the sampler — pinned on the actual call kwargs
+       by `test_r9d_p7_the_population_path_never_sees_the_flag_by_default`.
+    3. **The deals did not diverge.** Flop arrivals are identical per persona
+       across the arms. Not a hope: `aggressor_barrel_run` is 0 on the flop by
+       construction, so preflop and flop play CANNOT differ, and `saw_flop` is
+       snapshotted before any flop action.
+    4. **Occurrence floors.** Over ~zero barrel nodes the comparison is not
+       reportable, so a breach fails hard rather than skipping quietly.
+
+    Note the arms' node counts are close but not identical (a handful out of
+    thousands): once turn play diverges, the downstream node population shifts
+    slightly. That is the mechanism working, not the pairing failing — the
+    pairing receipt is claim 3, which is exact."""
+    assert _r9d_s5_seeds() == _R9D_S5_SEEDS
+    assert isinstance(_R9D_S5_SEEDS, tuple) and len(_R9D_S5_SEEDS) == _R9D_S5_N
+    assert 20260710 not in (_R9D_S5_DEAL_SEED, _R9D_S5_ACTION_SEED)
+    assert len({s for s, _ in _R9D_S5_SEEDS}) > _R9D_S5_N * 0.99  # no seed reuse
+
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    assert off.saw_flop == on.saw_flop, (
+        "flop arrivals diverged between the arms, so the pair is broken: "
+        f"{off.saw_flop} vs {on.saw_flop}"
+    )
+    for arm_name, arm in (("control", off), ("treatment", on)):
+        total = sum(arm.in_scope.values())
+        assert total >= _R9D_S5_NODE_FLOOR, (
+            f"{arm_name}: only {total} in-scope barrel nodes in {_R9D_S5_N} hands "
+            f"(floor {_R9D_S5_NODE_FLOOR}) — the S-5 comparison is not reportable"
+        )
+        thin = {p: n for p, n in arm.in_scope.items() if n < _R9D_S5_PERSONA_NODE_FLOOR}
+        assert not thin, (
+            f"{arm_name}: personas under the per-persona in-scope floor "
+            f"{_R9D_S5_PERSONA_NODE_FLOOR}: {thin} — not reportable"
+        )
+
+
+def test_r9d_s5_fold_rate_at_barrel_nodes_rises():
+    """S-5, THE DECISIVE POPULATION GATE (owner ruling, 2026-08-02) — in organic
+    nine-max play, does a bot facing a SECOND BARREL actually fold more?
+
+    This is the direct measure. `P(fold)` is taken over the in-scope barrel nodes
+    the sim organically reaches (spec §4's predicate: bucket in
+    {MIDDLE_PAIR, TOP_PAIR, ACE_HIGH, AIR} AND no draw), with a NODE-MATCHED
+    control that sees the same node population with the mechanism switched off.
+    Measured at `_R9D_S5_N` = 8000:
+
+      persona          λ     in-scope   P(fold) off   P(fold) on   rise
+      nit             0.60        41        0.2927       0.4390   +0.1463
+      tag             0.50        85        0.2791       0.3647   +0.0856
+      passive_fish    0.35       268        0.4889       0.5299   +0.0410
+      lag             0.35       207        0.3592       0.3961   +0.0369
+      maniac          0.20       318        0.3774       0.4119   +0.0346
+      calling_station 0.10      1619        0.2930       0.2971   +0.0041
+
+    Two assertions: (a) a STRICTLY POSITIVE rise for every persona — all six
+    author `line_sensitivity > 0`, reconciled against the packs by
+    `test_r9d_ladder_matches_the_authored_packs`; and (b) the literal floor
+    `_R9D_S5_NIT_RISE_FLOOR` on the tightest persona. Read the block above that
+    constant before judging the 0.03: it is a conservative floor with headroom,
+    NOT a fitted value, and it is NOT the slice's unfitted effect-size gate —
+    that is still S-1's 0.05 at the named reference node.
+
+    NOT VACUOUS, which is the property that matters: under a no-op mechanism
+    both arms play byte-identically and every rise is exactly 0.000000, so (a)
+    goes red. `test_r9d_s5_gate_is_red_under_a_no_op_mechanism` runs that
+    counterfactual in-suite rather than asserting it in prose."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    rise = _r9d_s5_rise()
+    report = {
+        p: (
+            on.in_scope[p],
+            round(off.fold_rate[p], 4),
+            round(on.fold_rate[p], 4),
+            round(rise[p], 4),
+        )
+        for p in ALL_PERSONAS
+    }
+    flat = {p: r for p, r in rise.items() if not r > 0.0}
+    assert not flat, (
+        f"P(fold) at in-scope barrel nodes did not rise for {flat} — the population "
+        f"run is still line-blind there (a no-op mechanism reads exactly this). "
+        f"Full table (in_scope, off, on, rise): {report}"
+    )
+    assert rise["nit"] >= _R9D_S5_NIT_RISE_FLOOR, (
+        f"nit rose only {rise['nit']:.4f} at in-scope barrel nodes, under the literal "
+        f"floor {_R9D_S5_NIT_RISE_FLOOR}. Full table: {report}"
+    )
+
+
+def test_r9d_s5_fold_rate_rise_follows_the_defensible_ladder():
+    """S-5(c) — the ordering, and ONLY the part of it organic play supports.
+
+    Asserted: `nit > tag > {lag, passive_fish, maniac} > calling_station`,
+    strictly between those groups.
+
+    ⚠️ DELIBERATELY NOT ASSERTED, and the reason is in the `_R9D_S5_ORDER` block
+    above: the fine tier-3 / tier-4 edge (`{lag, passive_fish}` above `maniac`)
+    does NOT hold at every sample size — at N=4000 maniac outruns lag outright,
+    at this N the margin is 0.002, and only at N=16000 does the λ order return.
+    Nor are the braced tie's members equal here; they carry equal λ, not equal
+    spot mixes. This is the same caveat spec §7 S-4 records for its own reason —
+    probability-space ordering differs from the λ ordering because base continue
+    rates differ — and the λ-exact claim is asserted where it is true: at a fixed
+    node, in odds space, by
+    `test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie`.
+
+    Buying the missing edge with a bigger N was considered and rejected: it would
+    trade honesty about the population for a number, and the population is the
+    thing this gate exists to describe."""
+    rise = _r9d_s5_rise()
+    for higher, lower in zip(_R9D_S5_ORDER[:-1], _R9D_S5_ORDER[1:], strict=True):
+        worst_high = min(rise[p] for p in higher)
+        best_low = max(rise[p] for p in lower)
+        assert worst_high > best_low, (
+            f"ordering broke between {higher} (min {worst_high:.4f}) and {lower} "
+            f"(max {best_low:.4f}); full table {({p: round(r, 4) for p, r in rise.items()})}"
+        )
+
+
+def test_r9d_s5_gate_is_red_under_a_no_op_mechanism():
+    """The decisive gate's non-vacuity, PROVEN rather than argued.
+
+    Strips `line_sensitivity` from all six packs — which is the literal no-op
+    (`personas_postflop.py`: lever `None` and the merit list is not rebuilt at
+    all) and stands in for spec §10.4's mutants (a) `line_mult = 1.0` and (b)
+    `_LINE_DELTA = 1e-12` — then replays a short paired run. With the mechanism
+    inert the two arms play byte-identically, so:
+
+      * every persona's in-scope node count and FOLD count match exactly, hence
+        every rise is exactly 0.0 and
+        `test_r9d_s5_fold_rate_at_barrel_nodes_rises`'s assertion (a) is RED; and
+      * every showdown-frequency delta is exactly 0.0, so the demoted companion
+        gate is RED too.
+
+    Asserted on COUNTS, not rates, so no persona needs to reach a big enough
+    sample for a rate to be meaningful at this short N."""
+    packs = load_persona_packs()
+    no_op = {}
+    for key, pack in packs.items():
+        stripped = pack.model_copy(deep=True)
+        stripped.postflop = pack.postflop.model_copy(update={"line_sensitivity": None})
+        assert stripped.postflop.line_sensitivity is None
+        no_op[key] = stripped
+    seeds = _R9D_S5_SEEDS[:600]
+    off = _r9d_s5_run(_LINE_OBSERVE, no_op, seeds)
+    on = _r9d_s5_run(True, no_op, seeds)
+    assert sum(on.in_scope.values()) > 0, "the probe reached no in-scope barrel node at all"
+    assert off.in_scope == on.in_scope, (off.in_scope, on.in_scope)
+    assert off.folds == on.folds, (off.folds, on.folds)
+    assert off.showdowns == on.showdowns, (off.showdowns, on.showdowns)
+    assert off.saw_flop == on.saw_flop
+
+
+def test_r9d_s5_paired_population_showdown_frequency_falls():
+    """S-5's DIRECTIONAL population-consequence companion — demoted from decisive
+    by the owner ruling of 2026-08-02, and NOT an effect-size gate.
+
+    The claim is only that the population moves the way the mechanism predicts:
+    bots that fold to barrels more often ride fewer hands to showdown. Measured
+    at this N: nit -0.0154, tag -0.0079, lag -0.0053, passive_fish -0.0037,
+    maniac -0.0036, calling_station -0.0023.
+
+    Spec §7 S-5's original literal — a fall of >= `_R9D_S5_SPEC_FALL` (0.01) for
+    nit/tag/lag/passive_fish — was measured FALSE at four sample sizes and has
+    been RETIRED; the evidence table is in the ⚠️ block at the head of this
+    section and must not be trimmed. What is asserted instead is a strict fall
+    floored at the measured `_R9D_S5_MIN_FALL`.
+
+    Still falsifiable: under any no-op mechanism both arms play byte-identically
+    and every delta is exactly 0.0 (`test_r9d_s5_gate_is_red_under_a_no_op_
+    mechanism` demonstrates it), so this gate goes red too."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    report = {p: round(on.wtsd[p] - off.wtsd[p], 4) for p in ALL_PERSONAS}
+    delta = {p: on.wtsd[p] - off.wtsd[p] for p in ALL_PERSONAS}
+
+    rose = {p: d for p, d in report.items() if d > 0.0}
+    assert not rose, (
+        f"showdown frequency ROSE for {rose} — folding more to a barrel cannot "
+        f"produce more showdowns. Full table: {report}"
+    )
+    flat = {p: d for p, d in delta.items() if d == 0.0}
+    assert not flat, (
+        f"showdown frequency did not move at all for {flat} — the population run "
+        f"is still line-blind (a no-op mechanism reads exactly this). "
+        f"Full table: {report}"
+    )
+    shallow = {p: report[p] for p in _R9D_S5_FALLERS if delta[p] > -_R9D_S5_MIN_FALL}
+    assert not shallow, (
+        f"fall shallower than the measured floor {_R9D_S5_MIN_FALL} for {shallow} "
+        f"(the retired spec literal was {_R9D_S5_SPEC_FALL}). Full table: {report}"
+    )
+    for persona in _R9D_S5_DIRECTIONAL:
+        assert delta[persona] < 0.0, (persona, report[persona])
+
+
+def test_r9d_s5_calling_station_stays_line_blind():
+    """S-5's other spec literal, and this one IS met: `|Δ| <= 0.005` for the
+    station's showdown frequency.
+
+    Spec §5 — the station's near-zero lever is THE ARCHETYPE, not a leak: a
+    line-blind call-down is its defining trait, so authoring it at 0.10 must
+    leave the population read essentially where it was. Measured -0.0022 …
+    -0.0030 across N in {2000, 4000, 8000, 24000}.
+
+    A two-sided bound, so it is not satisfied by "the station is excluded": were
+    the mechanism mis-scoped and the station damped like a nit, this reads about
+    -0.02 and goes red."""
+    off, on = _r9d_s5_arm(_LINE_OBSERVE), _r9d_s5_arm(True)
+    delta = on.wtsd["calling_station"] - off.wtsd["calling_station"]
+    assert abs(delta) <= _R9D_S5_STATION_TOL, delta
+
+
+def test_r9d_p7_the_population_path_never_sees_the_flag_by_default(monkeypatch):
+    """P-7's mechanism, pinned structurally rather than inferred from the bands.
+
+    Every `BANDS` row and every golden statistic in this file is measured through
+    `_play_hand`'s DEFAULT path. Those numbers stay byte-identical for exactly
+    one reason: unless `line_aware is True` the harness never puts
+    `aggressor_bet_prev_street` into the sampler call at all, so
+    `sample_postflop_decision` is invoked with the identical keyword set it was
+    invoked with before this ticket. Asserted here on the actual call kwargs —
+    an equality of measured statistics could not tell "the flag never arrived"
+    from "the flag arrived and happened not to matter on these seeds".
+
+    All three `line_aware` states are covered, and the middle one carries S-5's
+    weight: `_LINE_OBSERVE` must record nodes while passing NOTHING, or the
+    "node-matched control" is really a second treatment arm. The `True` state is
+    the discriminator that proves the two absences are the modes' doing and not a
+    wrapper quietly dropping the kwarg on the floor (which would make the whole
+    S-5 run a no-op measured against itself)."""
+    seen: list[bool] = []
+    real = sample_postflop_decision
+
+    def spy(*args, **kwargs):
+        seen.append("aggressor_bet_prev_street" in kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(sys.modules[__name__], "sample_postflop_decision", spy)
+    packs = load_persona_packs()
+    persona_by_seat = {i: _R9D_S5_LINEUP[i] for i in range(9)}
+    for line_aware, want in ((False, False), (_LINE_OBSERVE, False), (True, True)):
+        seen.clear()
+        nodes = 0
+        for i, (hand_seed, action_seed) in enumerate(_R9D_S5_SEEDS[:120]):
+            res = _play_hand(
+                random.Random(action_seed),
+                hand_seed,
+                i % 9,
+                persona_by_seat,
+                packs,
+                line_aware=line_aware,
+            )
+            nodes += len(res.line_nodes)
+        assert seen, "no postflop decision was taken at all — the probe proves nothing"
+        assert set(seen) == {want}, (line_aware, sorted(set(seen)))
+        assert (nodes > 0) is bool(line_aware), (line_aware, nodes)

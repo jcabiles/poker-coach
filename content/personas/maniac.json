@@ -1,7 +1,12 @@
 {
   "id": "persona_maniac",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "_doc": [
+    "1.7.0 (R9-DEFENCE-a T1, 2026-08-02) — ONE new postflop number,",
+    "`line_sensitivity`: 0.20 (directional fit seed — a maniac stays",
+    "line-blind relative to the roster, but not fully so). It is READ by",
+    "`personas_postflop._line_scaled`, which scales the facing-node CALL and",
+    "RAISE merits by `exp(-λ·line)` where `λ = _LINE_DELTA · line_sensitivity`.",
     "1.6.0 (N-LOGIT, 2026-08-02) — ONE new postflop number, `continue_ref`:",
     "0.55. Maniac authors no `call_looseness`, so its effective looseness IS",
     "`stickiness` (0.55) and that is what this anchor freezes. The facing-node",
@@ -167,6 +172,7 @@
     "aggression": 15.0,
     "stickiness": 0.55,
     "continue_ref": 0.55,
+    "line_sensitivity": 0.20,
     "bluff_freq": 0.55,
     "sizing": { "0.75": 0.4, "1.0": 0.35, "1.5": 0.25 },
     "sizing_by_node": {
