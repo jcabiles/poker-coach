@@ -31,6 +31,10 @@ Posterior math:
   the estimator's response model prices a bet exactly as the live bot does
   (`_price_factor`, including its f > 1.5 overbet tail, is reached through the
   production sampler — this module owns no price law of its own).
+- R9-DEFENCE-a: the opponent LINE is reconstructed too. The replay tracks the
+  current street's aggressor SEAT and asks the ONE shipped derivation
+  (`aggressor_barrel_run`) whether that same seat barrelled the previous
+  postflop street, so the reveal damps continues exactly as the live bot does.
 - Class↔combo granularity (spec med-2): classes expand to suit combos so
   dead-card removal (hero cards + revealed board ONLY) zeroes just the
   blocked combos; combo mass re-aggregates to 169-class weights.
@@ -49,6 +53,7 @@ from app.domain.content.notation import all_hands, hole_cards_to_class
 from app.domain.personas import _WIRE, _combos
 from app.domain.personas_postflop import sample_postflop_decision, strength_bucket
 from app.domain.spot import RANKS, SUITS, ActionType, Card, LegalAction, Position, Street
+from app.domain.table.postflop_context import aggressor_barrel_run
 
 _SEATS = 9
 _EPS = 1e-9
@@ -127,6 +132,14 @@ class _Ctx(NamedTuple):
     # actually sampled from. Like the live path it stays set postflop (the
     # postflop sampler ignores it) — parity-tested per street.
     is_opener: bool = False
+    # R9-DEFENCE-a: did the seat whose wager is outstanding on THIS street also
+    # bet/raise the previous postflop street (a barrel, not a first stab)? The
+    # `>= 1` boolean of the ONE shipped derivation, `aggressor_barrel_run` —
+    # never re-derived here (postflop_context.py:183-186 warns against a second
+    # taxonomy). Same-SEAT, not "any aggression last street": the run is asked
+    # of the current street's aggressor position, so multiway, where a DIFFERENT
+    # seat bet the previous street, it is False.
+    aggressor_bet_prev_street: bool = False
 
 
 class RangeEstimate(NamedTuple):
@@ -156,6 +169,14 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     # read off the same walk (PublicAction.amount_bb is already the increment,
     # like HistoryAction.amount_bb). 0.0 on an unraised/checked street.
     street_agg_amt = 0.0
+    # R9-DEFENCE-a: POSITION of the CURRENT street's most recent BET/RAISE —
+    # `play.bot_decision`'s `street_aggressor` (`last_aggressor_position` over
+    # the street-filtered history) read off this same walk. Reset with the
+    # street, like `street_aggr`/`street_agg_amt`; None on an unopened street,
+    # where there is no wager being faced. This is the ONE value the replay was
+    # missing: `street_aggr` counts aggressions but forgets WHO made them, and
+    # the barrel run must be about the seat whose wager is faced.
+    street_aggressor: Position | None = None
     out: list[_Ctx] = []
 
     def pay(s: int, amt: float) -> None:
@@ -165,7 +186,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
         inv_street[s] += amt
         inv_total[s] += amt
 
-    for a in history.actions[:n]:
+    for i, a in enumerate(history.actions[:n]):
         if a.street is not street:  # street closed: engine._close_street resets
             street = a.street
             inv_street = [0.0] * _SEATS
@@ -174,6 +195,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
             acted = set()
             street_aggr = 0
             street_agg_amt = 0.0
+            street_aggressor = None
         s = a.seat
         if a.action is ActionType.POST:
             pay(s, a.amount_bb)
@@ -219,6 +241,20 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     to_call_bb=round(min(to_call, stacks[s]), 2) if to_call > _EPS else 0.0,
                     aggressor_contribution_bb=round(street_agg_amt, 2),
                     is_opener=pf_opener == s,
+                    # Exactly play.bot_decision's derivation, on the prefix of
+                    # the record this decision could see (`history.actions[:i]`
+                    # is `state.action_history` at that moment — the pending
+                    # action is not yet in it). `PublicAction` carries street /
+                    # position / action, the only three fields the derivation
+                    # reads, so it is reused as-is. PREFLOP needs no guard: the
+                    # derivation is postflop-only and returns 0 there.
+                    aggressor_bet_prev_street=street_aggressor is not None
+                    and aggressor_barrel_run(
+                        history.actions[:i],  # type: ignore[arg-type] — HistoryAction-shaped
+                        street,
+                        street_aggressor,
+                    )
+                    >= 1,
                 )
             )
 
@@ -235,6 +271,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
         else:  # BET / RAISE — amount is the increment; new bet-TO = invested
             street_aggr += 1
             street_agg_amt = a.amount_bb
+            street_aggressor = a.position
             prev = cur
             pay(s, a.amount_bb)
             new_bet = inv_street[s]
@@ -360,6 +397,7 @@ def _postflop_action_dist(
         street=ctx.street,
         latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         facing_raise=ctx.facing_raise,
+        aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
     )
     if cap.population is None:  # zero-total-merit fallback path: deterministic
         return {decision.action: 1.0}
