@@ -219,6 +219,20 @@ _WANT_BB = {("BB", 1), ("BB", 2), ("BB", 3)}
 # limper-belt content changed; every _WANT_* coverage shape still fires
 # (verified: BB¹ 39, BB² 29, BB³ 5) — stream displacement plus genuinely
 # longer 3-bet hands, not a coverage regression.
+# RE-PINNED for R9-DEFENCE-a (2026-08-02 — slice-authorized, owner-ruled):
+# T2's line-sensitivity mechanism makes every opted-in villain fold more to
+# a same-seat second-street barrel, changing bot postflop decisions at
+# facing-chips nodes across the shared organic rng stream (old post-N-3BSTRATA
+# counts: UTG2¹ 84, LJ¹ 122, HJ¹ 98, CO¹ 99, CO² 33, SB¹ 70, SB² 29,
+# BTN¹ 75, BTN² 36). ATTRIBUTION PROVEN, not assumed (the #160-entry method):
+# at this tip, restoring ONLY this slice's changed files
+# (personas_postflop.py, content/models.py, content/personas/*.json) to
+# their base 8cc6c38 contents turned this test AND test_coverage_baseline.py
+# green again unmodified; putting the current files back reproduced both
+# failures — the slice is the sole cause. No limper-belt content changed;
+# every _WANT_* coverage shape still fires (verified: HJ¹ 111, LJ¹ 125,
+# SB¹ 65, UTG2¹ 78; CO² 31, SB² 30; BB¹ 40, BB² 25, BB³ 10) — stream
+# displacement, not a coverage regression.
 _PRE_M3_FIRES = {
     # RE-RECORDED for WAVE 3 COMBINED (persona-realism-wave3, 2026-07-31 —
     # wave-authorized, recorded once on the combined lane-B + lane-A tip):
@@ -269,9 +283,9 @@ _PRE_M3_FIRES = {
     # pack change is the sole cause. No limper-belt content changed; every
     # _WANT_* coverage shape still fires (verified: BB¹ 45, BB² 34, BB³ 9)
     # — stream displacement, not a coverage regression.
-    ("UTG2", 1): 84, ("LJ", 1): 122, ("HJ", 1): 98, ("CO", 1): 99,
-    ("CO", 2): 33, ("SB", 1): 70, ("SB", 2): 29, ("BTN", 1): 75,
-    ("BTN", 2): 36,
+    ("UTG2", 1): 78, ("LJ", 1): 125, ("HJ", 1): 111, ("CO", 1): 105,
+    ("CO", 2): 31, ("SB", 1): 65, ("SB", 2): 30, ("BTN", 1): 77,
+    ("BTN", 2): 30,
 }
 
 

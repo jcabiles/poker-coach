@@ -241,6 +241,37 @@ the strongest recovery since the wave-3 −3.8pp low (graded RATCHET moves UP
 317 → 338). Same adjudicated mapper-track class (T-cover owns the ratio),
 reported not silent. Seeded-fixture re-record; population bands stay frozen
 to W4-b.
+
+CHAIN DISCONTINUITY, recorded 2026-08-02 (R9-DEFENCE-a integration — NOT a
+re-record, no fixture change): the entry above ends at 1275/338 (26.5%), but
+the fixture on disk at `origin/main` 8cc6c38 reads 1224/339 (27.70%). Cause
+traced, not guessed: `6e73bbf` (wave-6 lane A, #155 — pack-keyed stats caches
++ production-faithful harness sizing) moved the fixture 1275/338 -> 1224/339
+and appended NO entry here. That is the FIFTH occurrence of the lost-record
+pattern this initiative has hit (see the four logged in
+`test_limper_coverage_belt.py`). Recorded so the next re-pin computes its
+"old" side from the FIXTURE, never from the tail of this chain — deriving it
+from the prose is precisely how one of these gets lost. The entry below
+therefore opens at 1224/339, the on-disk truth.
+
+RE-PINNED for R9-DEFENCE-a (2026-08-02 — slice-authorized, owner-ruled): T2
+scales the CALL/RAISE merits by `exp(-lambda_p * line)` at a facing-chips
+node when the same seat also bet/raised the previous postflop street
+(`line_sensitivity`, seeded per pack), so every villain that opts in folds
+more to a sustained barrel — a genuine, authorized behavior change threaded
+through `table/play.py`'s production path — and the seeded hand stream
+displaces from the recorded fixture: total 1224 -> 1288, graded 339 -> 335
+(ratio 27.70% -> 26.01%). ATTRIBUTION PROVEN, not assumed (the #160-entry
+method): at this tip, restoring ONLY this slice's changed files
+(`personas_postflop.py`, `content/models.py`, `content/personas/*.json`) to
+their base `8cc6c38` contents made this test (and the limper belt) pass
+again unmodified; putting the current files back reproduced the failure.
+The slice is the sole cause. Flagged, not laundered, as a mapper-track dip
+**owned by `T-cover`, not this slice**: more realistic villains (folding
+more to a sustained barrel) steer hero into a different mix of spots, and
+the unchanged mapper grades that mix slightly less. Not unprecedented —
+`R10-PRE2` produced an equivalent dip (28.0% -> 26.3%). Seeded-fixture
+re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
