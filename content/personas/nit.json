@@ -1,14 +1,24 @@
 {
   "id": "persona_nit",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "domain": "persona",
+  "_doc": [
+    "1.6.0 (R9-LOOSEFIT rev4, 2026-08-04) — ONE postflop number, `call_looseness`:",
+    "0.6 -> 0.45, so the nit folds materially more at facing nodes than it did",
+    "and more often than tag wherever the lever reaches (self leg + population",
+    "sweep, see docs/ai-dlc/specs/r9-loosefit-rev4.md). `continue_ref` is",
+    "DELIBERATELY NOT moved and stays at 0.6 — it is the frozen calibration",
+    "anchor the RAISE merit divides by, so re-syncing it with `call_looseness`",
+    "would restore the old coupling and delete that feature. `stickiness` is",
+    "also untouched at 0.6."
+  ],
   "persona": "nit",
   "display_name": "Nit",
   "sizing": { "open_bb": 3.0, "threebet_mult": 3.5, "fourbet_mult": 2.3 },
   "postflop": {
     "aggression": 0.6,
     "stickiness": 0.6,
-    "call_looseness": 0.6,
+    "call_looseness": 0.45,
     "continue_ref": 0.6,
     "position_sensitivity": 1.0,
     "line_sensitivity": 0.6,
