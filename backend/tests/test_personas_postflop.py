@@ -9716,8 +9716,15 @@ def test_r9d_p7_the_population_path_never_sees_the_flag_by_default(monkeypatch):
 
 _R9LF_SELF_FLOOR = 0.040
 # The value nit authored BEFORE this slice — the comparison baseline, not a
-# magic number. G-NODE is a sensitivity gate, not a value pin: it accepts any
-# shipped lever value in roughly 0.42–0.48.
+# magic number. G-NODE is a sensitivity gate, NOT a value pin, and it imposes
+# **no lower bound at all**: measured, both this panel and G-SWEEP pass at
+# 0.20 / 0.30 / 0.35 / 0.40 / 0.42 / 0.45 / 0.48 and redden only at 0.50.
+# (An earlier draft of this comment claimed an acceptance window of "roughly
+# 0.42-0.48"; that is wrong on the low side and was disproven by the slice's
+# own mutant sweep — ledger BR-1.) The floor on this lever comes from
+# ELSEWHERE in the suite: `test_fold_to_bet_respects_alpha_ceiling[nit]` fails
+# at 0.20, and R9-DEFENCE-a's ladder binds at ~0.42. Do not cite either gate
+# in this section as evidence that the shipped value is correct.
 _R9LF_PRE_SLICE_LOOSENESS = 0.60
 # Non-degeneracy window: a node where some legal action is effectively forced
 # tells us nothing about a lever that only re-weights the mix.
