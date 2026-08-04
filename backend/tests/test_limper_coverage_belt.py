@@ -283,8 +283,20 @@ _PRE_M3_FIRES = {
     # pack change is the sole cause. No limper-belt content changed; every
     # _WANT_* coverage shape still fires (verified: BB¹ 45, BB² 34, BB³ 9)
     # — stream displacement, not a coverage regression.
-    ("UTG2", 1): 78, ("LJ", 1): 125, ("HJ", 1): 111, ("CO", 1): 105,
-    ("CO", 2): 31, ("SB", 1): 65, ("SB", 2): 30, ("BTN", 1): 77,
+    # RE-RECORDED for R9-LOOSEFIT (2026-08-04, slice-authorized): the nit
+    # pack's `call_looseness` 0.6 -> 0.45 (ONE number; no engine, preflop or
+    # limper-belt content changed) makes the nit fold more to a faced bet, so
+    # hands end differently and the shared organic rng stream drifts at this
+    # seed, moving 7 of the 9 pairs (old: UTG2¹ 78, LJ¹ 125, HJ¹ 111, CO¹ 105,
+    # CO² 31, SB¹ 65, SB² 30, BTN¹ 77, BTN² 30; SB¹ and BTN² are unchanged).
+    # ATTRIBUTION PROVEN, not assumed (the #160-entry method): at this tip,
+    # reverting ONLY content/personas/nit.json to its b63dfaa contents
+    # reproduces those old counts exactly, and restoring 0.45 reproduces the
+    # counts below exactly — the pack change is the sole cause. Every _WANT_*
+    # coverage shape still fires (verified: BB¹ 42, BB² 24, BB³ 10) — stream
+    # displacement, not a coverage regression.
+    ("UTG2", 1): 74, ("LJ", 1): 122, ("HJ", 1): 114, ("CO", 1): 100,
+    ("CO", 2): 29, ("SB", 1): 65, ("SB", 2): 32, ("BTN", 1): 78,
     ("BTN", 2): 30,
 }
 

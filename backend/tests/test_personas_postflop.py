@@ -3533,10 +3533,24 @@ _GOLDEN_STATS_N200 = {
     # sole cause. The other FIVE rows — including lag's own — are verified
     # byte-identical, so this is a narrow stream displacement, not a
     # roster-wide behavior shift. Population bands stay frozen to W4-b.
+    # RE-RECORDED for R9-LOOSEFIT (2026-08-04, slice-authorized): the nit
+    # pack's `call_looseness` 0.6 -> 0.45 (ONE number; no engine, sampler or
+    # postflop code touched) makes the nit fold more at facing nodes BY DESIGN,
+    # so it reaches showdown less and the shared harness rng stream displaces
+    # from the first changed nit decision onward. The whole table was
+    # re-measured: only the nit WTSD cell moved (0.7450980392156863 ->
+    # 0.6491228070175439); the other five rows, and nit's own None AF/FtC, are
+    # verified byte-identical (their n=200 samples hit no changed cell), so
+    # this is a narrow displacement, not a roster-wide shift. ATTRIBUTION
+    # PROVEN, not assumed (the #160-entry method): at this tip, reverting ONLY
+    # content/personas/nit.json to its b63dfaa contents reproduces all six
+    # PREVIOUS rows exactly (nit WTSD back to 0.7450980392156863), and
+    # restoring 0.45 reproduces the six rows below exactly — the pack change is
+    # the sole cause. Population bands stay frozen to W4-b.
     "calling_station": (0.3277777777777778, 0.06557377049180328, 0.7077922077922078),
     "lag": (2.611111111111111, None, 0.5294117647058824),
     "maniac": (2.5522388059701493, 0.44680851063829785, 0.6018957345971564),
-    "nit": (None, None, 0.7450980392156863),
+    "nit": (None, None, 0.6491228070175439),
     "passive_fish": (0.7049180327868853, 0.4358974358974359, 0.514018691588785),
     "tag": (2.2580645161290325, None, 0.6385542168674698),
 }
@@ -6896,7 +6910,9 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
 # If G1 ever passes with the engine block removed, the gate is broken, not the
 # engine fixed.
 
-_NLOGIT_ANCHORS = {  # spec §3.2 — each pack's authored anchor == its effective looseness
+_NLOGIT_ANCHORS = {  # spec §3.2 — frozen calibration anchors, NOT the shipped/authored
+    # `call_looseness` values (R9-LOOSEFIT, 2026-08-04, moved nit's shipped value to
+    # 0.45; the anchor stays put by design so the lever can be tuned against it)
     "nit": 0.6,
     "tag": 0.6,
     "lag": 0.55,
@@ -6922,7 +6938,10 @@ def _nlogit_probe(persona: str, mult: float = 1.0, *, continue_ref=_NLOGIT_KEEP)
 
     `model_copy` bypasses validation by construction; that is the same
     unvalidated-injection path G8 pins the engine's runtime guard against.
-    `mult=1.0` reproduces the authored float exactly (x*1.0 == x).
+    `mult=1.0` reproduces the frozen calibration anchor exactly (x*1.0 == x) —
+    not necessarily the pack's shipped/authored value; since R9-LOOSEFIT
+    (2026-08-04) nit's shipped `call_looseness` (0.45) differs from its anchor
+    (0.6) by construction.
     """
     pack = _pack(persona)
     update = {"call_looseness": _NLOGIT_ANCHORS[persona] * mult}
@@ -7206,8 +7225,9 @@ def test_nlogit_g2_routing_sign_freed_mass_goes_to_fold():
 
 
 def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
-    """G3 — at the authored anchor the opted-in path is BIT-identical to the
-    un-opted path over the whole grid.
+    """G3 — at the frozen calibration anchor (not necessarily the pack's
+    shipped/authored value — see `_NLOGIT_ANCHORS`) the opted-in path is
+    BIT-identical to the un-opted path over the whole grid.
 
     The un-opted path IS the base engine: `continue_ref is None` short-circuits
     the new block, so the code that runs is HEAD's, unmodified (spec §3.5).
@@ -8466,7 +8486,8 @@ def test_r9d_s4_composition_with_nlogit_commutes():
     two arms diverge far beyond 1e-12.
 
     `call_looseness` is swept off its frozen `continue_ref` anchor so
-    `rscale != 1.0` — at the authored values `looseness == continue_ref` and the
+    `rscale != 1.0` — at the anchor values (`_NLOGIT_ANCHORS`, not necessarily
+    the pack's shipped/authored value) `looseness == continue_ref` and the
     raise scale is EXACTLY 1.0, which would make this gate vacuous. The
     multipliers are deliberately NOT powers of two (a power-of-two rescale is
     exact in binary floating point, and the reordering then agrees bit-for-bit
@@ -8610,9 +8631,11 @@ def test_r9d_p1_structural_only_call_and_raise_raw_merits_move():
     This survives N-LOGIT, and that was MEASURED rather than assumed: the
     captured RAISE merit is `(R·line_mult)·rscale` at line=1 and `R·rscale` at
     line=0, so `rscale` cancels out of the ratio. Checked directly on a
-    `model_copy` pack with `continue_ref` skewed to make `rscale = 1.6216` (the
-    six shipped packs all sit at the anchor, where `rscale` is exactly 1.0 and
-    would prove nothing): the CALL and RAISE ratios both came back at relative
+    `model_copy` pack with `continue_ref` skewed to make `rscale = 1.6216` (at
+    the anchor `rscale` is exactly 1.0 and would prove nothing — since
+    R9-LOOSEFIT, 2026-08-04, that anchor is a frozen reference value, not the
+    shipped `call_looseness` all six packs previously shared): the CALL and
+    RAISE ratios both came back at relative
     error 0.000e+00 against `exp(-λ_p)`. `rel=1e-12` is the same tolerance the
     spread check already carries, and is generous against that."""
     grid = _r9d_grid()
@@ -9616,3 +9639,491 @@ def test_r9d_p7_the_population_path_never_sees_the_flag_by_default(monkeypatch):
         assert seen, "no postflop decision was taken at all — the probe proves nothing"
         assert set(seen) == {want}, (line_aware, sorted(set(seen)))
         assert (nodes > 0) is bool(line_aware), (line_aware, nodes)
+
+
+# ===================================================================
+# R9-LOOSEFIT — G-NODE: the correctly-priced node panel
+# ===================================================================
+#
+# WHAT THIS SLICE DID, and what this panel proves.
+#
+# nit's `call_looseness` moved 0.60 → 0.45 and nothing else moved. At a facing
+# node that lever multiplies the CALL merit directly and the RAISE merit through
+# `rscale = looseness / continue_ref` (`personas_postflop.py:1239-1248`); nit's
+# `continue_ref` is 0.60 and deliberately untouched, so BOTH continue merits
+# scale by the same s = 0.45/0.60 = 0.75 while the FOLD merit is
+# untouched. The panel below reads the exact normalized action vector at five
+# constructed nodes and asserts the nit's fold probability ROSE by at least
+# 0.040 versus the same pack rebuilt at its pre-slice authored 0.60.
+#
+# ── WHY A NEW HELPER, AND NOT `_dist_for_pack` (:1218).
+#
+# `sample_postflop_decision` computes the price the bot is facing itself
+# (`personas_postflop.py:954-957`): given `latest_aggressor_contribution_bb` it
+# uses the EXACT pre-aggression pot, and WITHOUT it falls back to a legacy
+# `max(current_bet_to, to_call)` denominator that is generally SMALLER, i.e. a
+# LARGER faced fraction than the caller thinks they built. `_dist_for_pack` has
+# no such parameter, so every node routed through it silently takes the legacy
+# branch. An earlier revision of this spec built `pot_bb=6, to_call=3`, called
+# it a half-pot bet, and was read by the engine as a POT-SIZED one; its entire
+# feasibility table was priced at nodes that did not exist. `_dist_for_pack` is
+# left exactly as it is (five other call sites depend on its behaviour) and this
+# panel uses `_r9lf_priced_dist` instead, which
+#   (a) always supplies `latest_aggressor_contribution_bb`, and
+#   (b) intercepts the engine's OWN `_price_factor` call and refuses to return a
+#       vector unless the fraction the engine computed equals the fraction the
+#       node declares, to 1e-9.
+# The check is on the engine's number, not on a re-derivation of it in the test:
+# a test that recomputed `to_call / (pot_bb - contribution)` itself would agree
+# with a mispriced node just as happily as with a correct one.
+#
+# ── THE CEILING. Because the lever scales the CALL and RAISE merits by the SAME
+# factor s, the whole continue mass scales by s and the move is a pure shift of
+# the continue/fold log-odds by ln(s). The rise in fold probability is therefore
+# a function of the BASE fold probability p alone —
+#
+#     self(p) = p / (p + 0.75·(1 − p)) − p
+#
+# — with a hard analytic maximum of (1−√0.75)/(1+√0.75) = 0.071797 at p =
+# 0.4641. No board, price, street, headcount or legal shape can beat it. **A
+# self threshold at or above 0.072 is unsatisfiable by construction**; the
+# pre-registered 0.040 sits at 56% of the ceiling and binds at P4 (1.49×).
+#
+# ── WHY THERE IS NO nit-VERSUS-tag ("identity") LEG HERE. nit and tag share
+# every lever that reaches a facing node's FOLD and CALL merits, so their
+# difference decomposes EXACTLY as `identity = self + the HEAD aggression gap`,
+# where that gap (tag's `aggression` 2.4 diluting tag's fold share) is fixed at
+# HEAD and untouched by this slice. That is a telescoping identity, not an
+# approximation: any build that clears the self floor has already forced
+# identity above any floor worth writing down, so an identity assertion here
+# could not fail while the self assertion passed. It was drafted, found
+# vacuous, and removed. The cross-persona claim is carried by the population
+# sweep instead, which is a genuine comparison and red at HEAD.
+#
+# ── MEASURED BASELINES (2026-08-04, shipped nit 0.45 vs the same pack rebuilt
+# at 0.60). These are RECORDS, not pins — the gate asserts only the 0.040 floor,
+# so a later reader can tell a re-measurement from a re-pin:
+#
+#   node  faced_frac  P(fold)@0.45  P(fold)@0.60  self     min legal prob
+#   P1    1.000       0.4495        0.3798        +0.0697  0.0483 (raise@0.45)
+#   P2    1.000       0.5192        0.4475        +0.0717  0.0422 (raise@0.45)
+#   P3    0.500       0.5250        0.4532        +0.0718  0.0250 (raise@0.45)
+#   P4    0.500       0.3232        0.2637        +0.0595  0.0594 (raise@0.45)
+#   C5    1.000       0.4723        0.4017        +0.0707  0.4017 (fold@0.60)
+#
+# With both sides rebuilt at 0.60 every self reading is exactly 0.000000, i.e.
+# the panel is red at base by construction and cannot pass on a no-op lever.
+
+_R9LF_SELF_FLOOR = 0.040
+# The value nit authored BEFORE this slice — the comparison baseline, not a
+# magic number. G-NODE is a sensitivity gate, not a value pin: it accepts any
+# shipped lever value in roughly 0.42–0.48.
+_R9LF_PRE_SLICE_LOOSENESS = 0.60
+# Non-degeneracy window: a node where some legal action is effectively forced
+# tells us nothing about a lever that only re-weights the mix.
+_R9LF_MIN_PROB, _R9LF_MAX_PROB = 0.01, 0.99
+
+
+class _R9lfNode(NamedTuple):
+    """One constructed facing node. `faced_frac` is the price the node CLAIMS to
+    be at; `_r9lf_priced_dist` asserts the engine agrees before returning."""
+
+    node_id: str
+    hole: tuple[str, str]
+    board: list[str]
+    street: Street
+    raise_bounds: tuple[float, float] | None  # None => FOLD/CALL-only node
+    pot_bb: float
+    to_call: float
+    stack_bb: float
+    opponents: int
+    faced_frac: float
+
+
+# All five: `aggressor_bet_prev_street=False`, default noise, SPR 20, and
+# `pot_bb = pre_bet_pot + to_call` with `contribution = current_bet_to =
+# to_call` (fresh aggression), which is what makes the declared prices real.
+_R9LF_PANEL = (
+    _R9lfNode("P1", ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP,
+              (36.0, 480.0), 24.0, 12.0, 480.0, 1, 1.000),
+    _R9lfNode("P2", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN,
+              (36.0, 480.0), 24.0, 12.0, 480.0, 3, 1.000),
+    _R9lfNode("P3", ("Ah", "8d"), ["Kc", "9s", "3h"], Street.FLOP,
+              (18.0, 360.0), 18.0, 6.0, 360.0, 1, 0.500),
+    _R9lfNode("P4", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN,
+              (18.0, 360.0), 18.0, 6.0, 360.0, 1, 0.500),
+    # C5 is the declared control: no RAISE leg at all, so it proves the lever
+    # still moves the bot when the raise branch is absent.
+    _R9lfNode("C5", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN,
+              None, 24.0, 12.0, 480.0, 1, 1.000),
+)
+
+
+def _r9lf_priced_dist(pack, node: _R9lfNode) -> dict:
+    """Exact normalized action vector at `node` — priced, or nothing.
+
+    Calls `sample_postflop_decision` directly (never `_dist_for_pack`) with
+    `latest_aggressor_contribution_bb` ALWAYS supplied, and wraps the engine's
+    module-level `_price_factor` so the faced fraction the engine actually
+    computed is observed at its own call site. If that fraction is not the one
+    `node` declares, this raises instead of returning a number — a mispriced
+    reading can never leave this function.
+    """
+    legal = [personas_postflop_legal_fold(), personas_postflop_legal_call(node.to_call)]
+    if node.raise_bounds is not None:
+        legal.append(personas_postflop_legal_raise(*node.raise_bounds))
+
+    seen: list[float] = []
+    real_price_factor = personas_postflop._price_factor
+
+    def _recording_price_factor(faced_fraction, exponent):
+        seen.append(faced_fraction)
+        return real_price_factor(faced_fraction, exponent)
+
+    cap = _CaptureWeights()
+    personas_postflop._price_factor = _recording_price_factor
+    try:
+        sample_postflop_decision(
+            pack,
+            node.hole,
+            list(node.board),
+            legal,
+            node.pot_bb,
+            node.stack_bb,
+            node.opponents,
+            cap,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=node.to_call,
+            street=node.street,
+            latest_aggressor_contribution_bb=node.to_call,
+            aggressor_bet_prev_street=False,
+        )
+    finally:
+        personas_postflop._price_factor = real_price_factor
+
+    # Exactly one price read: the facing-node fold merit. Zero calls would mean
+    # the node is not a facing node at all and the whole reading is off-target.
+    assert len(seen) == 1, f"{node.node_id}: expected one priced fold merit, saw {seen}"
+    assert seen[0] == pytest.approx(node.faced_frac, abs=1e-9), (
+        f"{node.node_id}: the engine priced this node at faced_frac {seen[0]!r}, "
+        f"but the node declares {node.faced_frac!r} — the reading is discarded. "
+        "Check pot_bb/to_call/contribution (personas_postflop.py:954-957)."
+    )
+    assert cap.dist is not None, f"{node.node_id}: sampler never drew an action"
+    return cap.dist
+
+
+def _r9lf_nit_at(looseness: float):
+    """The shipped nit pack with ONLY `call_looseness` re-authored."""
+    pack = _pack("nit")
+    probe = pack.model_copy(deep=True)
+    probe.postflop = pack.postflop.model_copy(update={"call_looseness": looseness})
+    return probe
+
+
+def test_r9lf_gnode_nit_folds_more_at_correctly_priced_nodes():
+    """G-NODE: the shipped nit folds at least 0.040 more than the same pack
+    rebuilt at its pre-slice 0.60, at five nodes whose prices the engine itself
+    confirms — and no legal action is squeezed out of [0.01, 0.99] on the way.
+
+    This asserts that something MOVED: with the lever put back to 0.60 on both
+    sides every self reading is exactly 0.0, so a `call_looseness` no-op (lever
+    read, result discarded) fails every leg.
+
+    THE 0.040 FLOOR IS NOT FREELY CHOOSABLE. The lever scales the CALL and RAISE
+    merits by the same factor, so the move is a pure ln(0.75) shift of the
+    continue/fold log-odds and the fold-probability rise depends only on the base
+    fold probability p:
+
+        self(p) = p / (p + 0.75·(1 − p)) − p ,  max = (1−√0.75)/(1+√0.75)
+                                                    = 0.071797 at p = 0.4641
+
+    That is a HARD ANALYTIC CEILING over every board, price, street, headcount
+    and legal shape — so a self threshold at or above 0.072 would be
+    unsatisfiable by construction, whatever the pack said. 0.040 is 56% of it and
+    binds at P4 (+0.0595, 1.49× margin).
+
+    THERE IS DELIBERATELY NO nit-VERSUS-tag LEG. nit and tag share every lever
+    reaching a facing node's FOLD and CALL merits, so their gap decomposes
+    exactly as `identity = self + the pre-existing HEAD aggression gap` (tag's
+    `aggression` 2.4 diluting its fold share), and that second term is fixed at
+    HEAD and out of this slice's scope. Clearing the self floor therefore already
+    forces identity past any floor worth setting: such a leg could not fail while
+    this one passed. It is vacuous, not merely redundant, and the cross-persona
+    claim belongs to the population sweep.
+    """
+    shipped = _pack("nit")
+    pre_slice = _r9lf_nit_at(_R9LF_PRE_SLICE_LOOSENESS)
+
+    for node in _R9LF_PANEL:
+        shipped_dist = _r9lf_priced_dist(shipped, node)
+        pre_slice_dist = _r9lf_priced_dist(pre_slice, node)
+
+        self_delta = shipped_dist[ActionType.FOLD] - pre_slice_dist[ActionType.FOLD]
+        assert self_delta >= _R9LF_SELF_FLOOR, (
+            f"{node.node_id}: nit's fold probability rose only {self_delta:.4f} "
+            f"(floor {_R9LF_SELF_FLOOR}); {shipped_dist[ActionType.FOLD]:.4f} at the "
+            f"shipped lever vs {pre_slice_dist[ActionType.FOLD]:.4f} at "
+            f"{_R9LF_PRE_SLICE_LOOSENESS}"
+        )
+
+        for label, dist in (("shipped", shipped_dist), ("pre-slice", pre_slice_dist)):
+            for action, prob in dist.items():
+                assert _R9LF_MIN_PROB <= prob <= _R9LF_MAX_PROB, (
+                    f"{node.node_id} ({label}): P({action.value}) = {prob:.6f} is outside "
+                    f"[{_R9LF_MIN_PROB}, {_R9LF_MAX_PROB}] — the node is degenerate and a "
+                    "difference measured there is not a lever effect"
+                )
+
+
+def test_r9lf_priced_helper_refuses_a_mispriced_node():
+    """The panel's instrument, proved against the exact bug it exists to stop.
+
+    An earlier revision built `pot_bb=6, to_call=3` and labelled it a half-pot
+    bet; the engine prices that node at faced_frac 1.00 (the bet IS the pot it
+    was made into). `_r9lf_priced_dist` must raise on it rather than hand back a
+    perfectly plausible-looking probability vector — and must still return one
+    when the same node is labelled truthfully.
+    """
+    mislabelled = _R9lfNode(
+        "REV3", ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP,
+        (9.0, 100.0), 6.0, 3.0, 100.0, 1, 0.500,  # claims half pot; engine reads 1.00
+    )
+    with pytest.raises(AssertionError, match="the engine priced this node"):
+        _r9lf_priced_dist(_pack("nit"), mislabelled)
+    truthful = mislabelled._replace(faced_frac=1.000)
+    assert _r9lf_priced_dist(_pack("nit"), truthful)[ActionType.FOLD] > 0.0
+    # And the wrapper leaves the engine exactly as it found it.
+    assert personas_postflop._price_factor.__module__ == personas_postflop.__name__
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# R9-LOOSEFIT — G-SWEEP: the population gate, and the slice's cross-persona claim
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# G-NODE above compares the nit against ITSELF at five hand-picked nodes. Five
+# nodes cannot support a claim about the roster, and G-NODE deliberately makes
+# none (its nit-versus-tag leg was found vacuous and removed). **This gate is
+# where "the nit folds more than tag" is actually established**, and it is
+# established the only way five nodes cannot: by sweeping the repo's canonical
+# cell enumeration `_nlogit_cells()` (:7011, 1,728 cells) and counting.
+#
+# ── WHY THE SWEEP RE-PRICES THE CELLS, AND WHY THAT IS NOT OPTIONAL.
+#
+# `_nlogit_cells()` builds every cell at `pot_bb = 6.0` with `to_call` drawn
+# from `_NLOGIT_PRICES = (2, 4, 6, 12)`, and `_nlogit_dist` (:7036) passes
+# `latest_aggressor_contribution_bb = to_call`. The engine then computes
+# (`personas_postflop.py:954-957`)
+#
+#     faced_frac = to_call / max(pot_bb − contribution, 0.01)
+#
+# which for those four prices is **0.50, 2.00, 600.00 and 1200.00** — while the
+# source comment at :7005 labels the ladder "1/3 pot … 2x pot". Half the
+# canonical grid is therefore priced at bets of 600× and 1200× the pot, where
+# the R10 unbounded price tail drives P(fold) to 0.999994 for every persona at
+# once. That is a defect in the shipped grid, filed as `N-NLOGITPRICE` and
+# deliberately NOT fixed here (fixing it would move gates this slice does not
+# own). This gate instead re-prices the enumeration for its own use:
+#
+#     to_call = f · pre_bet_pot   for f in {1/3, 2/3, 1, 2}  ← the grid's own
+#     pot_bb  = pre_bet_pot + to_call                          intended labels
+#     contribution = to_call                                   (fresh aggression)
+#
+# With `pre_bet_pot` = 6.0 the re-priced `to_call` ladder reproduces
+# `_NLOGIT_PRICES` exactly (2, 4, 6, 12) — only the pot the bet was made INTO
+# changes, from a pot that already contained the bet to one that did not.
+#
+# The re-pricing is PINNED three ways, because a silent revert would turn this
+# gate back into a measurement of 600×-pot bets without changing a single
+# number in the source:
+#   (1) `_r9lf_repriced_cells` asserts each source cell arrives at the
+#       `pre_bet_pot` this construction was derived against;
+#   (2) it asserts the fractions' own `f · pre_bet_pot` ladder still equals
+#       `_NLOGIT_PRICES`, so a change to either the fractions or the shipped
+#       price tuple (e.g. when `N-NLOGITPRICE` is fixed) fails loudly here
+#       instead of quietly re-pricing the sweep;
+#   (3) every cell's distribution is read through `_r9lf_sweep_dists`, which
+#       wraps the engine's own `_price_factor` and refuses the reading unless
+#       the fraction THE ENGINE computed is the one the cell was re-priced to —
+#       the same discipline as `_r9lf_priced_dist`, and for the same reason: a
+#       test that re-derived the fraction itself would agree with a mispriced
+#       cell just as happily as with a correct one.
+#
+# SPR is held at the grid's intent rather than at the grid's absolute stacks.
+# `_NLOGIT_STACKS` is authored as SPRs against the 6bb pot (its own comment at
+# :7006-7007 reads stack 12 as "SPR 2.0" and stack 30 as "SPR 5"), and SPR is
+# what the engine's commit gate reads (`personas_postflop.py:1080`). Growing the
+# pot without rescaling the stack would therefore silently drag cells across
+# `spr_commit` — nit's is 1.2 and tag's 2.5, and the band between them is the
+# one place where tag commits and nit does not, manufacturing a difference this
+# lever did not produce. Stacks are scaled by the same factor as the pot.
+#
+# ── MEASURED (2026-08-04). Denominator and both legs, over the 1,728 cells:
+#
+#              non-degenerate   nit folds > tag   … by > 0.02
+#   nit@0.45         970             970 (100%)      826 (85.2%)
+#   nit@0.60         970             384 (39.6%)     300 (30.9%)   ← HEAD
+#
+# The HEAD row is the whole point: at the pre-slice lever this gate reads 384
+# and 300 against floors of 800 and 650, i.e. **red by 2.08× and 2.17×**. It is
+# not a gate that a `call_looseness` no-op (lever read, result discarded) could
+# pass — such a mutant collapses nit@0.45 onto nit@0.60 and reads 384. (Run at
+# HEAD the gate enumerates a denominator of 982 rather than 970, because the
+# shipped and pre-slice packs coincide there and 12 cells that nit@0.45 pushes
+# out of the window stay inside it; the counts on that larger denominator are
+# 396 and 312 — red by the same margin. The 384/300 above are on the 970
+# denominator, so that the two rows are directly comparable.)
+#
+# Also measured, and NOT gated: nit@0.45 folds LESS than tag in **0** of the 970
+# cells, while nit@0.60 does so in 26. And 560 of the 970 cells have nit@0.60's
+# fold probability EXACTLY equal to tag's — the two packs share every lever that
+# reaches a facing node's FOLD and CALL merits, so on a cell with no live raise
+# leg they were byte-identical before this slice.
+
+_R9LF_SWEEP_PRE_BET_POT = 6.0
+# The grid's own intended price labels (:7005, "1/3 pot … 2x pot") — the
+# fractions the cells were always meant to be at, not the ones they are at.
+_R9LF_SWEEP_FRACS = (1.0 / 3.0, 2.0 / 3.0, 1.0, 2.0)
+# Pre-registered from the measurement above; never re-chosen after a result.
+_R9LF_SWEEP_STRICT_FLOOR = 800  # of 970 measured; 384 at HEAD
+_R9LF_SWEEP_MARGIN = 0.02
+_R9LF_SWEEP_MARGIN_FLOOR = 650  # 826 measured; 300 at HEAD
+
+
+def _r9lf_repriced_cells() -> list[tuple[_NlogitCell, float]]:
+    """`_nlogit_cells()` at the prices its own source comment claims.
+
+    Returns (cell, faced_frac) pairs whose `pot_bb` is the pre-bet pot PLUS the
+    bet, so that the engine's `to_call / (pot_bb − contribution)` lands on the
+    declared fraction instead of on 600 or 1200. Stacks are rescaled with the
+    pot so each cell keeps the SPR `_NLOGIT_STACKS` authored it at.
+    """
+    ladder = tuple(f * _R9LF_SWEEP_PRE_BET_POT for f in _R9LF_SWEEP_FRACS)
+    assert sorted(ladder) == sorted(_NLOGIT_PRICES), (
+        f"the re-priced ladder {ladder} no longer reproduces _NLOGIT_PRICES "
+        f"{_NLOGIT_PRICES} — the canonical grid's prices moved (N-NLOGITPRICE?) "
+        "and this sweep's re-pricing must be re-derived, not silently carried"
+    )
+    by_price = dict(zip(ladder, _R9LF_SWEEP_FRACS, strict=True))
+
+    repriced = []
+    for cell in _nlogit_cells():
+        assert cell.pot_bb == _R9LF_SWEEP_PRE_BET_POT, (
+            f"{cell.key}: this sweep re-prices against a {_R9LF_SWEEP_PRE_BET_POT}bb "
+            f"pre-bet pot, but the cell was built at {cell.pot_bb}"
+        )
+        frac = by_price[cell.to_call]
+        pot_bb = _R9LF_SWEEP_PRE_BET_POT + cell.to_call
+        stack_bb = cell.stack_bb * pot_bb / _R9LF_SWEEP_PRE_BET_POT  # hold the SPR
+        repriced.append((cell._replace(pot_bb=pot_bb, stack_bb=stack_bb), frac))
+    return repriced
+
+
+def _r9lf_sweep_dists(pack, repriced) -> list[dict]:
+    """One exact action vector per re-priced cell — priced, or nothing.
+
+    Wraps the engine's module-level `_price_factor` once for the whole sweep
+    (patching per cell would be the same check at 1,728× the cost) and clears
+    the recorder between cells, so each cell's own faced fraction is checked
+    against the fraction it was re-priced to.
+    """
+    seen: list[float] = []
+    real_price_factor = personas_postflop._price_factor
+
+    def _recording_price_factor(faced_fraction, exponent):
+        seen.append(faced_fraction)
+        return real_price_factor(faced_fraction, exponent)
+
+    dists = []
+    personas_postflop._price_factor = _recording_price_factor
+    try:
+        for cell, frac in repriced:
+            seen.clear()
+            dist = _nlogit_dist(pack, cell)
+            assert len(seen) == 1, f"{cell.key}: expected one priced fold merit, saw {seen}"
+            assert seen[0] == pytest.approx(frac, abs=1e-9), (
+                f"{cell.key}: the engine priced this cell at faced_frac {seen[0]!r}, but it "
+                f"was re-priced to {frac!r} — the reading is discarded. Without the re-price "
+                "this sweep measures 600x- and 1200x-pot bets (N-NLOGITPRICE)."
+            )
+            assert dist, f"{cell.key}: sampler never drew an action"
+            dists.append(dist)
+    finally:
+        personas_postflop._price_factor = real_price_factor
+    return dists
+
+
+def _r9lf_non_degenerate(dist: dict) -> bool:
+    """Every legal action's probability strictly inside the window. A cell where
+    some action is effectively forced says nothing about a lever that only
+    re-weights the mix — and at the top of the price ladder the tail term forces
+    FOLD for every persona at once."""
+    return all(_R9LF_MIN_PROB <= prob <= _R9LF_MAX_PROB for prob in dist.values())
+
+
+def test_r9lf_gsweep_nit_folds_more_than_tag_across_the_cell_population():
+    """G-SWEEP: across the canonical 1,728-cell enumeration, re-priced to the
+    fractions it was always meant to be at, the shipped nit folds strictly more
+    than tag in at least 800 non-degenerate cells, and by more than 0.02 in at
+    least 650 of them.
+
+    This is the slice's cross-persona claim and the only gate that carries it.
+    It asserts that something MOVED: at the pre-slice `call_looseness` of 0.60
+    the same two counts are 384 and 300 — red against these floors by 2.08× and
+    2.17× — so a lever no-op, which collapses the shipped nit onto the
+    pre-slice one, fails leg (a) outright.
+
+    THE CLAIM IS PAIRWISE, nit versus tag, and nothing here says the nit is the
+    tightest defender of the six: lag, maniac, passive_fish and the calling
+    station are not measured, and both legs can pass while nit folds less than
+    any of them somewhere.
+
+    THE DENOMINATOR IS ENUMERATED, NEVER ASSERTED. A cell counts only if all
+    three packs — shipped nit, nit rebuilt at 0.60, tag — keep every legal
+    action's probability inside [0.01, 0.99]. That window is an arbitrary
+    constant and the count of 970 is sensitive to it, so pinning 970 would be
+    pinning the constant rather than the behaviour; the floors are absolute
+    counts and the measured denominator is reported when a leg fails.
+
+    This gate asserts an ORDERING (the nit folds more often than the tag),
+    not an ATTRIBUTION. Leaving the nit unchanged and loosening tag's own
+    `call_looseness` to 0.80 makes it read 982/982 and 772 — green, with the
+    wrong cause. Attribution comes from the node panel's self-comparison,
+    which compares the shipped pack against itself rebuilt at the pre-slice
+    value.
+    """
+    repriced = _r9lf_repriced_cells()
+    shipped_nit = _r9lf_sweep_dists(_pack("nit"), repriced)
+    pre_slice_nit = _r9lf_sweep_dists(_r9lf_nit_at(_R9LF_PRE_SLICE_LOOSENESS), repriced)
+    tag = _r9lf_sweep_dists(_pack("tag"), repriced)
+
+    denominator = 0
+    folds_more = 0
+    folds_more_by_margin = 0
+    folds_less = 0
+    for nit_dist, pre_dist, tag_dist in zip(shipped_nit, pre_slice_nit, tag, strict=True):
+        if not all(map(_r9lf_non_degenerate, (nit_dist, pre_dist, tag_dist))):
+            continue
+        denominator += 1
+        delta = nit_dist[ActionType.FOLD] - tag_dist[ActionType.FOLD]
+        if delta > 0.0:
+            folds_more += 1
+        if delta > _R9LF_SWEEP_MARGIN:
+            folds_more_by_margin += 1
+        if delta < 0.0:
+            folds_less += 1
+
+    census = (
+        f"{denominator} of {len(repriced)} cells were non-degenerate in [{_R9LF_MIN_PROB}, "
+        f"{_R9LF_MAX_PROB}] across all three packs; the nit folds LESS than tag in "
+        f"{folds_less} of them"
+    )
+    assert folds_more >= _R9LF_SWEEP_STRICT_FLOOR, (
+        f"G-SWEEP-a: the shipped nit folds strictly more than tag in only {folds_more} "
+        f"cells (floor {_R9LF_SWEEP_STRICT_FLOOR}) — {census}. At the pre-slice 0.60 this "
+        "reads 384; 970 was measured at 0.45"
+    )
+    assert folds_more_by_margin >= _R9LF_SWEEP_MARGIN_FLOOR, (
+        f"G-SWEEP-b: the shipped nit folds more than tag by over {_R9LF_SWEEP_MARGIN} in "
+        f"only {folds_more_by_margin} cells (floor {_R9LF_SWEEP_MARGIN_FLOOR}) — {census}. "
+        "At the pre-slice 0.60 this reads 300; 826 was measured at 0.45"
+    )
