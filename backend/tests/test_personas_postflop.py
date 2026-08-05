@@ -9698,9 +9698,14 @@ def test_r9d_p7_the_population_path_never_sees_the_flag_by_default(monkeypatch):
 # with a mispriced node just as happily as with a correct one.
 #
 # ── THE CEILING. Because the lever scales the CALL and RAISE merits by the SAME
-# factor s, the whole continue mass scales by s and the move is a pure shift of
-# the continue/fold log-odds by ln(s). The rise in fold probability is therefore
-# a function of the BASE fold probability p alone —
+# factor s ON DRAW-NONE NODES — true of all five panel nodes below, none of
+# which carries a draw against its board — the whole continue mass scales by s
+# and the move is a pure shift of the continue/fold log-odds by ln(s).
+# (N-DRAWLOOSE floors the STRONG-draw dial at 1.0, `personas_postflop.py:980-
+# 984`, so CALL is no longer proportional to the lever there; this derivation
+# does not transfer to a strong-draw node — see G-DRAW, which uses a chosen
+# budget instead of this analytic ceiling.) The rise in fold probability is
+# therefore a function of the BASE fold probability p alone —
 #
 #     self(p) = p / (p + 0.75·(1 − p)) − p
 #
@@ -9857,9 +9862,14 @@ def test_r9lf_gnode_nit_folds_more_at_correctly_priced_nodes():
     read, result discarded) fails every leg.
 
     THE 0.040 FLOOR IS NOT FREELY CHOOSABLE. The lever scales the CALL and RAISE
-    merits by the same factor, so the move is a pure ln(0.75) shift of the
-    continue/fold log-odds and the fold-probability rise depends only on the base
-    fold probability p:
+    merits by the same factor ON DRAW-NONE NODES — all five `_R9LF_PANEL` nodes
+    are — so the move is a pure ln(0.75) shift of the continue/fold log-odds and
+    the fold-probability rise depends only on the base fold probability p. This
+    property, and the 0.071797 ceiling derived from it, do NOT hold on a
+    strong-draw node: N-DRAWLOOSE floors the STRONG-draw dial at 1.0
+    (`personas_postflop.py:980-984`), so CALL there is affine in the lever, not
+    proportional. G-DRAW's 0.030 self-difference budget on strong-draw nodes is
+    a chosen budget for that reason, not a derived one — see its test:
 
         self(p) = p / (p + 0.75·(1 − p)) − p ,  max = (1−√0.75)/(1+√0.75)
                                                     = 0.071797 at p = 0.4641

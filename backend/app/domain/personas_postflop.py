@@ -760,11 +760,14 @@ _LINE_SENSITIVITY_MAX = 2.0
 # WHY DRAWS ARE OUT (corrected by theory review, ledger R-26). An earlier draft
 # said "its continue is already priced by equity + the T1 threshold, and that
 # machinery already moves with street". Both limbs are FALSE for the CALL leg:
-# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` consults no
-# equity and no street — `_DRAW_CALL_BONUS` is a flat lookup — and the cited
-# street-decay machinery (`_STREET_WEAK_DRAW_MULT`, `_DRAW_RAISE_BONUS`) is
-# AGGRESSION-side only. Measured: a naked gutshot's P(call) facing a half-pot bet
-# goes UP flop -> turn (nit 0.3556 -> 0.3696), not down.
+# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` — the WEAK-
+# draw form (`:986`; N-DRAWLOOSE floors the STRONG-draw multiplier at 1.0
+# instead, `:980-984`, but leaves this argument untouched) — consults no
+# equity and no street on either branch — `_DRAW_CALL_BONUS` is a flat lookup —
+# and the cited street-decay machinery (`_STREET_WEAK_DRAW_MULT`,
+# `_DRAW_RAISE_BONUS`) is AGGRESSION-side only. Measured: a naked gutshot's
+# P(call) facing a half-pot bet goes UP flop -> turn (nit 0.3556 -> 0.3696), not
+# down.
 # The exclusion still stands, for the honest reason: `_DRAW_CALL_BONUS[WEAK]` is
 # the un-equity-gated F7 defect, and stacking an un-jointly-calibrated line factor
 # on an already-inflated call merit compounds it (the W3R-5 mistake). STRONG draws
@@ -1210,23 +1213,43 @@ def sample_postflop_decision(
     #                         = (R0/ref) / (C0 + R0/ref)
     # in which L CANCELS: the calling lever now controls WHETHER the bot
     # continues, the raise-side calibration controls HOW, and mass freed from
-    # CALL routes to FOLD.
+    # CALL routes to FOLD. This is the non-STRONG branch below, and it keeps
+    # the ORIGINAL literal `looseness / ref` expression — untouched by
+    # N-DRAWLOOSE.
     #
-    # The divisor is the FROZEN authored anchor, NEVER the live lever. Rev 1 of
-    # this slice divided the raise leg by the live lever and multiplied the
-    # defend pair by the same live lever; the two cancelled exactly, so the
-    # mechanism was a measured no-op that still passed 8 of its 10 gates
-    # (ledger R-1). If `continue_ref` is ever re-synchronised with
-    # `call_looseness`, `rscale` collapses to 1.0 forever and this feature
-    # silently disappears — which is why the pack comments call it frozen and
-    # why a lifecycle test (G9) pins that it does not move under a refit.
+    # N-DRAWLOOSE COUPLING (STRONG draws only, `:980-984` / `:1262-1264`).
+    # Flooring the draw bonus at `max(looseness, 1.0)` makes CALL no longer
+    # proportional to the dial, so the literal `looseness / ref` above would
+    # stop cancelling L and the guarantee would break on draw cells. `rscale`
+    # instead reads `C(L) / C(ref)` — the LIVE call merit over the merit
+    # computed at the frozen anchor lever — which keeps
+    #     P(raise | continue) = R0·rscale / (C(L) + R0·rscale) = R0 / (C(ref) + R0)
+    # independent of L for ANY call shape, not only a proportional one. On
+    # `draw is NONE` (and WEAK), `C(L) = C0·L` and this reduces exactly to the
+    # literal above — the guarantee is preserved everywhere, not narrowed.
     #
-    # While the lever sits at its anchor, `looseness == ref`, so `rscale` is
-    # EXACTLY 1.0 (float division of equal values) and the opted-in path is
-    # bit-identical to the un-opted one. That bit-exactness is load-bearing:
-    # rev 2 applied a divide-then-multiply pair whose 1-ulp residue broke 6 of
-    # the 23 frozen exact-equality vectors in tests/test_price_tail.py
-    # (ledger R2-1).
+    # The divisor is the FROZEN authored anchor, NEVER the live lever, on
+    # EITHER branch. Rev 1 of this slice (N-LOGIT's own rev 1, a different
+    # slice from N-DRAWLOOSE) divided the raise leg by the live lever and
+    # multiplied the defend pair by the same live lever; the two cancelled
+    # exactly, so the mechanism was a measured no-op that still passed 8 of
+    # its 10 gates (ledger R-1). If `continue_ref` is ever re-synchronised
+    # with `call_looseness`, `rscale` collapses to 1.0 forever on BOTH
+    # branches and this feature silently disappears — which is why the pack
+    # comments call it frozen and why a lifecycle test (G9) pins that it does
+    # not move under a refit.
+    #
+    # While the lever sits at its anchor, `looseness == ref`: on the
+    # non-STRONG branch `rscale` is EXACTLY 1.0 (float division of equal
+    # values); on the STRONG branch `_ref_lever == looseness` too, so
+    # `call_merit` and `_call_merit_at_ref` are computed from the identical
+    # formula with the identical lever value, and any B5b commit damp
+    # subtracts the identical amount from both (`:1106-1110`) — `_c_now` and
+    # `_call_merit_at_ref` stay bitwise equal, so `rscale` is EXACTLY 1.0
+    # there too. Either way the opted-in path is bit-identical to the
+    # un-opted one. That bit-exactness is load-bearing: rev 2 applied a
+    # divide-then-multiply pair whose 1-ulp residue broke 6 of the 23 frozen
+    # exact-equality vectors in tests/test_price_tail.py (ledger R2-1).
     #
     # TWO REACH CHANGES, both disclosed (build review, ledger B-9 / B-10) and
     # both gated so they cannot move silently. They are mirror images:
@@ -1259,6 +1282,21 @@ def sample_postflop_decision(
                 f"safe range [{_CONTINUE_REF_MIN}, {_CONTINUE_REF_MAX}]"
             )
         if ActionType.FOLD in by_kind:
+            # `_c_now` is the LIVE, post-damp CALL entry read out of `entries`,
+            # never the pre-damp `call_merit` local. That is what keeps the
+            # dial inert on SPR-committed nodes (G-COMMIT): once
+            # `_commit_transform` or the B5b damp above has rewritten CALL,
+            # `rscale` must follow the value it was rewritten to, not the
+            # value it started at. This silently requires this N-LOGIT block
+            # to stay BELOW the commit block (`:1088-1117`) — reordering them
+            # breaks the guarantee with no test naming the dependency
+            # (`N-DRAWORDER` is filed for a pin). It also depends on
+            # R9-DEFENCE-a's line damp never reaching a STRONG-draw node: that
+            # damp only fires on `draw is DrawCategory.NONE` (`:1196`), so it
+            # cannot contaminate `_c_now` today — but if that gate is ever
+            # widened to draws, `line_mult` would already be baked into
+            # `_c_now` and RAISE would receive it a second time through
+            # `rscale`.
             if draw is DrawCategory.STRONG and _call_merit_at_ref > 0.0:
                 _c_now = next((m for a, m in entries if a is ActionType.CALL), 0.0)
                 rscale = _c_now / _call_merit_at_ref
