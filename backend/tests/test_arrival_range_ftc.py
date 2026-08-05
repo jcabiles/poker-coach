@@ -46,6 +46,7 @@ overbet. Post-W3R-2 both rows rise across sizes inside the T4 bands.
 
 from __future__ import annotations
 
+import functools
 import random
 
 import pytest
@@ -364,12 +365,79 @@ FLOP_BANDS = [
 ]
 
 
+# ------------------------------------------------- stable-sample escalation (R1)
+#
+# N-DRAWLOOSE ruling R1 (2026-08-04, owner): the R10-TAIL-a1 remedy — escalate
+# to a stable sample BEFORE failing. Precedent, followed here rather than
+# re-invented: `test_personas_postflop.py:5704-5722` (the fold-to-cbet leg),
+# where the cheap throughput reading is the first pass and only a breach pays
+# for the large-n re-measure.
+#
+# WHY THIS BAND NEEDS IT. Each rate is a Monte-Carlo count over the persona's
+# arrival range — ~1045 spots for the fish at `_ARRIVAL_N`, so SE ≈ 0.012
+# against a margin of only 0.0077 over the 0.20 floor. The band is a coin flip
+# BEFORE any behavior change: re-dealt at eight `_DEAL_SEED` offsets, the
+# engine at base `b0a6a4e` (pre-N-DRAWLOOSE) breaches its OWN floor on 2 of 8
+# — measured here, not quoted: 0.1801, 0.1914, 0.2013, 0.2030, 0.2053, 0.2069,
+# 0.2077, 0.2098. Paired against this tip over the same eight deals the effect
+# is mean -0.0003 with the sign flipping (3 down, 3 up, 2 exactly equal). One
+# reading at `_ARRIVAL_N` therefore cannot tell base from tip, and a red here
+# at that N is under-sampling rather than a fit failure.
+#
+# WHY ESCALATING IS HONEST HERE. `_deal_spots` extends ONE seeded stream, so
+# the larger sample is a strict superset of the smaller and the first
+# `_ARRIVAL_N` spots produce identical decisions — this is more of the same
+# estimator, not a different one. Band VALUES are untouched (frozen to W4-b);
+# only the SAMPLE moves.
+#
+# MEASURED at `_STABLE_ARRIVAL_N` (fish n_arrival = 33636), fish 0.33×pot:
+# 0.2065 at this tip, 0.2122 on the base engine — the level is inside the band
+# either way. Across four deal seeds at this N the tip reads 0.2057-0.2107 (vs
+# 0.1933 at `_ARRIVAL_N`), i.e. the estimator has converged to ~0.208 ± 0.003
+# where the throughput reading swings by ±0.012.
+#
+# ⚠️ DISCLOSED, not laundered: at the stable sample this slice does shift the
+# fish's small-price fold rate DOWN by ~0.006 (0.2122 -> 0.2065) — small, but
+# consistent in sign at large n, which is why the tip breaches the throughput-N
+# floor on 5 of those 8 deals against base's 2 of 8. The level still clears the
+# floor; the margin left is only ~0.006 (≈2.6 SE at this n), so the next thing
+# that nudges fish small-price defence down will land BELOW the floor at the
+# stable sample too — and that is a fit question for the owner, not a sampling
+# one. The thin band is filed as `N-FISHFLOOR` (re-derive at W4-b); it is NOT
+# fixed by widening the band here.
+#
+# KNOWN BLIND SPOT, inherited from the precedent: breach-only escalation never
+# re-measures a row that reads in-band at the throughput N, so a true stable-n
+# breach can pass silently there (the delta-review MED recorded at
+# `test_personas_postflop.py:5682-5695`, which is why the AF leg moved to
+# assert-at-stable-always). Kept breach-only deliberately: it is the named
+# precedent, and it leaves the three non-breaching rows byte-unchanged in
+# behavior instead of putting every row on a ~5s re-measure.
+_STABLE_ARRIVAL_N = 80000
+
+
+@functools.cache
+def _stable_flop_curve(persona: str) -> tuple[dict[float, float], int]:
+    """(flop fold curve, n_arrival) for one persona at `_STABLE_ARRIVAL_N`.
+
+    Memoized, so a second breaching row for the same persona is free."""
+    pack = load_persona_packs()[VillainType(persona)]
+    flop, _pure3 = _build_flop_arrival(pack, _deal_spots(_STABLE_ARRIVAL_N))
+    curve = _fold_curve(pack, flop, 3, _POT_FLOP, _STACK_START, Street.FLOP, 20260721)
+    return curve, len(flop)
+
+
 @pytest.mark.parametrize("persona,frac,lo,hi,src", FLOP_BANDS)
 def test_t4_flop_absolute_band(fold_curves, persona, frac, lo, hi, src):
     rate = fold_curves[persona]["flop"][frac]
-    assert lo <= rate <= hi, (
-        f"{persona} flop {frac}×pot fold {rate:.3f} outside [{lo},{hi}] ({src})"
-    )
+    if not (lo <= rate <= hi):
+        stable, n_stable = _stable_flop_curve(persona)
+        assert lo <= stable[frac] <= hi, (
+            f"{persona} flop {frac}×pot fold {rate:.3f} (N={_ARRIVAL_N}) breached and "
+            f"the stable-sample re-measure {stable[frac]:.4f} "
+            f"(N={_STABLE_ARRIVAL_N}, n_arrival={n_stable}) confirms it — "
+            f"outside [{lo},{hi}] ({src})"
+        )
 
 
 # --------------------------------------------------------------- manual inspection

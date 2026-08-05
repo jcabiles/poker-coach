@@ -272,6 +272,31 @@ more to a sustained barrel) steer hero into a different mix of spots, and
 the unchanged mapper grades that mix slightly less. Not unprecedented —
 `R10-PRE2` produced an equivalent dip (28.0% -> 26.3%). Seeded-fixture
 re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for N-DRAWLOOSE (persona-realism, 2026-08-04 — slice-authorized,
+owner ruling R2): T1 floors the archetype calling dial at 1.0 where it
+multiplies the STRONG-draw call bonus, so tightening a persona no longer makes
+it fold hands nobody folds — the bots now continue with strong draws they used
+to fold, which is a deliberate, authorized behavior change. The seeded stream
+therefore displaces: total 1288 -> 1233, graded 335 -> 323 (ratio 26.01% ->
+26.20%). OLD side read from the FIXTURE ON DISK (1288/335), never from the tail
+of this chain — the discontinuity recorded above is what that rule exists for;
+it agrees with the chain here. NEW side measured by `_measure()` at this tip.
+This test fails on its FIRST assertion (`hand stream drifted`), not on the
+graded ratchet, and 286 of 400 hands change their hero-decision signature
+(measured: per-hand (street, action-count, graded) sequences diffed between
+`b0a6a4e` and this tip) — so there is no small set of "lost graded decisions"
+to track down; this is whole-stream displacement.
+⚠️ Read the RATIO, not the raw counts: graded falls 335 -> 323 only because
+the bots reach FEWER hero decision points at all (1288 -> 1233); the share of
+what happens that the mapper can grade RISES, 26.01% -> 26.20%. CUMULATIVE vs
+the immutable persona-realism-start snapshot (349/1233 = 28.3%): 323/1233 =
+26.20%, -2.1pp — inside the long-adjudicated mapper-track dip that `T-cover`
+owns, and a small recovery slice-over-slice. ATTRIBUTION PROVEN BOTH WAYS, not
+assumed: a control worktree at base `b0a6a4e` (this slice's only engine file,
+`personas_postflop.py`, reverted with it) measures 1288/335 and passes against
+the OLD fixture unmodified; this tip measures 1233/323. The slice is the sole
+cause. Seeded-fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations
