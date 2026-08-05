@@ -587,11 +587,12 @@ def _sizing_dist(pf, board: list[Card], legal: list[LegalAction], is_aggressor: 
 #
 # ANCHOR — not a fit knob. 1.5× pot is (a) the engine's own maximum AUTHORED bet
 # size (`content/personas/{maniac,lag}.json` `sizing_by_node` key "1.5") and (b)
-# the size `_BUCKET_ALPHA[OVERBET] = 0.60` represents (`:460`), i.e. the node the
-# RES-D α fold-ceiling contract was measured on. Anchoring strictly ABOVE it
+# the size `_BUCKET_ALPHA[SizeBucket.OVERBET] = 0.60` represents, i.e. the node
+# the RES-D α fold-ceiling contract was measured on. Anchoring strictly ABOVE it
 # keeps every α-measured cell byte-identical BY CONSTRUCTION — the passive fish
-# has only 0.0078 of headroom against that ceiling at a faced 1.5× (`:344-346`),
-# so an unconditional fold-merit increase there would breach it. Prices below the
+# has only 0.0078 of headroom against that ceiling at a faced 1.5× (the
+# `_ONE_PAIR_RAISE_DAMP` headroom measurement above), so an unconditional
+# fold-merit increase there would breach it. Prices below the
 # anchor are the PLATEAU-HEIGHT defect (a `call_looseness` dial question), owned
 # by W4-b's single re-anchor — deliberately untouched here (§A6).
 #
@@ -760,9 +761,11 @@ _LINE_SENSITIVITY_MAX = 2.0
 # WHY DRAWS ARE OUT (corrected by theory review, ledger R-26). An earlier draft
 # said "its continue is already priced by equity + the T1 threshold, and that
 # machinery already moves with street". Both limbs are FALSE for the CALL leg:
-# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` — the WEAK-
-# draw form (`:986`; N-DRAWLOOSE floors the STRONG-draw multiplier at 1.0
-# instead, `:980-984`, but leaves this argument untouched) — consults no
+# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` — the
+# fall-through form taken on the trailing `else` branch below (N-DRAWLOOSE
+# floors the STRONG-draw bonus at `max(looseness, 1.0)` on the `if draw is
+# DrawCategory.STRONG and looseness < 1.0` branch instead, but leaves this
+# argument untouched) — consults no
 # equity and no street on either branch — `_DRAW_CALL_BONUS` is a flat lookup —
 # and the cited street-decay machinery (`_STREET_WEAK_DRAW_MULT`,
 # `_DRAW_RAISE_BONUS`) is AGGRESSION-side only. Measured: a naked gutshot's
@@ -880,7 +883,9 @@ def sample_postflop_decision(
         raise ValueError(f"persona pack {pack.id!r} has no postflop block")
     # W2-a: the two split identity levers, each falling back to `stickiness` when
     # the pack hasn't opted in (default-off byte-identity). `looseness` scales the
-    # flat CALL merit; the price-response exponent is resolved by `_price_exponent`.
+    # flat CALL merit — except on a STRONG draw below N-DRAWLOOSE's calling-dial
+    # floor below, where it is affine in the dial instead; the price-response
+    # exponent is resolved by `_price_exponent`.
     looseness = pf.call_looseness if pf.call_looseness is not None else pf.stickiness
     bucket, draw = strength_bucket(hole, board)
     by_kind = {la.action: la for la in legal}
@@ -1219,7 +1224,9 @@ def sample_postflop_decision(
 
     # N-LOGIT: nested-logit routing on the facing node.
     #
-    # `looseness` multiplies the CALL merit only (:873), so mass taken off CALL
+    # `looseness` multiplies the CALL merit only (assigned from
+    # `pf.call_looseness`/`pf.stickiness` near the top of this function), so
+    # mass taken off CALL
     # is shared out to FOLD *and* RAISE in proportion to their merits — which
     # on an aggressive persona lands mostly on RAISE. Measured at HEAD, halving
     # each pack's effective looseness moved raise-share the WRONG way for every
@@ -1320,16 +1327,23 @@ def sample_postflop_decision(
             )
         if ActionType.FOLD in by_kind:
             # `_c_now` is the LIVE, post-damp CALL entry read out of `entries`,
-            # never the pre-damp `call_merit` local. That is what keeps the
-            # dial inert on SPR-committed nodes (G-COMMIT): once
-            # `_commit_transform` or the B5b damp above has rewritten CALL,
-            # `rscale` must follow the value it was rewritten to, not the
-            # value it started at. This silently requires this N-LOGIT block
-            # to stay BELOW the commit block (`:1088-1117`) — reordering them
-            # breaks the guarantee with no test naming the dependency
-            # (`N-DRAWORDER` is filed for a pin). It also depends on
-            # R9-DEFENCE-a's line damp never reaching a STRONG-draw node: that
-            # damp only fires on `draw is DrawCategory.NONE` (`:1196`), so it
+            # never the pre-damp `call_merit` local. On a STRONG draw below the
+            # floor that is what lets a downstream rewrite of CALL (the
+            # SPR-commit block or the B5b damp above) still hand RAISE its
+            # correct share: `rscale` follows the value CALL was rewritten to,
+            # not the value it started at. G-COMMIT (in the test file) CANNOT
+            # exercise this on a committed node — its cell is a pocket pair
+            # with no draw, so it takes the non-STRONG path — so the property
+            # is pinned instead by G1's orthogonality sweep, whose grid
+            # includes STRONG-draw cells at an SPR that commits every persona;
+            # that sweep would go red if `_c_now` stopped tracking the
+            # post-commit CALL value. This silently requires this N-LOGIT block
+            # to stay BELOW the commit block (the `if stack_bb / pot_bb <=
+            # pf.spr_commit:` block above) — reordering them breaks the
+            # guarantee with no test naming the dependency (`N-DRAWORDER` is
+            # filed for a pin). It also depends on R9-DEFENCE-a's line damp
+            # never reaching a STRONG-draw node: that damp only fires on `draw
+            # is DrawCategory.NONE` (the `line_sensitivity` block above), so it
             # cannot contaminate `_c_now` today — but if that gate is ever
             # widened to draws, `line_mult` would already be baked into
             # `_c_now` and RAISE would receive it a second time through
