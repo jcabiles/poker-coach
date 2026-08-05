@@ -30,7 +30,9 @@ WHAT IT DOES (measurement only — ZERO bot behavior change)
    Turn/river are MEASUREMENT-ONLY (no grounded absolute band yet).
 4. Flop target bands (T4): grounded §5/F10 magnitudes as module constants +
    parametrized assertions — LIVE since W3R-2 fitted the fish/station dials
-   (they shipped `pytest.mark.skip`-ed at W3R-0).
+   (they shipped `pytest.mark.skip`-ed at W3R-0). THREE rows assert; the fish
+   SMALL row is report-only since N-DRAWLOOSE ruling R9 because the theory
+   contract grounds it DIRECTIONALLY only — see `FLOP_REPORT_ONLY`.
 
 Everything is a PURE ADD: `sample_preflop_action` / `sample_postflop_decision`
 are replayed READ-ONLY, no engine/JSON/conftest edits, no fixture re-records.
@@ -345,10 +347,14 @@ def test_t3_continuation_curve_produced_for_all_personas(fold_curves, arrival, s
 # harness at the fitted dials (n_arrival station 1370 / fish 1037):
 #   calling_station  0.33:0.095  0.5:0.134  1.0:0.177  1.5:0.220
 #   passive_fish     0.33:0.206  0.5:0.361  1.0:0.511  1.5:0.638
-# Owner INCLUDED the fish SMALL band (20–38%) as a live gate so the pair of
-# fish bands gates the SLOPE, not just the ceiling. Only personas the audit
-# grounds get a hard band; the rest stay measurement-only (curves emitted, no
-# assertion). Turn/river: no hard band (magnitudes not grounded).
+# (W3R-2-era readings, kept as the record of what the fit was accepted on; the
+# current ones are in the two T4 test docstrings below.)
+# Owner INCLUDED the fish SMALL band (20–38%) as a live gate at W3R-2 so the
+# pair of fish bands gates the SLOPE, not just the ceiling. N-DRAWLOOSE ruling
+# R9 (2026-08-05, owner) DEMOTED that one row to report-only — see
+# `FLOP_REPORT_ONLY` below. Only personas the audit grounds get a hard band; the
+# rest stay measurement-only (curves emitted, no assertion). Turn/river: no hard
+# band (magnitudes not grounded).
 #
 # (persona, frac, lo, hi, audit-source)
 FLOP_BANDS = [
@@ -356,20 +362,105 @@ FLOP_BANDS = [
     ("calling_station", 0.33, 0.03, 0.15, "audit §5 station SMALL"),
     # ... rising to OVERBET fold 18–40% (a price response, not the flat leak).
     ("calling_station", 1.5, 0.18, 0.40, "audit §5 station OVERBET"),
-    # passive_fish — audit §5/F10: steep fit-or-fold. SMALL fold 20–38%
-    # (owner-INCLUDED at W3R-2 — the two-point curve gates the slope) ...
-    ("passive_fish", 0.33, 0.20, 0.38, "audit §5/F10 fish SMALL"),
-    # ... rising to OVERBET fold 60–80%.
+    # passive_fish — audit §5/F10: steep fit-or-fold, OVERBET fold 60–80%.
     ("passive_fish", 1.5, 0.60, 0.80, "audit §5/F10 fish OVERBET"),
+]
+
+# ------------------------------------------------- the demoted row (ruling R9)
+#
+# N-DRAWLOOSE ruling R9 (2026-08-05, owner): the fish SMALL row is REPORT-ONLY.
+# It is measured and printed on every run; it may bound a regression when a
+# human reads it, but it may NOT define a pass.
+#
+# WHY. The committed theory contract
+# (`docs/ai-dlc/contracts/persona-realism-fit-loop.md`) marks this target
+# DIRECTIONAL-only: the metric that would ground its LEVEL is not built yet, so
+# a two-sided numeric band on it asserts a precision the grounding does not
+# have. A directional target may not masquerade as a pass/fail threshold.
+#
+# WHAT IT COSTS. Nothing this harness was relying on. The station SMALL row
+# still gates the station's small-price floor and the fish OVERBET row still
+# gates the fish ceiling; what is lost is the fish SLOPE claim, which was only
+# ever carried by the pair. `N-FISHFLOOR` is filed to re-derive the level (and
+# with it the slope claim) once the grounding metric exists.
+#
+# WHAT WAS REMOVED WITH IT. A `_STABLE_ARRIVAL_N = 80000` breach-only
+# escalation added earlier in this slice existed solely to rescue THIS row: at
+# `_ARRIVAL_N` it reads 0.19809 against a 0.20 floor, i.e. it fails, and only a
+# ~5s 80,000-deal re-measure pulled it back inside. With the row demoted the
+# escalation has nothing left to rescue, so it is gone rather than left as dead
+# machinery that would silently re-arm on the next row that grazes a bound.
+# Every remaining row is asserted at `_ARRIVAL_N` and at `_ARRIVAL_N` only.
+#
+# MEASURED at this tip (`_ARRIVAL_N` = 2500, fish n_arrival = 1045):
+#     fish 0.33×pot  0.19809       ← the demoted row; base b0a6a4e reads 0.20766
+# and at the 80,000-deal sample the earlier escalation used to take (fish
+# n_arrival = 33636): 0.20695 at this tip, 0.21221 at base b0a6a4e.
+#
+# (persona, frac, note)
+FLOP_REPORT_ONLY = [
+    ("passive_fish", 0.33, "audit §5/F10 fish SMALL — DIRECTIONAL-only, see N-FISHFLOOR"),
 ]
 
 
 @pytest.mark.parametrize("persona,frac,lo,hi,src", FLOP_BANDS)
 def test_t4_flop_absolute_band(fold_curves, persona, frac, lo, hi, src):
+    """The three rows whose LEVEL the audit grounds, asserted at `_ARRIVAL_N`.
+
+    MEASURED at this tip — every row clears its bound without any re-measure,
+    which is what made the removed escalation machinery redundant:
+        calling_station 0.33×  0.09791  in [0.03, 0.15]
+        calling_station 1.5×   0.22102  in [0.18, 0.40]
+        passive_fish    1.5×   0.62392  in [0.60, 0.80]
+    The two station rows are BITWISE identical to base b0a6a4e at all four
+    sizes (the station's dial is 4.0, above the N-DRAWLOOSE floor, so the slice
+    cannot reach it). The fish OVERBET row did move — disclosed at
+    `test_t4_flop_report_only_rows` below.
+
+    DEMONSTRATED RED, so that removing the escalation is not the same as
+    removing the gate: with every fold merit doubled in the engine, the station
+    SMALL row reads 0.16487 and this fails outright at `_ARRIVAL_N` — where the
+    old code would first have paid for an 80,000-deal re-measure.
+    """
     rate = fold_curves[persona]["flop"][frac]
     assert lo <= rate <= hi, (
-        f"{persona} flop {frac}×pot fold {rate:.3f} outside [{lo},{hi}] ({src})"
+        f"{persona} flop {frac}×pot fold {rate:.5f} (N={_ARRIVAL_N}) is outside "
+        f"[{lo}, {hi}] ({src})"
     )
+
+
+@pytest.mark.parametrize("persona,frac,note", FLOP_REPORT_ONLY)
+def test_t4_flop_report_only_rows(fold_curves, arrival, persona, frac, note):
+    """Ruling R9 — measured and PRINTED, never asserted against a band.
+
+    The only assertion is that the harness produced a probability at all; a
+    rate outside [0, 1] means the measurement is broken, not that the fit is.
+    Read the printed line (pytest -s, or the captured output of any failure in
+    this module) rather than trusting silence.
+
+    ── DISCLOSURE, N-DRAWLOOSE ruling R10. Two fish rows moved under this slice
+    and only one of them was ever written down. Both are re-measured here at
+    the 80,000-deal sample the removed escalation used to take, base b0a6a4e
+    versus this tip (fish n_arrival = 33636 on both, same seeded deal stream):
+
+        0.33×pot (SMALL, the demoted row)   0.21221 -> 0.20695   -0.00526
+        1.5×pot  (OVERBET, still asserted)  0.64461 -> 0.62808   -0.01653
+
+    The OVERBET row moved ~3.1x as far as the row that got the write-up, and it
+    went unrecorded for a mechanical reason worth naming: it reads 0.62392 at
+    `_ARRIVAL_N`, comfortably inside [0.60, 0.80], so the breach-only
+    escalation never fired on it and nothing ever re-measured it at a stable
+    sample. Breach-only escalation can only ever disclose the rows that breach.
+    Neither move is large enough to leave a band, and the direction is the
+    intended one for a slice that makes draws continue more (a fish folds less
+    often when its strong draws stop folding) — but the OVERBET row's remaining
+    margin to the 0.60 floor is ~0.028 at the stable sample, so the next slice
+    that loosens fish defence should re-measure it rather than assume it.
+    """
+    rate = fold_curves[persona]["flop"][frac]
+    print(f"REPORT-ONLY  {persona} flop {frac}×pot fold {rate:.5f} "
+          f"(N={_ARRIVAL_N}, n_arrival={len(arrival.flop[persona])}) — {note}")
+    assert 0.0 <= rate <= 1.0, (persona, frac, rate)
 
 
 # --------------------------------------------------------------- manual inspection

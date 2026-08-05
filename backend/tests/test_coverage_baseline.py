@@ -272,6 +272,33 @@ more to a sustained barrel) steer hero into a different mix of spots, and
 the unchanged mapper grades that mix slightly less. Not unprecedented —
 `R10-PRE2` produced an equivalent dip (28.0% -> 26.3%). Seeded-fixture
 re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for N-DRAWLOOSE (persona-realism, 2026-08-05 — slice-authorized,
+final engine tip db1f278): T1 floors the archetype calling dial at 1.0 where
+it multiplies the STRONG-draw call bonus, so tightening a persona no longer
+makes it fold hands nobody folds — the bots now continue with strong draws
+they used to fold, which is a deliberate, authorized behavior change. THIS
+ENTRY REPLACES the prior N-DRAWLOOSE entry rather than appending after it:
+that entry (1288/335 -> 1233/323) was recorded against an intermediate
+engine that adversarial review superseded (R1/R2 rebuilt the STRONG-draw
+floor twice more), so 1233/323 never shipped anywhere and never existed
+outside this branch. OLD side re-verified directly against the control
+worktree at base commit `b0a6a4e` (this slice's only engine file,
+`personas_postflop.py`, absent): `_measure()` there reads 1288/335,
+matching the FIXTURE ON DISK at that commit exactly — confirming the "old"
+side is the true base reading, not carried forward from a stale chain
+entry. NEW side measured by `_measure()` at THIS tip: total 1288 -> 1195,
+graded 335 -> 329 (ratio 26.01% -> 27.53%).
+⚠️ Read the RATIO, not the raw counts: graded falls 335 -> 329 only because
+the bots reach FEWER hero decision points at all (1288 -> 1195); the share of
+what happens that the mapper can grade RISES, 26.01% -> 27.53%. CUMULATIVE vs
+the immutable persona-realism-start snapshot (349/1233 = 28.30%): 329/1195 =
+27.53%, -0.77pp — inside the long-adjudicated mapper-track dip that `T-cover`
+owns, and the strongest recovery of that dip recorded on this fixture so far.
+ATTRIBUTION PROVEN BOTH WAYS: the control worktree at base `b0a6a4e` measures
+1288/335 and passes against ITS OWN on-disk fixture (also 1288/335)
+unmodified; this tip measures 1195/329. The slice is the sole cause.
+Seeded-fixture re-record; population bands stay frozen to W4-b.
 """
 
 from __future__ import annotations

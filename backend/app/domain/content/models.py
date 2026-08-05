@@ -178,13 +178,18 @@ class PersonaPostflop(BaseModel):
     # N-LOGIT correction (2026-08-02, ledger R-4 / R2-9): "read only where a
     # split lever is unset" is still true of the READ, but the *reach* of the
     # call-merit read grew. The facing node now also scales the RAISE merit by
-    # `effective_looseness / continue_ref` (see `continue_ref` below), and for
-    # a pack whose `call_looseness` is unset the effective looseness IS
-    # `stickiness` — so on `maniac` this field moves the raise leg as well as
-    # the call leg. Two live consequences: editing maniac's `stickiness` for
-    # price-elasticity reasons silently desynchronises its calibration anchor
-    # from its lever, and maniac's effective looseness cannot be swept in
-    # isolation (a sweep must author `call_looseness` on the probe copy).
+    # `effective_looseness / continue_ref` on every cell EXCEPT a STRONG draw
+    # below the calling dial's floor (N-DRAWLOOSE, `continue_ref` below): there
+    # the RAISE scale is instead the LIVE call merit over the frozen unfloored
+    # anchor, which carries the floor's growth to RAISE in the base engine's
+    # original proportion rather than the literal ratio. For a pack whose
+    # `call_looseness` is unset the effective looseness IS `stickiness` — so on
+    # `maniac` this field moves the raise leg as well as the call leg (on
+    # either form of the scale). Two live consequences: editing maniac's
+    # `stickiness` for price-elasticity reasons silently desynchronises its
+    # calibration anchor from its lever, and maniac's effective looseness
+    # cannot be swept in isolation (a sweep must author `call_looseness` on the
+    # probe copy).
     stickiness: float | None = Field(default=None, gt=0.0)
     # W2-a: the `stickiness` axis split into two independent identity levers.
     # Both OPTIONAL — unset falls back to `stickiness`, keeping un-opted-in packs
@@ -200,10 +205,14 @@ class PersonaPostflop(BaseModel):
     # N-LOGIT: the effective `call_looseness` this persona's FACING-NODE raise
     # behaviour was calibrated against. The engine scales the RAISE merit by
     # `effective_looseness / continue_ref` immediately before the facing-node
-    # normalization, which makes `P(raise | continue)` independent of the
-    # calling lever: `call_looseness` then controls WHETHER the bot continues
-    # and the raise-side calibration controls HOW, so mass freed from CALL
-    # routes to FOLD instead of RAISE (roadmap R10-4).
+    # normalization — the LITERAL form, taken on every cell except a STRONG
+    # draw below the calling dial's floor (N-DRAWLOOSE), where the scale is the
+    # LIVE call merit over the frozen unfloored anchor instead, so the floor's
+    # extra continue mass reaches RAISE in the same proportion CALL grew by.
+    # Either form makes `P(raise | continue)` independent of the calling
+    # lever: `call_looseness` then controls WHETHER the bot continues and the
+    # raise-side calibration controls HOW, so mass freed from CALL routes to
+    # FOLD instead of RAISE (roadmap R10-4).
     #
     # FROZEN BY DESIGN — it must NOT be updated when `call_looseness` is tuned.
     # Re-synchronising the two pins the ratio at 1.0 forever, which reproduces

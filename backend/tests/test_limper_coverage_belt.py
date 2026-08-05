@@ -295,9 +295,30 @@ _PRE_M3_FIRES = {
     # counts below exactly — the pack change is the sole cause. Every _WANT_*
     # coverage shape still fires (verified: BB¹ 42, BB² 24, BB³ 10) — stream
     # displacement, not a coverage regression.
-    ("UTG2", 1): 74, ("LJ", 1): 122, ("HJ", 1): 114, ("CO", 1): 100,
-    ("CO", 2): 29, ("SB", 1): 65, ("SB", 2): 32, ("BTN", 1): 78,
-    ("BTN", 2): 30,
+    # RE-RECORDED for N-DRAWLOOSE (2026-08-05, slice-authorized, final engine
+    # tip db1f278): T1 floors the calling dial at 1.0 for strong draws (an
+    # engine change in `personas_postflop.py`, not limper-belt content), so
+    # the first strong-draw-facing decision on the shared organic rng stream
+    # resolves differently and every hand dealt after it is displaced. This
+    # entry REPLACES the T5 entry it superseded rather than appending after
+    # it — the T5 values were an intermediate reading against a
+    # since-reformulated engine (R1/R2 rebuilt the floor twice more after
+    # adversarial review) and never shipped. OLD side measured directly
+    # against the control worktree at base commit b0a6a4e (this slice's only
+    # engine file, `personas_postflop.py`, absent): UTG2¹ 74, LJ¹ 122,
+    # HJ¹ 114, CO¹ 100, CO² 29, SB¹ 65, SB² 32, BTN¹ 78, BTN² 30 — this
+    # matches the T5 entry's own "old" side exactly, since the base engine
+    # (b0a6a4e) is unaffected by anything on this branch. All nine pairs
+    # move again at this tip vs base. No limper-belt content changed; every
+    # _WANT_* coverage shape still fires (measured at this tip: BB¹ 39,
+    # BB² 25, BB³ 6; base measures BB¹ 42, BB² 24, BB³ 10 — both comfortably
+    # clear the >=1 gate). ATTRIBUTION PROVEN, not assumed: this test and the
+    # N200 golden's _GOLDEN_STATS_N200 both pass, unmodified, against the
+    # control worktree at base commit b0a6a4e with their OLD (base) values;
+    # the counts below only hold once this slice's engine change lands.
+    ("UTG2", 1): 95, ("LJ", 1): 111, ("HJ", 1): 103, ("CO", 1): 98,
+    ("CO", 2): 34, ("SB", 1): 63, ("SB", 2): 37, ("BTN", 1): 87,
+    ("BTN", 2): 42,
 }
 
 
