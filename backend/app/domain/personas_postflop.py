@@ -976,7 +976,15 @@ def sample_postflop_decision(
             and street in (Street.FLOP, Street.TURN)
         ):
             call_base *= _ACE_HIGH_FLOAT_RAISE_DAMP
-        call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness
+        _ref_lever = pf.continue_ref if pf.continue_ref is not None else looseness
+        if draw is DrawCategory.STRONG:
+            call_merit = call_base * looseness + _DRAW_CALL_BONUS[draw] * max(looseness, 1.0)
+            _call_merit_at_ref = (
+                call_base * _ref_lever + _DRAW_CALL_BONUS[draw] * max(_ref_lever, 1.0)
+            )
+        else:
+            call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness
+            _call_merit_at_ref = (call_base + _DRAW_CALL_BONUS[draw]) * _ref_lever
         if bluff_cell and street is Street.RIVER:
             call_merit = 0.0
         entries.append((ActionType.CALL, call_merit))
@@ -1095,7 +1103,14 @@ def sample_postflop_decision(
             damped: list[tuple[ActionType, float]] = []
             for a, m in entries:
                 if a is ActionType.CALL:
-                    m -= _DRAW_CALL_BONUS[draw] * looseness * removed
+                    if draw is DrawCategory.STRONG:
+                        m -= _DRAW_CALL_BONUS[draw] * max(looseness, 1.0) * removed
+                        _call_merit_at_ref -= (
+                            _DRAW_CALL_BONUS[draw] * max(_ref_lever, 1.0) * removed
+                        )
+                    else:
+                        m -= _DRAW_CALL_BONUS[draw] * looseness * removed
+                        _call_merit_at_ref -= _DRAW_CALL_BONUS[draw] * _ref_lever * removed
                 elif a is ActionType.RAISE:
                     m -= _DRAW_RAISE_BONUS[draw] * agg_scale * removed
                 damped.append((a, m))
@@ -1244,7 +1259,11 @@ def sample_postflop_decision(
                 f"safe range [{_CONTINUE_REF_MIN}, {_CONTINUE_REF_MAX}]"
             )
         if ActionType.FOLD in by_kind:
-            rscale = looseness / ref
+            if draw is DrawCategory.STRONG and _call_merit_at_ref > 0.0:
+                _c_now = next((m for a, m in entries if a is ActionType.CALL), 0.0)
+                rscale = _c_now / _call_merit_at_ref
+            else:
+                rscale = looseness / ref
             entries = [(a, m * rscale) if a is ActionType.RAISE else (a, m) for a, m in entries]
 
     # Normalize (rule 1, pinned): clamp >= 0, divide by sum; sum 0 fallback.
