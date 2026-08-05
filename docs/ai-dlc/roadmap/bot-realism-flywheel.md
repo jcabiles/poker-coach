@@ -1,5 +1,5 @@
 # Bot-Realism Flywheel Roadmap — updated 2026-08-05 (rev 2, post dual review)
-status: draft
+status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instruction; next action: /ai-org:spec S1)
 
 > **Governing initiative for all bot-realism work.** Supersedes the NOW-lane of
 > `persona-realism.md` (paused by owner ruling 2026-08-05: *no further persona-fix work until
@@ -13,9 +13,10 @@ status: draft
 > contract-mapper pass needed.
 > **Rev 2** folds the dual roadmap review (refuter NEEDS-WORK + Codex Sol FAIL; adjudication
 > ledger: `../ledger/bot-realism-flywheel-roadmap-review.md`).
-> **Durability (owner ruling 2026-08-05):** this roadmap, the PRD, the review ledger, the
-> remeasure SYNTHESIS/PROTOCOL, and START-HERE.md are COMMITTED (exception to the
-> docs-stay-uncommitted practice). Orientation for fresh sessions: `../START-HERE.md`.
+> **Durability (owner rulings 2026-08-05):** this roadmap, the PRD, the review ledger, and
+> START-HERE.md are COMMITTED (PR #169 — exception to the docs-stay-uncommitted practice).
+> The remeasure SYNTHESIS/PROTOCOL stay LOCAL (never-push artifacts dir upheld; their public
+> form gets authored fresh in poker-analytics). Orientation: `../START-HERE.md`.
 > **Cleanup obligation (owner ruling 2026-08-05):** when this roadmap completes, run a cleanup
 > slice — delete or banner every artifact that is no longer needed (superseded reports, stale
 > spot lists, sim exports, interim status docs, stale memory entries) so the repo doesn't
@@ -43,7 +44,9 @@ status: draft
 
 ## NOW (in order — appetite CAP: ~2–3 wk part-time to the phase-3 gate; scope valves below)
 
-- [ ] **S1 — Cross-repo working agreement + walking skeleton** — problem: two repos + two
+- [x] **S1 — Cross-repo working agreement + walking skeleton** *(2026-08-05: agreement in
+      both repos + stub pipe verified — exact per-persona counts, dual fan-in review; ledger
+      `../ledger/flywheel-s1.md`)* — problem: two repos + two
       parallel sessions, no collision protocol; loop must span repos in one command ·
       outcome-link: enables everything · pass/fail: agreement doc committed in BOTH repos
       (ownership manifest, interface, versioning, session-R/session-F protocol, S6∥S5
@@ -151,9 +154,16 @@ listed rather than the gate slipping silently.
   poker-analytics, archetype target extraction, registry swap · open questions: era-drift
   validity, which corpus.
 - **Portfolio publication path** — evidence: dual-purpose mandate; poker-analytics currently
-  private · candidate slices: publication-readiness review, methodology write-ups, dataset/
-  model cards + limitations sections (reproducibility pins per PRD §5) · open questions: what
-  stays private.
+  private · **strategy (owner-ratified 2026-08-05): curated narrative public, raw exhaust
+  private.** Public = README front door + 2–3 polished methodology write-ups (score design +
+  validation incl. failures, detection protocol, reachability study), decision records,
+  limitations sections. Private/stripped = ai-dlc ledgers, ticket adjudications, agent-fleet
+  mechanics, hand-history data. The remeasure SYNTHESIS/PROTOCOL stay local in poker-coach
+  (owner ruling — never-push dir); their PUBLIC form is authored fresh in poker-analytics ·
+  candidate slices: publication-readiness review **including a hiring-manager red-team**
+  (adversarial review of the public repo from a skeptical senior-AE persona, before
+  visibility flips), write-ups, dataset/model cards (reproducibility pins per PRD §5) · open
+  questions: exact strip list at flip time.
 
 ## LATER (bets — no dates)
 
