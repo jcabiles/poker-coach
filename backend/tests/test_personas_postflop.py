@@ -7244,10 +7244,25 @@ def test_nlogit_g2_routing_sign_freed_mass_goes_to_fold():
     assert not violations, f"{len(violations)} routing-sign violations: {violations[:5]}"
 
 
+def _nlogit_cell_draw(cell: _NlogitCell) -> DrawCategory:
+    """The cell's draw category, read from the engine's own classifier rather
+    than from the cell's label — a board edit that demoted a template must move
+    G3's scope with it, not silently leave a cell inside the scope under a
+    label that no longer describes it."""
+    return strength_bucket(cell.hole, cell.board)[1]
+
+
+# Measured, and pinned so the exclusion below cannot widen silently: 128 of the
+# 1,728 grid cells classify STRONG (the two `strong_draw` templates x 4 prices
+# x 4 stack/opponent shapes x facing_raise x raise-legal). The other 1,600
+# (1,472 draw-NONE + 128 WEAK) stay inside G3.
+_NLOGIT_G3_EXCLUDED_CELLS = 128
+
+
 def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
     """G3 — at the frozen calibration anchor (not necessarily the pack's
     shipped/authored value — see `_NLOGIT_ANCHORS`) the opted-in path is
-    BIT-identical to the un-opted path over the whole grid.
+    BIT-identical to the un-opted path on every NON-STRONG cell of the grid.
 
     The un-opted path IS the base engine: `continue_ref is None` short-circuits
     the new block, so the code that runs is HEAD's, unmodified (spec §3.5).
@@ -7256,17 +7271,68 @@ def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
     `looseness / continue_ref` with the two equal, i.e. exactly 1.0. The
     external absolute anchors are the 23 frozen exact-equality vectors in
     `tests/test_price_tail.py` and the byte-identical persona-stats golden,
-    both untouched by this slice and both still green."""
+    both untouched by this slice and both still green.
+
+    ── WHY `DrawCategory.STRONG` IS OUT OF SCOPE (N-DRAWLOOSE ruling R1,
+    2026-08-05, owner). N-DRAWLOOSE floors a STRONG draw's call bonus at a dial
+    below 1.0, and that extra continue mass has to reach the RAISE leg in the
+    same proportion or an aggressive persona stops semi-bluff-raising the very
+    draws the floor exists to keep in. The engine routes it through THIS
+    feature: on a STRONG draw below the floor the raise scale becomes
+    `_c_now / _call_merit_at_ref` instead of the literal `looseness / ref`
+    (`personas_postflop.py:1337-1341`). So on those cells the opted-in path is
+    deliberately NOT inert any more, and G3's identity is false there by
+    design.
+
+    THE EXCLUSION IS UNAVOIDABLE, not a convenience. The un-opted path
+    (`continue_ref is None`) has NO raise scale at all — the whole block is
+    short-circuited — so there is no expression on that side that could carry
+    the floor's growth. Any design that hands the growth to RAISE must
+    therefore break `opted == un-opted` on exactly these cells. The only way to
+    keep G3 whole would be to withhold the growth from RAISE, which is the
+    already-rejected fan-in defect A (lag's P(raise) at the trace node falls
+    0.4718 -> 0.3884).
+
+    WHAT REPLACES IT ON THOSE CELLS, because scoping a gate without replacing
+    it is not acceptable:
+    `test_nd_t4_strong_draw_raise_share_matches_the_base_engine` asserts the
+    property that SHOULD hold there — P(raise | continue) equal to the BASE
+    engine b0a6a4e, per persona, at seven priced strong-draw nodes. That is
+    strictly stronger than bit-identity-to-the-un-opted-path would have been,
+    because the un-opted path is not the base engine's raise share on these
+    cells either.
+
+    MEASURED REACH of the exclusion (re-verified for this revision, not
+    quoted). Of the 1,728 x 6 = 10,368 (cell, persona) comparisons the
+    unscoped gate made, exactly 320 now differ: 64 per persona for the five
+    personas whose calibration anchor is below 1.0 (nit, tag, lag, maniac,
+    passive_fish), and those 64 are precisely the raise-legal half of that
+    persona's 128 STRONG cells — a raise-scale change cannot move a cell with
+    no RAISE entry. `calling_station` (anchor 4.0, above the floor) stays
+    bit-identical on all 1,728, and every one of the 1,600 non-STRONG cells
+    stays bit-identical for all six personas. Those 1,600 x 6 = 9,600
+    comparisons are what this gate still makes.
+    """
     cells = _nlogit_cells()
+    excluded = 0
     for persona in _NLOGIT_ANCHORS:
         opted = _nlogit_probe(persona)
         unopted = _nlogit_probe(persona, continue_ref=None)
+        excluded = 0
         for cell in cells:
+            if _nlogit_cell_draw(cell) is DrawCategory.STRONG:
+                excluded += 1
+                continue
             a = _nlogit_dist(opted, cell)
             b = _nlogit_dist(unopted, cell)
             assert list(a.keys()) == list(b.keys()), (persona, cell.key)
             for k in a:
                 assert a[k] == b[k], (persona, cell.key, k, a[k], b[k])
+    assert excluded == _NLOGIT_G3_EXCLUDED_CELLS, (
+        f"G3's STRONG-draw exclusion now covers {excluded} of {len(cells)} cells, not the "
+        f"pinned {_NLOGIT_G3_EXCLUDED_CELLS}. The scope of a scoped gate is itself part of "
+        "the claim: widening it silently is how a gate stops covering the thing it names"
+    )
 
 
 def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
@@ -10181,12 +10247,20 @@ def test_r9lf_gsweep_nit_folds_more_than_tag_across_the_cell_population():
 # literal shipped `looseness / continue_ref`
 # (`personas_postflop.py:1261-1267`).
 #
-# Two gates live below.
+# The gates below, in file order:
 #   T2  the coupled raise scale is really taken, and really different, on a
 #       strong draw — and is NOT taken anywhere else.
-#   T3  G-DRAW: the fold rate of a strong draw barely responds to the dial.
+#   T2  G1's comparison census, decomposed by draw category and pinned exactly.
+#   T3  G-DRAW: the fold rate of a strong draw barely responds to the dial,
+#       plus the `facing_raise` instrument-liveness check and the mislabelled-
+#       node check.
+#   T4  the absolute CEILING at the trace node; the cross-persona margin
+#       against the calling station; P(raise | continue) against the base
+#       engine at every strong-draw node; and two calling-station byte-identity
+#       pins (shipped 4.0, and a non-power-of-two 3.7).
+#   C5  non-STRONG cells are bitwise identical to the base engine.
 #
-# ── THE INSTRUMENT. Both gates read the engine through `_nd_priced_dist`,
+# ── THE INSTRUMENT. All of them read the engine through `_nd_priced_dist`,
 # which is `_r9lf_priced_dist`'s pattern (always supply
 # `latest_aggressor_contribution_bb`; intercept the engine's OWN
 # `_price_factor` call and refuse the reading unless the fraction the engine
@@ -10204,7 +10278,14 @@ class _NDNode(NamedTuple):
     """One constructed facing node. `pot_bb` is the LIVE pot (pre-bet pot plus
     `to_call`) and the aggressor's contribution is `to_call`, i.e. fresh
     aggression; `faced_frac` is the price the node CLAIMS to be at and
-    `_nd_priced_dist` asserts the engine agrees before returning anything."""
+    `_nd_priced_dist` asserts the engine agrees before returning anything.
+
+    `facing_raise` (N-DRAWLOOSE ruling R5, refuter mutant M13) is a real axis of
+    the engine, not decoration: the live bot loop derives it at `play.py:250`
+    and hands it to `sample_postflop_decision` on every postflop decision, so a
+    panel that is entirely `facing_raise=False` cannot see a defect that lives
+    on the facing-a-raise half of production. The `_nd_key(node)` prefix of
+    `node_id` is how the pinned base tables below address a node."""
 
     node_id: str
     hole: tuple[str, str]
@@ -10216,6 +10297,13 @@ class _NDNode(NamedTuple):
     opponents: int
     faced_frac: float
     aggressor_bet_prev_street: bool = False
+    facing_raise: bool = False
+
+
+def _nd_key(node: _NDNode) -> str:
+    """The node's short label ("D1", "P1", ...) — the key of the pinned base
+    tables. Taken from `node_id` so a node and its pins cannot drift apart."""
+    return node.node_id.split()[0]
 
 
 def _nd_priced_dist(pack, node: _NDNode) -> dict:
@@ -10250,6 +10338,7 @@ def _nd_priced_dist(pack, node: _NDNode) -> dict:
             latest_aggressor_contribution_bb=node.to_call,
             context=PostflopContext(in_position=False),
             aggressor_bet_prev_street=node.aggressor_bet_prev_street,
+            facing_raise=node.facing_raise,
         )
     finally:
         personas_postflop._price_factor = real_price_factor
@@ -10433,29 +10522,67 @@ def test_nd_t2_raise_scale_is_coupled_on_strong_draws_and_nowhere_else():
     )
 
 
-_ND_G1_MIN_COMPARISONS = 1000
+# EXACT per-draw-category census of the grid and of G1's comparisons. Both are
+# measured values, pinned; neither is a threshold.
+_ND_G1_CELLS_BY_DRAW = {DrawCategory.NONE: 1472, DrawCategory.STRONG: 128, DrawCategory.WEAK: 128}
+_ND_G1_COMPARISONS_BY_DRAW = {
+    DrawCategory.NONE: 5376,  # 1,472 cells x 4 lever settings, less 128 anchor-skipped
+    DrawCategory.STRONG: 512,  # 128 x 4 — every STRONG cell is compared at every setting
+    DrawCategory.WEAK: 512,  # 128 x 4
+}
 
 
-def test_nd_t2_nlogit_g1_still_measures_the_whole_grid():
-    """T2 — G1's thin-measurement guard survived the change, verified rather
-    than assumed.
+def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
+    """T2 — G1's denominator, decomposed by draw category and pinned EXACTLY,
+    per persona.
 
-    G1 skips a cell whose ANCHOR distribution has no continue mass, and counts
-    only the comparisons it actually made. Flooring the draw bonus moves merits
-    on every strong-draw cell in the grid, so "G1 is still green" would be worth
-    much less if the change had quietly emptied its denominator. This recounts
-    G1's comparisons with G1's own rule, off the same cached sweep, and reports
-    the number instead of leaving it inside a boolean.
+    ── WHY THIS REPLACED ITS PREDECESSOR (N-DRAWLOOSE ruling R3, 2026-08-05).
+    The gate that stood here recomputed G1's total comparison count and
+    asserted it against the SAME `>= 1000` floor G1 already asserts on the same
+    quantity. Codex demonstrated it could not fail independently: any mutant
+    that pushed a persona's count below 1,000 failed G1 first, so the gate was
+    green whenever its sibling was green — the exact defect (a gate that cannot
+    go red on its own) this file has now shipped twice.
 
-    MEASURED after T1: 6,400 comparisons for each of the six personas, out of
-    1,728 cells x 4 lever settings = 6,912 possible.
+    ── WHAT THIS ONE PINS THAT G1 DOES NOT. G1 asserts `n >= 1000` on the TOTAL
+    and says nothing about its composition. The censuses here are exact and
+    per-category, so they fail on a change G1 is structurally blind to: a
+    mutant that removes the ANCHOR's continue mass on some subset of
+    strong-draw cells makes G1 *skip* those cells (`denom <= 0` is a `continue`,
+    not a violation, and no `collapsed` entry is recorded because the anchor
+    itself is empty), leaving 6,000-odd comparisons — comfortably over G1's
+    floor, drift-clean, and green — while the STRONG count here drops off its
+    pinned 512. That matters specifically now: N-DRAWLOOSE moves merits on
+    every strong-draw cell, and this file's other gates would be worth much
+    less if G1's measurement of those very cells had quietly emptied.
+
+    It is also the census that G3's scoping above leans on: G3 now excludes the
+    128 STRONG cells, so something has to say those 128 cells still exist and
+    are still measured somewhere.
+
+    MEASURED after T1, identical for all six personas: NONE 5,376 · STRONG 512
+    · WEAK 512 = 6,400, out of 1,728 cells x 4 lever settings = 6,912. The 512
+    missing are the 128 draw-NONE cells whose anchor has no continue mass at
+    all, enumerated rather than guessed: the four river bluff-cell templates
+    (`air/river`, `ace_high/river`, `river_busted_straight`,
+    `river_busted_flush`) in their `with_raise=False` shapes, 32 each — CALL is
+    hard-zeroed by the river polarization rule and there is no RAISE entry to
+    hold the mass instead.
     """
     sweep = _nlogit_sweep()
     cells = sweep["_cells"]
-    compared = dict.fromkeys(_NLOGIT_ANCHORS, 0)
+    draws = [_nlogit_cell_draw(c) for c in cells]
+
+    by_draw = {d: draws.count(d) for d in DrawCategory}
+    assert by_draw == _ND_G1_CELLS_BY_DRAW, (
+        f"the grid's composition moved: {by_draw} vs pinned {_ND_G1_CELLS_BY_DRAW}"
+    )
+
+    census = {}
     for persona in _NLOGIT_ANCHORS:
         per = sweep[persona]
-        for i in range(len(cells)):
+        counts = dict.fromkeys(DrawCategory, 0)
+        for i, draw in enumerate(draws):
             base = per[1.0][i]
             if _nlogit_p(base, ActionType.CALL) + _nlogit_p(base, ActionType.RAISE) <= 0.0:
                 continue
@@ -10463,11 +10590,15 @@ def test_nd_t2_nlogit_g1_still_measures_the_whole_grid():
                 d = per[mult][i]
                 if _nlogit_p(d, ActionType.CALL) + _nlogit_p(d, ActionType.RAISE) <= 0.0:
                     continue
-                compared[persona] += 1
-    thin = {p: n for p, n in compared.items() if n < _ND_G1_MIN_COMPARISONS}
-    assert not thin, (
-        f"G1's raise-share invariance is now measured on almost nothing for {thin} "
-        f"(floor {_ND_G1_MIN_COMPARISONS} per persona); full census {compared}"
+                counts[draw] += 1
+        census[persona] = counts
+
+    wrong = {p: c for p, c in census.items() if c != _ND_G1_COMPARISONS_BY_DRAW}
+    assert not wrong, (
+        f"G1's comparison census changed composition for {sorted(wrong)}: {wrong} vs pinned "
+        f"{_ND_G1_COMPARISONS_BY_DRAW}. G1 itself only asserts a >= 1000 floor on the TOTAL, "
+        "so a category can empty out under it without any other gate noticing; full census "
+        f"{census}"
     )
 
 
@@ -10482,22 +10613,29 @@ def test_nd_t2_nlogit_g1_still_measures_the_whole_grid():
 #
 # ── WHERE 0.030 COMES FROM: IT IS A CHOSEN BUDGET, NOT DERIVED. There is no
 # analytic quantity that lands on it. What IS measured is the window it had to
-# sit in for the gate to be honest — red on all five pins at the unchanged
-# engine, green on all five after T1:
+# sit in for the gate to be honest — red on every pin at the unchanged engine,
+# green on every pin after T1. RE-DERIVED at commit eb34e60 (N-DRAWLOOSE ruling
+# R6): the engine moved after these numbers were first taken, so all of them
+# were re-measured, base worktree against build worktree, same instrument:
 #
-#     node                                   base commit b0a6a4e   after T1
-#     D1 combo draw, flop, 2/3-pot                   +0.0682        +0.0040
-#     D2 flush draw, flop, pot                       +0.0678        +0.0164
-#     D3 combo draw, TURN, 1/2-pot                   +0.0693        +0.0041
-#     D4 flush draw, flop, 1/2-pot, four-way         +0.0628        +0.0146
-#     P1 middle pair + flush draw, flop, 2/3-pot     +0.0380        +0.0097
-#     P2 top pair + flush draw (RECORD, not a pin)   +0.0134        +0.0043
-#     M1 middle pair, flop, pot   (control)          +0.0697        +0.0697
-#     M2 middle pair, turn, pot   (control)          +0.0717        +0.0717
+#     node                                   base commit b0a6a4e   at eb34e60
+#     D1 combo draw, flop, 2/3-pot                  +0.068151      +0.003889
+#     D2 flush draw, flop, pot                      +0.067787      +0.016137
+#     D3 combo draw, TURN, 1/2-pot                  +0.069256      +0.004033
+#     D4 flush draw, flop, 1/2-pot, four-way        +0.062845      +0.014273
+#     P1 middle pair + flush draw, flop, 2/3-pot    +0.038017      +0.009401
+#     R2 P1 FACING A RAISE (see below)              +0.038694      +0.009591
+#     P2 top pair + flush draw (RECORD, not a pin)  +0.013353      +0.004194
+#     M1 middle pair, flop, pot   (control)         +0.069694      +0.069694
+#     M2 middle pair, turn, pot   (control)         +0.071717      +0.071717
 #
-# Any cap in (0.0164, 0.0380) is red-at-base on all five pins and green after
-# T1. 0.030 is a point in that window: 1.83x headroom over the worst shipped
-# reading (D2) and 1.27x margin on the weakest red-at-base pin (P1).
+# Any cap in (0.016137, 0.038017) is red-at-base on all six pins and green on
+# all six after T1 — an honest window still exists, so the cap did not have to
+# be tuned to survive. 0.030 is a point in it: 1.86x headroom over the worst
+# shipped reading (D2) and 1.27x margin under the weakest red-at-base pin (P1).
+# The window narrowed at the top (P1/R2 near 0.038) and at the bottom (D2 at
+# 0.0161); a future slice that raises D2 above 0.030 must re-derive the cap
+# rather than widen it.
 #
 # ⚠️ THE 0.071797 CEILING DOES NOT TRANSFER HERE. G-NODE's 0.040 is justified by
 # an analytic maximum: when the dial scales the CALL and RAISE merits by the
@@ -10522,7 +10660,32 @@ def test_nd_t2_nlogit_g1_still_measures_the_whole_grid():
 # UNCHANGED engine — already inside a 0.030 cap — so asserting the cap on it
 # would add a leg that cannot go red, which is the exact defect the previous
 # slice shipped. It is measured and its price and non-degeneracy are checked, so
-# a later reader can see the quadrant, and nothing more is claimed about it.
+# a later reader can see the quadrant, and nothing more is claimed about it HERE.
+# It does carry a real assertion in the T4 raise-share table below — that is a
+# different claim (equality with the base engine, which IS red-able at P2:
+# fan-in defect A moves it) and it is not this gate's cap.
+#
+# ── WHY R2 (A FACING-A-RAISE NODE) IS NOT OPTIONAL — N-DRAWLOOSE ruling R5.
+# Every node on this panel used to carry `facing_raise=False`, and `_NDNode` had
+# no field for it at all. The refuter used that: mutant M13 floors the draw
+# bonus only when NOT facing a raise, which leaves the headline defect fully
+# alive on the facing-a-raise half of production (`play.py:250` derives
+# `faced_raise` and passes it on every postflop decision) — and M13 passed all
+# seven of this slice's gates. R2 is P1 with `facing_raise=True`; under M13 it
+# reverts to the base engine's +0.0387 and blows the 0.030 cap, while D1/P1 stay
+# at their shipped readings. MEASURED under M13: R2 +0.0387 (red), P1 +0.0094
+# and D1 +0.0039 (both green) — the panel without R2 is exactly as blind as the
+# refuter said.
+#
+# THE FIELD IS PROVED LIVE, not assumed. `facing_raise` is a keyword argument
+# with a default, so a `_nd_priced_dist` that forgot to forward it would make R2
+# silently identical to P1 and re-open M13 with the node still sitting in the
+# panel looking like coverage. `test_nd_gdraw_facing_raise_reaches_the_engine`
+# below asserts R2's vector DIFFERS from P1's for all six personas: middle pair
+# is in `_VULNERABLE_ONE_PAIR`, so facing a raise damps `_RAISE_BASE` by 0.35
+# (`personas_postflop.py:359, 1018-1023`) and the two vectors cannot coincide.
+# That is a different code path from the floor, which is the point — it proves
+# the ARGUMENT arrives, which is all the panel needs.
 #
 # ── WHY P1 IS NOT OPTIONAL. Strength bucket and draw category are INDEPENDENT
 # axes (`personas_postflop.py:752-756`): a hand can be MIDDLE_PAIR and carry a
@@ -10540,19 +10703,47 @@ def test_nd_t2_nlogit_g1_still_measures_the_whole_grid():
 # They are deliberately overlapping and are NOT part of the independence claim
 # below.
 #
-# ── INDEPENDENCE (mandatory check; the previous slice shipped a gate that could
-# not fail whenever its sibling passed). The three pinned claims of this slice
-# are mutually independent — no one of them can be satisfied as a side effect of
-# another:
-#   G-DRAW (this gate, pinned legs)  a CAP on |ΔP(fold)| at STRONG-draw nodes
-#   G-NODE (above)                   a FLOOR on ΔP(fold) at draw-NONE nodes
-#   T4's absolute band               a LEVEL, P(fold) ∈ [0.20, 0.34], at one node
-# Disjoint node classes for the first two (STRONG vs NONE — a hand is in exactly
-# one), so a build can satisfy either while breaking the other, and the engine
-# branches on precisely that predicate. And a cap on a DIFFERENCE says nothing
-# about a LEVEL: the spec measured floor values of 0.6, 2.0 and 5.0 all passing
-# G-DRAW, with 5.0 more than doubling every persona's strong-draw bonus. T4's
-# band is what forbids that, and G-DRAW cannot stand in for it.
+# ── INDEPENDENCE (mandatory check; this file has twice shipped a gate that
+# could not fail whenever its sibling passed). Each of this slice's claims can
+# go red on something no sibling covers:
+#   G-DRAW (this gate, pinned legs)  a CAP on |ΔP(fold)| at STRONG-draw nodes.
+#       Only red-able thing: the DIAL still deciding a strong draw. Fails alone
+#       on mutant M13 (floor withheld when facing a raise) via R2.
+#   G-NODE (above)                   a FLOOR on ΔP(fold) at draw-NONE nodes.
+#       Disjoint node class (a hand is in exactly one draw category, and the
+#       engine branches on precisely that predicate), so a build can satisfy
+#       either while breaking the other. Fails alone on a floor that leaked
+#       outside DrawCategory.STRONG.
+#   T4's ceiling (0.34)              a LEVEL at one node. A cap on a DIFFERENCE
+#       says nothing about a LEVEL: floor values of 0.6, 2.0 and 5.0 all pass
+#       G-DRAW. Fails alone on a build that leaves the dial deciding the level.
+#   T4's cross-persona margin        an ORDERING between two personas. Fails
+#       alone on an oversized floor (5.0) that loosens the whole roster —
+#       measured: the nit-minus-station fold gap at D1 goes +0.1692 -> -0.0073,
+#       while G-DRAW and the ceiling both stay green.
+#   T4's raise-share table           P(raise | continue) equal to base, per
+#       persona. Red on fan-in defect A (the raise-scale divisor carrying the
+#       floor) — measured: lag 0.6109 -> 0.4780 at D1 with G-DRAW, both T4
+#       level legs and the station pins still green. G1 is red on that mutant
+#       too. What this can fail on that G1 cannot is a LEVEL shift that is
+#       still lever-invariant — measured witness: the STRONG semi-bluff raise
+#       bonus shrunk 10%, G1 green, this red.
+#   T4's station byte-identity       EXACT equality for a dial above the floor.
+#       Fails alone on the re-associated arithmetic at a non-power-of-two dial
+#       (measured: the `strong_all` mutant — this red, all 41 siblings green).
+#   C5's non-STRONG vectors          EXACT equality off the STRONG branch.
+#       Fails alone on a re-association of the untouched expression, which
+#       moves WEAK weights by an ulp and nothing else in the suite sees
+#       (measured: a WEAK-only re-association — this red, all 41 siblings
+#       green).
+#   G1's census by draw category     the COMPOSITION of G1's denominator.
+#       Fails alone when strong-draw cells drop out of G1's measurement
+#       silently (measured: strong draws made to never continue in 2-opponent
+#       spots — this red at STRONG 384 for five personas and 448 for the
+#       station against the pinned 512, while G1 and all 41 other siblings
+#       stay green).
+# M1/M2 below are deliberately overlapping instrument-liveness controls and are
+# NOT part of this independence claim.
 
 _ND_SELF_CAP = 0.030
 _ND_MADE_CONTROL_FLOOR = 0.040
@@ -10582,7 +10773,15 @@ _ND_DRAW_PANEL = (
         "P1 middle pair + flush draw, flop, 2/3-pot",
         ("9h", "8h"), ["Kh", "9s", "3h"], Street.FLOP, 20.0, 8.0, 200.0, 1, 8.0 / 12.0,
     ),
+    _NDNode(
+        "R2 middle pair + flush draw, flop, 2/3-pot, FACING A RAISE",
+        ("9h", "8h"), ["Kh", "9s", "3h"], Street.FLOP, 20.0, 8.0, 200.0, 1, 8.0 / 12.0,
+        facing_raise=True,
+    ),
 )
+# P1 without the raise — the twin R2 is compared against by the liveness gate.
+_ND_FACING_RAISE_TWIN = _ND_DRAW_PANEL[4]
+_ND_FACING_RAISE_NODE = _ND_DRAW_PANEL[5]
 _ND_RECORD_ONLY = (
     _NDNode(
         "P2 top pair + flush draw, flop, 2/3-pot",
@@ -10617,15 +10816,16 @@ def _nd_self_difference(node: _NDNode) -> tuple[float, float, float]:
 
 
 def test_nd_gdraw_dial_no_longer_decides_strong_draws():
-    """G-DRAW — at five priced strong-draw nodes the nit's fold probability
-    moves by at most 0.030 when its calling dial is rebuilt from 0.45 to 0.60,
-    while at two draw-NONE control nodes it still moves by at least 0.040.
+    """G-DRAW — at six priced strong-draw nodes the nit's fold probability moves
+    by at most 0.030 when its calling dial is rebuilt from 0.45 to 0.60, while at
+    two draw-NONE control nodes it still moves by at least 0.040.
 
-    Red at the base commit b0a6a4e on all five pins (+0.0682 · +0.0678 · +0.0693
-    · +0.0628 · +0.0380), green after T1 (+0.0040 · +0.0164 · +0.0041 · +0.0146
-    · +0.0097). The 0.030 is a CHOSEN BUDGET — see the section comment above for
-    the window it sits in and for why G-NODE's 0.071797 analytic ceiling does not
-    transfer to affine draw nodes.
+    Red at the base commit b0a6a4e on all six pins (+0.068151 · +0.067787 ·
+    +0.069256 · +0.062845 · +0.038017 · +0.038694), green at eb34e60 (+0.003889 ·
+    +0.016137 · +0.004033 · +0.014273 · +0.009401 · +0.009591). The 0.030 is a
+    CHOSEN BUDGET — see the section comment above for the window it sits in, for
+    why G-NODE's 0.071797 analytic ceiling does not transfer to affine draw
+    nodes, and for what R2 (the facing-a-raise node) is for.
     """
     readings = []
     for node in _ND_DRAW_PANEL:
@@ -10654,6 +10854,33 @@ def test_nd_gdraw_dial_no_longer_decides_strong_draws():
         )
 
 
+def test_nd_gdraw_facing_raise_reaches_the_engine():
+    """G-DRAW's instrument liveness for the `facing_raise` axis (ruling R5).
+
+    R2 is P1 with `facing_raise=True` and nothing else changed. `facing_raise`
+    is a keyword argument with a default, so an instrument that failed to
+    forward it would make R2 a duplicate of P1 — the panel would still look
+    like it covered the facing-a-raise half of production while covering none
+    of it, and mutant M13 would survive again with the node in place.
+
+    MIDDLE_PAIR is in `_VULNERABLE_ONE_PAIR`, so facing a raise damps
+    `_RAISE_BASE` by `_ONE_PAIR_RAISE_DAMP` = 0.35 on the flop
+    (`personas_postflop.py:359, 1018-1023`). That is a DIFFERENT code path from
+    the N-DRAWLOOSE floor on purpose: what needs proving is that the argument
+    arrives, and a path the floor cannot influence proves it cleanly. Every
+    persona must therefore read differently at R2 than at P1.
+    """
+    for persona in sorted(v.value for v in VillainType):
+        twin = _nd_priced_dist(_pack(persona), _ND_FACING_RAISE_TWIN)
+        raised = _nd_priced_dist(_pack(persona), _ND_FACING_RAISE_NODE)
+        assert twin != raised, (
+            f"{persona}: {_ND_FACING_RAISE_NODE.node_id} produced the SAME vector as "
+            f"{_ND_FACING_RAISE_TWIN.node_id} ({twin}). `facing_raise` is not reaching "
+            "the engine, so every facing-a-raise node on this panel is measuring the "
+            "facing-a-bet spot instead"
+        )
+
+
 def test_nd_priced_helper_refuses_a_mislabelled_node():
     """G-DRAW's instrument, proved against the bug it exists to stop.
 
@@ -10677,65 +10904,284 @@ def test_nd_priced_helper_refuses_a_mislabelled_node():
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # G-DRAW above only bounds how FAR the dial moves a strong draw's fold rate; it
-# says nothing about WHERE that rate sits. Measured during planning: floor
-# values of 0.6, 2.0 and even 5.0 all satisfy G-DRAW, and 5.0 more than doubles
-# every persona's strong-draw bonus — loosening the whole roster, including
-# the calling station, without G-DRAW noticing, and nothing else in the suite
-# catches it because a later ticket in this slice (T5) re-records the fixtures
-# that would otherwise have moved. This is the gate that forbids that: a
-# two-sided ABSOLUTE band on the shipped nit's own fold rate at D1 (the
-# slice's trace node), plus a byte-identity pin proving the calling station's
-# policy did not move at all.
+# says nothing about WHERE that rate sits. Measured: floor values of 0.6, 2.0
+# and even 5.0 all satisfy G-DRAW, and 5.0 more than doubles every persona's
+# strong-draw bonus — loosening the whole roster, including the calling
+# station, without G-DRAW noticing, and nothing else in the suite catches it
+# because a later ticket in this slice (T5) re-records the fixtures that would
+# otherwise have moved. Four gates live here, each red-able on its own:
+#   * a CEILING on the shipped nit's fold rate at D1 (the slice's trace node);
+#   * a CROSS-PERSONA margin, nit versus the calling station, at the same node;
+#   * P(raise | continue) equal to the BASE engine at seven strong-draw nodes;
+#   * byte-identity pins for the calling station, whose dial clears the floor.
+#
+# ── WHY THERE IS NO LOWER BOUND ANY MORE — N-DRAWLOOSE ruling R7 (2026-08-05,
+# owner). This gate used to assert P(fold) in [0.20, 0.34]. The CEILING stays:
+# it is a real behavioural claim and it is the leg that is red at base. The
+# FLOOR is gone, for two reasons the owner gave:
+#   (a) It is indefensible AS POKER. D1 is a 15-out combo draw getting 4-into-6,
+#       i.e. 28.6% pot odds against roughly 54% equity by the river. "A nit folds
+#       that at least 20% of the time" is not a property anyone would defend; it
+#       was a proxy for "the roster has not been loosened wholesale", written as
+#       a level because a level was what was handy.
+#   (b) It BLOCKS the filed follow-ups. `N-DRAWEQUITY` (replace the flat
+#       nine-out proxy with a real equity read) and `N-DRAWTURN` (implied odds
+#       by street) exist precisely to make equity-aware draws continue MORE. A
+#       floor of 0.20 at this node would fail them for succeeding.
+# What replaces it is the claim the floor was ACTUALLY making, stated directly:
+# the nit must still fold strong draws MATERIALLY MORE than the calling
+# station. That survives `N-DRAWEQUITY`/`N-DRAWTURN` (both personas' draws
+# continue more; the ordering is untouched) and it still kills the mutant the
+# floor existed for. MEASURED at D1, shipped packs, nit P(fold) minus station
+# P(fold):
+#     base b0a6a4e  +0.330144      this tip  +0.169229
+#     floor = 2.0   +0.062412      floor = 5.0  -0.007322  (station folds MORE)
+# The 0.10 margin is a CHOSEN BUDGET, not a derived bound: 1.69x headroom under
+# the shipped reading, and red on both oversized-floor mutants — the 5.0 one the
+# owner named and the subtler 2.0 one, which the old [0.20, 0.34] floor also
+# caught (floor=2.0 puts the nit at 0.1540) and which a margin of, say, 0.05
+# would have let through.
 
-_ND_T4_BAND_LO = 0.20
 _ND_T4_BAND_HI = 0.34
+_ND_T4_CROSS_MARGIN = 0.10
 _ND_T4_NODE = _ND_DRAW_PANEL[0]  # D1 combo draw, flop, 2/3-pot — the slice's trace node
 
 
-def test_nd_t4_absolute_band_at_trace_node():
-    """C2 — the SHIPPED nit pack, loaded unmodified via `load_persona_packs()`
+def test_nd_t4_absolute_ceiling_at_trace_node():
+    """C2a — the SHIPPED nit pack, loaded unmodified via `load_persona_packs()`
     (no `call_looseness` override: the claim is about the bot as it actually
-    ships, not a rebuilt variant), folds D1 with P(fold) in [0.20, 0.34].
+    ships, not a rebuilt variant), folds D1 at most 0.34 of the time.
 
-    Red at base commit b0a6a4e: 0.4217, outside the band on the HIGH side.
-    Green after T1: 0.2768. The LOWER bound (0.20) forbids the roster being
-    loosened wholesale by an oversized floor value — see the floor=5.0 mutant
-    this gate exists to kill (docs/ai-dlc/tickets/n-drawloose.md, T4). The
-    UPPER bound (0.34) is what this slice actually fixes. Comment BOTH sides:
-    a later reader who "fixes" a failure here by widening only one side of the
-    band has defeated the reason a cap alone (G-DRAW) was not enough.
+    Red at base commit b0a6a4e: 0.4217. Green at eb34e60: 0.2608. This is the
+    leg that says the dial has stopped deciding this hand's continue. Widening
+    it is not a fix — see the section comment for the lower bound that was
+    REMOVED here on ruling R7 and for the cross-persona leg that replaced it.
     """
     dist = _nd_priced_dist(_pack("nit"), _ND_T4_NODE)
     fold = dist[ActionType.FOLD]
-    assert _ND_T4_BAND_LO <= fold <= _ND_T4_BAND_HI, (
+    assert fold <= _ND_T4_BAND_HI, (
         f"{_ND_T4_NODE.node_id}: the shipped nit folds a strong draw {fold:.4f} of the "
-        f"time, outside the absolute band [{_ND_T4_BAND_LO}, {_ND_T4_BAND_HI}]. Below the "
-        "floor means the roster has been loosened wholesale (the class of defect a "
-        "floor=5.0 dial guard would produce); above the ceiling means the dial is still "
-        "deciding this hand's continue at close to its pre-slice level."
+        f"time, above the ceiling {_ND_T4_BAND_HI} — the calling dial is still deciding "
+        "this hand's continue at close to its pre-slice level (base reads 0.4217)"
     )
 
 
-# The calling_station pin. Under the branch form the floor at 1.0 never binds
-# for this persona — its dial is 4.0, already above the floor — so its policy
-# at a strong-draw node must be EXACTLY what it was at the base engine
-# b0a6a4e, not merely close (`pytest.approx` would let a real regression that
-# happens to land within tolerance slip through). This is a STRUCTURAL claim,
-# not an arithmetical one. A REJECTED earlier design re-associated the
-# arithmetic instead of branching on `DrawCategory.STRONG` — rewriting
-# `(call_base + bonus) * L` as `call_base*L + bonus*L` — and the station
-# survived only THAT variant because 4.0 is a power of two, so
-# `(a+b)*4 == a*4 + b*4` bitwise; a refit to 3.5 would have broken it
-# silently. Under the branch form T1 actually shipped, `max(L, 1.0)` simply
-# returns L unchanged for any L >= 1.0, so the STRONG branch collapses onto
-# the non-STRONG expression bit for bit — the property does not depend on the
-# dial's numeric value at all, only on it being >= 1.0.
+def test_nd_t4_nit_still_folds_strong_draws_far_more_than_the_station():
+    """C2b — at D1 the shipped nit's fold rate exceeds the shipped calling
+    station's by at least 0.10.
+
+    This is the cross-persona claim that replaced the old 0.20 floor (ruling
+    R7). It forbids the defect the floor was a proxy for — an oversized dial
+    guard loosening the WHOLE roster rather than un-sticking the tight end of
+    it — without asserting a poker level nobody would defend, and without
+    blocking `N-DRAWEQUITY` / `N-DRAWTURN`, which are supposed to make both
+    personas' draws continue more.
+
+    MEASURED (nit P(fold) - calling_station P(fold) at D1): base b0a6a4e
+    +0.330144 · this tip +0.169229 · floor=2.0 mutant +0.062412 · floor=5.0
+    mutant -0.007322. Both oversized floors are red; 0.10 is a chosen budget
+    with 1.69x headroom under the shipped reading.
+
+    THE CLAIM IS PAIRWISE. Nothing here says the nit is the tightest
+    strong-draw defender of the six — lag, maniac, tag and the fish are not
+    measured, and this can pass while the nit folds less than any of them.
+    """
+    nit = _nd_priced_dist(_pack("nit"), _ND_T4_NODE)[ActionType.FOLD]
+    station = _nd_priced_dist(_pack("calling_station"), _ND_T4_NODE)[ActionType.FOLD]
+    assert nit - station >= _ND_T4_CROSS_MARGIN, (
+        f"{_ND_T4_NODE.node_id}: the nit folds this strong draw {nit:.4f} of the time "
+        f"against the calling station's {station:.4f} — a gap of only {nit - station:+.4f} "
+        f"(floor {_ND_T4_CROSS_MARGIN}). The two personas' strong-draw defence has "
+        "converged, which is what an oversized dial guard does: it loosens the whole "
+        "roster instead of un-sticking the tight end of it (floor=5.0 reads -0.0073)"
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T4 — P(raise | continue) at strong-draw nodes, against the BASE engine
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# N-DRAWLOOSE ruling R2 (2026-08-05, owner): G3 above is now scoped OUT of
+# DrawCategory.STRONG, and scoping a gate without replacing it is not
+# acceptable. This is the replacement, and on these cells it is strictly
+# stronger than what G3 covered: G3 asserted "opted-in equals un-opted", and the
+# un-opted path is not the base engine's raise share on a strong draw either
+# (it has no raise scale at all). This asserts the property that SHOULD hold —
+# the floor moves FOLD mass onto the continue side and CALL and RAISE receive it
+# in their ORIGINAL proportion, so the raise share among continues is exactly
+# what b0a6a4e computed, persona by persona. It is also the raise-share record
+# the theory review asked for.
+#
+# HARVESTED, not derived: every value below was read out of the CONTROL
+# worktree at base commit b0a6a4e through this same `_nd_priced_dist`
+# instrument, at full `repr()` precision.
+#
+# TOLERANCE. Not bitwise — each share is a ratio of two normalized
+# probabilities, so several float divisions sit between the merits and the
+# answer. MEASURED worst deviation of this tip from these pins, over all 42
+# (node, persona) pairs: 1.11e-16 absolute, 3.51e-16 relative. The gate asserts
+# 1e-12 relative — about 2,800x above the observed noise, and about 2e11 BELOW
+# the mutant it exists to catch (fan-in defect A moves lag's share at D1 from
+# 0.6109 to 0.4780, i.e. 0.22 relative).
+_ND_RAISE_SHARE_TOL = 1e-12
+_ND_BASE_RAISE_SHARE = {
+    "D1": {
+        "calling_station": 0.0326295585412668,
+        "lag": 0.6108927568781584,
+        "maniac": 0.7331536388140162,
+        "nit": 0.21249999999999997,
+        "passive_fish": 0.27823240589198034,
+        "tag": 0.5190839694656488,
+    },
+    "D2": {
+        "calling_station": 0.021879021879021878,
+        "lag": 0.5100796999531176,
+        "maniac": 0.6456425907087148,
+        "nit": 0.15178571428571425,
+        "passive_fish": 0.20359281437125745,
+        "tag": 0.4171779141104294,
+    },
+    "D3": {
+        "calling_station": 0.021359223300970873,
+        "lag": 0.5039370078740159,
+        "maniac": 0.64,
+        "nit": 0.14864864864864866,
+        "passive_fish": 0.1996370235934664,
+        "tag": 0.41121495327102797,
+    },
+    "D4": {
+        "calling_station": 0.021879021879021875,
+        "lag": 0.5100796999531176,
+        "maniac": 0.6456425907087147,
+        "nit": 0.15178571428571427,
+        "passive_fish": 0.20359281437125748,
+        "tag": 0.4171779141104294,
+    },
+    "P1": {
+        "calling_station": 0.0228310502283105,
+        "lag": 0.5209605209605209,
+        "maniac": 0.6555458004097161,
+        "nit": 0.1574803149606299,
+        "passive_fish": 0.2107481559536354,
+        "tag": 0.42780748663101603,
+    },
+    "R2": {
+        "calling_station": 0.019192208536236034,
+        "lag": 0.47665629168519336,
+        "maniac": 0.6144775630527349,
+        "nit": 0.13535353535353534,
+        "passive_fish": 0.18276050190943807,
+        "tag": 0.38505747126436785,
+    },
+    "P2": {
+        "calling_station": 0.022956841138659315,
+        "lag": 0.5223636957231472,
+        "maniac": 0.6568144499178981,
+        "nit": 0.15822784810126578,
+        "passive_fish": 0.21168501270110074,
+        "tag": 0.42918454935622313,
+    },
+}
+
+
+def test_nd_t4_strong_draw_raise_share_matches_the_base_engine():
+    """T4 — P(raise | continue) at every strong-draw node on this panel, for
+    every persona, equals the BASE engine b0a6a4e's value.
+
+    THE MUTANT THIS EXISTS FOR is the fan-in review's defect A: making the raise
+    scale's divisor `_call_merit_at_ref` carry the same floor as the live call
+    merit. The floor's growth then cancels out of `rscale`, every chip it frees
+    from FOLD lands on CALL, and an aggressive persona stops semi-bluff-raising
+    the draws the floor exists to keep in. Measured with that divisor floored:
+    lag 0.6109 -> 0.4780 at D1, maniac 0.7332 -> 0.6158, tag 0.5191 -> 0.4056,
+    nit 0.2125 -> 0.1457, passive_fish 0.2782 -> 0.1488 — while G-DRAW, both T4
+    level legs and the station byte-identity pins all stay GREEN.
+
+    ── HONEST OVERLAP, and where this gate goes BEYOND G1. G1 also goes red on
+    defect A, because these personas' lever sweep crosses the floor (nit's
+    anchor 0.6 at x2 is 1.2) and the floored divisor makes the share differ on
+    the two sides of the crossing. What G1 CANNOT see is a change that shifts
+    the raise share to a NEW LEVEL while keeping it lever-invariant — G1 asserts
+    invariance in the lever, this asserts the VALUE. Concrete witness: shrinking
+    the STRONG semi-bluff raise bonus 10% leaves G1 green and turns this red.
+    That witness also trips the station's byte-identity pins, which are exact
+    whole-vector pins at this same node — what this table adds over them is the
+    other five personas and the other six nodes, none of which those pins reach.
+
+    `calling_station` is in the table on purpose even though its dial clears
+    the floor: it is the row that would move if the STRONG branch ever stopped
+    being conditional on `looseness < 1.0`.
+    """
+    nodes = _ND_DRAW_PANEL + _ND_RECORD_ONLY
+    keys = {_nd_key(n) for n in nodes}
+    assert keys == set(_ND_BASE_RAISE_SHARE), (
+        f"the pinned raise-share table covers {sorted(_ND_BASE_RAISE_SHARE)} but the panel "
+        f"is {sorted(keys)} — a node was added or renamed without a base harvest, so it "
+        "would have been asserted against nothing"
+    )
+    for node in nodes:
+        pins = _ND_BASE_RAISE_SHARE[_nd_key(node)]
+        for persona, expected in sorted(pins.items()):
+            dist = _nd_priced_dist(_pack(persona), node)
+            continues = dist[ActionType.CALL] + dist[ActionType.RAISE]
+            assert continues > 0.0, f"{node.node_id} ({persona}): no continue mass"
+            share = dist[ActionType.RAISE] / continues
+            assert share == pytest.approx(expected, rel=_ND_RAISE_SHARE_TOL), (
+                f"{node.node_id} ({persona}): P(raise | continue) is {share!r}, not the "
+                f"base engine's {expected!r}. The floor is supposed to hand its freed "
+                "FOLD mass to CALL and RAISE in their ORIGINAL proportion; a move here "
+                "means the raise leg is no longer receiving its share (fan-in defect A)"
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T4 — the calling_station pins: the floor is STRUCTURALLY inert above 1.0
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Under the branch form the floor at 1.0 never binds for this persona — its dial
+# is 4.0, already above the floor — so its policy at a strong-draw node must be
+# EXACTLY what it was at the base engine b0a6a4e, not merely close
+# (`pytest.approx` would let a real regression that happens to land within
+# tolerance slip through). This is a STRUCTURAL claim, not an arithmetical one.
+# A REJECTED earlier design re-associated the arithmetic instead of branching on
+# `DrawCategory.STRONG` — rewriting `(call_base + bonus) * L` as
+# `call_base*L + bonus*L` — and the station survived only THAT variant because
+# 4.0 is a power of two, so `(a+b)*4 == a*4 + b*4` bitwise. Under the branch
+# form T1 shipped, `max(L, 1.0)` simply returns L unchanged for any L >= 1.0, so
+# the STRONG branch collapses onto the non-STRONG expression bit for bit — the
+# property does not depend on the dial's numeric value at all, only on it being
+# >= 1.0.
+#
+# ── THE 3.7 CASE IS WHAT MAKES THAT A GATE RATHER THAN A CLAIM — N-DRAWLOOSE
+# ruling R8. At the shipped 4.0 the two designs are indistinguishable, so the
+# structural argument is untested there and a re-association would ship green.
+# 3.7 is not a power of two: MEASURED, the `strong_all` mutant (STRONG branch
+# taken at every dial, i.e. the re-associated form) moves the station's D1
+# vector by one ulp at 3.7 — P(fold) 0.09823642232305747 -> ...746, P(raise)
+# ...985 -> ...978 — while leaving the 4.0 reading bit-identical. At an earlier,
+# superseded revision of this engine the 3.7 reading was itself one ulp off
+# base; at eb34e60 it is EXACT, which is why this can be an `==` pin.
 #
 # Harvested from the CONTROL worktree (base commit b0a6a4e) at full precision
 # via repr(), not rounded, at this same D1 node.
 _ND_STATION_BASE_FOLD = 0.09154315605928508
 _ND_STATION_BASE_CALL = 0.8788142981691368
 _ND_STATION_BASE_RAISE = 0.029642545771578026
+# The same node with the station's dial re-authored to 3.7 (see above).
+_ND_STATION_REFIT_LOOSENESS = 3.7
+_ND_STATION_REFIT_BASE = {
+    ActionType.FOLD: 0.09823642232305747,
+    ActionType.CALL: 0.8723394302287506,
+    ActionType.RAISE: 0.029424147448191985,
+}
+
+
+def _nd_pack_at(persona: str, looseness: float):
+    """The shipped pack for `persona` with `call_looseness` re-authored."""
+    pack = _pack(persona)
+    probe = pack.model_copy(deep=True)
+    probe.postflop = pack.postflop.model_copy(update={"call_looseness": looseness})
+    return probe
 
 
 def test_nd_t4_calling_station_byte_identical_on_strong_draw():
@@ -10758,3 +11204,98 @@ def test_nd_t4_calling_station_byte_identical_on_strong_draw():
         f"calling_station RAISE moved: {dist[ActionType.RAISE]!r} vs base "
         f"{_ND_STATION_BASE_RAISE!r}"
     )
+
+
+def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
+    """T4 — the same EXACT equality at `call_looseness` 3.7 (ruling R8).
+
+    The shipped 4.0 cannot distinguish the branch form from the re-associated
+    one, because `(a+b)*4 == a*4 + b*4` bitwise. 3.7 can, and does: the
+    `strong_all` mutant (STRONG branch taken at every dial) shifts this vector
+    by one ulp while leaving the 4.0 pin above untouched. Without this case the
+    structural property is prose; with it, it is a gate.
+    """
+    dist = _nd_priced_dist(
+        _nd_pack_at("calling_station", _ND_STATION_REFIT_LOOSENESS), _ND_T4_NODE
+    )
+    for kind, expected in _ND_STATION_REFIT_BASE.items():
+        assert dist[kind] == expected, (
+            f"calling_station at call_looseness {_ND_STATION_REFIT_LOOSENESS}: "
+            f"{kind.value} is {dist[kind]!r}, not the base engine's {expected!r}. A dial "
+            "at or above the floor must fall through to the ORIGINAL expression bit for "
+            "bit; a one-ulp move here is the signature of the re-associated form"
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# N-DRAWLOOSE C5 — non-STRONG behaviour is bitwise unchanged from the base
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# The spec claims that everything outside `DrawCategory.STRONG` is bitwise
+# unchanged by this slice. Until N-DRAWLOOSE ruling R4 (2026-08-05) NOTHING
+# asserted it. Codex demonstrated the hole: re-associating the untouched
+# non-STRONG expression into `call_base*L + bonus*L` moved WEAK weights by one
+# ulp and 77 tests — including all 23 frozen exact-equality price vectors in
+# `tests/test_price_tail.py` — still passed. Those vectors cannot see it: every
+# one of them is a `DrawCategory.NONE` cell, and `_DRAW_CALL_BONUS[NONE]` is
+# 0.0, so `call_base*L + 0.0*L` and `(call_base + 0.0)*L` are the same float.
+# Only a WEAK cell, where the bonus is 0.20, can.
+#
+# So the WEAK node is the leg that carries the kill and the draw-NONE node is
+# the leg that carries the coverage — and the comment says so rather than
+# letting a reader assume both are load-bearing against the same mutant.
+# MEASURED against the re-association mutant: W1 moves for `nit` and for `tag`
+# (max 1.11e-16, i.e. one ulp) and for nobody else; M1 does not move at all,
+# for any persona. A NONE node still belongs here because the whole point is
+# "nothing off the STRONG branch moved", and the ways that could stop being
+# true are not limited to re-association — anything that reached `call_base`,
+# the fold merit or the price factor would show up at M1 and nowhere else on
+# this panel.
+#
+# EXACT `==`, harvested from the CONTROL worktree at base commit b0a6a4e via
+# repr(). These are the same two nodes G-DRAW already uses as its uncoupled
+# control (M1) and as its WEAK non-reach node (W1), so no new node shape had to
+# be justified.
+_ND_C5_NODES = (
+    _ND_T2_UNCOUPLED[2],  # W1 gutshot, flop, 2/3-pot (WEAK)
+    _ND_MADE_CONTROLS[0],  # M1 middle pair, flop, pot (draw NONE)
+)
+_ND_C5_BASE_VECTORS = {
+    "W1": {
+        "calling_station": (0.18518518518518515, 0.7901234567901235, 0.02469135802469136),
+        "lag": (0.4098360655737704, 0.24043715846994537, 0.34972677595628415),
+        "maniac": (0.3246753246753246, 0.19047619047619052, 0.48484848484848486),
+        "nit": (0.6249999999999999, 0.3000000000000001, 0.075),
+        "passive_fish": (0.6218905472636815, 0.2786069651741294, 0.09950248756218907),
+        "tag": (0.4385964912280701, 0.2807017543859649, 0.2807017543859649),
+    },
+    "M1": {
+        "calling_station": (0.0710458693521161, 0.9179214212577664, 0.011032709390117384),
+        "lag": (0.32107712394019394, 0.4353630998948532, 0.2435597761649529),
+        "maniac": (0.2714850038608301, 0.3681188849749163, 0.36039611116425363),
+        "nit": (0.4495022841911032, 0.5022084424923269, 0.04828927331656988),
+        "passive_fish": (0.4847241936073794, 0.4530444288089708, 0.06223137758364983),
+        "tag": (0.3265174276144593, 0.4864040800562238, 0.18707849232931686),
+    },
+}
+
+
+def test_nd_c5_non_strong_nodes_are_bitwise_identical_to_the_base_engine():
+    """C5 — the full normalized (FOLD, CALL, RAISE) vector at one WEAK node and
+    one draw-NONE node, for all six personas, is EXACTLY the base engine's.
+
+    Kills the re-association mutant Codex used to walk past 77 green tests. See
+    the section comment for which leg does the killing and why the other leg is
+    still worth its place.
+    """
+    for node in _ND_C5_NODES:
+        pins = _ND_C5_BASE_VECTORS[_nd_key(node)]
+        for persona, (fold, call, raise_) in sorted(pins.items()):
+            dist = _nd_priced_dist(_pack(persona), node)
+            got = (dist[ActionType.FOLD], dist[ActionType.CALL], dist[ActionType.RAISE])
+            assert got == (fold, call, raise_), (
+                f"{node.node_id} ({persona}): {got!r} is not the base engine's "
+                f"{(fold, call, raise_)!r}. This slice pre-registered every non-STRONG "
+                "cell as bitwise unchanged; a one-ulp move here means the untouched "
+                "expression was re-associated or otherwise rewritten"
+            )
