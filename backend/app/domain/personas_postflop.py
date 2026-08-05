@@ -979,15 +979,29 @@ def sample_postflop_decision(
             and street in (Street.FLOP, Street.TURN)
         ):
             call_base *= _ACE_HIGH_FLOAT_RAISE_DAMP
+        # N-DRAWLOOSE: a STRONG draw's call bonus stops shrinking with a tight
+        # dial (`max(looseness, 1.0)`), so nits stop folding big draws. TWO
+        # properties are load-bearing and both come from the branch PREDICATE
+        # carrying `looseness < 1.0`:
+        #  - the floor is a no-op arithmetic identity at any dial >= 1.0
+        #    (`max(L, 1.0)` returns L), so falling through to the ORIGINAL
+        #    expression there makes "loose personas are bitwise unchanged"
+        #    STRUCTURAL. Taking the STRONG branch instead would compute
+        #    `call_base*L + bonus*L` — the re-associated form this design
+        #    rejects, which is bitwise equal to `(call_base + bonus)*L` only
+        #    when L happens to be a power of two (the calling station's 4.0;
+        #    a refit to 3.7 shifts it by an ulp).
+        #  - `_call_merit_at_ref` is the UNFLOORED merit at the frozen anchor
+        #    on EVERY path, i.e. exactly the base engine's call merit at `ref`.
+        #    That is what lets the coupled `rscale` below hand the floor's extra
+        #    continue mass to the RAISE leg in its original proportion instead
+        #    of cancelling it away — see the N-LOGIT block.
         _ref_lever = pf.continue_ref if pf.continue_ref is not None else looseness
-        if draw is DrawCategory.STRONG:
+        _call_merit_at_ref = (call_base + _DRAW_CALL_BONUS[draw]) * _ref_lever
+        if draw is DrawCategory.STRONG and looseness < 1.0:
             call_merit = call_base * looseness + _DRAW_CALL_BONUS[draw] * max(looseness, 1.0)
-            _call_merit_at_ref = (
-                call_base * _ref_lever + _DRAW_CALL_BONUS[draw] * max(_ref_lever, 1.0)
-            )
         else:
             call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness
-            _call_merit_at_ref = (call_base + _DRAW_CALL_BONUS[draw]) * _ref_lever
         if bluff_cell and street is Street.RIVER:
             call_merit = 0.0
         entries.append((ActionType.CALL, call_merit))
@@ -1106,14 +1120,16 @@ def sample_postflop_decision(
             damped: list[tuple[ActionType, float]] = []
             for a, m in entries:
                 if a is ActionType.CALL:
-                    if draw is DrawCategory.STRONG:
+                    if draw is DrawCategory.STRONG and looseness < 1.0:
                         m -= _DRAW_CALL_BONUS[draw] * max(looseness, 1.0) * removed
-                        _call_merit_at_ref -= (
-                            _DRAW_CALL_BONUS[draw] * max(_ref_lever, 1.0) * removed
-                        )
                     else:
                         m -= _DRAW_CALL_BONUS[draw] * looseness * removed
-                        _call_merit_at_ref -= _DRAW_CALL_BONUS[draw] * _ref_lever * removed
+                    # Unconditional, and unfloored, for the same reason the
+                    # merit above is: the reference stays the base engine's
+                    # damped call merit at the anchor, `ref*(call_base +
+                    # bonus*(1-removed))`. That keeps `rscale`'s L-cancellation
+                    # exact on BOTH sides of the floor even under this damp.
+                    _call_merit_at_ref -= _DRAW_CALL_BONUS[draw] * _ref_lever * removed
                 elif a is ActionType.RAISE:
                     m -= _DRAW_RAISE_BONUS[draw] * agg_scale * removed
                 damped.append((a, m))
@@ -1213,20 +1229,36 @@ def sample_postflop_decision(
     #                         = (R0/ref) / (C0 + R0/ref)
     # in which L CANCELS: the calling lever now controls WHETHER the bot
     # continues, the raise-side calibration controls HOW, and mass freed from
-    # CALL routes to FOLD. This is the non-STRONG branch below, and it keeps
-    # the ORIGINAL literal `looseness / ref` expression — untouched by
-    # N-DRAWLOOSE.
+    # CALL routes to FOLD. This is the FALL-THROUGH branch below (every draw
+    # NONE/WEAK cell, plus a STRONG draw whose dial already clears the floor),
+    # and it keeps the ORIGINAL literal `looseness / ref` expression —
+    # untouched by N-DRAWLOOSE.
     #
-    # N-DRAWLOOSE COUPLING (STRONG draws only, `:980-984` / `:1262-1264`).
-    # Flooring the draw bonus at `max(looseness, 1.0)` makes CALL no longer
-    # proportional to the dial, so the literal `looseness / ref` above would
-    # stop cancelling L and the guarantee would break on draw cells. `rscale`
-    # instead reads `C(L) / C(ref)` — the LIVE call merit over the merit
-    # computed at the frozen anchor lever — which keeps
-    #     P(raise | continue) = R0·rscale / (C(L) + R0·rscale) = R0 / (C(ref) + R0)
-    # independent of L for ANY call shape, not only a proportional one. On
-    # `draw is NONE` (and WEAK), `C(L) = C0·L` and this reduces exactly to the
-    # literal above — the guarantee is preserved everywhere, not narrowed.
+    # N-DRAWLOOSE COUPLING — STRONG draws at a dial BELOW the floor only (the
+    # call-merit branch above and the branch below share one predicate,
+    # `draw is STRONG and looseness < 1.0`). Flooring the draw bonus at
+    # `max(looseness, 1.0)` makes CALL no longer proportional to the dial, so
+    # the literal `looseness / ref` above would stop cancelling L and the
+    # guarantee would break on those cells. `rscale` instead reads
+    # `C(L) / (C0·ref)` — the LIVE call merit over the UNFLOORED merit at the
+    # frozen anchor, C0 = call_base + _DRAW_CALL_BONUS[draw] — which keeps
+    #     P(raise | continue) = R0·rscale / (C(L) + R0·rscale) = R0 / (C0·ref + R0)
+    # independent of L for ANY call shape, not only a proportional one. On the
+    # fall-through (draw NONE/WEAK, or a dial already >= 1.0) `C(L) = C0·L` and
+    # the literal gives (R0/ref) / (C0 + R0/ref) = R0 / (C0·ref + R0) — THE SAME
+    # VALUE. The guarantee is preserved everywhere and is continuous across
+    # L = 1, so a lever sweep that crosses the floor sees no step (G1).
+    #
+    # WHY THE DIVISOR IS UNFLOORED (fan-in review, defect A). It used to carry
+    # the same floor as the live merit, so the floor's growth cancelled out of
+    # `rscale` and every chip the floor freed from FOLD landed on CALL — an
+    # aggressive persona stopped semi-bluff RAISING the very draws the floor
+    # exists to keep in (lag's P(raise) at the D1 trace node fell 0.4718 →
+    # 0.3884, maniac 0.6099 → 0.5264, tag 0.3891 → 0.3216). Against the
+    # UNFLOORED anchor, RAISE_new / RAISE_base = rscale / (L/ref) = C(L) / (C0·L)
+    # — exactly the factor by which CALL grew. FOLD loses mass; CALL and RAISE
+    # both gain it in their ORIGINAL proportion, which is why P(raise | continue)
+    # on a strong draw now matches the base engine b0a6a4e persona for persona.
     #
     # The divisor is the FROZEN authored anchor, NEVER the live lever, on
     # EITHER branch. Rev 1 of this slice (N-LOGIT's own rev 1, a different
@@ -1239,17 +1271,22 @@ def sample_postflop_decision(
     # comments call it frozen and why a lifecycle test (G9) pins that it does
     # not move under a refit.
     #
-    # While the lever sits at its anchor, `looseness == ref`: on the
-    # non-STRONG branch `rscale` is EXACTLY 1.0 (float division of equal
-    # values); on the STRONG branch `_ref_lever == looseness` too, so
-    # `call_merit` and `_call_merit_at_ref` are computed from the identical
-    # formula with the identical lever value, and any B5b commit damp
-    # subtracts the identical amount from both (`:1106-1110`) — `_c_now` and
-    # `_call_merit_at_ref` stay bitwise equal, so `rscale` is EXACTLY 1.0
-    # there too. Either way the opted-in path is bit-identical to the
-    # un-opted one. That bit-exactness is load-bearing: rev 2 applied a
-    # divide-then-multiply pair whose 1-ulp residue broke 6 of the 23 frozen
-    # exact-equality vectors in tests/test_price_tail.py (ledger R2-1).
+    # While the lever sits at its anchor, `looseness == ref`, `rscale` is
+    # EXACTLY 1.0 (float division of equal values) on the fall-through branch
+    # and the opted-in path is bit-identical to the un-opted one. That
+    # bit-exactness is load-bearing: rev 2 applied a divide-then-multiply pair
+    # whose 1-ulp residue broke 6 of the 23 frozen exact-equality vectors in
+    # tests/test_price_tail.py (ledger R2-1).
+    #
+    # THE ONE PLACE THAT PROPERTY NO LONGER HOLDS, disclosed and owner-accepted:
+    # a STRONG draw at a persona whose anchor is itself below the floor
+    # (`ref < 1`). There the coupled branch is taken even at the anchor, and
+    # `rscale = C(ref) / (C0·ref)` is > 1 rather than exactly 1 — that IS the
+    # mechanism (the raise leg has to receive the floor's growth; see above),
+    # not a rounding artifact. Those 23 frozen vectors are unaffected because
+    # every one of them is a `DrawCategory.NONE` cell, which takes the
+    # fall-through branch; that was re-verified by classifying each vector's
+    # (hole, board) through `strength_bucket` rather than assumed.
     #
     # TWO REACH CHANGES, both disclosed (build review, ledger B-9 / B-10) and
     # both gated so they cannot move silently. They are mirror images:
@@ -1297,7 +1334,7 @@ def sample_postflop_decision(
             # widened to draws, `line_mult` would already be baked into
             # `_c_now` and RAISE would receive it a second time through
             # `rscale`.
-            if draw is DrawCategory.STRONG and _call_merit_at_ref > 0.0:
+            if draw is DrawCategory.STRONG and looseness < 1.0 and _call_merit_at_ref > 0.0:
                 _c_now = next((m for a, m in entries if a is ActionType.CALL), 0.0)
                 rscale = _c_now / _call_merit_at_ref
             else:
