@@ -3547,32 +3547,56 @@ _GOLDEN_STATS_N200 = {
     # PREVIOUS rows exactly (nit WTSD back to 0.7450980392156863), and
     # restoring 0.45 reproduces the six rows below exactly — the pack change is
     # the sole cause. Population bands stay frozen to W4-b.
-    # RE-RECORDED for N-DRAWLOOSE T5 (2026-08-04, slice-authorized): T1
-    # floors the calling dial at 1.0 for strong draws (an engine change in
-    # `personas_postflop.py`, not a pack edit), which changes how the first
-    # strong-draw-facing decision on the shared harness rng stream resolves
-    # and displaces every hand dealt after it, for every persona at the
-    # table. calling_station AF moves 0.3277777777777778 ->
-    # 0.3667621776504298 even though the station's own dial (4.0) makes the
-    # new branch inert for it — T4's
-    # test_nd_t4_calling_station_byte_identical_on_strong_draw pins that the
-    # station's *decision function* is bitwise unchanged; what moves here is
-    # its *aggregate statistic*, driven purely by rng-stream displacement
-    # from OTHER seats' decisions changing. Five of six rows move at this
-    # seed (calling_station, lag, maniac, passive_fish, tag); nit is
-    # byte-identical on its one measurable cell (WTSD stays
-    # 0.6491228070175439 — its n=200 sample already hits no AF/FtC cell).
-    # ATTRIBUTION PROVEN, not assumed: this test and the limper-belt test's
-    # _PRE_M3_FIRES both pass unmodified, with their PRE-T5 recorded values,
-    # against the control worktree at base commit b0a6a4e (old engine, no T1
-    # change); the values below only hold once T1's branch lands. Population
-    # bands stay frozen to W4-b.
-    "calling_station": (0.3667621776504298, 0.11290322580645161, 0.6754098360655738),
-    "lag": (2.0, None, 0.608),
-    "maniac": (2.8852459016393444, 0.3333333333333333, 0.664804469273743),
+    # RE-RECORDED for N-DRAWLOOSE (2026-08-05, slice-authorized, final engine
+    # tip db1f278): T1 floors the calling dial at 1.0 for STRONG draws (an
+    # engine change in `personas_postflop.py`, not a pack edit); R1/R2
+    # rebuilt that floor twice more after adversarial review, so this entry
+    # REPLACES the T5 entry it superseded rather than appending after it —
+    # the T5 values were an intermediate reading against a since-reformulated
+    # engine and never shipped. OLD side measured directly against the
+    # control worktree at base commit b0a6a4e (this slice's only engine
+    # file, `personas_postflop.py`, absent); NEW side measured at this tip.
+    # Four of six rows move (lag, maniac, passive_fish, tag) — the floor is a
+    # no-op arithmetic identity at any dial >= 1.0 (`personas_postflop.py`
+    # :986), so it changes the decisions of every persona whose dial sits
+    # BELOW the floor (nit, tag, lag, maniac, passive_fish); it is inert only
+    # for calling_station (dial 4.0).
+    # nit's own row is byte-identical to base (WTSD stays
+    # 0.6491228070175439 both sides) because nit's n=200 sample already hits
+    # no AF/FtC cell at either engine — same behaviour, same sample, no
+    # displacement to observe.
+    # calling_station's row is ALSO byte-identical to base on all three cells
+    # (AF 0.3277777777777778, FtC 0.06557377049180328, WTSD
+    # 0.7077922077922078) — confirmed by the RAW counts underneath the ratios
+    # (call_count 360, cbet_opportunities 61, saw_flop_hands 308, identical on
+    # both engines), not merely a coincidental ratio match. This is NOT the
+    # T5 "displaced then partly reverted" story: T4's
+    # test_nd_t4_calling_station_byte_identical_on_strong_draw already proves
+    # the station's own decision FUNCTION is bitwise unchanged (dial 4.0 ⇒
+    # the floor never binds for it); this fixture is measured on this
+    # harness's own independent seed (20260710) and its own independent
+    # 9-seat lineup (3 station seats + 6 filler seats cycling the other five
+    # personas), separate from the shared organic rng stream the coverage
+    # and limper-belt fixtures share. At THIS seed/lineup, none of the
+    # filler personas' floor-triggered decision changes happened to alter
+    # the game state (pot size, opponent count, order) at any point along
+    # one of the station's own action nodes across all 200 hands, so the
+    # station's aggregate reads exactly as it did before the slice. That is
+    # a property of this specific sample, not a second structural guarantee
+    # beyond T4's node-level one — a different seed or lineup could in
+    # principle show displacement even though the station's own decision
+    # function never changes.
+    # ATTRIBUTION PROVEN BOTH WAYS: this test and the limper-belt test's
+    # _PRE_M3_FIRES both pass, unmodified, against the control worktree at
+    # base commit b0a6a4e with their OLD (base) values; the values below only
+    # hold once this slice's engine change lands. Population bands stay
+    # frozen to W4-b.
+    "calling_station": (0.3277777777777778, 0.06557377049180328, 0.7077922077922078),
+    "lag": (2.5, None, 0.6016260162601627),
+    "maniac": (2.933333333333333, 0.3333333333333333, 0.664804469273743),
     "nit": (None, None, 0.6491228070175439),
-    "passive_fish": (0.8, 0.3617021276595745, 0.5525114155251142),
-    "tag": (1.5675675675675675, None, 0.6103896103896104),
+    "passive_fish": (0.7703703703703704, 0.5102040816326531, 0.5488372093023256),
+    "tag": (1.9411764705882353, None, 0.5974025974025974),
 }
 
 
