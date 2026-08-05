@@ -295,9 +295,22 @@ _PRE_M3_FIRES = {
     # counts below exactly — the pack change is the sole cause. Every _WANT_*
     # coverage shape still fires (verified: BB¹ 42, BB² 24, BB³ 10) — stream
     # displacement, not a coverage regression.
-    ("UTG2", 1): 74, ("LJ", 1): 122, ("HJ", 1): 114, ("CO", 1): 100,
-    ("CO", 2): 29, ("SB", 1): 65, ("SB", 2): 32, ("BTN", 1): 78,
-    ("BTN", 2): 30,
+    # RE-RECORDED for N-DRAWLOOSE T5 (2026-08-04, slice-authorized): T1
+    # floors the calling dial at 1.0 for strong draws (an engine change in
+    # `personas_postflop.py`, not limper-belt content), so the first
+    # strong-draw-facing decision on the shared organic rng stream resolves
+    # differently and every hand dealt after it is displaced. All nine pairs
+    # move at this seed (old: UTG2¹ 74, LJ¹ 122, HJ¹ 114, CO¹ 100, CO² 29,
+    # SB¹ 65, SB² 32, BTN¹ 78, BTN² 30). No limper-belt content changed;
+    # every _WANT_* coverage shape still fires (verified: BB¹ 42, BB² 34,
+    # BB³ 11). ATTRIBUTION PROVEN, not assumed: this test and the N200
+    # golden's _GOLDEN_STATS_N200 both pass unmodified, with their PRE-T5
+    # recorded values, against the control worktree at base commit b0a6a4e
+    # (old engine, no T1 change); the counts below only hold once T1's
+    # branch lands.
+    ("UTG2", 1): 70, ("LJ", 1): 133, ("HJ", 1): 109, ("CO", 1): 107,
+    ("CO", 2): 30, ("SB", 1): 64, ("SB", 2): 47, ("BTN", 1): 87,
+    ("BTN", 2): 29,
 }
 
 

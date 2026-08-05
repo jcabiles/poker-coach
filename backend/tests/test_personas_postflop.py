@@ -3547,12 +3547,32 @@ _GOLDEN_STATS_N200 = {
     # PREVIOUS rows exactly (nit WTSD back to 0.7450980392156863), and
     # restoring 0.45 reproduces the six rows below exactly — the pack change is
     # the sole cause. Population bands stay frozen to W4-b.
-    "calling_station": (0.3277777777777778, 0.06557377049180328, 0.7077922077922078),
-    "lag": (2.611111111111111, None, 0.5294117647058824),
-    "maniac": (2.5522388059701493, 0.44680851063829785, 0.6018957345971564),
+    # RE-RECORDED for N-DRAWLOOSE T5 (2026-08-04, slice-authorized): T1
+    # floors the calling dial at 1.0 for strong draws (an engine change in
+    # `personas_postflop.py`, not a pack edit), which changes how the first
+    # strong-draw-facing decision on the shared harness rng stream resolves
+    # and displaces every hand dealt after it, for every persona at the
+    # table. calling_station AF moves 0.3277777777777778 ->
+    # 0.3667621776504298 even though the station's own dial (4.0) makes the
+    # new branch inert for it — T4's
+    # test_nd_t4_calling_station_byte_identical_on_strong_draw pins that the
+    # station's *decision function* is bitwise unchanged; what moves here is
+    # its *aggregate statistic*, driven purely by rng-stream displacement
+    # from OTHER seats' decisions changing. Five of six rows move at this
+    # seed (calling_station, lag, maniac, passive_fish, tag); nit is
+    # byte-identical on its one measurable cell (WTSD stays
+    # 0.6491228070175439 — its n=200 sample already hits no AF/FtC cell).
+    # ATTRIBUTION PROVEN, not assumed: this test and the limper-belt test's
+    # _PRE_M3_FIRES both pass unmodified, with their PRE-T5 recorded values,
+    # against the control worktree at base commit b0a6a4e (old engine, no T1
+    # change); the values below only hold once T1's branch lands. Population
+    # bands stay frozen to W4-b.
+    "calling_station": (0.3667621776504298, 0.11290322580645161, 0.6754098360655738),
+    "lag": (2.0, None, 0.608),
+    "maniac": (2.8852459016393444, 0.3333333333333333, 0.664804469273743),
     "nit": (None, None, 0.6491228070175439),
-    "passive_fish": (0.7049180327868853, 0.4358974358974359, 0.514018691588785),
-    "tag": (2.2580645161290325, None, 0.6385542168674698),
+    "passive_fish": (0.8, 0.3617021276595745, 0.5525114155251142),
+    "tag": (1.5675675675675675, None, 0.6103896103896104),
 }
 
 
