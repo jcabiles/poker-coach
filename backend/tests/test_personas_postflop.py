@@ -10640,3 +10640,91 @@ def test_nd_priced_helper_refuses_a_mislabelled_node():
     assert _nd_priced_dist(_pack("nit"), _ND_DRAW_PANEL[0])[ActionType.FOLD] > 0.0
     # And the wrapper leaves the engine exactly as it found it.
     assert personas_postflop._price_factor.__module__ == personas_postflop.__name__
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# N-DRAWLOOSE T4 — C2: the absolute level band (a cap alone is level-blind)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# G-DRAW above only bounds how FAR the dial moves a strong draw's fold rate; it
+# says nothing about WHERE that rate sits. Measured during planning: floor
+# values of 0.6, 2.0 and even 5.0 all satisfy G-DRAW, and 5.0 more than doubles
+# every persona's strong-draw bonus — loosening the whole roster, including
+# the calling station, without G-DRAW noticing, and nothing else in the suite
+# catches it because a later ticket in this slice (T5) re-records the fixtures
+# that would otherwise have moved. This is the gate that forbids that: a
+# two-sided ABSOLUTE band on the shipped nit's own fold rate at D1 (the
+# slice's trace node), plus a byte-identity pin proving the calling station's
+# policy did not move at all.
+
+_ND_T4_BAND_LO = 0.20
+_ND_T4_BAND_HI = 0.34
+_ND_T4_NODE = _ND_DRAW_PANEL[0]  # D1 combo draw, flop, 2/3-pot — the slice's trace node
+
+
+def test_nd_t4_absolute_band_at_trace_node():
+    """C2 — the SHIPPED nit pack, loaded unmodified via `load_persona_packs()`
+    (no `call_looseness` override: the claim is about the bot as it actually
+    ships, not a rebuilt variant), folds D1 with P(fold) in [0.20, 0.34].
+
+    Red at base commit b0a6a4e: 0.4217, outside the band on the HIGH side.
+    Green after T1: 0.2768. The LOWER bound (0.20) forbids the roster being
+    loosened wholesale by an oversized floor value — see the floor=5.0 mutant
+    this gate exists to kill (docs/ai-dlc/tickets/n-drawloose.md, T4). The
+    UPPER bound (0.34) is what this slice actually fixes. Comment BOTH sides:
+    a later reader who "fixes" a failure here by widening only one side of the
+    band has defeated the reason a cap alone (G-DRAW) was not enough.
+    """
+    dist = _nd_priced_dist(_pack("nit"), _ND_T4_NODE)
+    fold = dist[ActionType.FOLD]
+    assert _ND_T4_BAND_LO <= fold <= _ND_T4_BAND_HI, (
+        f"{_ND_T4_NODE.node_id}: the shipped nit folds a strong draw {fold:.4f} of the "
+        f"time, outside the absolute band [{_ND_T4_BAND_LO}, {_ND_T4_BAND_HI}]. Below the "
+        "floor means the roster has been loosened wholesale (the class of defect a "
+        "floor=5.0 dial guard would produce); above the ceiling means the dial is still "
+        "deciding this hand's continue at close to its pre-slice level."
+    )
+
+
+# The calling_station pin. Under the branch form the floor at 1.0 never binds
+# for this persona — its dial is 4.0, already above the floor — so its policy
+# at a strong-draw node must be EXACTLY what it was at the base engine
+# b0a6a4e, not merely close (`pytest.approx` would let a real regression that
+# happens to land within tolerance slip through). This is a STRUCTURAL claim,
+# not an arithmetical one. A REJECTED earlier design re-associated the
+# arithmetic instead of branching on `DrawCategory.STRONG` — rewriting
+# `(call_base + bonus) * L` as `call_base*L + bonus*L` — and the station
+# survived only THAT variant because 4.0 is a power of two, so
+# `(a+b)*4 == a*4 + b*4` bitwise; a refit to 3.5 would have broken it
+# silently. Under the branch form T1 actually shipped, `max(L, 1.0)` simply
+# returns L unchanged for any L >= 1.0, so the STRONG branch collapses onto
+# the non-STRONG expression bit for bit — the property does not depend on the
+# dial's numeric value at all, only on it being >= 1.0.
+#
+# Harvested from the CONTROL worktree (base commit b0a6a4e) at full precision
+# via repr(), not rounded, at this same D1 node.
+_ND_STATION_BASE_FOLD = 0.09154315605928508
+_ND_STATION_BASE_CALL = 0.8788142981691368
+_ND_STATION_BASE_RAISE = 0.029642545771578026
+
+
+def test_nd_t4_calling_station_byte_identical_on_strong_draw():
+    """T4 — `calling_station`'s action distribution at D1 (a strong-draw node)
+    is EXACT float equality with the base engine's reading, not
+    `pytest.approx`. See the section comment above for why this is structural
+    rather than arithmetical under the branch form T1 shipped.
+    """
+    dist = _nd_priced_dist(_pack("calling_station"), _ND_T4_NODE)
+    assert dist[ActionType.FOLD] == _ND_STATION_BASE_FOLD, (
+        f"calling_station FOLD moved: {dist[ActionType.FOLD]!r} vs base "
+        f"{_ND_STATION_BASE_FOLD!r} — the floor should be structurally inert once the "
+        "dial is already >= 1.0"
+    )
+    assert dist[ActionType.CALL] == _ND_STATION_BASE_CALL, (
+        f"calling_station CALL moved: {dist[ActionType.CALL]!r} vs base "
+        f"{_ND_STATION_BASE_CALL!r}"
+    )
+    assert dist[ActionType.RAISE] == _ND_STATION_BASE_RAISE, (
+        f"calling_station RAISE moved: {dist[ActionType.RAISE]!r} vs base "
+        f"{_ND_STATION_BASE_RAISE!r}"
+    )
