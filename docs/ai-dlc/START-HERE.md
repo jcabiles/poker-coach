@@ -2,24 +2,38 @@
 
 One page for a fresh session (any model tier). Read top to bottom; follow links only as needed.
 
-## Current state in five sentences
+## What this initiative is (durable — for live status, see below)
 
 The villain bots were re-measured 2026-08-05 at **4.8/10 realism** (up from 4.2) after an
 expensive hand-tuning program; the owner halted all further persona-fix work. The governing
-initiative is now the **bot-realism flywheel** (`roadmap/bot-realism-flywheel.md`, PRD in
-`prd/`): build a cheap measurement loop (computable realism score + seeded sim sweeps +
-detection protocol), answer whether the current dial architecture can EVER reach human-band
-behavior (the "ceiling question"), and only then decide fix-vs-overhaul (phase-3 gate). The
-old `persona-realism.md` roadmap is **PAUSED** — history only. Everything doubles as the
-owner's analytics/DS portfolio via the **poker-analytics** repo (poker-coach produces data;
-poker-analytics produces judgment). The roadmap is drafted and dual-reviewed but **awaits the
-owner's explicit approval**; on approval the next action is `/ai-org:spec S1` (owner-invoked).
+initiative is the **bot-realism flywheel** (`roadmap/bot-realism-flywheel.md`, PRD in
+`prd/`, approved and in flight): build a cheap measurement loop (computable realism score +
+seeded sim sweeps + detection protocol), answer whether the current dial architecture can
+EVER reach human-band behavior (the "ceiling question"), and only then decide
+fix-vs-overhaul (phase-3 gate). The old `persona-realism.md` roadmap is **PAUSED** —
+history only. Everything doubles as the owner's analytics/DS portfolio via the
+**poker-analytics** repo (poker-coach produces data; poker-analytics produces judgment).
+
+## Where are we right now — read the ROADMAP, not this file
+
+**Current position = the first unchecked `[ ]` box in `roadmap/bot-realism-flywheel.md`**
+(each box carries a dated progress note when work is in flight). Checkboxes and their
+notes are updated INSIDE each slice's landing commit, so the committed roadmap is exactly
+as current as the last merge. This file deliberately does NOT narrate slice-by-slice
+status — a committed narrative goes stale between merges and misleads fresh sessions (it
+did, repeatedly, before this rule).
+**Working tree beats committed copy:** in-flight work exists as deliberate uncommitted
+riders; when the checkout disagrees with `git show HEAD`, trust the checkout and STOP
+before "cleaning" anything. `/ai-org:*` skills are owner-invoked only.
 
 ## Reading order
 
 1. `profile.md` — stack, verify commands, invariants, `active:` initiative.
 2. `roadmap/bot-realism-flywheel.md` — the governing plan; resume from the first `[ ]`.
 3. `prd/bot-realism-flywheel.md` — goal, non-goals, hard boundaries (✅/⚠️/🚫).
+3b. `poker-analytics:docs/methods/estimand-contract.md` — the S2a methods & estimand
+   contract (v2.3, dual-review PASSED 2026-08-05). **S3–S6 design MUST cite it**; changes
+   to it are amendments, never silent edits.
 4. `research/persona-realism-artifacts/remeasure-2026-08-05/SYNTHESIS.md` — the evidence base.
    §1's **adjudicated** scores are authoritative; the seven `report_*.md` files carry banners
    because Sol reviews corrected parts of them.
