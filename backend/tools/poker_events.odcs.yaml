@@ -10,7 +10,7 @@ apiVersion: v3.1.0
 kind: DataContract
 id: poker-events
 name: Poker simulation events
-version: 1.0.0
+version: 1.1.0
 status: active
 domain: poker-analytics
 dataProduct: poker-analytics warehouse
@@ -358,6 +358,43 @@ schema:
         logicalTypeOptions:
           minimum: 0
           maximum: 100
+      - name: engine_node_key
+        logicalType: string
+        physicalType: VARCHAR
+        required: false
+        description: >
+          T2 (flywheel S3): determinism-guard grouping key. Postflop rows
+          reuse the domain's `postflop_node_key` (flat, raise, cbet_dry,
+          cbet_wet, cbet_mono, turn_barrel, river_value). Preflop rows carry
+          an export-side-only facing-state label (unopened, vs_limpers,
+          vs_raise, vs_3bet_plus) derived from public action history, never
+          domain logic. NULL on action='post' (forced blinds) — posts are
+          excluded from determinism contexts.
+        quality:
+          - type: sql
+            description: engine_node_key is NULL on action='post' rows only.
+            query: >
+              SELECT COUNT(*) FROM decisions
+              WHERE (action = 'post') <> (engine_node_key IS NULL)
+            mustBe: 0
+      - name: hand_class_bucket
+        logicalType: string
+        physicalType: VARCHAR
+        required: false
+        description: >
+          T2 (flywheel S3): coarse hole-card bucket (pair, suited-ace,
+          suited-broadway, offsuit-broadway, other) for preflop rows only,
+          derived export-side from the acting seat's hole cards. NULL on
+          postflop rows (no existing domain hand-class label exposed to the
+          export path) and on action='post' rows.
+        quality:
+          - type: sql
+            description: hand_class_bucket is present only on non-post preflop rows.
+            query: >
+              SELECT COUNT(*) FROM decisions
+              WHERE (street = 'preflop' AND action <> 'post')
+                    <> (hand_class_bucket IS NOT NULL)
+            mustBe: 0
       - name: exported_at
         logicalType: string
         physicalType: VARCHAR
