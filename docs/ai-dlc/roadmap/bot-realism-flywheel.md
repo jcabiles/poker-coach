@@ -152,10 +152,29 @@ listed rather than the gate slipping silently.
   OVERHAUL → architecture design brief **ingesting the stack/multiway/state-awareness
   requirements so the architecture is designed once** · open questions: owner's decision
   weights.
-- **Corpus ingestion + target-registry upgrade** — evidence: owner "single biggest portfolio
-  idea"; GATED on S2b's NLHE brief · candidate slices: licensing-cleared ingestion into
-  poker-analytics, archetype target extraction, registry swap · open questions: era-drift
-  validity, which corpus.
+- **Population-statistics ingestion + target-registry upgrade** *(RE-SCOPED 2026-08-06 by owner
+  ruling on S2b's gate brief — was "Corpus ingestion"; the acquire-hands framing is CLOSED)* —
+  evidence: S2b verdict **PARTIAL**
+  (`../research/realism-architecture/03-nlhe-corpus-gate-brief.md`) — **NO-GO on a licensing-clean
+  corpus of human NLHE *hands*** (every candidate of adequate size traces to ToS-prohibited
+  datamining; a downstream CC-BY licence does not cure an upstream terms violation — this is a
+  **policy/ethics** NO-GO, not a legal ruling), but modern human NLHE **statistics** are
+  obtainable, and statistics are what the registry actually consumes · **owner ruling 2026-08-06:
+  use the published GGPoker pool aggregates AND disclose the provenance gap openly**, under four
+  binding conditions — record each value with its exact filter combination (stake · segment ·
+  statistic) + retrieval date, since the source is a rolling 12-month window and a date alone
+  cannot reproduce it; grade every derived target low-confidence (no sample size or methodology is
+  published); **construct and justify the strata→persona mapping** (regulars/recreationals are
+  profitability-and-VPIP strata, **not** TAG/LAG/nit/station/maniac); state the limitation in the
+  registry and in any public write-up · candidate slices: pinned aggregate ingestion into
+  poker-analytics, strata→archetype mapping with written justification, registry swap off
+  literature bands (verified to be uncited author opinion), expert-elicitation panel (SHELF/Delphi)
+  **only** for stats the aggregates do not cover · **the only credible route back to actual hands
+  remains a formal operator data-sharing agreement** — the Entain/PMC9325659 precedent proves the
+  pathway exists, but it delivered financial aggregates, so any agreement must be scoped in writing
+  to hand-level or play-style data plus rights to publish derived statistics; **keep it listed, do
+  not pursue it now** · open questions: era-drift validity (no quantified NLHE trend line exists),
+  single-site bias (GGPoker only), how to pin a rolling-window source reproducibly.
 - **Portfolio publication path** — evidence: dual-purpose mandate; poker-analytics currently
   private · **strategy (owner-ratified 2026-08-05): curated narrative public, raw exhaust
   private.** Public = README front door + 2–3 polished methodology write-ups (score design +

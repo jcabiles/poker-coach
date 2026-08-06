@@ -12,8 +12,13 @@ detection protocol), answer whether the current dial architecture can EVER reach
 behavior (the "ceiling question"), and only then decide fix-vs-overhaul (phase-3 gate). The
 old `persona-realism.md` roadmap is **PAUSED** — history only. Everything doubles as the
 owner's analytics/DS portfolio via the **poker-analytics** repo (poker-coach produces data;
-poker-analytics produces judgment). The roadmap is drafted and dual-reviewed but **awaits the
-owner's explicit approval**; on approval the next action is `/ai-org:spec S1` (owner-invoked).
+poker-analytics produces judgment). The roadmap is **approved and in flight** —
+**S1 and S2a are complete** (2026-08-05) and **S2b's research session has DELIVERED** (four
+dossiers + completion note in `research/realism-architecture/`, uncommitted). Next actions, in
+order: **(1) director fan-in on S2b** — review, obtain the one owner ruling its corpus brief
+requires, commit accepted dossiers from a worktree, tick S2b; **(2) check whether S2b's
+consumption map forces amendments to the S2a estimand contract**; **(3) `/ai-org:spec S3`** —
+S3 has no spec or tickets yet, so it starts at spec, not build. `/ai-org:*` is owner-invoked only.
 
 ## Reading order
 
