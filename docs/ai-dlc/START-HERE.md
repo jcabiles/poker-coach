@@ -2,23 +2,29 @@
 
 One page for a fresh session (any model tier). Read top to bottom; follow links only as needed.
 
-## Current state in five sentences
+## What this initiative is (durable — for live status, see below)
 
 The villain bots were re-measured 2026-08-05 at **4.8/10 realism** (up from 4.2) after an
 expensive hand-tuning program; the owner halted all further persona-fix work. The governing
-initiative is now the **bot-realism flywheel** (`roadmap/bot-realism-flywheel.md`, PRD in
-`prd/`): build a cheap measurement loop (computable realism score + seeded sim sweeps +
-detection protocol), answer whether the current dial architecture can EVER reach human-band
-behavior (the "ceiling question"), and only then decide fix-vs-overhaul (phase-3 gate). The
-old `persona-realism.md` roadmap is **PAUSED** — history only. Everything doubles as the
-owner's analytics/DS portfolio via the **poker-analytics** repo (poker-coach produces data;
-poker-analytics produces judgment). The roadmap is **approved and in flight** —
-**S1 and S2a are complete** (2026-08-05) and **S2b's research session has DELIVERED** (four
-dossiers + completion note in `research/realism-architecture/`, uncommitted). Next actions, in
-order: **(1) director fan-in on S2b** — review, obtain the one owner ruling its corpus brief
-requires, commit accepted dossiers from a worktree, tick S2b; **(2) check whether S2b's
-consumption map forces amendments to the S2a estimand contract**; **(3) `/ai-org:spec S3`** —
-S3 has no spec or tickets yet, so it starts at spec, not build. `/ai-org:*` is owner-invoked only.
+initiative is the **bot-realism flywheel** (`roadmap/bot-realism-flywheel.md`, PRD in
+`prd/`, approved and in flight): build a cheap measurement loop (computable realism score +
+seeded sim sweeps + detection protocol), answer whether the current dial architecture can
+EVER reach human-band behavior (the "ceiling question"), and only then decide
+fix-vs-overhaul (phase-3 gate). The old `persona-realism.md` roadmap is **PAUSED** —
+history only. Everything doubles as the owner's analytics/DS portfolio via the
+**poker-analytics** repo (poker-coach produces data; poker-analytics produces judgment).
+
+## Where are we right now — read the ROADMAP, not this file
+
+**Current position = the first unchecked `[ ]` box in `roadmap/bot-realism-flywheel.md`**
+(each box carries a dated progress note when work is in flight). Checkboxes and their
+notes are updated INSIDE each slice's landing commit, so the committed roadmap is exactly
+as current as the last merge. This file deliberately does NOT narrate slice-by-slice
+status — a committed narrative goes stale between merges and misleads fresh sessions (it
+did, repeatedly, before this rule).
+**Working tree beats committed copy:** in-flight work exists as deliberate uncommitted
+riders; when the checkout disagrees with `git show HEAD`, trust the checkout and STOP
+before "cleaning" anything. `/ai-org:*` skills are owner-invoked only.
 
 ## Reading order
 
