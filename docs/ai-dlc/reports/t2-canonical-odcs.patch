@@ -1,5 +1,5 @@
 --- a/contracts/poker_events.odcs.yaml	2026-08-02 00:28:59
-+++ b/contracts/poker_events.odcs.yaml	2026-08-06 15:39:33
++++ b/contracts/poker_events.odcs.yaml	2026-08-06 16:42:56
 @@ -10,7 +10,7 @@
  kind: DataContract
  id: poker-events
@@ -9,7 +9,7 @@
  status: active
  domain: poker-analytics
  dataProduct: poker-analytics warehouse
-@@ -358,6 +358,43 @@
+@@ -358,6 +358,45 @@
          logicalTypeOptions:
            minimum: 0
            maximum: 100
@@ -37,18 +37,20 @@
 +        physicalType: VARCHAR
 +        required: false
 +        description: >
-+          T2 (flywheel S3): coarse hole-card bucket (pair, suited-ace,
-+          suited-broadway, offsuit-broadway, other) for preflop rows only,
-+          derived export-side from the acting seat's hole cards. NULL on
-+          postflop rows (no existing domain hand-class label exposed to the
-+          export path) and on action='post' rows.
++          T2 (flywheel S3): hand-class label. Preflop rows: a coarse
++          export-side-only hole-card bucket (pair, suited-ace,
++          suited-broadway, offsuit-broadway, other), derived from the
++          acting seat's hole cards. Postflop rows: the domain's
++          `strength_bucket` (made-hand ladder + draw category), encoded
++          "<strength>|<draw>" e.g. "top_pair|weak", "monster|none" — see
++          `docs/ai-dlc/reports/t2-export-report.md` for the full enum list.
++          NULL only on action='post' rows (forced blinds).
 +        quality:
 +          - type: sql
-+            description: hand_class_bucket is present only on non-post preflop rows.
++            description: hand_class_bucket is NULL on action='post' rows only.
 +            query: >
 +              SELECT COUNT(*) FROM decisions
-+              WHERE (street = 'preflop' AND action <> 'post')
-+                    <> (hand_class_bucket IS NOT NULL)
++              WHERE (action = 'post') <> (hand_class_bucket IS NULL)
 +            mustBe: 0
        - name: exported_at
          logicalType: string

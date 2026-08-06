@@ -33,7 +33,8 @@ def _validate_batch(out_dir: Path) -> None:
     each table's Parquet file is readable and its row count matches the
     manifest; `decisions` has every required column (T2's two new ones
     included); the two T2 null invariants hold (post rows -> NULL node key;
-    non-post preflop rows -> non-NULL hand_class_bucket).
+    non-post rows -> non-NULL hand_class_bucket, preflop bucket or postflop
+    `strength_bucket` reuse alike — only forced-blind posts are NULL).
     """
     success = out_dir / "_SUCCESS"
     assert success.exists(), "_SUCCESS manifest missing"
@@ -54,7 +55,6 @@ def _validate_batch(out_dir: Path) -> None:
 
     import pyarrow.compute as pc
     action = decisions.column("action")
-    street = decisions.column("street")
     node = decisions.column("engine_node_key")
     bucket = decisions.column("hand_class_bucket")
 
@@ -62,13 +62,11 @@ def _validate_batch(out_dir: Path) -> None:
     mismatch_node = pc.sum(pc.not_equal(is_post, pc.is_null(node))).as_py()
     assert mismatch_node == 0, "engine_node_key must be NULL iff action='post'"
 
-    is_preflop_nonpost = pc.and_(pc.equal(street, "preflop"), pc.invert(is_post))
-    mismatch_bucket = pc.sum(
-        pc.not_equal(is_preflop_nonpost, pc.invert(pc.is_null(bucket)))
-    ).as_py()
-    assert mismatch_bucket == 0, (
-        "hand_class_bucket must be non-NULL iff street='preflop' and action!='post'"
-    )
+    # hand_class_bucket is populated on EVERY non-post row now: preflop rows
+    # get the export-side hole-card bucket, postflop rows reuse the domain's
+    # `strength_bucket` (see the module docstring / t2-export-report.md).
+    mismatch_bucket = pc.sum(pc.not_equal(is_post, pc.is_null(bucket))).as_py()
+    assert mismatch_bucket == 0, "hand_class_bucket must be NULL iff action='post'"
 
 
 def test_schema_valid_on_fresh_batch(tmp_path):

@@ -30,8 +30,10 @@ the determinism guard needs a grouping key the engine itself would compute,
 so `engine_node_key` reuses the domain's pure `postflop_node_key` (postflop)
 via read-only import, or an export-side-only preflop facing-state label
 (never new `backend/app/domain/` logic). `hand_class_bucket` is an
-export-side-only preflop hole-card bucket; postflop rows are NULL — no
-existing domain hand-class label is exposed to this export path.
+export-side-only preflop hole-card bucket for preflop rows; postflop rows
+reuse the domain's pure `strength_bucket` (read-only import) — see the
+`docs/ai-dlc/reports/t2-export-report.md` encoding note for the exact
+"<strength>|<draw>" string format.
 
 Producer-side contract check (ADVISORY — the consumer's ingestion gate is
 the authoritative one): after writing, the script runs `datacontract test`
@@ -52,6 +54,7 @@ from pathlib import Path
 
 from app.domain.archetypes import VillainType
 from app.domain.personas import load_persona_packs
+from app.domain.personas_postflop import strength_bucket
 from app.domain.spot import ActionType, PlayerStatus, Street
 from app.domain.table.deck import deal_hand
 from app.domain.table.engine import apply, legal_actions, settle, start_hand
@@ -178,8 +181,13 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
             )
             engine_node_key = postflop_node_key(
                 state.board, legal, is_aggressor=is_aggressor)
-            hand_class_bucket = None  # no existing domain postflop hand-class
-            # label is exposed to the export path; see T2 report for the gap.
+            # Postflop hand_class_bucket: read-only reuse of the domain's
+            # pure `strength_bucket` (made-hand ladder + draw category).
+            # Encoded as "<strength>|<draw>" (e.g. "top_pair|weak",
+            # "monster|none") — see docs/ai-dlc/reports/t2-export-report.md
+            # for the full enum-value list and rationale.
+            made, draw = strength_bucket(seat_state.hole_cards, state.board)
+            hand_class_bucket = f"{made.value}|{draw.value}"
         decision = bot_decision(state, seat, packs[persona_by_seat[seat]], rng)
         state = apply(state, decision)
         decision_rows.append({
@@ -238,6 +246,10 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     persona_by_seat = {i: lineup[i % len(lineup)] for i in range(9)}
     packs = load_persona_packs()
     rng = random.Random(seed)
+    # KNOWN WART (out of scope for T2): run_id ignores `lineup`, so two runs
+    # with the same (seed, n_hands) but different lineups collide on
+    # run_id/hand_id. S1's pinned per-persona counts reference this format —
+    # changing it is deferred.
     run_id = f"run-s{seed}-n{n_hands}"
     exported_at = datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -320,8 +332,12 @@ def main() -> None:
                     help="target directory, e.g. <analytics-repo>/data/raw/v1/sample")
     ap.add_argument("--skip-contract-test", action="store_true",
                     help="skip the advisory producer-side datacontract test")
+    ap.add_argument("--lineup", type=str, default=None,
+                    help="comma-separated persona names for the 9 seats "
+                         "(wraps if fewer than 9; default: DEFAULT_LINEUP)")
     args = ap.parse_args()
-    manifest = run_export(args.hands, args.seed, args.out)
+    lineup = args.lineup.split(",") if args.lineup else None
+    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup)
     print(json.dumps(manifest, indent=2))
     if not args.skip_contract_test:
         _advisory_contract_test(args.out)
