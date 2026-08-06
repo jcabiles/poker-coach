@@ -20,6 +20,9 @@ owner's explicit approval**; on approval the next action is `/ai-org:spec S1` (o
 1. `profile.md` — stack, verify commands, invariants, `active:` initiative.
 2. `roadmap/bot-realism-flywheel.md` — the governing plan; resume from the first `[ ]`.
 3. `prd/bot-realism-flywheel.md` — goal, non-goals, hard boundaries (✅/⚠️/🚫).
+3b. `poker-analytics:docs/methods/estimand-contract.md` — the S2a methods & estimand
+   contract (v2.3, dual-review PASSED 2026-08-05). **S3–S6 design MUST cite it**; changes
+   to it are amendments, never silent edits.
 4. `research/persona-realism-artifacts/remeasure-2026-08-05/SYNTHESIS.md` — the evidence base.
    §1's **adjudicated** scores are authoritative; the seven `report_*.md` files carry banners
    because Sol reviews corrected parts of them.

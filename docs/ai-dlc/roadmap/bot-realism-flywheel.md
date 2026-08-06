@@ -54,7 +54,10 @@ status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instru
       poker-coach command against the **sim50k export**
       (`remeasure-2026-08-05/sim50k/`, local/gitignored) · appetite: 1–2 days · no-gos: no
       real scoring logic; no bot-code changes.
-- [ ] **S2a — Methods & estimand contract** (BLOCKS the design of S3/S4/S5/S6) — problem:
+- [x] **S2a — Methods & estimand contract** *(2026-08-05: `poker-analytics:docs/methods/
+      estimand-contract.md` v2.3 — dual review PASSED after 4 rounds; ledger
+      `../ledger/flywheel-s2a.md`; P1/P2 artifacts in `../research/flywheel-s2a/`)*
+      (BLOCKS the design of S3/S4/S5/S6) — problem:
       score, sweep, and detection specs were being written before the methodology that must
       shape them (Sol HIGH-8); "dial space" and "reachable" are undefined against a config
       model that is NOT a 5-dim box (coupled optional levers, frozen references, sizing
