@@ -99,7 +99,8 @@ def _stub_pipeline(monkeypatch, config_hashes: dict[Path, str], *, fail_on: str 
         for name in sr.PARQUET_TABLES:
             (item.out_dir / name).write_bytes(b"parquet-bytes")
         run_id = f"run-s{item.seed}-n{item.n_hands}-c{item.config_hash[:12]}"
-        (item.out_dir / "_SUCCESS").write_text(json.dumps({"run_id": run_id}))
+        lineup = sr.resolve_lineup_dict(item.lineup)
+        (item.out_dir / "_SUCCESS").write_text(json.dumps({"run_id": run_id, "lineup": lineup}))
         return _cp(0)
 
     def fake_validate(analytics_repo, batch_dir) -> subprocess.CompletedProcess:
@@ -186,6 +187,52 @@ def test_load_spec_accepts_explicit_cov_artifact(tmp_path):
     assert spec.cov_artifact == "cov-deadbeef"
 
 
+def test_load_spec_accepts_lineup_as_string(tmp_path):
+    spec_path = _write_spec(tmp_path, lineup="tag,tag,calling_station")
+    spec = sr.load_spec(spec_path)
+    assert spec.lineup == "tag,tag,calling_station"
+
+
+def test_load_spec_accepts_lineup_as_list_and_normalizes_to_csv(tmp_path):
+    spec_path = _write_spec(tmp_path, lineup=["tag", "tag", "calling_station"])
+    spec = sr.load_spec(spec_path)
+    assert spec.lineup == "tag,tag,calling_station"
+
+
+def test_load_spec_lineup_omitted_defaults_to_none(tmp_path):
+    spec_path = _write_spec(tmp_path)
+    spec = sr.load_spec(spec_path)
+    assert spec.lineup is None
+
+
+def test_load_spec_rejects_malformed_lineup(tmp_path):
+    spec_path = _write_spec(tmp_path, lineup=123)
+    with pytest.raises(sr.SweepSpecError):
+        sr.load_spec(spec_path)
+
+
+# ---------------------------------------------------------------------------
+# lineup resolution (identity-bearing, mirrors the exporter's own wrap)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_lineup_dict_default_matches_export_analytics_default():
+    from tools.export_analytics import DEFAULT_LINEUP
+
+    resolved = sr.resolve_lineup_dict(None)
+    expected = {str(i): DEFAULT_LINEUP[i % len(DEFAULT_LINEUP)] for i in range(9)}
+    assert resolved == expected
+
+
+def test_resolve_lineup_dict_explicit_wraps_to_nine_seats():
+    resolved = sr.resolve_lineup_dict("tag,lag,nit")
+    assert resolved == {
+        "0": "tag", "1": "lag", "2": "nit",
+        "3": "tag", "4": "lag", "5": "nit",
+        "6": "tag", "7": "lag", "8": "nit",
+    }
+
+
 # ---------------------------------------------------------------------------
 # config validation (up front, before any export)
 # ---------------------------------------------------------------------------
@@ -240,13 +287,13 @@ def test_validate_configs_duplicate_hash_refused(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _spec_with_two_configs_one_seed(tmp_path) -> tuple[sr.SweepSpec, dict]:
+def _spec_with_two_configs_one_seed(tmp_path, lineup=None) -> tuple[sr.SweepSpec, dict]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     cfg_a, cfg_b = tmp_path / "cfg_a.json", tmp_path / "cfg_b.json"
     cfg_a.write_text("{}")
     cfg_b.write_text("{}")
     spec_path = tmp_path / "sweep.json"
-    spec_path.write_text(json.dumps({
+    document = {
         "schema_version": "1.0.0",
         "configs": [str(cfg_a), str(cfg_b)],
         "seeds": [501],
@@ -254,7 +301,10 @@ def _spec_with_two_configs_one_seed(tmp_path) -> tuple[sr.SweepSpec, dict]:
         "out_root": str(tmp_path / "out"),
         "analytics_repo": str(tmp_path / "analytics"),
         "cov_artifact": "cov-fixture",
-    }))
+    }
+    if lineup is not None:
+        document["lineup"] = lineup
+    spec_path.write_text(json.dumps(document))
     spec = sr.load_spec(spec_path)
     config_hashes = {cfg_a: "a" * 64, cfg_b: "b" * 64}
     return spec, config_hashes
@@ -363,6 +413,72 @@ def test_manifest_canonical_determinism_two_builds_identical_bytes(tmp_path, mon
     bytes_2 = sr.counterfactual.canonical_bytes(manifest_2["canonical"])
     assert bytes_1 == bytes_2
     assert manifest_1["volatile"]["canonical_sha256"] == manifest_2["volatile"]["canonical_sha256"]
+
+
+# ---------------------------------------------------------------------------
+# lineup: identity-bearing, in canonical, cross-checked per batch
+# ---------------------------------------------------------------------------
+
+
+def test_run_sweep_explicit_lineup_recorded_in_canonical(tmp_path, monkeypatch):
+    ratified = "tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac"
+    spec, config_hashes = _spec_with_two_configs_one_seed(tmp_path, lineup=ratified)
+    monkeypatch.setattr(sr, "parquet_batches_equal", lambda a, b: True)
+    _stub_pipeline(monkeypatch, config_hashes)
+
+    manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=0)
+    assert manifest["canonical"]["lineup"] == sr.resolve_lineup_dict(ratified)
+    assert manifest["canonical"]["lineup"]["0"] == "tag"
+    assert manifest["canonical"]["sweep_status"] == "complete"
+
+
+def test_run_sweep_default_lineup_path_unchanged(tmp_path, monkeypatch):
+    from tools.export_analytics import DEFAULT_LINEUP
+
+    spec, config_hashes = _spec_with_two_configs_one_seed(tmp_path)  # no lineup field
+    assert spec.lineup is None
+    monkeypatch.setattr(sr, "parquet_batches_equal", lambda a, b: True)
+    _stub_pipeline(monkeypatch, config_hashes)
+
+    manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=0)
+    expected = {str(i): DEFAULT_LINEUP[i % len(DEFAULT_LINEUP)] for i in range(9)}
+    assert manifest["canonical"]["lineup"] == expected
+    assert manifest["canonical"]["sweep_status"] == "complete"
+
+
+def test_run_sweep_lineup_mismatch_fails_closed(tmp_path, monkeypatch):
+    """A batch whose `_SUCCESS.lineup` disagrees with the sweep's declared
+    lineup (e.g. the exporter silently used a different default) must fail
+    that run and drive the sweep to `partial` — lineup is identity-bearing."""
+    spec, config_hashes = _spec_with_two_configs_one_seed(
+        tmp_path, lineup="tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac")
+    monkeypatch.setattr(sr, "parquet_batches_equal", lambda a, b: True)
+    calls = _stub_pipeline(monkeypatch, config_hashes)
+
+    wrong_lineup = {str(i): "nit" for i in range(9)}
+    real_fake_export = sr._export_subprocess
+
+    def corrupting_export(item: sr.RunItem) -> subprocess.CompletedProcess:
+        cp = real_fake_export(item)
+        if item.index == 0:
+            success = item.out_dir / "_SUCCESS"
+            manifest = json.loads(success.read_text())
+            manifest["lineup"] = wrong_lineup
+            success.write_text(json.dumps(manifest))
+        return cp
+
+    monkeypatch.setattr(sr, "_export_subprocess", corrupting_export)
+
+    manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=1)
+    canonical = manifest["canonical"]
+    assert canonical["sweep_status"] == "partial"
+    failed = next(r for r in canonical["runs"] if r["run_status"] == "failed")
+    volatile_run = next(
+        r for r in manifest["volatile"]["runs"]
+        if r["config_hash"] == failed["config_hash"] and r["seed"] == failed["seed"]
+    )
+    assert volatile_run["failed_step"] == "lineup_mismatch"
+    assert calls["export"] >= 1  # sanity: the stub actually ran
 
 
 # ---------------------------------------------------------------------------

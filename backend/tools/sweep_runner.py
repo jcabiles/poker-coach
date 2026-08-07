@@ -25,6 +25,13 @@ Design (spec `docs/ai-dlc/specs/flywheel-s4.md`, "Design rulings"):
 - Raw Parquet is deleted after a successful score (manifest keeps
   seed + config_hash -> any batch is reproducible on demand) unless
   `--keep-raw`.
+- `lineup` (an optional sweep-spec field, forwarded verbatim as
+  `--lineup` to every export — including the rerun-dup) is
+  IDENTITY-BEARING: it is resolved once (mirroring the exporter's own
+  9-seat wrap) and recorded in the manifest's canonical section; every
+  batch's `_SUCCESS.lineup` is cross-checked against that resolved value
+  and the run fails closed on any disagreement. Omitted -> the exporter's
+  own default, unchanged.
 - Any export/gate/score failure marks that run failed, the sweep continues,
   and the manifest is stamped `sweep_status: "partial"` (a nonzero process
   exit follows). "complete" only when every run — and the rerun check —
@@ -88,6 +95,7 @@ class SweepSpec:
     out_root: Path
     analytics_repo: Path
     cov_artifact: str | None
+    lineup: str | None
     spec_path: Path
 
 
@@ -137,6 +145,22 @@ def load_spec(path: Path | str) -> SweepSpec:
     if cov_artifact is not None and not isinstance(cov_artifact, str):
         raise SweepSpecError(f"{path}: `cov_artifact` must be a string when present")
 
+    lineup_raw = document.get("lineup")
+    if lineup_raw is None:
+        lineup = None
+    elif isinstance(lineup_raw, str):
+        lineup = lineup_raw
+    elif isinstance(lineup_raw, list) and lineup_raw and all(
+        isinstance(x, str) for x in lineup_raw
+    ):
+        # Normalize to the exporter's `--lineup` comma-separated format.
+        lineup = ",".join(lineup_raw)
+    else:
+        raise SweepSpecError(
+            f"{path}: `lineup` must be a comma-separated string or a list of "
+            f"persona-name strings when present"
+        )
+
     return SweepSpec(
         schema_version=document["schema_version"],
         configs=configs,
@@ -145,6 +169,7 @@ def load_spec(path: Path | str) -> SweepSpec:
         out_root=out_root,
         analytics_repo=analytics_repo,
         cov_artifact=cov_artifact,
+        lineup=lineup,
         spec_path=path,
     )
 
@@ -185,6 +210,7 @@ class RunItem:
     seed: int
     n_hands: int
     out_dir: Path
+    lineup: str | None = None
     kind: str = "primary"  # "primary" | "rerun_dup"
 
 
@@ -196,7 +222,8 @@ def build_items(spec: SweepSpec, resolved_configs: list[tuple[Path, str]]) -> li
     for config_path, chash in resolved_configs:
         for seed in spec.seeds:
             out_dir = spec.out_root / f"run-{idx:03d}-c{chash[:12]}-s{seed}"
-            items.append(RunItem(idx, config_path, chash, seed, spec.n_hands, out_dir))
+            items.append(RunItem(idx, config_path, chash, seed, spec.n_hands, out_dir,
+                                 lineup=spec.lineup))
             idx += 1
     return items
 
@@ -206,7 +233,21 @@ def build_rerun_dup_item(designated: RunItem) -> RunItem:
         f"dup-c{designated.config_hash[:12]}-s{designated.seed}"
     )
     return RunItem(-1, designated.config_path, designated.config_hash,
-                   designated.seed, designated.n_hands, scratch, kind="rerun_dup")
+                   designated.seed, designated.n_hands, scratch,
+                   lineup=designated.lineup, kind="rerun_dup")
+
+
+def resolve_lineup_dict(lineup: str | None) -> dict[str, str]:
+    """Mirror `export_analytics.py`'s `persona_by_seat` resolution (split on
+    comma, wrap to 9 seats) so the sweep can cross-check every `_SUCCESS`
+    against the SAME "what does this lineup mean" the exporter used —
+    without importing/duplicating the exporter's private logic. `lineup=None`
+    resolves against `DEFAULT_LINEUP`, matching the exporter's own default
+    path."""
+    from tools.export_analytics import DEFAULT_LINEUP
+
+    names = lineup.split(",") if lineup else DEFAULT_LINEUP
+    return {str(i): names[i % len(names)] for i in range(9)}
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +262,8 @@ def _export_subprocess(item: RunItem) -> subprocess.CompletedProcess:
         "--out", str(item.out_dir), "--config", str(item.config_path),
         "--skip-contract-test",
     ]
+    if item.lineup is not None:
+        cmd += ["--lineup", item.lineup]
     return subprocess.run(cmd, cwd=str(BACKEND_DIR), capture_output=True, text=True)
 
 
@@ -310,11 +353,11 @@ class RunOutcome:
     score_payload: dict | None = None
     stderr_tail: str | None = None
     wall_seconds: float = 0.0
-    failed_step: str | None = None  # "export" | "validate" | "score"
+    failed_step: str | None = None  # "export" | "lineup_mismatch" | "validate" | "score"
 
 
 def _score_batch(spec: SweepSpec, item: RunItem, export_cp: subprocess.CompletedProcess,
-                 keep_raw: bool) -> RunOutcome:
+                 keep_raw: bool, canonical_lineup: dict[str, str]) -> RunOutcome:
     started = time.monotonic()
     if export_cp.returncode != 0:
         return RunOutcome(item, "failed", stderr_tail=_stderr_tail(export_cp),
@@ -327,6 +370,17 @@ def _score_batch(spec: SweepSpec, item: RunItem, export_cp: subprocess.Completed
     except Exception as exc:  # noqa: BLE001 - fail-closed on any manifest defect
         return RunOutcome(item, "failed", stderr_tail=f"_SUCCESS unreadable: {exc}",
                           wall_seconds=time.monotonic() - started, failed_step="export")
+
+    if manifest.get("lineup") != canonical_lineup:
+        return RunOutcome(
+            item, "failed", run_id=run_id,
+            stderr_tail=(
+                f"_SUCCESS lineup {manifest.get('lineup')!r} does not match the "
+                f"sweep's canonical lineup {canonical_lineup!r} — lineup is "
+                f"identity-bearing (drives the covariance artifact match) and "
+                f"must agree across every batch in the sweep"
+            ),
+            wall_seconds=time.monotonic() - started, failed_step="lineup_mismatch")
 
     validate_cp = _make_validate(spec.analytics_repo, item.out_dir)
     if validate_cp.returncode != 0:
@@ -395,7 +449,7 @@ def _run_canonical_entry(outcome: RunOutcome) -> dict[str, Any]:
 
 def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
                    outcomes: list[RunOutcome], rerun_check: dict[str, Any],
-                   sweep_status: str) -> dict[str, Any]:
+                   sweep_status: str, canonical_lineup: dict[str, str]) -> dict[str, Any]:
     cov_artifact_id = None
     for outcome in outcomes:
         if outcome.score_payload is not None:
@@ -409,6 +463,7 @@ def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
         "configs": [chash for _, chash in resolved_configs],
         "seeds": list(spec.seeds),
         "n_hands": spec.n_hands,
+        "lineup": canonical_lineup,
         "covariance_artifact_id": cov_artifact_id,
         "score_authority": SCORE_AUTHORITY,
         "sweep_status": sweep_status,
@@ -467,6 +522,7 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
         )
     designated = items[rerun_check_index]
     dup_item = build_rerun_dup_item(designated)
+    canonical_lineup = resolve_lineup_dict(spec.lineup)
 
     spec.out_root.mkdir(parents=True, exist_ok=True)
 
@@ -486,12 +542,12 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
     for item in items:
         keep = keep_raw or item.index == designated.index  # keep designated raw
         # until the rerun check below has run.
-        outcome = _score_batch(spec, item, export_results[item.index], keep)
+        outcome = _score_batch(spec, item, export_results[item.index], keep, canonical_lineup)
         outcomes.append(outcome)
         if item.index == designated.index:
             designated_outcome = outcome
 
-    dup_outcome = _score_batch(spec, dup_item, dup_export_cp, keep_raw=True)
+    dup_outcome = _score_batch(spec, dup_item, dup_export_cp, True, canonical_lineup)
 
     # Producer-rerun check.
     rerun_check = {
@@ -536,7 +592,8 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
         else "partial"
     )
 
-    manifest = build_manifest(spec, resolved_configs, outcomes, rerun_check, sweep_status)
+    manifest = build_manifest(spec, resolved_configs, outcomes, rerun_check, sweep_status,
+                              canonical_lineup)
     return manifest
 
 
@@ -551,7 +608,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--spec", type=Path, required=True,
                     help="sweep-spec JSON (schema_version, configs, seeds, "
-                         "n_hands, out_root, analytics_repo[, cov_artifact])")
+                         "n_hands, out_root, analytics_repo[, cov_artifact, "
+                         "lineup])")
     ap.add_argument("--keep-raw", action="store_true",
                     help="do not delete raw Parquet after a successful score")
     ap.add_argument("--rerun-check-index", type=int, default=0,
