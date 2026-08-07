@@ -23,6 +23,18 @@ Usage (from backend/):
     python -m tools.export_analytics --hands 5000 --seed 42 --out /path/to/data/raw/v1
 Requires the `export` extra: pip install -e '.[export]' (pyarrow).
 
+T2 (flywheel S3): `decisions` rows also carry `engine_node_key` and
+`hand_class_bucket` (both nullable; NULL on `action='post'` rows). These are
+a deliberate, narrow exception to "derivations belong downstream in dbt" —
+the determinism guard needs a grouping key the engine itself would compute,
+so `engine_node_key` reuses the domain's pure `postflop_node_key` (postflop)
+via read-only import, or an export-side-only preflop facing-state label
+(never new `backend/app/domain/` logic). `hand_class_bucket` is an
+export-side-only preflop hole-card bucket for preflop rows; postflop rows
+reuse the domain's pure `strength_bucket` (read-only import) — see the
+`docs/ai-dlc/reports/t2-export-report.md` encoding note for the exact
+"<strength>|<draw>" string format.
+
 Producer-side contract check (ADVISORY — the consumer's ingestion gate is
 the authoritative one): after writing, the script runs `datacontract test`
 against the vendored copy of the consumer's ODCS contract
@@ -42,12 +54,14 @@ from pathlib import Path
 
 from app.domain.archetypes import VillainType
 from app.domain.personas import load_persona_packs
-from app.domain.spot import PlayerStatus
+from app.domain.personas_postflop import strength_bucket
+from app.domain.spot import ActionType, PlayerStatus, Street
 from app.domain.table.deck import deal_hand
-from app.domain.table.engine import apply, settle, start_hand
+from app.domain.table.engine import apply, legal_actions, settle, start_hand
 from app.domain.table.play import bot_decision
+from app.domain.table.sizing import last_aggressor_position, postflop_node_key
 
-CONTRACT_VERSION = "1.0.0"  # semver of the ODCS contract this export conforms to
+CONTRACT_VERSION = "1.1.0"  # semver of the ODCS contract this export conforms to
 SCHEMA_PATH_VERSION = "v1"  # data-path major; bumps only on a breaking change
 STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
 
@@ -55,6 +69,54 @@ STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
 # order, wrapped around 9 seats. The button rotates hand-by-hand so every
 # persona plays every position.
 DEFAULT_LINEUP = sorted(v.value for v in VillainType)
+
+# T2 broadway ranks for the export-side preflop hand_class_bucket (deterministic,
+# export-only — never domain logic).
+_BROADWAY_RANKS = {"T", "J", "Q", "K", "A"}
+
+
+def _preflop_facing_label(action_history) -> str:
+    """Export-side facing-state label for `engine_node_key` on preflop rows.
+
+    Derived from PUBLIC state only (`action_history`) — deliberately NOT a
+    reuse of `app.domain.table.play._preflop_facing` (private, domain-owned);
+    this is an independent export-tool derivation per spec A2 / ticket T2.
+    Coarser than the domain's internal facing split (3bet and 4bet+ both
+    collapse to "vs_3bet_plus") because this label is a determinism-guard
+    grouping key, not a policy input.
+    """
+    raises = [
+        h for h in action_history
+        if h.street is Street.PREFLOP and h.action == ActionType.RAISE
+    ]
+    if not raises:
+        limped = any(
+            h.action == ActionType.CALL for h in action_history
+            if h.street is Street.PREFLOP
+        )
+        return "vs_limpers" if limped else "unopened"
+    return "vs_raise" if len(raises) == 1 else "vs_3bet_plus"
+
+
+def _hand_class_bucket(hole_cards: list[str]) -> str:
+    """Coarse, deterministic preflop hole-card bucket for `hand_class_bucket`.
+
+    Export-tool-only scheme (pair / suited-ace / suited-broadway /
+    offsuit-broadway / other); no existing domain hand-class label is
+    available to reuse for this purpose. Priority order below resolves
+    overlapping cases (e.g. AKs is suited-ace, not suited-broadway)."""
+    r1, s1 = hole_cards[0][0], hole_cards[0][1]
+    r2, s2 = hole_cards[1][0], hole_cards[1][1]
+    suited = s1 == s2
+    if r1 == r2:
+        return "pair"
+    if suited and "A" in (r1, r2):
+        return "suited-ace"
+    if suited and r1 in _BROADWAY_RANKS and r2 in _BROADWAY_RANKS:
+        return "suited-broadway"
+    if not suited and r1 in _BROADWAY_RANKS and r2 in _BROADWAY_RANKS:
+        return "offsuit-broadway"
+    return "other"
 
 
 def _git_sha() -> str:
@@ -86,6 +148,9 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
             "position": h.position.value, "action": h.action.value,
             "raise_to_bb": None, "chips_committed_bb": h.amount_bb,
             "pot_before_bb": 0.0, "to_call_bb": 0.0,
+            # T2: forced blind posts carry no node key / hand-class bucket —
+            # they are excluded from the determinism-guard contexts.
+            "engine_node_key": None, "hand_class_bucket": None,
         })
         seq += 1
     saw_flop: set[int] = set()
@@ -102,6 +167,27 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
         pot_before = sum(s.invested_total_bb for s in state.seats)
         to_call = max(0.0, state.current_bet_bb - seat_state.invested_street_bb)
         invested_before = seat_state.invested_total_bb
+        # T2: compute the two new columns from the PRE-decision public state,
+        # same inputs the domain uses internally (read-only reuse of the
+        # existing pure functions — no new domain logic, nothing added to
+        # backend/app/domain/).
+        if state.street is Street.PREFLOP:
+            engine_node_key = _preflop_facing_label(state.action_history)
+            hand_class_bucket = _hand_class_bucket(seat_state.hole_cards)
+        else:
+            legal = legal_actions(state)
+            is_aggressor = (
+                last_aggressor_position(state.action_history) == seat_state.position
+            )
+            engine_node_key = postflop_node_key(
+                state.board, legal, is_aggressor=is_aggressor)
+            # Postflop hand_class_bucket: read-only reuse of the domain's
+            # pure `strength_bucket` (made-hand ladder + draw category).
+            # Encoded as "<strength>|<draw>" (e.g. "top_pair|weak",
+            # "monster|none") — see docs/ai-dlc/reports/t2-export-report.md
+            # for the full enum-value list and rationale.
+            made, draw = strength_bucket(seat_state.hole_cards, state.board)
+            hand_class_bucket = f"{made.value}|{draw.value}"
         decision = bot_decision(state, seat, packs[persona_by_seat[seat]], rng)
         state = apply(state, decision)
         decision_rows.append({
@@ -113,6 +199,8 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
                 state.seats[seat].invested_total_bb - invested_before, 2),
             "pot_before_bb": round(pot_before, 2),
             "to_call_bb": round(to_call, 2),
+            "engine_node_key": engine_node_key,
+            "hand_class_bucket": hand_class_bucket,
         })
         seq += 1
     # All-in run-outs can reveal the flop on the same apply() that ends the
@@ -158,6 +246,10 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     persona_by_seat = {i: lineup[i % len(lineup)] for i in range(9)}
     packs = load_persona_packs()
     rng = random.Random(seed)
+    # KNOWN WART (out of scope for T2): run_id ignores `lineup`, so two runs
+    # with the same (seed, n_hands) but different lineups collide on
+    # run_id/hand_id. S1's pinned per-persona counts reference this format —
+    # changing it is deferred.
     run_id = f"run-s{seed}-n{n_hands}"
     exported_at = datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -240,8 +332,12 @@ def main() -> None:
                     help="target directory, e.g. <analytics-repo>/data/raw/v1/sample")
     ap.add_argument("--skip-contract-test", action="store_true",
                     help="skip the advisory producer-side datacontract test")
+    ap.add_argument("--lineup", type=str, default=None,
+                    help="comma-separated persona names for the 9 seats "
+                         "(wraps if fewer than 9; default: DEFAULT_LINEUP)")
     args = ap.parse_args()
-    manifest = run_export(args.hands, args.seed, args.out)
+    lineup = args.lineup.split(",") if args.lineup else None
+    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup)
     print(json.dumps(manifest, indent=2))
     if not args.skip_contract_test:
         _advisory_contract_test(args.out)
