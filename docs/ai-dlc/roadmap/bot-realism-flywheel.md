@@ -81,13 +81,19 @@ status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instru
       full config benchmarked, N chosen from the budget · appetite: 3–4 days (consumes the
       DS-methodology research, pulled INTO this slice from the research wave) · no-gos: no
       implementation.
-- [ ] **S2b — Research wave (parallel session R; may launch ONLY after S1 completes — the
-      session-R protocol it depends on is S1's deliverable)** *(progress 2026-08-06: session R
-      DELIVERED — four dossiers + completion note in `../research/realism-architecture/`,
-      uncommitted; the corpus-gate owner ruling is obtained and recorded in the NEXT item
-      below. Remaining before `[x]`: director fan-in review, commit accepted dossiers from a
-      worktree, and check whether the consumption map forces amendments to the S2a estimand
-      contract)* — problem: architecture bet needs
+- [x] **S2b — Research wave** *(2026-08-06: session R delivered 3 dossiers + consumption map
+      in `../research/realism-architecture/`; corpus verdict **PARTIAL**; blind cross-family
+      review NEEDS-WORK → 13 findings all accepted and folded; two owner rulings recorded —
+      use-and-disclose on published aggregates, and this roadmap's corpus NEXT item re-scoped.
+      Headline: **the phase-3 gate is not a fix-vs-rebuild binary** — the only mechanism in the
+      retrieved literature with a blind-test pass behind it is hand-authored targeting of
+      human-likeness, structurally what the dial engine already is, re-aimed. See
+      `COMPLETION-NOTE.md` §5. **Fan-in 2026-08-07:** director review ACCEPTED all four
+      dossiers + `_raw/` audit trail; S2a-amendment check = NO amendment forced now — the
+      ESTIMAND items (E1–E8, the aggregate-source swap) are deliberately carried by the
+      "Population-statistics ingestion" NEXT item, whose slice owns the contract amendment
+      the frozen registry requires)* **(parallel session R; launched after S1 completed — the
+      session-R protocol it depends on is S1's deliverable)** — problem: architecture bet needs
       evidence; prior planning missed known prior art (Alberta CPRG); NLHE-corpus existence
       unknown · outcome-link: phase-3 gate quality + corpus bet · pass/fail: 3 dossiers in
       `docs/ai-dlc/research/realism-architecture/` (academic incl. Alberta lineage ·
