@@ -48,11 +48,15 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import subprocess
+import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 from app.domain.archetypes import VillainType
+from app.domain.content.models import PersonaPack
 from app.domain.personas import load_persona_packs
 from app.domain.personas_postflop import strength_bucket
 from app.domain.spot import ActionType, PlayerStatus, Street
@@ -60,10 +64,30 @@ from app.domain.table.deck import deal_hand
 from app.domain.table.engine import apply, legal_actions, settle, start_hand
 from app.domain.table.play import bot_decision
 from app.domain.table.sizing import last_aggressor_position, postflop_node_key
+from tools import counterfactual
+from tools.counterfactual import CounterfactualConfigError
 
-CONTRACT_VERSION = "1.1.0"  # semver of the ODCS contract this export conforms to
+_ODCS_PATH = Path(__file__).resolve().parent / "poker_events.odcs.yaml"
+_ODCS_VERSION_RE = re.compile(r"^version:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def _odcs_contract_version(path: Path = _ODCS_PATH) -> str:
+    """Derive the ODCS contract version from the vendored yaml's top-level
+    `version:` field (S4 T2 fix #2), so the constant below can never drift
+    silently from the file it names. No YAML parser dependency: the ODCS
+    top-level `version:` key is unindented and unique in this file (verified
+    by test), so a plain regex read is exact and dependency-free — `pyyaml`
+    is not installed in this venv."""
+    match = _ODCS_VERSION_RE.search(path.read_text(encoding="utf-8"))
+    if match is None:
+        raise RuntimeError(f"{path}: no top-level `version:` field found")
+    return match.group(1)
+
+
+CONTRACT_VERSION = _odcs_contract_version()  # derived from poker_events.odcs.yaml
 SCHEMA_PATH_VERSION = "v1"  # data-path major; bumps only on a breaking change
 STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
+_CONFIG_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
 # Default lineup mirrors the persona test harness: the 6 personas in sorted
 # order, wrapped around 9 seats. The button rotates hand-by-hand so every
@@ -238,19 +262,45 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
 
 
 def run_export(n_hands: int, seed: int, out_dir: Path,
-               lineup: list[str] | None = None) -> dict:
+               lineup: list[str] | None = None,
+               packs: dict[VillainType, PersonaPack] | None = None,
+               config_hash: str | None = None) -> dict:
+    """T2 (flywheel S4): `packs`/`config_hash` travel together — both given
+    (sweep path: already-validated in-memory pack overlays + their §c.6
+    hash), or both omitted (default path: simulate the RAW as-loaded packs
+    UNCHANGED, and compute `config_hash` via
+    `counterfactual.baseline_config_hash()` as a side-channel so the baseline
+    packs fed to `play_one_hand` are never canonicalized — see spec `Design
+    rulings`, "The default (no-config) export path simulates the RAW
+    as-loaded packs")."""
     import pyarrow as pa
     import pyarrow.parquet as pq
 
+    if (packs is None) != (config_hash is None):
+        raise ValueError(
+            "run_export: `packs` and `config_hash` must both be given (sweep "
+            "path) or both omitted (default path) — mixed args are an error"
+        )
+    if config_hash is not None and not _CONFIG_HASH_RE.fullmatch(config_hash):
+        raise ValueError(
+            f"run_export: config_hash {config_hash!r} is not 64 lowercase hex "
+            f"chars — a malformed hash would otherwise be baked into run_id "
+            f"and every exported row, failing only later at the analytics gate"
+        )
+
     lineup = lineup or DEFAULT_LINEUP
     persona_by_seat = {i: lineup[i % len(lineup)] for i in range(9)}
-    packs = load_persona_packs()
+    if packs is None:
+        packs = load_persona_packs()
+        config_hash = counterfactual.baseline_config_hash(packs)
     rng = random.Random(seed)
-    # KNOWN WART (out of scope for T2): run_id ignores `lineup`, so two runs
-    # with the same (seed, n_hands) but different lineups collide on
-    # run_id/hand_id. S1's pinned per-persona counts reference this format —
-    # changing it is deferred.
-    run_id = f"run-s{seed}-n{n_hands}"
+    start = time.monotonic()
+    # KNOWN WART (out of scope for T2): run_id still ignores `lineup`, so two
+    # runs with the same (seed, n_hands, config_hash) but different lineups
+    # collide on run_id/hand_id. S1's pinned per-persona counts reference the
+    # old format — the config-hash suffix below is new; the lineup component
+    # remains a disclosed wart.
+    run_id = f"run-s{seed}-n{n_hands}-c{config_hash[:12]}"
     exported_at = datetime.now(UTC).isoformat(timespec="seconds")
 
     hands, seats, decisions = [], [], []
@@ -268,6 +318,7 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     out_dir.mkdir(parents=True, exist_ok=True)
     success = out_dir / "_SUCCESS"
     success.unlink(missing_ok=True)  # invalidate the batch before rewriting it
+    (out_dir / "_TIMING.json").unlink(missing_ok=True)
     row_counts = {}
     for name, rows in (("hands", hands), ("seat_outcomes", seats),
                        ("decisions", decisions)):
@@ -286,9 +337,26 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
         "generator": "backend/tools/export_analytics.py",
         "contract_version": CONTRACT_VERSION,
         "schema_path_version": SCHEMA_PATH_VERSION,
+        "config_hash": config_hash,
         "exported_at": exported_at,
         "row_counts": row_counts,
     }
+
+    wall_seconds = time.monotonic() - start
+    timing = {
+        "schema_version": "1.0.0",
+        "wall_seconds": wall_seconds,
+        "n_hands": n_hands,
+        "seed": seed,
+        "run_id": run_id,
+    }
+    if (timing["n_hands"], timing["seed"], timing["run_id"]) != (
+        manifest["n_hands"], manifest["seed"], manifest["run_id"]
+    ):
+        raise RuntimeError("_TIMING.json/_SUCCESS n_hands/seed/run_id mismatch")
+    # Written BEFORE _SUCCESS: the scorer's throughput check (§a.5 rule 5(a))
+    # reads this file, and _SUCCESS must remain the LAST file written.
+    (out_dir / "_TIMING.json").write_text(json.dumps(timing, indent=2) + "\n")
     # Written LAST: consumers must refuse to read a directory without it.
     success.write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
@@ -335,9 +403,23 @@ def main() -> None:
     ap.add_argument("--lineup", type=str, default=None,
                     help="comma-separated persona names for the 9 seats "
                          "(wraps if fewer than 9; default: DEFAULT_LINEUP)")
+    ap.add_argument("--config", type=Path, default=None,
+                    help="path to a §c counterfactual-config JSON file "
+                         "(backend/tools/counterfactual.py); validated and "
+                         "overlaid onto the baseline packs before export. "
+                         "Omit for the default (raw baseline packs) path.")
     args = ap.parse_args()
     lineup = args.lineup.split(",") if args.lineup else None
-    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup)
+    packs = config_hash = None
+    if args.config is not None:
+        try:
+            validated = counterfactual.load_config(args.config)
+        except CounterfactualConfigError as exc:
+            print(f"ERROR: {args.config}: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+        packs, config_hash = validated.packs, validated.config_hash
+    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup,
+                          packs=packs, config_hash=config_hash)
     print(json.dumps(manifest, indent=2))
     if not args.skip_contract_test:
         _advisory_contract_test(args.out)

@@ -265,3 +265,63 @@ feat/flywheel-s3-t7-validation. 71 tests, only transient red. Rerun worker: CLI
 guards, min-p realized floor, known-answer validation tests, full deterministic
 re-derivation under rev-5 hash (numbers must match exactly), status re-key, report
 regeneration, July control refresh.
+
+## 2026-08-07 — S3 CLOSED (T8 fan-in complete)
+Rerun dcb9349: 82/82 green, all leg numbers identical, status re-keyed, byte-identical.
+Ledger flywheel-s3-build.md written · roadmap S3 [x] w/ outcome · memory updated ·
+FLYWHEEL-STATUS updated (da91ff3) · docs commit bc39b7e on feat/flywheel-s3-docs
+(based on origin/main e0a1441). FINAL TIPS awaiting owner push: poker-analytics
+feat/flywheel-s3-t7-validation @ da91ff3 · poker-coach feat/flywheel-s3-t2-export @
+05a8857 + feat/flywheel-s3-docs @ bc39b7e. Reminder: feat/s2b-research-wave @ 59184c8
+still unpushed (pre-S3 debt).
+
+## 2026-08-07 — PR #12 CI fix: sample regression pins re-pinned
+CI validate failed on assert_sample_regression_pins — dbt test pinning the OLD seed-42
+fixture's counts; fixture was deliberately regenerated (ODCS 1.1.0, engine 05a8857).
+Reproduced CI locally via ThreadPool shim (sandbox blocks ProcessPoolExecutor
+semaphores); re-pinned from rebuilt agg_persona_stats; 79/79 + semantic-verify green.
+Commit on feat/flywheel-s3-t7-validation — owner pushes to update PR #12.
+
+## 2026-08-07 — S3 MERGED. Slice fully closed.
+PR #12 (analytics, tip 6aa40f5 w/ CI pin fix) + poker-coach #172 (export) + #173
+(docs) all merged. Local poker-coach main ff'd 529b582→073c5da (identical-content
+collision handling: untracked dupes removed, newer log.md preserved as tracked-mod).
+PR-BODY files cleaned. poker-analytics local main ref stale (fetch flaky) — ff before
+next work there. Next per roadmap: S4 sweep runner; then S6 detection pilot informs
+the phase-3 ceiling decision (S3's negative validation = primary evidence).
+
+## 2026-08-07 — S4 CLOSED (T7 fan-in complete)
+Gate 2 approved the S4 spec after dual review (refuter + Codex Sol, both
+NEEDS-WORK on the pre-review spec; 15 findings adjudicated) and a re-cost from
+2-3 to 4-6 days, owner-approved as one slice — dual review made the baseline
+covariance-artifact rebuild, the §f 5-worker parallel runner + raw-data
+retirement, and an ODCS minor-version window mandatory. Wave 1 build
+(config layer + analytics compat) surfaced W1-1: the ingestion gate windows
+ODCS contract versions but the scorer gate still exact-matched, citing §g.1.7 —
+**owner ruling amended §g.1.7** so score validity checks a same-major
+minor-version window (batch minor ≤ contract minor) while the estimand-contract
+citation stays exact (formula-identity-bearing); the rest of wave 1's findings
+(config_hash format validation, dotted-path parse rule, probe-declaration
+schema) were fixed in place. Wave structure: wave 1 (T1 config layer, T3
+analytics compat) → wave 2 (T2 export identity) → wave 3 (T5 sweep runner,
+including a small-sample SVD-degeneracy scare at n=300 sized and cleared at
+n=3000) → waves 4-5 (T4 artifact rebuild at the S4 engine sha — real
+config_hash, S3 sentinel retired — and T6 acceptance run). Headline acceptance
+(T6, `docs/ai-dlc/reports/flywheel-s4-acceptance.md`): §c(i)-(iii) all PASS
+(canonicalization byte-safety, CLI-boundary rejection, cross-process hash
+stability); 10-config 50k smoke sweep complete, 10/10 distinct hashes,
+producer-rerun determinism check passed, 10/10 re-score byte-identity; S3's
+three declared gaps closed (config_hash sentinel, producer-rerun check, run_id
+collision for the tested arm-set), lineup-absent-from-run_id remains a
+disclosed wart. Wave-5 dual review caught **W5-1**, the important find: the
+acceptance report's first-pass §E applied §f's ×5 worker factor to the
+SERIAL unloaded per-run time, contradicted by the report's own loaded
+measurement (per-worker efficiency 0.61 at 5-way load) — 1.7-2.3× optimistic.
+Corrected primary figures: 404.7 configs/night measured end-to-end, program
+2.58-3.03 nights, 1,500-run hard cap 3.71 nights (61.8% of the 6-night
+threshold) — escalation verdict unaffected (does not fire), confirmed
+independently by both reviewers. T7 committed the planning docs (spec,
+tickets, contract, ledger) that lived uncommitted through the build, ticked
+the roadmap, and applied §f's mechanical-revision update in poker-analytics
+using the corrected W5-1 figures. Tips: poker-coach feat/flywheel-s4 @ 4f52353
+(T7's parent); poker-analytics feat/flywheel-s4 @ c5604e8.
