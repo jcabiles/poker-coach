@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# One-command bridge: run the poker-analytics stub scorer against a local sim
-# export from this repo.
+# One-command bridge: run the poker-analytics realism scorer against a local
+# sim export from this repo. The batch must already have passed the analytics
+# ingestion gate (`make validate DIR=...` there) — the scorer refuses ungated
+# data, and refuses a batch whose Parquet bytes changed after gating.
 #
 # Usage: scripts/score_realism.sh [batch_dir] [scorer args...]
 #   batch_dir defaults to docs/ai-dlc/research/persona-realism-artifacts/remeasure-2026-08-05/sim50k
@@ -10,7 +12,8 @@
 #     scripts/score_realism.sh "" --out FILE     # explicit empty placeholder
 #     scripts/score_realism.sh -- --out FILE     # -- means "use default dir"
 #     scripts/score_realism.sh --out FILE        # a leading flag also means "use default dir"
-#   any args after batch_dir are passed through to score_stub.py (e.g. --out FILE)
+#   any args after batch_dir are passed through to score_realism.py
+#   (e.g. --out FILE, --covariance <artifact id>)
 #
 # poker-analytics root resolution: $POKER_ANALYTICS_DIR if set and non-empty,
 # else the sibling checkout <repo root>/../poker-analytics.
@@ -34,9 +37,9 @@ if [ ! -x "$PYTHON" ]; then
   exit 1
 fi
 
-SCORER="$ANALYTICS_DIR/scorer/score_stub.py"
+SCORER="$ANALYTICS_DIR/scorer/score_realism.py"
 if [ ! -f "$SCORER" ]; then
-  echo "missing $SCORER — this poker-analytics checkout predates flywheel S1" >&2
+  echo "missing $SCORER — this poker-analytics checkout predates flywheel S3" >&2
   exit 1
 fi
 
