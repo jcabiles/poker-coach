@@ -61,22 +61,34 @@ Lineup used for all 6 batches below (matches the S1 reference,
 `docs/ai-dlc/research/persona-realism-artifacts/remeasure-2026-08-05/sim50k/_SUCCESS`):
 `tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac`.
 
-<!-- Filled in after regeneration — see final report update below the table. -->
+Regenerated from a clean, committed tree (`git status --porcelain` empty)
+AFTER the review-fix commit `23aa44e29a80f64d01a7d4ffc235be1261c0103c` —
+every manifest's `git_sha` equals that commit (verified below).
 
 | seed | hands | decisions rows | wall time (s) | hands/s | manifest git_sha |
 |---|---|---|---|---|---|
-| 20260805 | 50000 | TBD | TBD | TBD | TBD |
-| 101 | 50000 | TBD | TBD | TBD | TBD |
-| 102 | 50000 | TBD | TBD | TBD | TBD |
-| 103 | 50000 | TBD | TBD | TBD | TBD |
-| 104 | 50000 | TBD | TBD | TBD | TBD |
-| 105 | 50000 | TBD | TBD | TBD | TBD |
+| 20260805 | 50000 | 884745 | 121 | 413.2 | 23aa44e29a80f64d01a7d4ffc235be1261c0103c |
+| 101 | 50000 | 882437 | 124 | 403.2 | 23aa44e29a80f64d01a7d4ffc235be1261c0103c |
+| 102 | 50000 | 883199 | 129 | 387.6 | 23aa44e29a80f64d01a7d4ffc235be1261c0103c |
+| 103 | 50000 | 883998 | 121 | 413.2 | 23aa44e29a80f64d01a7d4ffc235be1261c0103c |
+| 104 | 50000 | 884508 | 121 | 413.2 | 23aa44e29a80f64d01a7d4ffc235be1261c0103c |
+| 105 | 50000 | 884969 | 121 | 413.2 | 23aa44e29a80f64d01a7d4ffc235be1261c0103c |
+
+All 6 comfortably clear the ≥350 hands/s throughput bar. Batches are scratch
+data (`$TMPDIR/t2-scratch-out/batches/`, not committed, not the research
+artifact directory) — regenerate via the `--lineup` command above to
+reproduce.
 
 ## Per-persona decision-count comparison (seed 20260805, pinned lineup)
 
 S1 pinned reference counts (`flywheel-s1.md`): tag 244555 · calling_station
 138263 · passive_fish 230849 · lag 89439 · nit 71878 · maniac 109761.
 
-TBD — filled in after regeneration; exact match expected if determinism holds
-(same seed + same lineup + code changes don't touch RNG draw order for
-existing columns). Any drift is reported here as a finding, not hidden.
+Measured (same seed 20260805, same pinned lineup, post-fix code):
+tag 244555 · calling_station 138263 · passive_fish 230849 · lag 89439 ·
+nit 71878 · maniac 109761.
+
+**Exact match on all 6 personas, zero drift.** Determinism holds — the T2
+column additions (`engine_node_key`, `hand_class_bucket`) are pure functions
+of already-decided state and consume no RNG draws, so they don't perturb the
+existing decision sequence.
