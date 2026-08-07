@@ -97,7 +97,7 @@ def test_different_hand_seeds_generally_differ():
 # 2. Default-path regression (flag OFF)
 # ---------------------------------------------------------------------------
 
-_VOLATILE_MANIFEST_KEYS = {"exported_at"}
+_VOLATILE_MANIFEST_KEYS = {"exported_at", "git_sha"}
 
 
 def _canonical_manifest(manifest: dict) -> dict:
@@ -165,7 +165,7 @@ def _hash_manifest(manifest: dict) -> str:
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "e12ef84e39eb1df8841b5eba5e6f921a0e2a327090fa5617a68f724fc4adc6cc"
+    "24a0b5f398e619036285f7083cda5b96096720d721e47fe054dc28c39536a734"
 )
 _GOLDEN_HANDS_SHA256 = (
     "fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32"
