@@ -1,14 +1,17 @@
-"""T2 (flywheel S3): local schema assertion check for the analytics export.
+"""T2 (flywheel S3/S4): local schema assertion check for the analytics export.
 
-Covers ALL `decisions` columns (including the two new T2 columns
-`engine_node_key` / `hand_class_bucket`) plus the corruption case. This is a
-LOCAL check only — the authoritative `datacontract test` run against the
-vendored ODCS contract (tools/poker_events.odcs.yaml) is deferred to the
-director per the T2 ticket.
+Covers ALL `decisions` columns (including the two T2/S3 columns
+`engine_node_key` / `hand_class_bucket`) plus the corruption case, and (S4
+T2) the `packs=`/`config_hash=` pairing contract, the new `run_id` format,
+the `_TIMING.json` evidence file, and its write-order-before-`_SUCCESS`
+guarantee. This is a LOCAL check only — the authoritative `datacontract
+test` run against the vendored ODCS contract (tools/poker_events.odcs.yaml)
+is deferred to the director per the T2 ticket.
 """
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -17,13 +20,17 @@ import pytest
 pa = pytest.importorskip("pyarrow")
 pq = pytest.importorskip("pyarrow.parquet")
 
-from tools.export_analytics import run_export  # noqa: E402
+from tools import counterfactual  # noqa: E402
+from tools.export_analytics import CONTRACT_VERSION, run_export  # noqa: E402
 
 DECISIONS_REQUIRED_COLUMNS = {
     "hand_id", "seq", "seat", "street", "position", "action",
     "raise_to_bb", "chips_committed_bb", "pot_before_bb", "to_call_bb",
     "engine_node_key", "hand_class_bucket", "exported_at",
 }
+
+_CONFIG_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+_RUN_ID_RE = re.compile(r"^run-s(\d+)-n(\d+)-c([0-9a-f]{12})$")
 
 
 def _validate_batch(out_dir: Path) -> None:
@@ -40,6 +47,15 @@ def _validate_batch(out_dir: Path) -> None:
     assert success.exists(), "_SUCCESS manifest missing"
     manifest = json.loads(success.read_text())
     row_counts = manifest["row_counts"]
+
+    assert _CONFIG_HASH_RE.match(manifest["config_hash"]), (
+        f"config_hash {manifest['config_hash']!r} is not 64 lowercase hex chars"
+    )
+    m = _RUN_ID_RE.match(manifest["run_id"])
+    assert m, f"run_id {manifest['run_id']!r} does not match run-s<seed>-n<hands>-c<12hex>"
+    assert m.group(3) == manifest["config_hash"][:12], (
+        "run_id's config suffix must be the first 12 hex chars of config_hash"
+    )
 
     for name in ("hands", "seat_outcomes", "decisions"):
         path = out_dir / f"{name}.parquet"
@@ -73,6 +89,52 @@ def test_schema_valid_on_fresh_batch(tmp_path):
     out_dir = tmp_path / "batch"
     run_export(n_hands=50, seed=7, out_dir=out_dir)
     _validate_batch(out_dir)  # must not raise
+
+
+def test_timing_file_written_before_success_and_consistent(tmp_path):
+    out_dir = tmp_path / "batch"
+    manifest = run_export(n_hands=25, seed=3, out_dir=out_dir)
+
+    timing_path = out_dir / "_TIMING.json"
+    assert timing_path.exists(), "_TIMING.json missing"
+    timing = json.loads(timing_path.read_text())
+
+    assert timing["schema_version"] == "1.0.0"
+    assert isinstance(timing["wall_seconds"], (int, float))
+    assert timing["wall_seconds"] >= 0
+    assert timing["n_hands"] == manifest["n_hands"] == 25
+    assert timing["seed"] == manifest["seed"] == 3
+    assert timing["run_id"] == manifest["run_id"]
+
+    # Write-order: _TIMING.json must predate _SUCCESS on disk.
+    assert timing_path.stat().st_mtime <= (out_dir / "_SUCCESS").stat().st_mtime
+
+
+def test_default_path_config_hash_matches_baseline(tmp_path):
+    out_dir = tmp_path / "batch"
+    manifest = run_export(n_hands=10, seed=1, out_dir=out_dir)
+    assert manifest["config_hash"] == counterfactual.baseline_config_hash()
+
+
+def test_packs_and_config_hash_must_both_be_given_or_both_omitted(tmp_path):
+    packs = counterfactual.load_baseline_packs()
+    config_hash = counterfactual.baseline_config_hash(packs)
+
+    with pytest.raises(ValueError):
+        run_export(n_hands=5, seed=1, out_dir=tmp_path / "a", packs=packs)
+    with pytest.raises(ValueError):
+        run_export(n_hands=5, seed=1, out_dir=tmp_path / "b", config_hash=config_hash)
+
+    # Both given (sweep path) succeeds and stamps the given identity.
+    manifest = run_export(
+        n_hands=5, seed=1, out_dir=tmp_path / "c", packs=packs, config_hash=config_hash
+    )
+    assert manifest["config_hash"] == config_hash
+    assert manifest["run_id"] == f"run-s1-n5-c{config_hash[:12]}"
+
+
+def test_contract_version_is_1_2_0():
+    assert CONTRACT_VERSION == "1.2.0"
 
 
 def test_corrupted_batch_fails_validation(tmp_path):

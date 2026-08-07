@@ -10,7 +10,7 @@ apiVersion: v3.1.0
 kind: DataContract
 id: poker-events
 name: Poker simulation events
-version: 1.1.0
+version: 1.2.0
 status: active
 domain: poker-analytics
 dataProduct: poker-analytics warehouse
@@ -61,7 +61,7 @@ schema:
         logicalType: string
         physicalType: VARCHAR
         required: true
-        description: Export batch id "run-s<seed>-n<hands>"; joins to the _SUCCESS manifest.
+        description: Export batch id "run-s<seed>-n<hands>-c<confighash12>" (first 12 hex chars of the manifest's config_hash); joins to the _SUCCESS manifest.
       - name: hand_no
         logicalType: integer
         physicalType: BIGINT
@@ -428,8 +428,31 @@ customProperties:
   - property: manifest
     value: >
       JSON _SUCCESS file written last in each batch directory; carries run_id,
-      seed, lineup, git SHA, engine + contract version, row counts. Consumers
-      must refuse batches without it.
+      seed, lineup, git SHA, engine + contract version, row counts, and — from
+      1.2.0, optionally — config_hash: the sha256 of the canonicalized
+      counterfactual config the batch was simulated under (estimand contract
+      §c.6), full lowercase hex. It is OPTIONAL: batches exported before 1.2.0
+      carry no such key, and consumers must treat its absence as "the producer
+      declared no config", never as an error. Consumers must refuse batches
+      without the _SUCCESS file itself.
+  - property: changelog-1.2.0
+    value: >
+      1.2.0 (2026-08-07, bot-realism-flywheel S4) — ADDITIVE change. Under the
+      BACKWARD policy above the compatibility window is ONE-DIRECTIONAL:
+      1.2.0 consumers accept 1.1.0 producers, so a batch exported against
+      1.1.0 still gates and still scores here. The reverse is NOT claimed — a
+      consumer pinned to 1.1.0 must not read a 1.2.0 batch, having never heard
+      of what 1.2.0 added. Two edits, both documentation of the _SUCCESS
+      manifest and of an existing column's value format: (1) the manifest may
+      now carry an optional config_hash, so a batch says which counterfactual
+      config produced it; (2) run_id gains a "-c<first 12 hex of config_hash>"
+      suffix, so two configs swept at the same seed and hand count no longer
+      share a run_id (and therefore no longer collide in run_key =
+      md5(run_id) downstream). No property, field or quality rule was deleted;
+      no column changed its type, nullability or physical name; run_id carries
+      no pattern check, so batches written under 1.1.0 stay valid against this
+      file. The gate implements the window in ingest/validate.py
+      (contract_version_compatible), reused by scorer/gate.py.
 
 team:
   - username: johncabiles
