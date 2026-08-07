@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import subprocess
 import sys
@@ -32,8 +33,8 @@ from tools.counterfactual import (  # noqa: E402
     SCALAR_AXES,
     SCHEMA_VERSION,
     CounterfactualConfigError,
+    _apply_overrides,
     _authored_resolutions,
-    apply_overrides,
     baseline_config_hash,
     baseline_pack_hash,
     canonical_bytes,
@@ -180,6 +181,23 @@ def test_unsupported_schema_major_rejected(packs):
         validate_config(doc, packs)
 
 
+@pytest.mark.parametrize("version", ["1", "1.0", "1.x", "1.2-beta", "1.2.3.4", "v1.0.0", "", 1])
+def test_malformed_schema_version_rejected(packs, version):
+    """§c.1 is semver: a version that merely STARTS with a legal major must not
+    be waved through on the strength of its first component."""
+    doc = _cfg(packs)
+    doc["schema_version"] = version
+    with pytest.raises(CounterfactualConfigError, match="three-part semver"):
+        validate_config(doc, packs)
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "1.2.3", "1.10.0"])
+def test_well_formed_1x_schema_versions_accepted(packs, version):
+    doc = _cfg(packs)
+    doc["schema_version"] = version
+    assert validate_config(doc, packs).schema_version == version
+
+
 def test_unknown_persona_rejected(packs):
     with pytest.raises(CounterfactualConfigError, match="unknown persona"):
         validate_config(_cfg(packs, overrides={"whale": {"postflop.bluff_freq": 0.3}}), packs)
@@ -261,7 +279,8 @@ def test_every_authored_flat_sizing_key_resolves(packs):
 
 def test_every_authored_sizing_by_node_key_resolves(packs):
     """Two-level decimal paths (`postflop.sizing_by_node.cbet_dry.0.33`) resolve
-    uniquely too."""
+    uniquely too — and carry NO declared bounds (§a.2 states none for the probe
+    case, so none are invented here)."""
     seen = 0
     for name, pack in packs.items():
         for node, dist in (pack.postflop.sizing_by_node or {}).items():
@@ -269,7 +288,7 @@ def test_every_authored_sizing_by_node_key_resolves(packs):
                 resolved = resolve_path(pack, f"postflop.sizing_by_node.{node}.{key}")
                 assert resolved.keys == ("postflop", "sizing_by_node", node, key), name
                 assert resolved.probe_kind == "sizing_by_node"
-                assert (resolved.lo, resolved.hi) == simplex_bounds(len(dist))
+                assert (resolved.lo, resolved.hi) == (None, None), name
                 seen += 1
     assert seen > 0
 
@@ -505,19 +524,82 @@ def test_flat_sizing_simplex_vertex_merges(packs):
     assert result.packs["tag"].postflop.sizing == overrides
 
 
-def test_partial_sizing_override_that_breaks_normalization_is_refused(packs):
-    """A single-key sizing move leaves the simplex unnormalized; the SAME
-    pydantic model the engine loads catches it on re-validation (§c.5)."""
+def test_partial_flat_sizing_override_rejected(packs):
+    """§a.2 row 13 is a joint simplex constraint: move one flat sizing key and
+    you must move them all. The rejection names that rule, not pydantic."""
+    with pytest.raises(CounterfactualConfigError, match="requires overriding all 4 authored"):
+        validate_config(_cfg(packs, overrides={"tag": {"postflop.sizing.0.33": 0.5}}), packs)
+
+
+def test_complete_flat_sizing_override_must_sum_to_one(packs):
+    keys = list(packs["tag"].postflop.sizing)
+    overrides = {f"postflop.sizing.{k}": 0.20 for k in keys}  # 4 x 0.20 = 0.80
+    with pytest.raises(CounterfactualConfigError, match="sum to 0.8.*not 1.0 within"):
+        validate_config(_cfg(packs, overrides={"tag": overrides}), packs)
+
+
+def test_flat_sizing_sum_tolerance_matches_the_pack_model(packs):
+    """1e-3 here is the pack model's own normalization tolerance
+    (`models.py:161`), so nothing this rule accepts can fail the §c.5 re-parse
+    for being unnormalized."""
+    keys = list(packs["tag"].postflop.sizing)
+    weights = [0.2504, 0.25, 0.25, 0.25]  # sums to 1.0004
+    result = validate_config(
+        _cfg(
+            packs,
+            overrides={
+                "tag": {f"postflop.sizing.{k}": w for k, w in zip(keys, weights, strict=True)}
+            },
+        ),
+        packs,
+    )
+    assert result.packs["tag"].postflop.sizing[keys[0]] == 0.2504
+
+
+def test_sizing_by_node_probe_has_no_invented_bounds(packs):
+    """§a.2 declares NO bounds for probe `sizing_by_node` weights, so a weight
+    below the flat-sizing 0.05 floor is accepted as long as the pack model
+    validates it. (Retraction of an earlier over-strict reading.)"""
+    node = "cbet_dry"
+    keys = list(packs["tag"].postflop.sizing_by_node[node])
+    weights = dict(zip(keys, [0.02, 0.48, 0.50], strict=True))
+    paths = [f"postflop.sizing_by_node.{node}.{k}" for k in keys]
+    result = validate_config(
+        _cfg(
+            packs,
+            overrides={"tag": {p: weights[k] for p, k in zip(paths, keys, strict=True)}},
+            probes=[_probe("sizing_by_node", "tag", paths)],
+        ),
+        packs,
+    )
+    assert result.packs["tag"].postflop.sizing_by_node[node] == weights
+
+
+def test_partial_sizing_by_node_override_fails_the_c5_reparse(packs):
+    """No completeness rule exists for the frozen probe family (the contract
+    declares none), so an unnormalized node distribution is caught by the §c.5
+    re-validation through the pack model instead."""
+    path = "postflop.sizing_by_node.cbet_dry.0.33"
     with pytest.raises(CounterfactualConfigError, match="re-validation"):
         validate_config(
-            _cfg(packs, overrides={"tag": {"postflop.sizing.0.33": 0.5}}), packs
+            _cfg(
+                packs,
+                overrides={"tag": {path: 0.9}},
+                probes=[_probe("sizing_by_node", "tag", [path])],
+            ),
+            packs,
         )
 
 
-def test_apply_overrides_is_usable_standalone(packs):
-    merged = apply_overrides(packs, {"tag": {"postflop.bluff_freq": 0.4}})
+def test_merge_is_not_a_public_entry_point():
+    """5(b) ruling: the merge is private, so no caller can reach the pack model
+    with dials that never passed the §a.2 bounds check. `validate_config` and
+    `load_config` are the supported doors."""
+    import tools.counterfactual as module
+
+    assert not hasattr(module, "apply_overrides")
+    merged = _apply_overrides(load_baseline_packs(), {"tag": {"postflop.bluff_freq": 0.4}})
     assert merged["tag"].postflop.bluff_freq == 0.4
-    assert merged["nit"].postflop.bluff_freq == packs["nit"].postflop.bluff_freq
 
 
 # ---------------------------------------------------------------- canonical hash
@@ -526,6 +608,54 @@ def test_apply_overrides_is_usable_standalone(packs):
 def test_canonical_bytes_are_sorted_and_utf8():
     raw = canonical_bytes({"b": 1.5, "a": {"z": 2.0, "y": 3.0}})
     assert raw == b'{"a":{"y":3.0,"z":2.0},"b":1.5}'
+
+
+def test_canonical_bytes_use_python_repr_for_floats():
+    """§c.6's "shortest-round-trip float repr", as ruled: Python's repr — the
+    shortest round-tripping DIGIT string, exponent formatting included. It is
+    the same convention the poker-analytics scorer hashes with, and this test
+    pins it so a future divergence is a deliberate amendment, not a drift."""
+    assert canonical_bytes({"x": 1e-7}) == b'{"x":1e-07}'
+    assert canonical_bytes({"x": 0.1 + 0.2}) == b'{"x":0.30000000000000004}'
+
+
+def test_negative_zero_is_folded(packs):
+    """-0.0 and 0.0 are the same behaviour, so they must be the same config."""
+    nested = {"x": -0.0, "y": [-0.0], "z": {"w": -0.0}}
+    assert canonical_bytes(nested) == b'{"x":0.0,"y":[0.0],"z":{"w":0.0}}'
+
+    negative = validate_config(_cfg(packs, overrides={"tag": {"postflop.bluff_freq": -0.0}}), packs)
+    positive = validate_config(_cfg(packs, overrides={"tag": {"postflop.bluff_freq": 0.0}}), packs)
+    assert negative.config_hash == positive.config_hash
+    # ...and the merged pack carries the value the hash names, sign bit included
+    merged = negative.packs["tag"].postflop.bluff_freq
+    assert merged == 0.0 and math.copysign(1.0, merged) == 1.0
+
+
+def test_probe_rationale_is_part_of_the_config_identity(packs):
+    """ADJUDICATED: §c.6 hashes the complete document, so rewording a probe
+    rationale mints a new run identity. Deliberate — pinned here so nobody
+    "fixes" it by quietly dropping prose from the hash."""
+    base = _probe("continue_ref", "tag", ["postflop.continue_ref"])
+    reworded = {**base, "rationale": "a differently worded but equivalent reason"}
+    overrides = {"tag": {"postflop.continue_ref": 0.9}}
+    a = validate_config(_cfg(packs, overrides=overrides, probes=[base]), packs)
+    b = validate_config(_cfg(packs, overrides=overrides, probes=[reworded]), packs)
+    assert a.config_hash != b.config_hash
+
+
+def test_probe_ordering_is_canonical_even_when_only_rationale_differs(packs):
+    """The canonical sort key includes `rationale`; leaving it out would let a
+    swap of two otherwise-identical declarations flip the hash."""
+    first = _probe("continue_ref", "tag", ["postflop.continue_ref"])
+    second = {**first, "rationale": "second reading of the same anchor"}
+    overrides = {"tag": {"postflop.continue_ref": 0.9}}
+    a = validate_config(_cfg(packs, overrides=overrides, probes=[first, second]), packs)
+    b = validate_config(_cfg(packs, overrides=overrides, probes=[second, first]), packs)
+    assert a.config_hash == b.config_hash
+    assert [d["rationale"] for d in a.canonical["probe_declarations"]] == sorted(
+        [first["rationale"], second["rationale"]]
+    )
 
 
 def test_non_object_document_rejected(packs):

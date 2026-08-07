@@ -36,8 +36,22 @@ the engine's own fallback semantics — but the contract gates that claim on
 evidence: S4's acceptance test 1(i) must prove byte-identical baseline scores
 before any sweep runs.
 
+Hash identity is the WHOLE document (§c.6). That includes each probe
+declaration's `rationale`: rewording a rationale changes `config_hash` and
+therefore mints a new run identity. Reviewers split on this; the ruling is that
+§c.6 hashes the complete document, so prose is part of the config's name — write
+the rationale once, then leave it alone for the life of the sweep.
+
 Pure functions; no I/O beyond reading the committed packs (and an explicitly
 passed config path). Nothing here writes a file.
+
+Merging is reachable ONLY through `validate_config` / `load_config`. The merge
+step is deliberately private (`_apply_overrides`): it is handed the CANONICAL
+overrides, which carry `call_looseness` materialized at each pack's baseline
+effective value, and baseline values are not required to sit inside the §a.2
+*sweep* bounds. Enforcing bounds at the merge site would therefore couple the
+baseline packs to the sweep bounds and could refuse the baseline itself; the
+bounds are enforced once, on the AUTHORED overrides, where they belong.
 """
 
 from __future__ import annotations
@@ -45,6 +59,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,9 +71,12 @@ from app.domain.archetypes import VillainType
 from app.domain.content.models import PersonaPack
 from app.domain.personas import load_persona_packs
 
-# §c.1 — semver; a breaking change is a major bump. We accept any 1.x document.
+# §c.1 — semver; a breaking change is a major bump. We accept any 1.x document,
+# but only if it is a well-formed three-part semver: "1", "1.2", "1.2-beta" and
+# "1.2.3.4" are all rejected rather than silently read as major 1.
 SCHEMA_VERSION = "1.0.0"
 _SUPPORTED_MAJOR = 1
+_SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 _DOCUMENT_FIELDS = frozenset({
     "schema_version",
@@ -138,12 +156,22 @@ _CONTINUE_REF = "postflop.continue_ref"
 
 def simplex_bounds(k: int) -> tuple[float, float]:
     """Axis 13's truncated-simplex per-key bounds for a pack with `k` authored
-    sizing keys: [0.05, min(0.90, 1 − (k−1)·0.05)] (§a.2 row 13).
+    FLAT (`postflop.sizing`) keys: [0.05, min(0.90, 1 − (k−1)·0.05)] (§a.2 row
+    13). For k = 4 the attainable per-key max is 0.85.
 
-    Applied to `sizing_by_node` weights too when a sizing probe declares them:
-    §a.2 excludes that family from wave 1 without restating bounds for the
-    probe case, and the shape is identical (a normalized bucket distribution
-    validated by the same `_validate_bucket_dist`, `models.py:145-163`).
+    The bound is per key, and the simplex is a *joint* constraint, so it comes
+    with a completeness rule enforced in `validate_config`: overriding ANY flat
+    sizing key for a persona means overriding ALL k of that pack's authored
+    keys, with the values summing to 1 within 1e-3. A partial override would
+    otherwise leave the distribution unnormalized and be refused later by the
+    pack model's own sum check with a message that names pydantic rather than
+    the rule the author actually broke.
+
+    NOT applied to `sizing_by_node`: §a.2 freezes that family in wave 1 and
+    declares NO bounds for the probe case, so inventing them here would refuse
+    probe distributions the pack model accepts (a node dist may legitimately
+    carry a weight below 0.05). Probe `sizing_by_node` weights are constrained
+    only by the §c.5 re-parse until a contract amendment says otherwise.
     """
     return 0.05, min(0.90, 1.0 - (k - 1) * 0.05)
 
@@ -155,12 +183,17 @@ def simplex_bounds(k: int) -> tuple[float, float]:
 
 @dataclass(frozen=True)
 class ResolvedPath:
-    """A dotted override path resolved to concrete container keys."""
+    """A dotted override path resolved to concrete container keys.
+
+    `lo`/`hi` are the §a.2 declared sweep bounds, or `None` where the contract
+    declares none (probe-only `sizing_by_node` weights) — there the pack model's
+    own validation is the only constraint.
+    """
 
     keys: tuple[str, ...]
     axis_number: int
-    lo: float
-    hi: float
+    lo: float | None
+    hi: float | None
     probe_kind: str | None
 
 
@@ -188,7 +221,7 @@ def resolve_path(pack: PersonaPack, path: str) -> ResolvedPath:
     """Resolve one override path against one pack, or raise.
 
     Order: the §a.2 scalar axis table (exact match) → the flat-sizing simplex →
-    the probe-only `sizing_by_node` simplex → rejection (§c.2: allowed paths are
+    the probe-only `sizing_by_node` weights → rejection (§c.2: allowed paths are
     exactly the axis table; anything else, including structural paths, is
     rejected with an error naming the rule).
     """
@@ -226,9 +259,11 @@ def resolve_path(pack: PersonaPack, path: str) -> ResolvedPath:
             by_node = postflop.sizing_by_node or {}
             found = _authored_resolutions(by_node, rest)
             keys = _unique_resolution(pack, path, found, "postflop.sizing_by_node")
-            lo, hi = simplex_bounds(len(by_node[keys[0]]))
+            # No declared bounds: §a.2 freezes this family and states none for
+            # the probe case (see `simplex_bounds`). The §c.5 re-parse is the
+            # only constraint until a contract amendment declares bounds.
             return ResolvedPath(
-                ("postflop", "sizing_by_node", *keys), 13, lo, hi, "sizing_by_node"
+                ("postflop", "sizing_by_node", *keys), 13, None, None, "sizing_by_node"
             )
 
     raise CounterfactualConfigError(
@@ -260,17 +295,48 @@ def _unique_resolution(
 # --------------------------------------------------------------------------
 
 
+def _normalize_zeros(value: Any) -> Any:
+    """Fold `-0.0` to `0.0` everywhere in a document.
+
+    IEEE gives negative zero its own bit pattern and Python's repr preserves it,
+    so `{"bluff_freq": -0.0}` and `{"bluff_freq": 0.0}` would otherwise hash to
+    two different `config_hash` values for one behaviour. A config's identity
+    must track behaviour, so the two collapse. (`-0.0 == 0.0` is True, which is
+    why the equality test below is enough.)
+    """
+    if isinstance(value, Mapping):
+        return {k: _normalize_zeros(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_zeros(v) for v in value]
+    if isinstance(value, float) and value == 0.0:
+        return 0.0
+    return value
+
+
 def canonical_bytes(document: Mapping[str, Any]) -> bytes:
     """§c.6 canonical serialization: sorted keys, shortest-round-trip float
     repr, UTF-8, no insignificant whitespace.
 
-    Python's `float.__repr__` (which `json` uses) has been the shortest string
-    that round-trips since 3.1, so `json.dumps` already satisfies the float
-    clause. `allow_nan=False` keeps non-finite values out of the hash input —
-    they are rejected upstream anyway.
+    **Reading of "shortest-round-trip float repr" (ruled 2026-08-07):**
+    `json.dumps` emits Python's `float.__repr__`, which since 3.1 is the
+    shortest DECIMAL DIGIT STRING that round-trips — but not the shortest
+    possible text, since it writes `1e-07` where `1e-7` would also round-trip.
+    Python repr IS the canonical form for this pipeline: poker-analytics'
+    scorer already hashes its canonical payloads through the same
+    `json.dumps` convention (`scorer/canonical.py`), and one convention shared
+    end-to-end is worth more than literal minimality. A future change to this
+    reading is a §c.6 amendment, not an implementation detail.
+
+    `-0.0` is folded to `0.0` first (see `_normalize_zeros`). `allow_nan=False`
+    keeps non-finite values out of the hash input — they are rejected upstream
+    anyway.
     """
     return json.dumps(
-        document, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        _normalize_zeros(document),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
     ).encode("utf-8")
 
 
@@ -372,7 +438,10 @@ def _require_number(persona: str, path: str, value: Any) -> float:
             f"{persona}: override {path!r} is not finite ({value!r}) (§c document shape: "
             f"overrides map dotted paths to numbers)"
         )
-    return number
+    # Fold -0.0 to 0.0 here as well as in `canonical_bytes`, so the MERGED PACK
+    # carries the same value the hash names — otherwise two packs that hash
+    # alike could differ by a sign bit.
+    return number + 0.0
 
 
 def _parse_probe_declarations(raw: Any) -> tuple[ProbeDeclaration, ...]:
@@ -439,10 +508,10 @@ def _check_document_shape(
             f"{{schema_version, base_pack_hash, overrides, probe_declarations}})"
         )
     version = document["schema_version"]
-    if not isinstance(version, str) or not version.split(".")[0].isdigit():
+    if not isinstance(version, str) or not _SEMVER.match(version):
         raise CounterfactualConfigError(
-            f"schema_version {version!r} is not semver (§c.1: versioned; breaking change = "
-            f"major bump)"
+            f"schema_version {version!r} is not a three-part semver MAJOR.MINOR.PATCH "
+            f"(§c.1: versioned; breaking change = major bump)"
         )
     if int(version.split(".")[0]) != _SUPPORTED_MAJOR:
         raise CounterfactualConfigError(
@@ -519,12 +588,13 @@ def validate_config(
             resolved = resolve_path(pack, path)
             if resolved.probe_kind is not None:
                 _require_probe(persona_name, path, resolved.probe_kind, declarations)
-            if not resolved.lo <= number <= resolved.hi:
+            if resolved.lo is not None and not resolved.lo <= number <= resolved.hi:
                 raise CounterfactualConfigError(
                     f"{persona_name}: override {path!r} = {number!r} is outside the §a.2 axis "
                     f"{resolved.axis_number} sweep bounds [{resolved.lo}, {resolved.hi}]"
                 )
             resolved_here[path] = number
+        _check_flat_sizing_completeness(persona_name, pack, resolved_here)
         if _CONTINUE_REF in resolved_here and _CALL_LOOSENESS in resolved_here:
             raise CounterfactualConfigError(
                 f"{persona_name}: `postflop.continue_ref` and `postflop.call_looseness` are "
@@ -543,7 +613,7 @@ def validate_config(
         },
         packs,
     )
-    merged = apply_overrides(packs, canonical["overrides"])
+    merged = _apply_overrides(packs, canonical["overrides"])
     return ValidatedConfig(
         schema_version=document["schema_version"],
         base_pack_hash=document["base_pack_hash"],
@@ -553,6 +623,38 @@ def validate_config(
         config_hash=config_hash(canonical),
         packs=merged,
     )
+
+
+def _check_flat_sizing_completeness(
+    persona: str, pack: PersonaPack, resolved: Mapping[str, float]
+) -> None:
+    """§a.2 row 13 is a *joint* constraint: the flat sizing weights are a point
+    on a simplex, not k independent dials.
+
+    So a config that moves any `postflop.sizing` key must move all of that
+    pack's authored keys, and the values must sum to 1 within 1e-3 (the pack
+    model's own normalization tolerance, `models.py:161`). Without this rule a
+    one-key move fails much later with a pydantic sum-to-1 message that names
+    the model instead of the rule the author broke.
+    """
+    prefix = _FLAT_SIZING + "."
+    touched = {p[len(prefix) :]: v for p, v in resolved.items() if p.startswith(prefix)}
+    if not touched:
+        return
+    authored = set(pack.postflop.sizing)
+    if set(touched) != authored:
+        raise CounterfactualConfigError(
+            f"{persona}: partial `postflop.sizing` override {sorted(touched)} — §a.2 axis 13 "
+            f"is a truncated SIMPLEX (k−1 degrees of freedom), so overriding any flat sizing "
+            f"key requires overriding all {len(authored)} authored keys {sorted(authored)}"
+        )
+    total = math.fsum(touched.values())
+    if abs(total - 1.0) > 1e-3:
+        raise CounterfactualConfigError(
+            f"{persona}: `postflop.sizing` override weights sum to {total!r}, not 1.0 within "
+            f"1e-3 — §a.2 axis 13 stores the post-softmax simplex point, whose keys sum to 1 "
+            f"by construction"
+        )
 
 
 def _require_probe(
@@ -585,12 +687,26 @@ def effective_call_looseness(pack: PersonaPack) -> float:
     Unset means the engine reads `stickiness` instead (`personas_postflop.py:889`,
     `models.py:171-192`) — the exact fallback the §a.2 canonicalization rule
     exists to make explicit.
+
+    Raises rather than asserts: `python -O` strips asserts, and a silent None
+    here would write `call_looseness: null` into a canonical config — exactly
+    the "authored key with no lever" the pack model rejects.
     """
     postflop = pack.postflop
-    assert postflop is not None  # all six shipped packs author it
+    if postflop is None:
+        raise CounterfactualConfigError(
+            f"{pack.persona}: pack authors no `postflop` block, so the §a.2 canonicalization "
+            f"rule (every sweep config materializes `call_looseness` on every persona) cannot "
+            f"be applied"
+        )
     if postflop.call_looseness is not None:
         return postflop.call_looseness
-    assert postflop.stickiness is not None  # the model requires it when the split is incomplete
+    if postflop.stickiness is None:
+        raise CounterfactualConfigError(
+            f"{pack.persona}: neither `call_looseness` nor its `stickiness` fallback is "
+            f"authored, so the pack has no effective calling dial to materialize (§a.2 "
+            f"canonicalization rule)"
+        )
     return postflop.stickiness
 
 
@@ -610,7 +726,10 @@ def canonicalize(
     a co-sweep would actually move both dials.
 
     Probe declarations are sorted (and their `paths` sorted) so that authoring
-    order never changes a config's identity.
+    order never changes a config's identity. `rationale` is part of the sort key
+    as well as of the hash: two declarations that agree on kind, persona and
+    paths but differ in prose are distinct documents, and leaving prose out of
+    the key would let swapping their authored order flip `config_hash`.
     """
     overrides: dict[str, dict[str, float]] = {
         persona: dict(paths) for persona, paths in document["overrides"].items()
@@ -621,7 +740,9 @@ def canonicalize(
     declarations = [dict(d) for d in document["probe_declarations"]]
     for decl in declarations:
         decl["paths"] = sorted(decl["paths"])
-    declarations.sort(key=lambda d: (d["probe_kind"], d["persona"], tuple(d["paths"])))
+    declarations.sort(
+        key=lambda d: (d["probe_kind"], d["persona"], tuple(d["paths"]), d["rationale"])
+    )
     return {
         "schema_version": document["schema_version"],
         "base_pack_hash": document["base_pack_hash"],
@@ -635,7 +756,7 @@ def canonicalize(
 # --------------------------------------------------------------------------
 
 
-def apply_overrides(
+def _apply_overrides(
     packs: Mapping[VillainType, PersonaPack], overrides: Mapping[str, Mapping[str, float]]
 ) -> dict[VillainType, PersonaPack]:
     """§c.4/§c.5: SET the overrides on deep copies, then re-validate from
@@ -647,6 +768,15 @@ def apply_overrides(
     presence/absence state. No attribute is ever assigned on a pack object:
     §c.5 rejects in-place update precisely because it bypasses validation. No
     file under `content/` is read or written here.
+
+    PRIVATE on purpose. It takes CANONICAL overrides, which carry
+    `call_looseness` materialized at each pack's baseline effective value — and
+    a baseline value is not required to sit inside the §a.2 *sweep* bounds, so
+    this function cannot re-check bounds without risking a refusal of the
+    baseline itself. Bounds are enforced once, on the AUTHORED overrides, in
+    `validate_config`; making the merge public would open a second door into
+    the pack model that skips that check. `validate_config` / `load_config` are
+    the supported entry points, and both hand back merged `.packs`.
     """
     merged: dict[VillainType, PersonaPack] = {}
     for name, pack in packs.items():
