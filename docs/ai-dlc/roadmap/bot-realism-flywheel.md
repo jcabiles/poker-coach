@@ -126,13 +126,24 @@ status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instru
       contract bands; no rendered-text parsing; **scores are non-authoritative for any
       conclusion until validation passes** (S4 may use them only as reproducibility smoke
       data — stated identically in the PRD).
-- [ ] **S4 — Batch sweep runner + counterfactual-config layer** — problem: no way to price N
+- [x] **S4 — Batch sweep runner + counterfactual-config layer** — ✅ 2026-08-07. Shipped:
+      one command (`sweep_runner`) delivering N configs → N seeded runs → N pinned scores;
+      §c acceptance tests pass incl. canonicalization byte-safety; 10-config 50k smoke
+      sweep complete with producer-rerun determinism check and 10/10 re-score
+      byte-identity; measured capacity 404.7 configs/night loaded (program 2.58-3.03
+      nights, hard cap 3.71 of 6 — §f escalation does NOT fire); S3 declared gaps closed
+      (config_hash sentinel retired end-to-end with the rebuilt Σ_sim artifact
+      cov-4a718ef1f6c30391, producer-rerun check, run_id collision); scores remained
+      smoke-data-only throughout (stop-gate honored). — problem: no way to price N
       dial configs · outcome-link: reachability + all future tuning · pass/fail: one command:
       N configs (S2a schema) → N seeded runs → N scores, manifest-pinned (engine sha · seed ·
       config hash · scorer version · registry version); 10-config smoke batch reproduces
       byte-identical scores; one-config benchmark recorded against the S2a compute budget ·
-      appetite: 2–3 days · no-gos: configs sweep the S2a-declared space only — no policy-code
-      edits, no committed pack changes.
+      appetite: 2–3 days (re-costed 2026-08-07 at Gate 2: **4–6 days**, owner-approved as one
+      slice — spec dual-review made the baseline covariance-artifact rebuild, the §f 5-worker
+      parallel runner + raw-data retirement, and an ODCS minor-version window mandatory; see
+      `docs/ai-dlc/ledger/flywheel-s4.md`) · no-gos: configs sweep the S2a-declared space only
+      — no policy-code edits, no committed pack changes.
 - [ ] **S5 — Reachability study + operational-ceiling verdict** — problem: unknown whether
       ANY declared-space config reaches human-band behavior (the owner's gate question) ·
       outcome-link: decides phase 3 · pass/fail: verdict doc per the S2a estimand contract:
