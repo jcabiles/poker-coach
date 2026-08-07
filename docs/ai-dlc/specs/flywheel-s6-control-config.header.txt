@@ -1,0 +1,3 @@
+§c counterfactual config for the S6 T1 control bundle (bot-realism flywheel).
+Best-effort extreme override found across the registered §a.2 axes; measured
+degeneracy is BELOW the 0.90 target — see spec appendix "T1" for the honest number, the search that was tried, and why the axes cap out here.

@@ -1,0 +1,60 @@
+{
+  "base_pack_hash": "6364992c9b0e7cc2e90e5b46037d7f5dd7de58f5c2ed07f7515b11e59d744c1a",
+  "overrides": {
+    "calling_station": {
+      "postflop.aggression": 5.6,
+      "postflop.bluff_freq": 1.0,
+      "postflop.call_looseness": 0.2,
+      "postflop.line_sensitivity": 2.0,
+      "postflop.multiway_bluff_damp": 1.0,
+      "postflop.size_elasticity": 3.0,
+      "postflop.spr_commit": 0.5
+    },
+    "lag": {
+      "postflop.aggression": 5.6,
+      "postflop.bluff_freq": 1.0,
+      "postflop.call_looseness": 0.2,
+      "postflop.line_sensitivity": 2.0,
+      "postflop.multiway_bluff_damp": 1.0,
+      "postflop.position_sensitivity": 1.0,
+      "postflop.spr_commit": 0.5
+    },
+    "maniac": {
+      "postflop.aggression": 5.6,
+      "postflop.bluff_freq": 1.0,
+      "postflop.call_looseness": 0.2,
+      "postflop.line_sensitivity": 2.0,
+      "postflop.multiway_bluff_damp": 1.0,
+      "postflop.spr_commit": 0.5
+    },
+    "nit": {
+      "postflop.aggression": 5.6,
+      "postflop.bluff_freq": 1.0,
+      "postflop.call_looseness": 0.2,
+      "postflop.line_sensitivity": 2.0,
+      "postflop.multiway_bluff_damp": 1.0,
+      "postflop.position_sensitivity": 1.0,
+      "postflop.spr_commit": 0.5
+    },
+    "passive_fish": {
+      "postflop.aggression": 5.6,
+      "postflop.bluff_freq": 1.0,
+      "postflop.call_looseness": 0.2,
+      "postflop.line_sensitivity": 2.0,
+      "postflop.multiway_bluff_damp": 1.0,
+      "postflop.size_elasticity": 3.0,
+      "postflop.spr_commit": 0.5
+    },
+    "tag": {
+      "postflop.aggression": 5.6,
+      "postflop.bluff_freq": 1.0,
+      "postflop.call_looseness": 0.2,
+      "postflop.line_sensitivity": 2.0,
+      "postflop.multiway_bluff_damp": 1.0,
+      "postflop.position_sensitivity": 1.0,
+      "postflop.spr_commit": 0.5
+    }
+  },
+  "probe_declarations": [],
+  "schema_version": "1.0.0"
+}
