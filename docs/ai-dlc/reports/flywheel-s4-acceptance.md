@@ -21,14 +21,18 @@ baseline replicate batches reused from `/tmp/claude-501/t4-replicates/rep-601..6
 
 **Deviation noted, not chased:** the ticket's "READ FIRST" pointer
 `docs/ai-dlc/specs/flywheel-s4.md` does not exist in the coach worktree (nor on any
-branch in this repo's history) — S4's T1–T5 commits cite the same path in code
-docstrings (e.g. `backend/tools/sweep_runner.py`'s module docstring), so this is a
-pre-existing citation gap, not something introduced here. §c acceptance criteria are
-authoritative in `docs/methods/estimand-contract.md` (analytics worktree), which does
-exist and is what this report tests against; the S4 roadmap entry's pass/fail line is
-the second source of truth used. No spec-vs-contract contradiction was found — the
-`sweep_runner.py` docstring's described behavior matches the contract exactly
-everywhere checked.
+branch in this repo's history). The citations to it are not inherited from an older
+slice — they were **authored in this slice**: `backend/tools/sweep_runner.py:7`
+("Design (spec `docs/ai-dlc/specs/flywheel-s4.md`, "Design rulings")") and
+`backend/tools/counterfactual.py:28` (`spec docs/ai-dlc/specs/flywheel-s4.md:63-67`),
+both landed in S4's own T2/T5 commits. These are dangling citations to a spec file
+that was apparently never committed; **resolve when T7 commits the spec** (or strike
+the citations if T7 determines no such file was ever meant to exist as a separate
+doc). §c acceptance criteria are authoritative in `docs/methods/estimand-contract.md`
+(analytics worktree), which does exist and is what this report tests against; the S4
+roadmap entry's pass/fail line is the second source of truth used. No spec-vs-contract
+contradiction was found — the `sweep_runner.py` docstring's described behavior matches
+the contract exactly everywhere checked.
 
 ---
 
@@ -76,6 +80,34 @@ explicit, per the sweep runner's own binding rule):**
   `score_status` = `exploratory-surrogate` (S3 stop-gate — expected, not a finding
   about this test).
 
+**Reproducible invocation** (field-diff + masked-equality check, run from
+`backend/` in the coach worktree):
+```python
+import json
+from tools.sweep_runner import score_payloads_equal_ignoring_gate_hash
+
+a = json.load(open(".../empty-override-score.json"))["canonical"]
+b = json.load(open(".../rep601-rescore.json"))["canonical"]
+
+def flatten(x, path=""):
+    out = {}
+    if isinstance(x, dict):
+        for k, v in x.items():
+            out.update(flatten(v, path + "." + k))
+    elif isinstance(x, list):
+        for i, v in enumerate(x):
+            out.update(flatten(v, path + f"[{i}]"))
+    else:
+        out[path] = x
+    return out
+
+fa, fb = flatten(a), flatten(b)
+diffs = [k for k in set(fa) | set(fb) if fa.get(k) != fb.get(k)]
+print(diffs)  # -> ['.gate.parquet_sha256']
+
+print(score_payloads_equal_ignoring_gate_hash(a, b))  # -> True
+```
+
 **Verdict: A PASSES.** Canonicalizing an empty-override config reproduces
 byte-identical parquet content, identical run/config identity, and identical scores
 (modulo the one field the contract itself declares masked) against the raw baseline
@@ -118,7 +150,17 @@ Existing subprocess test cited:
 (line 813) — two child processes, `PYTHONHASHSEED` 0 and 1, assert equal hashes.
 
 **Additional demo:** the §c-acceptance-(i) empty-override config's hash computed in
-two fresh `python -c` processes (`PYTHONHASHSEED=0` and `PYTHONHASHSEED=1`):
+two fresh `python -c` processes (`PYTHONHASHSEED=0` and `PYTHONHASHSEED=1`),
+run from `backend/` in the coach worktree:
+```sh
+PYTHONHASHSEED=0 python -c "
+import sys
+sys.path.insert(0, '.')
+from tools.counterfactual import load_config
+print(load_config('/tmp/claude-501/t6-acc1/empty_override.json').config_hash)
+"
+PYTHONHASHSEED=1 python -c "<same body>"
+```
 both processes returned `9273b753b9de041a9750557f21c72d4a7482b344d73be7d378b3df56c21375f8`.
 
 **Verdict: C PASSES.**
@@ -195,7 +237,12 @@ export→validate→score pipeline); per the ticket's documented fallback, per-b
 re-score equality is what is proved here. For each of the 10 kept raw batches,
 `make score` was re-run a second time to a fresh `OUT=` file (same pinned COV
 artifact), and each fresh `canonical_sha256` was compared against the value the
-sweep's own manifest recorded for that `run_id`:
+sweep's own manifest recorded for that `run_id`. Command template (run once per
+batch directory `$d` from the analytics worktree):
+```sh
+make score DIR="$d" OUT="/tmp/claude-501/t6-smoke/rescore/$(basename "$d").json" \
+  COV=scorer/artifacts/cov-4a718ef1f6c30391.json
+```
 
 | run_id | sweep-recorded `score_canonical_sha256` (16c) | fresh re-score `canonical_sha256` | match |
 |---|---|---|---|
@@ -222,8 +269,16 @@ only hash equality/inequality.)
 
 ## E. Benchmark vs §f
 
+**Revision note (post-review):** the first pass of this section applied §f's ×5
+worker factor to the SERIAL, unloaded single-worker export time (125.95 s) — that
+overstates capacity by treating 5 workers as if each ran at the single-worker rate
+with zero contention. The smoke sweep's own per-export wall-clock under 5-way load
+(194.9–217.8 s per export, see below) shows real per-worker efficiency well under 1.
+This revision uses the MEASURED END-TO-END loaded throughput as the primary figure.
+
 **T4's five serial `_TIMING.json` values (export-only wall-clock, single-core, no
-parallel load — the throughput evidence source per this ticket's binding):**
+parallel load — kept as the single-worker serial export benchmark ONLY, not the
+capacity denominator):**
 
 | seed | wall seconds | hands/s |
 |---|---|---|
@@ -236,72 +291,133 @@ parallel load — the throughput evidence source per this ticket's binding):**
 Mean 123.15 s (406.0 h/s); worst 125.95 s (396.97 h/s); best 121.90 s (410.18 h/s).
 Matches the ticket's stated range (121.9–126.0 s, 397–410 h/s).
 
-**§f's contract arithmetic (hypothetical, includes an un-measured 300 s real-scorer
-acceptance bound):** worst-bound 424 s/run → 271.7 configs/night (worst-bound,
-`28800×0.8×5/424`) → 1,225-run program in **4.51 nights**; 1,500-run hard cap in
-**5.52 nights** — both ≤6, consistent with §f's own stated conclusion.
+**Serial single-worker per-config TOTAL** (export + gate + scorer, the same
+additive form §f itself uses for its 424 s / 155 s figures): worst-case export
+125.95 s + gate+score bundled ~2.96 s (measured — see below) ≈ **128.9 s**. This is
+context only; per-worker component splits were not separately isolated across all
+runs (§A's own `make validate` + `make score` calls measured ~1.64 s + ~0.53 s ≈
+2.17 s for one batch, close to but not identical to the bundled smoke-sweep average
+below — the difference is subprocess/`make`-invocation overhead not visible in
+isolated component timings).
 
-**Recomputed with the MEASURED worst single-run wall (125.95 s, export-only —
-the real scorer measured here is 0.5 s, not the hypothetical 300 s bound):**
-`28800×0.8×5/125.95 ≈ 914.6 configs/night`. The 1,045–1,225-run program fits in
-**1.14–1.34 nights**; even the hard 1,500-run cap fits in **1.64 nights**.
+**Measured 5-way-loaded per-export wall-clock** (from `_TIMING.json` inside each of
+the 10 smoke-sweep batch directories, §D): 194.9–217.8 s, mean **206.55 s**.
+**Per-worker efficiency at 5-way load** = serial-worst ÷ mean-loaded-export =
+125.95 / 206.55 = **0.610**. If parallelism were perfect this would be 1.0 (5
+workers → 5× throughput); at 0.61 the aggregate export-stage capacity multiplier is
+5 × 0.610 = **3.05×** the single-worker rate (not 5×). This diagnostic figure
+(0.61, 3.05×) is reported for T7's use in fixing §f's formula — it is NOT what
+feeds the capacity arithmetic below, because it excludes the extra producer-rerun
+dup export and the 10 serial validate+score steps that a real sweep night also
+pays for.
+
+**Gate+score bundled wall-clock** (correct field: `volatile.runs[].wall_seconds` in
+`sweep_manifest.json` — NOT `volatile.wall_time_seconds`, a per-score-file field
+that measures only the scorer's internal stats step, not validate+score end to
+end): 10 values, 2.833–3.458 s, mean **2.963 s**.
+
+**PRIMARY capacity figure — measured aggregate end-to-end throughput.** The smoke
+sweep (§D) processed the 10 declared configs, under real 5-worker contention, one
+producer-rerun dup export, and all 10 serial validate+score steps, in **569.3 s**
+total wall-clock:
+```
+569.3 s / 10 configs = 56.93 s/config (measured, loaded, end-to-end)
+28800 × 0.8 / 56.93 ≈ 404.7 configs/night
+```
+(No ×5 factor here — the 569.3 s figure already reflects the whole 5-worker rig's
+throughput for 10 configs, so dividing by config count directly yields the loaded
+per-config rate.)
+
+- **1,045–1,225-run program:** 1045/404.7 to 1225/404.7 = **2.58–3.03 nights**.
+- **1,500-run hard cap:** 1500/404.7 = **3.71 nights**.
+
+**Reconciling the two speedup figures (both correct, different scopes — do not
+transplant one for the other):**
+- **End-to-end aggregate speedup** (whole sweep, incl. the dup export + serial
+  validate/score overhead): `(10 × 125.95 s serial-worst) / 569.3 s = 1259.5 / 569.3
+  ≈ 2.21×`.
+- **Export-stage-only capacity multiplier** (workers × per-worker efficiency,
+  excludes dup export and all validate/score overhead): `5 × 0.610 ≈ 3.05×`.
+The gap between 2.21× and 3.05× is accounted for by the 11th (dup) export
+competing for a worker slot and by ~30 s of serial validate+score work (10 ×
+~2.96 s) that the export-stage multiplier does not count. **The 56.93 s/config
+figure (from the 2.21×-consistent 569.3 s total) is the one used for the capacity
+arithmetic above** — it is the true end-to-end measurement, not a derived multiple.
 
 **Escalation-clause verdict: does NOT fire.** §f's clause fires only if S4's
-measured real-scorer time pushes the program past 6 worst-bound nights. Measured:
-1.64 nights at the hard cap, using measured export wall-clock plus the measured
-(not hypothetical) scorer wall-clock (~0.5 s per run, observed in both §A and §D's
-`volatile.wall_time_seconds`) — nowhere near the 6-night threshold under either the
-contract's own 424 s worst-bound arithmetic (5.52 nights) or the measured-benchmark
-arithmetic (1.64 nights).
+measured time pushes the program past 6 worst-bound nights. Measured hard-cap
+duration: **3.71 nights = 3.71/6 ≈ 61.8% of the 6-night threshold** — under the
+threshold, but by a much smaller margin than the (wrong) 27.3% figure the
+serial-denominator arithmetic implied. Escalation still does not fire, but §f's
+mechanical-revision clause should carry the corrected 3.71-night figure, not a
+number closer to 1.6.
 
-**Parallelism observation (smoke sweep, informational only — not throughput
-evidence per the ticket's own framing):** the smoke sweep ran 11 exports (10 + 1
-producer-rerun dup) under 5-worker parallelism in **569.3 s** wall-clock, vs
-**1,259.5 s** for `10 × 125.95 s` serial (using the measured worst single-run wall) —
-a **2.21×** observed speedup at 5 workers on this machine (below the 5× ideal, as
-expected under real contention; not used for any capacity conclusion). Per-batch
-`_TIMING.json` values under this run's 5-way load ranged 194.9–217.8 s — noticeably
-more than the "~20% slower" figure named as a known fact in this ticket's brief;
-this is recorded as an observation, not chased as a defect (per the brief's explicit
-instruction that per-batch parallel-load timing is not throughput evidence — only
-T4's serial numbers are).
+**Parallelism observation, restated (informational — not a separate capacity
+claim):** per-batch `_TIMING.json` export walls under this run's 5-way load ranged
+194.9–217.8 s — substantially more than the "~20% slower" figure named as a known
+fact in the originating ticket's brief (this run measured ~55–73% slower per
+export, i.e. 0.61 efficiency, not ~0.83). Recorded as an observation per the
+brief's instruction not to chase it as a defect; the MEASURED end-to-end 56.93
+s/config figure above already absorbs whatever the true degradation is — the 0.61/
+3.05× figures exist only to explain WHY the end-to-end number is what it is, and
+to give T7 the loaded-worker component so §f's `×5` form can be repaired.
 
-**Exact replacement numbers for §f's mechanical-revision clause (T7 applies the doc
-edit; this report does not):**
-- Measured worst single-run export wall-clock: **125.95 s** (replaces the
-  hypothetical 424 s worst-bound denominator with a measured one — measured is now
-  used exclusively; if the contract wants to keep a distinct "worst-bound" concept it
-  should be re-derived, but the escalation math above uses the measured value).
-- Measured configs/night (worst, 5 workers, 0.8 utilization): **≈914.6/night**.
-- 1,045–1,225-run program: **1.14–1.34 nights** (was 3.86–4.51 realistic-arithmetic,
-  4.51 worst-bound-arithmetic).
-- 1,500-run hard cap: **≈1.64 nights** (was 5.52 worst-bound-arithmetic).
-- Escalation clause: **does not fire** (measured program duration is ~9% of the
-  6-night threshold at the hard cap).
+**Exact replacement numbers for §f's mechanical-revision clause (T7 applies the
+doc edit; this report does not):**
+- **Flag for T7:** §f's `28800×0.8×5/t` form is unsound with `t` = a serial,
+  unloaded per-run time — either `t` must become the LOADED per-worker time
+  (206.55 s mean, giving the 0.61-efficiency path), or the `×5` must be replaced
+  outright by the measured aggregate throughput (404.7 configs/night from
+  569.3 s/10 configs). **Do not let T7 transplant the existing formula with a
+  serial `t` substituted in** — that reproduces this report's original,
+  since-corrected error.
+- Single-worker serial export benchmark (context only, not a capacity input):
+  **125.95 s worst / 123.15 s mean**.
+- Measured per-worker efficiency at 5-way load: **0.610** (aggregate export-stage
+  capacity multiplier: 5 × 0.610 ≈ **3.05×**, diagnostic only).
+- **Primary measured configs/night (loaded, end-to-end): ≈404.7/night.**
+- 1,045–1,225-run program: **2.58–3.03 nights** (was 3.86–4.51 in §f's original
+  arithmetic; was wrongly stated as 1.14–1.34 nights in this report's first pass).
+- 1,500-run hard cap: **≈3.71 nights** (was 5.52 in §f's original arithmetic; was
+  wrongly stated as ≈1.64 nights in this report's first pass).
+- Escalation clause: **does not fire** (3.71 of 6 nights ≈ 61.8%).
 
-**Verdict: E — benchmark recomputed, escalation clause evaluated and does not
-fire.**
+**Verdict: E — benchmark recomputed on measured loaded throughput; escalation
+clause evaluated and does not fire.**
 
 ---
 
 ## F. Deferred-gap check (against S3's declared gaps)
 
-- **`config_hash` sentinel — CLOSED**, by T2/T3/T4. Evidence: the pinned covariance
-  artifact's key carries `config_hash:
-  "9273b753b9de041a9750557f21c72d4a7482b344d73be7d378b3df56c21375f8"` (visible in
-  every score payload's `canonical.covariance_artifact.key.config_hash` in this
-  report's §A and §D runs) — every score is now traceable to the exact config that
-  produced it, closing S3's undated config-identity gap.
+- **`config_hash` sentinel — CLOSED**, by T2/T3/T4. Two distinct pieces of
+  evidence, correctly attributed: (1) **per-run score traceability** —
+  `canonical.producer_run.config_hash` on each smoke-sweep score payload equals
+  that run's own config (e.g. smoke config 1's score carries
+  `producer_run.config_hash = "b841e294bc298c6e..."`, matching its `run_id`
+  `run-s701-n50000-cb841e294bc29` — every score is traceable to the exact config
+  that produced it). (2) **sentinel-retirement proof (the covariance artifact's
+  own baseline provenance)** — `canonical.covariance_artifact.key.config_hash` is
+  `"9273b753b9de041a9750557f21c72d4a7482b344d73be7d378b3df56c21375f8"` on every
+  score regardless of the scored config (it is the artifact's fixed baseline
+  source, not per-run identity) — this is what closes S3's gap about the
+  covariance artifact itself lacking a recorded config identity, distinct from
+  (1)'s per-run traceability.
 - **Producer-rerun check — CLOSED**, by T5. Evidence: §D's `producer_rerun_check`
   block (`check_status: "passed"`, `parquet_equal: true`, `score_equal: true`) —
   the sweep runner now proves producer determinism as a first-class check on every
   sweep run, not a manual side exercise.
-- **`run_id` collision — CLOSED**, by T2. Evidence: `run_id` format is
-  `run-s{seed}-n{n_hands}-c{config_hash[:13]}` (e.g.
-  `run-s701-n50000-cb841e294bc29`) — the config-hash suffix means two different
-  configs at the same `(seed, n_hands)` can never collide on `run_id`, which §D's
-  10 distinct `config_hash` → 10 distinct `run_id` (same seed, same n_hands, across
-  all 10) directly demonstrates.
+- **`run_id` collision — CLOSED for the tested arm-set**, by T2 (softened from an
+  unconditional claim). Evidence: `run_id` format is
+  `run-s{seed}-n{n_hands}-c{config_hash[:12]}` (e.g.
+  `run-s701-n50000-cb841e294bc29` — 12 hex chars, 48 bits of the hash, confirmed
+  against `export_analytics.py:303`) — no collision occurred among these ten
+  configs' `run_id`s (§D: 10 distinct `config_hash` → 10 distinct `run_id`, same
+  seed, same n_hands). This is a 48-bit-prefix display identifier, not the
+  identity of record: **the FULL `config_hash` in `_SUCCESS` and
+  `canonical.producer_run.config_hash` is the actual identity**; a 48-bit prefix
+  collision between two DIFFERENT full hashes remains theoretically possible
+  (astronomically unlikely at this program's scale, but not structurally
+  excluded) and would need the full hash to disambiguate.
 - **`lineup` not in `run_id` — REMAINS, disclosed wart.** `export_analytics.py`'s
   own comment (near its lineup-resolution code): "KNOWN WART (out of scope for T2):
   run_id still ignores `lineup`, so two runs with the same (seed, n_hands,
