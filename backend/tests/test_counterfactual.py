@@ -181,10 +181,35 @@ def test_unsupported_schema_major_rejected(packs):
         validate_config(doc, packs)
 
 
-@pytest.mark.parametrize("version", ["1", "1.0", "1.x", "1.2-beta", "1.2.3.4", "v1.0.0", "", 1])
+@pytest.mark.parametrize(
+    "version",
+    [
+        "1",
+        "1.0",
+        "1.x",
+        "1.2-beta",
+        "1.2.3.4",
+        "v1.0.0",
+        "",
+        1,
+        "1.0.0\n",  # `$` also matches before a trailing newline; `fullmatch` does not
+        "\n1.0.0",
+        " 1.0.0",
+        "1.0.0 ",
+        "01.0.0",  # a second spelling of "1.0.0" — and so a second config_hash
+        "1.01.0",
+        "1.0.00",
+    ],
+)
 def test_malformed_schema_version_rejected(packs, version):
     """§c.1 is semver: a version that merely STARTS with a legal major must not
-    be waved through on the strength of its first component."""
+    be waved through on the strength of its first component.
+
+    The trailing-newline and leading-zero cases are identity bugs, not cosmetic
+    ones: the version is hashed verbatim, so accepting "1.0.0\\n" or "01.0.0"
+    alongside "1.0.0" would mint two `config_hash` values for one config and
+    silently duplicate a sweep arm — the same defect class as unfolded -0.0.
+    """
     doc = _cfg(packs)
     doc["schema_version"] = version
     with pytest.raises(CounterfactualConfigError, match="three-part semver"):
@@ -575,17 +600,80 @@ def test_sizing_by_node_probe_has_no_invented_bounds(packs):
     assert result.packs["tag"].postflop.sizing_by_node[node] == weights
 
 
-def test_partial_sizing_by_node_override_fails_the_c5_reparse(packs):
-    """No completeness rule exists for the frozen probe family (the contract
-    declares none), so an unnormalized node distribution is caught by the §c.5
-    re-validation through the pack model instead."""
+def test_partial_sizing_by_node_override_rejected_by_the_same_rule(packs):
+    """The completeness rule is stated once and covers BOTH bucket-distribution
+    families: a correctly-declared single-weight probe is refused by name, not
+    by a raw pydantic sum-to-1 message."""
     path = "postflop.sizing_by_node.cbet_dry.0.33"
-    with pytest.raises(CounterfactualConfigError, match="re-validation"):
+    with pytest.raises(CounterfactualConfigError) as exc:
         validate_config(
             _cfg(
                 packs,
                 overrides={"tag": {path: 0.9}},
                 probes=[_probe("sizing_by_node", "tag", [path])],
+            ),
+            packs,
+        )
+    message = str(exc.value)
+    assert "partial `postflop.sizing_by_node.cbet_dry` override" in message
+    assert "requires overriding all 3 authored keys" in message
+    assert "normalized by construction" in message  # the model's rule, not an §a.2 bound
+    assert "re-validation" not in message
+
+
+def test_complete_sizing_by_node_override_must_sum_to_one(packs):
+    node = "cbet_dry"
+    keys = list(packs["tag"].postflop.sizing_by_node[node])
+    paths = [f"postflop.sizing_by_node.{node}.{k}" for k in keys]
+    with pytest.raises(CounterfactualConfigError, match="sum to 0.6.*not 1.0 within"):
+        validate_config(
+            _cfg(
+                packs,
+                overrides={"tag": dict.fromkeys(paths, 0.2)},  # 3 x 0.2 = 0.6
+                probes=[_probe("sizing_by_node", "tag", paths)],
+            ),
+            packs,
+        )
+
+
+def test_two_bucket_dists_are_checked_independently(packs):
+    """Grouping is by resolved CONTAINER path, so touching two distributions in
+    one config checks each against its own authored key set rather than pooling
+    them into one bogus sum."""
+    flat = list(packs["tag"].postflop.sizing)
+    node_keys = list(packs["tag"].postflop.sizing_by_node["cbet_dry"])
+    node_paths = [f"postflop.sizing_by_node.cbet_dry.{k}" for k in node_keys]
+    overrides = {
+        **{f"postflop.sizing.{k}": w for k, w in zip(flat, [0.25] * 4, strict=True)},
+        **dict(zip(node_paths, [0.2, 0.3, 0.5], strict=True)),
+    }
+    result = validate_config(
+        _cfg(
+            packs,
+            overrides={"tag": overrides},
+            probes=[_probe("sizing_by_node", "tag", node_paths)],
+        ),
+        packs,
+    )
+    merged = result.packs["tag"].postflop
+    assert merged.sizing == dict.fromkeys(flat, 0.25)
+    assert merged.sizing_by_node["cbet_dry"] == dict(zip(node_keys, [0.2, 0.3, 0.5], strict=True))
+
+
+def test_c5_reparse_still_backstops_what_no_declared_rule_covers(packs):
+    """A probe distribution that is complete and sums to 1 but carries a zero
+    weight passes every rule this module declares — and is still refused,
+    because the §c.5 re-parse through the pack model is the final gate
+    (`_validate_bucket_dist` requires every weight > 0)."""
+    node = "cbet_dry"
+    keys = list(packs["tag"].postflop.sizing_by_node[node])
+    paths = [f"postflop.sizing_by_node.{node}.{k}" for k in keys]
+    with pytest.raises(CounterfactualConfigError, match="re-validation"):
+        validate_config(
+            _cfg(
+                packs,
+                overrides={"tag": dict(zip(paths, [0.0, 0.5, 0.5], strict=True))},
+                probes=[_probe("sizing_by_node", "tag", paths)],
             ),
             packs,
         )

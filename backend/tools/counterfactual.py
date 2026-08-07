@@ -74,9 +74,23 @@ from app.domain.personas import load_persona_packs
 # §c.1 — semver; a breaking change is a major bump. We accept any 1.x document,
 # but only if it is a well-formed three-part semver: "1", "1.2", "1.2-beta" and
 # "1.2.3.4" are all rejected rather than silently read as major 1.
+#
+# Two subtleties, both identity bugs rather than cosmetics: the version string is
+# copied verbatim into the canonical document and therefore into `config_hash`,
+# so any two spellings this validator accepts become two names for one config and
+# silently duplicate a sweep arm.
+#   * `fullmatch`, NOT `match` against `^...$` — Python's `$` also matches before
+#     a trailing newline, so `"1.0.0\n"` sails through an anchored `match`.
+#   * per-component `(0|[1-9]\d*)`, NOT `\d+` — otherwise `"01.0.0"` is a second
+#     spelling of `"1.0.0"`.
+# poker-analytics enforces the same rule at its ingestion gate and documents the
+# `fullmatch` reason identically (`ingest/validate.py:54,85-97`). Its component
+# pattern is the looser `\d+`, which is harmless THERE (its `_semver()`
+# normalizes to ints before comparing) and unsafe HERE (we hash the raw string),
+# so this pattern is deliberately the stricter of the two.
 SCHEMA_VERSION = "1.0.0"
 _SUPPORTED_MAJOR = 1
-_SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+_SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 
 _DOCUMENT_FIELDS = frozenset({
     "schema_version",
@@ -137,6 +151,9 @@ _AXIS_BY_PATH: dict[str, Axis] = {a.path: a for a in SCALAR_AXES}
 _FLAT_SIZING = "postflop.sizing"
 _NODE_SIZING = "postflop.sizing_by_node"
 PROBE_KINDS = frozenset({"continue_ref", "sizing_by_node"})
+# Both weight families report axis 13; a resolved path carrying it is a weight
+# inside a normalized bucket distribution (see `_check_bucket_dist_completeness`).
+_BUCKET_DIST_AXIS = 13
 
 # §a.2 exclusions that deserve their own error text rather than a generic
 # "unknown path" (estimand-contract.md:113-140).
@@ -159,19 +176,17 @@ def simplex_bounds(k: int) -> tuple[float, float]:
     FLAT (`postflop.sizing`) keys: [0.05, min(0.90, 1 − (k−1)·0.05)] (§a.2 row
     13). For k = 4 the attainable per-key max is 0.85.
 
-    The bound is per key, and the simplex is a *joint* constraint, so it comes
-    with a completeness rule enforced in `validate_config`: overriding ANY flat
-    sizing key for a persona means overriding ALL k of that pack's authored
-    keys, with the values summing to 1 within 1e-3. A partial override would
-    otherwise leave the distribution unnormalized and be refused later by the
-    pack model's own sum check with a message that names pydantic rather than
-    the rule the author actually broke.
+    The bound is per key; the simplex is also a *joint* constraint, enforced
+    separately by `_check_bucket_dist_completeness`.
 
-    NOT applied to `sizing_by_node`: §a.2 freezes that family in wave 1 and
-    declares NO bounds for the probe case, so inventing them here would refuse
-    probe distributions the pack model accepts (a node dist may legitimately
-    carry a weight below 0.05). Probe `sizing_by_node` weights are constrained
-    only by the §c.5 re-parse until a contract amendment says otherwise.
+    These BOUNDS are NOT applied to `sizing_by_node`: §a.2 freezes that family
+    in wave 1 and declares NO bounds for the probe case, so inventing them here
+    would refuse probe distributions the pack model accepts (a node dist may
+    legitimately carry a weight below 0.05). Until a contract amendment declares
+    bounds, a probe weight's only per-key constraint is the §c.5 re-parse.
+
+    The NORMALIZATION rule is a different matter and does apply to both families
+    — normalization is structural in the pack model, not a §a.2 sweep bound.
     """
     return 0.05, min(0.90, 1.0 - (k - 1) * 0.05)
 
@@ -508,12 +523,15 @@ def _check_document_shape(
             f"{{schema_version, base_pack_hash, overrides, probe_declarations}})"
         )
     version = document["schema_version"]
-    if not isinstance(version, str) or not _SEMVER.match(version):
+    match = _SEMVER.fullmatch(version) if isinstance(version, str) else None
+    if match is None:
         raise CounterfactualConfigError(
-            f"schema_version {version!r} is not a three-part semver MAJOR.MINOR.PATCH "
-            f"(§c.1: versioned; breaking change = major bump)"
+            f"schema_version {version!r} is not a three-part semver MAJOR.MINOR.PATCH in "
+            f"non-negative integers without leading zeros (§c.1: versioned; breaking change = "
+            f"major bump). The string is hashed verbatim, so a spelling this validator cannot "
+            f"read exactly is not one it may interpret approximately"
         )
-    if int(version.split(".")[0]) != _SUPPORTED_MAJOR:
+    if int(match.group(1)) != _SUPPORTED_MAJOR:
         raise CounterfactualConfigError(
             f"schema_version {version!r} has an unsupported major — this validator implements "
             f"§c schema major {_SUPPORTED_MAJOR} (§c.1)"
@@ -583,6 +601,7 @@ def validate_config(
             )
         pack = by_name[persona_name]
         resolved_here: dict[str, float] = {}
+        buckets: dict[tuple[str, ...], dict[str, float]] = {}
         for path, value in persona_overrides.items():
             number = _require_number(persona_name, path, value)
             resolved = resolve_path(pack, path)
@@ -593,8 +612,10 @@ def validate_config(
                     f"{persona_name}: override {path!r} = {number!r} is outside the §a.2 axis "
                     f"{resolved.axis_number} sweep bounds [{resolved.lo}, {resolved.hi}]"
                 )
+            if resolved.axis_number == _BUCKET_DIST_AXIS:
+                buckets.setdefault(resolved.keys[:-1], {})[resolved.keys[-1]] = number
             resolved_here[path] = number
-        _check_flat_sizing_completeness(persona_name, pack, resolved_here)
+        _check_bucket_dist_completeness(persona_name, pack, buckets)
         if _CONTINUE_REF in resolved_here and _CALL_LOOSENESS in resolved_here:
             raise CounterfactualConfigError(
                 f"{persona_name}: `postflop.continue_ref` and `postflop.call_looseness` are "
@@ -625,36 +646,59 @@ def validate_config(
     )
 
 
-def _check_flat_sizing_completeness(
-    persona: str, pack: PersonaPack, resolved: Mapping[str, float]
+def _check_bucket_dist_completeness(
+    persona: str, pack: PersonaPack, buckets: Mapping[tuple[str, ...], Mapping[str, float]]
 ) -> None:
-    """§a.2 row 13 is a *joint* constraint: the flat sizing weights are a point
-    on a simplex, not k independent dials.
+    """Weight distributions are *joint* constraints, not k independent dials.
 
-    So a config that moves any `postflop.sizing` key must move all of that
-    pack's authored keys, and the values must sum to 1 within 1e-3 (the pack
-    model's own normalization tolerance, `models.py:161`). Without this rule a
-    one-key move fails much later with a pydantic sum-to-1 message that names
-    the model instead of the rule the author broke.
+    Both bucket-distribution families in this model — the flat `postflop.sizing`
+    simplex (§a.2 axis 13) and each inner distribution of the probe-only
+    `postflop.sizing_by_node` — are normalized by construction and validated by
+    the SAME `_validate_bucket_dist` (`models.py:145-163`). So the rule is
+    stated once and applied to both: overriding any weight of a distribution
+    means overriding all of that distribution's authored keys, with the values
+    summing to 1 within 1e-3 (the model's own tolerance, `models.py:161`).
+
+    Generalizing rather than exempting the probe family is deliberate. Absent
+    this, a correctly-declared single-weight `sizing_by_node` probe would die
+    with the raw pydantic sum-to-1 message that names the model instead of the
+    rule the author broke — the exact failure mode the rule was created to
+    replace. Note this is a NORMALIZATION rule, not a bounds rule: §a.2 declares
+    no per-key bounds for the probe family and none are invented (see
+    `simplex_bounds`).
+
+    `buckets` is keyed by the resolved CONTAINER path, so grouping never has to
+    re-parse a dotted string.
     """
-    prefix = _FLAT_SIZING + "."
-    touched = {p[len(prefix) :]: v for p, v in resolved.items() if p.startswith(prefix)}
-    if not touched:
+    if not buckets:
         return
-    authored = set(pack.postflop.sizing)
-    if set(touched) != authored:
-        raise CounterfactualConfigError(
-            f"{persona}: partial `postflop.sizing` override {sorted(touched)} — §a.2 axis 13 "
-            f"is a truncated SIMPLEX (k−1 degrees of freedom), so overriding any flat sizing "
-            f"key requires overriding all {len(authored)} authored keys {sorted(authored)}"
+    document = _pack_document(pack)
+    for container_keys in sorted(buckets):
+        touched = buckets[container_keys]
+        authored_dist: Any = document
+        for key in container_keys:
+            authored_dist = authored_dist[key]
+        authored = set(authored_dist)
+        label = ".".join(container_keys)
+        rule = (
+            "§a.2 axis 13 stores the post-softmax simplex point, whose keys sum to 1 by "
+            "construction"
+            if container_keys == ("postflop", "sizing")
+            else "a pot-fraction bucket distribution is normalized by construction "
+            "(`_validate_bucket_dist`, models.py:145-163)"
         )
-    total = math.fsum(touched.values())
-    if abs(total - 1.0) > 1e-3:
-        raise CounterfactualConfigError(
-            f"{persona}: `postflop.sizing` override weights sum to {total!r}, not 1.0 within "
-            f"1e-3 — §a.2 axis 13 stores the post-softmax simplex point, whose keys sum to 1 "
-            f"by construction"
-        )
+        if set(touched) != authored:
+            raise CounterfactualConfigError(
+                f"{persona}: partial `{label}` override {sorted(touched)} — {rule}, so "
+                f"overriding any of its weights requires overriding all {len(authored)} "
+                f"authored keys {sorted(authored)}"
+            )
+        total = math.fsum(touched.values())
+        if abs(total - 1.0) > 1e-3:
+            raise CounterfactualConfigError(
+                f"{persona}: `{label}` override weights sum to {total!r}, not 1.0 within "
+                f"1e-3 — {rule}"
+            )
 
 
 def _require_probe(
