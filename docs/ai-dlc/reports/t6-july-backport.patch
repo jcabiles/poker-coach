@@ -1,0 +1,796 @@
+diff --git a/backend/tools/export_analytics.py b/backend/tools/export_analytics.py
+new file mode 100644
+index 0000000..16ea921
+--- /dev/null
++++ b/backend/tools/export_analytics.py
+@@ -0,0 +1,347 @@
++"""Analytics export: seeded persona self-play -> Parquet + JSON _SUCCESS manifest.
++
++Producer side of the poker-analytics data contract
++(`contracts/poker_events.odcs.yaml` in the consumer repo). Plays N full
++9-seat hands with every seat driven by the production bot policy
++(`play.bot_decision` — the same code path the live table uses, NOT the
++test harness sampler) and writes three Parquet tables:
++
++  hands          one row per hand
++  seat_outcomes  one row per (hand, seat) — 9 rows per hand
++  decisions      one row per action event, blind posts included
++
++plus a JSON `_SUCCESS` marker written LAST (Hadoop manifest-committer
++convention): its presence signals a complete, uncorrupted batch, and its
++body carries the run manifest (git SHA, RNG seed, persona lineup, engine
++version, contract version, row counts).
++
++Reproducibility: one CLI seed drives both the deals and every persona's
++action draws, so the same (seed, hands, lineup) produces byte-identical
++tables modulo the `exported_at` load-timestamp column.
++
++Usage (from backend/):
++    python -m tools.export_analytics --hands 5000 --seed 42 --out /path/to/data/raw/v1
++Requires the `export` extra: pip install -e '.[export]' (pyarrow).
++
++T2 (flywheel S3): `decisions` rows also carry `engine_node_key` and
++`hand_class_bucket` (both nullable; NULL on `action='post'` rows). These are
++a deliberate, narrow exception to "derivations belong downstream in dbt" —
++the determinism guard needs a grouping key the engine itself would compute,
++so `engine_node_key` reuses the domain's pure `postflop_node_key` (postflop)
++via read-only import, or an export-side-only preflop facing-state label
++(never new `backend/app/domain/` logic). `hand_class_bucket` is an
++export-side-only preflop hole-card bucket for preflop rows; postflop rows
++reuse the domain's pure `strength_bucket` (read-only import) — see the
++`docs/ai-dlc/reports/t2-export-report.md` encoding note for the exact
++"<strength>|<draw>" string format.
++
++Producer-side contract check (ADVISORY — the consumer's ingestion gate is
++the authoritative one): after writing, the script runs `datacontract test`
++against the vendored copy of the consumer's ODCS contract
++(tools/poker_events.odcs.yaml) if datacontract-cli is on PATH, and warns
++(without failing the export) when it isn't installed. Keep the vendored
++contract in sync with the consumer repo's contracts/poker_events.odcs.yaml.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import random
++import subprocess
++from datetime import UTC, datetime
++from pathlib import Path
++
++from app.domain.archetypes import VillainType
++from app.domain.personas import load_persona_packs
++from app.domain.personas_postflop import strength_bucket
++from app.domain.spot import ActionType, PlayerStatus, Street
++from app.domain.table.deck import deal_hand
++from app.domain.table.engine import apply, legal_actions, settle, start_hand
++from app.domain.table.play import bot_decision
++from app.domain.table.sizing import last_aggressor_position, postflop_node_key
++
++CONTRACT_VERSION = "1.1.0"  # semver of the ODCS contract this export conforms to
++SCHEMA_PATH_VERSION = "v1"  # data-path major; bumps only on a breaking change
++STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
++
++# Default lineup mirrors the persona test harness: the 6 personas in sorted
++# order, wrapped around 9 seats. The button rotates hand-by-hand so every
++# persona plays every position.
++DEFAULT_LINEUP = sorted(v.value for v in VillainType)
++
++# T2 broadway ranks for the export-side preflop hand_class_bucket (deterministic,
++# export-only — never domain logic).
++_BROADWAY_RANKS = {"T", "J", "Q", "K", "A"}
++
++
++def _preflop_facing_label(action_history) -> str:
++    """Export-side facing-state label for `engine_node_key` on preflop rows.
++
++    Derived from PUBLIC state only (`action_history`) — deliberately NOT a
++    reuse of `app.domain.table.play._preflop_facing` (private, domain-owned);
++    this is an independent export-tool derivation per spec A2 / ticket T2.
++    Coarser than the domain's internal facing split (3bet and 4bet+ both
++    collapse to "vs_3bet_plus") because this label is a determinism-guard
++    grouping key, not a policy input.
++    """
++    raises = [
++        h for h in action_history
++        if h.street is Street.PREFLOP and h.action == ActionType.RAISE
++    ]
++    if not raises:
++        limped = any(
++            h.action == ActionType.CALL for h in action_history
++            if h.street is Street.PREFLOP
++        )
++        return "vs_limpers" if limped else "unopened"
++    return "vs_raise" if len(raises) == 1 else "vs_3bet_plus"
++
++
++def _hand_class_bucket(hole_cards: list[str]) -> str:
++    """Coarse, deterministic preflop hole-card bucket for `hand_class_bucket`.
++
++    Export-tool-only scheme (pair / suited-ace / suited-broadway /
++    offsuit-broadway / other); no existing domain hand-class label is
++    available to reuse for this purpose. Priority order below resolves
++    overlapping cases (e.g. AKs is suited-ace, not suited-broadway)."""
++    r1, s1 = hole_cards[0][0], hole_cards[0][1]
++    r2, s2 = hole_cards[1][0], hole_cards[1][1]
++    suited = s1 == s2
++    if r1 == r2:
++        return "pair"
++    if suited and "A" in (r1, r2):
++        return "suited-ace"
++    if suited and r1 in _BROADWAY_RANKS and r2 in _BROADWAY_RANKS:
++        return "suited-broadway"
++    if not suited and r1 in _BROADWAY_RANKS and r2 in _BROADWAY_RANKS:
++        return "offsuit-broadway"
++    return "other"
++
++
++def _git_sha() -> str:
++    try:
++        return subprocess.run(
++            ["git", "rev-parse", "HEAD"],
++            capture_output=True, text=True, check=True,
++            cwd=Path(__file__).resolve().parent,
++        ).stdout.strip()
++    except Exception:
++        return "unknown"
++
++
++def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
++                  persona_by_seat: dict[int, str], packs) -> dict:
++    """One full production-policy playout. Returns the raw rows for all
++    three tables. Deliberately thin: derivations that SQL can do (facing,
++    aggression, VPIP flags...) belong downstream in dbt, not here."""
++    state = start_hand(deal_hand(random.Random(hand_seed)), button_seat,
++                       stacks_bb=[STACKS_BB] * 9)
++    decision_rows: list[dict] = []
++    seq = 0
++    # Blind posts happen inside start_hand; emit them as action rows so the
++    # decisions table reconciles to the pot (action='post').
++    for h in state.action_history:
++        seat = next(s.seat for s in state.seats if s.position is h.position)
++        decision_rows.append({
++            "seq": seq, "seat": seat, "street": h.street.value,
++            "position": h.position.value, "action": h.action.value,
++            "raise_to_bb": None, "chips_committed_bb": h.amount_bb,
++            "pot_before_bb": 0.0, "to_call_bb": 0.0,
++            # T2: forced blind posts carry no node key / hand-class bucket —
++            # they are excluded from the determinism-guard contexts.
++            "engine_node_key": None, "hand_class_bucket": None,
++        })
++        seq += 1
++    saw_flop: set[int] = set()
++    guard = 0
++    while not state.hand_over:
++        guard += 1
++        if guard > 500:
++            raise RuntimeError(f"hand did not terminate (seed={hand_seed})")
++        if len(state.board) >= 3 and not saw_flop:
++            saw_flop = {s.seat for s in state.seats
++                        if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)}
++        seat = state.to_act_seat
++        seat_state = state.seats[seat]
++        pot_before = sum(s.invested_total_bb for s in state.seats)
++        to_call = max(0.0, state.current_bet_bb - seat_state.invested_street_bb)
++        invested_before = seat_state.invested_total_bb
++        # T2: compute the two new columns from the PRE-decision public state,
++        # same inputs the domain uses internally (read-only reuse of the
++        # existing pure functions — no new domain logic, nothing added to
++        # backend/app/domain/).
++        if state.street is Street.PREFLOP:
++            engine_node_key = _preflop_facing_label(state.action_history)
++            hand_class_bucket = _hand_class_bucket(seat_state.hole_cards)
++        else:
++            legal = legal_actions(state)
++            is_aggressor = (
++                last_aggressor_position(state.action_history) == seat_state.position
++            )
++            engine_node_key = postflop_node_key(
++                state.board, legal, is_aggressor=is_aggressor)
++            # Postflop hand_class_bucket: read-only reuse of the domain's
++            # pure `strength_bucket` (made-hand ladder + draw category).
++            # Encoded as "<strength>|<draw>" (e.g. "top_pair|weak",
++            # "monster|none") — see docs/ai-dlc/reports/t2-export-report.md
++            # for the full enum-value list and rationale.
++            made, draw = strength_bucket(seat_state.hole_cards, state.board)
++            hand_class_bucket = f"{made.value}|{draw.value}"
++        decision = bot_decision(state, seat, packs[persona_by_seat[seat]], rng)
++        state = apply(state, decision)
++        decision_rows.append({
++            "seq": seq, "seat": seat, "street": state.action_history[-1].street.value,
++            "position": seat_state.position.value,
++            "action": decision.action.value,
++            "raise_to_bb": decision.size_bb,
++            "chips_committed_bb": round(
++                state.seats[seat].invested_total_bb - invested_before, 2),
++            "pot_before_bb": round(pot_before, 2),
++            "to_call_bb": round(to_call, 2),
++            "engine_node_key": engine_node_key,
++            "hand_class_bucket": hand_class_bucket,
++        })
++        seq += 1
++    # All-in run-outs can reveal the flop on the same apply() that ends the
++    # hand, skipping the loop-top capture — catch that here.
++    if len(state.board) >= 3 and not saw_flop:
++        saw_flop = {s.seat for s in state.seats
++                    if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)}
++    settlement = settle(state)
++    winners = {s for pot in settlement.winners_by_pot for s in pot}
++    seat_rows = []
++    for s in state.seats:
++        delta = settlement.deltas[s.seat].delta_bb
++        seat_rows.append({
++            "seat": s.seat, "persona": persona_by_seat[s.seat],
++            "position": s.position.value,
++            "hole_cards": " ".join(s.hole_cards),
++            "starting_stack_bb": STACKS_BB,
++            "invested_bb": round(s.invested_total_bb, 2),
++            "delta_bb": delta,
++            "final_status": s.status.value,
++            "saw_flop": s.seat in saw_flop,
++            "went_to_showdown": s.seat in settlement.showdown_seats,
++            "won_pot": s.seat in winners,
++        })
++    hand_row = {
++        "button_seat": button_seat,
++        "hand_seed": hand_seed,
++        "board": " ".join(state.board),
++        "final_street": state.street.value,
++        "total_pot_bb": round(sum(s.invested_total_bb for s in state.seats), 2),
++        "went_to_showdown": bool(settlement.showdown_seats),
++        "n_saw_flop": len(saw_flop),
++    }
++    return {"hand": hand_row, "seats": seat_rows, "decisions": decision_rows}
++
++
++def run_export(n_hands: int, seed: int, out_dir: Path,
++               lineup: list[str] | None = None) -> dict:
++    import pyarrow as pa
++    import pyarrow.parquet as pq
++
++    lineup = lineup or DEFAULT_LINEUP
++    persona_by_seat = {i: lineup[i % len(lineup)] for i in range(9)}
++    packs = load_persona_packs()
++    rng = random.Random(seed)
++    # KNOWN WART (out of scope for T2): run_id ignores `lineup`, so two runs
++    # with the same (seed, n_hands) but different lineups collide on
++    # run_id/hand_id. S1's pinned per-persona counts reference this format —
++    # changing it is deferred.
++    run_id = f"run-s{seed}-n{n_hands}"
++    exported_at = datetime.now(UTC).isoformat(timespec="seconds")
++
++    hands, seats, decisions = [], [], []
++    for i in range(n_hands):
++        hand_id = f"{run_id}-h{i:07d}"
++        res = play_one_hand(rng, rng.randrange(1_000_000_000), i % 9,
++                            persona_by_seat, packs)
++        hands.append({"hand_id": hand_id, "run_id": run_id, "hand_no": i,
++                      **res["hand"], "exported_at": exported_at})
++        for r in res["seats"]:
++            seats.append({"hand_id": hand_id, **r, "exported_at": exported_at})
++        for r in res["decisions"]:
++            decisions.append({"hand_id": hand_id, **r, "exported_at": exported_at})
++
++    out_dir.mkdir(parents=True, exist_ok=True)
++    success = out_dir / "_SUCCESS"
++    success.unlink(missing_ok=True)  # invalidate the batch before rewriting it
++    row_counts = {}
++    for name, rows in (("hands", hands), ("seat_outcomes", seats),
++                       ("decisions", decisions)):
++        table = pa.Table.from_pylist(rows)
++        pq.write_table(table, out_dir / f"{name}.parquet", compression="zstd")
++        row_counts[name] = len(rows)
++
++    manifest = {
++        "run_id": run_id,
++        "seed": seed,
++        "n_hands": n_hands,
++        "lineup": persona_by_seat,
++        "stacks_bb": STACKS_BB,
++        "git_sha": _git_sha(),
++        "engine": "poker-coach backend/app/domain (production bot policy)",
++        "generator": "backend/tools/export_analytics.py",
++        "contract_version": CONTRACT_VERSION,
++        "schema_path_version": SCHEMA_PATH_VERSION,
++        "exported_at": exported_at,
++        "row_counts": row_counts,
++    }
++    # Written LAST: consumers must refuse to read a directory without it.
++    success.write_text(json.dumps(manifest, indent=2) + "\n")
++    return manifest
++
++
++def _advisory_contract_test(out_dir: Path) -> None:
++    """Producer-side `datacontract test` (advisory): warn, never fail the
++    export. The consumer repo's ingestion gate is the authoritative check."""
++    import shutil
++    import tempfile
++
++    contract = Path(__file__).resolve().parent / "poker_events.odcs.yaml"
++    if shutil.which("datacontract") is None:
++        print("ADVISORY: datacontract-cli not on PATH — producer-side contract "
++              "check skipped (pip install 'datacontract-cli[duckdb,parquet]').")
++        return
++    # The vendored contract's server paths are consumer-repo-relative; point a
++    # temp copy at the actual export directory instead.
++    text = contract.read_text().replace(
++        "./data/raw/v1/sample/{model}.parquet",
++        f"{out_dir.resolve()}/{{model}}.parquet",
++    )
++    with tempfile.NamedTemporaryFile("w", suffix=".odcs.yaml", delete=False) as f:
++        f.write(text)
++        tmp = f.name
++    res = subprocess.run(
++        ["datacontract", "test", tmp, "--server", "local-sample"])
++    Path(tmp).unlink(missing_ok=True)
++    if res.returncode != 0:
++        print("ADVISORY: export does NOT conform to the vendored contract — "
++              "the consumer's ingestion gate will reject this batch.")
++    else:
++        print("Producer-side contract check passed.")
++
++
++def main() -> None:
++    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
++    ap.add_argument("--hands", type=int, default=5000)
++    ap.add_argument("--seed", type=int, default=42)
++    ap.add_argument("--out", type=Path, required=True,
++                    help="target directory, e.g. <analytics-repo>/data/raw/v1/sample")
++    ap.add_argument("--skip-contract-test", action="store_true",
++                    help="skip the advisory producer-side datacontract test")
++    ap.add_argument("--lineup", type=str, default=None,
++                    help="comma-separated persona names for the 9 seats "
++                         "(wraps if fewer than 9; default: DEFAULT_LINEUP)")
++    args = ap.parse_args()
++    lineup = args.lineup.split(",") if args.lineup else None
++    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup)
++    print(json.dumps(manifest, indent=2))
++    if not args.skip_contract_test:
++        _advisory_contract_test(args.out)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/backend/tools/poker_events.odcs.yaml b/backend/tools/poker_events.odcs.yaml
+new file mode 100644
+index 0000000..19bc953
+--- /dev/null
++++ b/backend/tools/poker_events.odcs.yaml
+@@ -0,0 +1,437 @@
++# Data contract for the poker-coach -> poker-analytics seam.
++#
++# Standard: Open Data Contract Standard (ODCS) v3.1.0, Bitol / LF AI & Data.
++# Consumer-defined (this repo states what it needs); the producer runs the
++# SAME file after every export (advisory), this repo's ingestion gate runs it
++# before dbt (authoritative). Compatibility policy: BACKWARD within a major —
++# new columns must be nullable or defaulted; breaking changes bump the major
++# and move data to data/raw/v2/. See docs/upstream.md.
++apiVersion: v3.1.0
++kind: DataContract
++id: poker-events
++name: Poker simulation events
++version: 1.1.0
++status: active
++domain: poker-analytics
++dataProduct: poker-analytics warehouse
++tenant: personal
++
++description:
++  purpose: >
++    Seeded self-play exports from the poker-coach simulation engine: one
++    Parquet batch = hands, seat_outcomes, decisions plus a JSON _SUCCESS
++    manifest written last (batch-completeness marker; carries git SHA, RNG
++    seed, persona lineup, engine + contract version, row counts).
++  usage: >
++    Read-only analytical consumption by the dbt/DuckDB warehouse in this
++    repo. Grain contracts: hands = one simulated hand; seat_outcomes = one
++    seat in one hand (always 9 rows per hand); decisions = one action event
++    including blind posts.
++  limitations: >
++    Simulated data from a bot roster the producer's own review scored 3-4/10
++    for realism. Findings measure the simulation, not real poker.
++
++servers:
++  - server: local-sample
++    type: local
++    path: ./data/raw/v1/sample/{model}.parquet
++    format: parquet
++    description: Committed 5,000-hand sample (seed 42); default target.
++  - server: local-full
++    type: local
++    path: ./data/raw/v1/full/{model}.parquet
++    format: parquet
++    description: Full dataset, downloaded from the tag-pinned GitHub Release.
++
++schema:
++  - name: hands
++    logicalType: object
++    physicalType: parquet
++    description: One row per simulated hand.
++    properties:
++      - name: hand_id
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        unique: true
++        primaryKey: true
++        primaryKeyPosition: 1
++        description: Surrogate key "<run_id>-h<zero-padded hand_no>".
++      - name: run_id
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        description: Export batch id "run-s<seed>-n<hands>"; joins to the _SUCCESS manifest.
++      - name: hand_no
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++      - name: button_seat
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 8
++      - name: hand_seed
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        description: Per-hand deal seed (derived from the run seed; replayable).
++      - name: board
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        description: >
++          Space-separated revealed board cards; empty string when the hand
++          ended preflop. 0, 3, 4 or 5 cards.
++        quality:
++          - type: sql
++            description: Board is empty or 3-5 space-separated cards matching rank+suit.
++            query: >
++              SELECT COUNT(*) FROM hands
++              WHERE board <> ''
++                AND board NOT SIMILAR TO
++                  '([2-9TJQKA][cdhs] ){2,4}[2-9TJQKA][cdhs]'
++            mustBe: 0
++      - name: final_street
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: final_street is one of the four streets.
++            query: >
++              SELECT COUNT(*) FROM hands
++              WHERE final_street NOT IN ('preflop','flop','turn','river')
++            mustBe: 0
++      - name: total_pot_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: 1.5
++          maximum: 900
++        description: Sum of all chips invested; floor = SB + BB with 100bb stacks x 9 seats cap.
++      - name: went_to_showdown
++        logicalType: boolean
++        physicalType: BOOLEAN
++        required: true
++      - name: n_saw_flop
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 9
++      - name: exported_at
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        description: UTC ISO-8601 load timestamp; dbt source freshness reads this.
++        logicalTypeOptions:
++          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
++    quality:
++      - type: sql
++        description: hand_no is unique within a run (no duplicate or replayed hands).
++        query: >
++          SELECT COUNT(*) FROM
++            (SELECT run_id, hand_no FROM hands GROUP BY 1, 2 HAVING COUNT(*) > 1)
++        mustBe: 0
++
++  - name: seat_outcomes
++    logicalType: object
++    physicalType: parquet
++    description: One row per (hand, seat); exactly 9 rows per hand.
++    properties:
++      - name: hand_id
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        primaryKey: true
++        primaryKeyPosition: 1
++      - name: seat
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        primaryKey: true
++        primaryKeyPosition: 2
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 8
++      - name: persona
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: persona is one of the six roster archetypes.
++            query: >
++              SELECT COUNT(*) FROM seat_outcomes
++              WHERE persona NOT IN
++                ('calling_station','lag','maniac','nit','passive_fish','tag')
++            mustBe: 0
++      - name: position
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: position is one of the nine 9-max seats.
++            query: >
++              SELECT COUNT(*) FROM seat_outcomes
++              WHERE position NOT IN
++                ('UTG','UTG1','UTG2','LJ','HJ','CO','BTN','SB','BB')
++            mustBe: 0
++      - name: hole_cards
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        logicalTypeOptions:
++          pattern: '^[2-9TJQKA][cdhs] [2-9TJQKA][cdhs]$'
++      - name: starting_stack_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: 100
++          maximum: 100
++        description: Constant 100bb in contract v1; widens (nullable-safe) if stack variation ships.
++      - name: invested_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 100
++      - name: delta_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: -100
++          maximum: 800
++        description: Net chips won/lost; bounded by own stack down, 8 stacks up.
++      - name: final_status
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: final_status is in/folded/allin.
++            query: >
++              SELECT COUNT(*) FROM seat_outcomes
++              WHERE final_status NOT IN ('in','folded','allin')
++            mustBe: 0
++      - name: saw_flop
++        logicalType: boolean
++        physicalType: BOOLEAN
++        required: true
++      - name: went_to_showdown
++        logicalType: boolean
++        physicalType: BOOLEAN
++        required: true
++      - name: won_pot
++        logicalType: boolean
++        physicalType: BOOLEAN
++        required: true
++      - name: exported_at
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        logicalTypeOptions:
++          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
++    quality:
++      - type: sql
++        description: Chip conservation — per-hand seat deltas sum to zero (2dp rounding tolerance).
++        query: >
++          SELECT COUNT(*) FROM
++            (SELECT hand_id FROM seat_outcomes
++             GROUP BY hand_id HAVING ABS(SUM(delta_bb)) > 0.05)
++        mustBe: 0
++      - type: sql
++        description: Exactly 9 seats per hand.
++        query: >
++          SELECT COUNT(*) FROM
++            (SELECT hand_id FROM seat_outcomes
++             GROUP BY hand_id HAVING COUNT(*) <> 9)
++        mustBe: 0
++      - type: sql
++        description: Referential integrity — every seat_outcomes.hand_id exists in hands.
++        query: >
++          SELECT COUNT(*) FROM seat_outcomes s
++          WHERE NOT EXISTS (SELECT 1 FROM hands h WHERE h.hand_id = s.hand_id)
++        mustBe: 0
++
++  - name: decisions
++    logicalType: object
++    physicalType: parquet
++    description: One row per action event (blind posts included), ordered by seq within a hand.
++    properties:
++      - name: hand_id
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        primaryKey: true
++        primaryKeyPosition: 1
++      - name: seq
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        primaryKey: true
++        primaryKeyPosition: 2
++        logicalTypeOptions:
++          minimum: 0
++      - name: seat
++        logicalType: integer
++        physicalType: BIGINT
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 8
++      - name: street
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: street is one of the four streets.
++            query: >
++              SELECT COUNT(*) FROM decisions
++              WHERE street NOT IN ('preflop','flop','turn','river')
++            mustBe: 0
++      - name: position
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: position is one of the nine 9-max seats.
++            query: >
++              SELECT COUNT(*) FROM decisions
++              WHERE position NOT IN
++                ('UTG','UTG1','UTG2','LJ','HJ','CO','BTN','SB','BB')
++            mustBe: 0
++      - name: action
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        quality:
++          - type: sql
++            description: action is an engine action type (post = blind).
++            query: >
++              SELECT COUNT(*) FROM decisions
++              WHERE action NOT IN ('fold','check','call','bet','raise','post')
++            mustBe: 0
++      - name: raise_to_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: false
++        description: Raise-TO amount for bet/raise; null otherwise.
++        quality:
++          - type: sql
++            description: raise_to_bb is present exactly on bet/raise rows.
++            query: >
++              SELECT COUNT(*) FROM decisions
++              WHERE (action IN ('bet','raise')) <> (raise_to_bb IS NOT NULL)
++            mustBe: 0
++      - name: chips_committed_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 100
++      - name: pot_before_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 900
++      - name: to_call_bb
++        logicalType: number
++        physicalType: DOUBLE
++        required: true
++        logicalTypeOptions:
++          minimum: 0
++          maximum: 100
++      - name: engine_node_key
++        logicalType: string
++        physicalType: VARCHAR
++        required: false
++        description: >
++          T2 (flywheel S3): determinism-guard grouping key. Postflop rows
++          reuse the domain's `postflop_node_key` (flat, raise, cbet_dry,
++          cbet_wet, cbet_mono, turn_barrel, river_value). Preflop rows carry
++          an export-side-only facing-state label (unopened, vs_limpers,
++          vs_raise, vs_3bet_plus) derived from public action history, never
++          domain logic. NULL on action='post' (forced blinds) — posts are
++          excluded from determinism contexts.
++        quality:
++          - type: sql
++            description: engine_node_key is NULL on action='post' rows only.
++            query: >
++              SELECT COUNT(*) FROM decisions
++              WHERE (action = 'post') <> (engine_node_key IS NULL)
++            mustBe: 0
++      - name: hand_class_bucket
++        logicalType: string
++        physicalType: VARCHAR
++        required: false
++        description: >
++          T2 (flywheel S3): hand-class label. Preflop rows: a coarse
++          export-side-only hole-card bucket (pair, suited-ace,
++          suited-broadway, offsuit-broadway, other), derived from the
++          acting seat's hole cards. Postflop rows: the domain's
++          `strength_bucket` (made-hand ladder + draw category), encoded
++          "<strength>|<draw>" e.g. "top_pair|weak", "monster|none" — see
++          `docs/ai-dlc/reports/t2-export-report.md` for the full enum list.
++          NULL only on action='post' rows (forced blinds).
++        quality:
++          - type: sql
++            description: hand_class_bucket is NULL on action='post' rows only.
++            query: >
++              SELECT COUNT(*) FROM decisions
++              WHERE (action = 'post') <> (hand_class_bucket IS NULL)
++            mustBe: 0
++      - name: exported_at
++        logicalType: string
++        physicalType: VARCHAR
++        required: true
++        logicalTypeOptions:
++          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
++    quality:
++      - type: sql
++        description: Referential integrity — every decisions.hand_id exists in hands.
++        query: >
++          SELECT COUNT(*) FROM decisions d
++          WHERE NOT EXISTS (SELECT 1 FROM hands h WHERE h.hand_id = d.hand_id)
++        mustBe: 0
++      - type: sql
++        description: Pot reconciliation — committed chips equal the hand's total pot (2dp tolerance).
++        query: >
++          SELECT COUNT(*) FROM
++            (SELECT d.hand_id
++             FROM decisions d JOIN hands h USING (hand_id)
++             GROUP BY d.hand_id, h.total_pot_bb
++             HAVING ABS(SUM(d.chips_committed_bb) - h.total_pot_bb) > 0.05)
++        mustBe: 0
++
++customProperties:
++  - property: compatibilityPolicy
++    value: BACKWARD
++  - property: producer
++    value: poker-coach backend/tools/export_analytics.py
++  - property: manifest
++    value: >
++      JSON _SUCCESS file written last in each batch directory; carries run_id,
++      seed, lineup, git SHA, engine + contract version, row counts. Consumers
++      must refuse batches without it.
++
++team:
++  - username: johncabiles
++    role: owner
++    description: Owns both producer and consumer; seam modeled as if separate teams.

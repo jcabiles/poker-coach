@@ -57,10 +57,22 @@ policy; no solver tables; no detection optimization outside the Goodhart constra
   length, balanced priors, matched information, balanced accuracy/AUC/d′, leak controls,
   cluster-aware CIs) · score-validation plan (below) · compute budget with a one-config
   benchmark. Consumes the DS-methodology research lane.
-- **R1 — realism score v0.** Per-persona score = graded distance over the R0 registry. AC:
-  deterministic given seed; <5 min per 50k-hand run; validation executed per the R0 plan —
-  n=13 expert ratings are **directional-only**: report Spearman ρ with CI and p-value plus a
-  sign-agreement check; at most ONE pre-registered revision; on failure the **stop-gate**
+- **R1 — realism score v0.** A TWO-TIER score, both tiers graded distances over the R0
+  registry: a pool-level (table-wide) score that is the verdict's ONLY anchor, plus a
+  per-persona tier that is **reported, never gating** — avg = the progress metric, floor =
+  worst persona = a non-gating diagnostic. (**The per-persona gate was deleted by owner
+  ruling 2026-08-06**: the binding-bounds analysis showed it could only ever bind on PFR
+  and 3-bet, so a constraint that reads as protection without being any was removed rather
+  than shipped. The R0 constraint set keeps its five rules.) AC:
+  deterministic given seed; <5 min per 50k-hand run; validation executed per the R0 plan
+  as amended — the validation legs run on the PER-PERSONA score —
+  where the n=12 persona-level expert ratings (6 personas × 2 campaigns; the table-level
+  rating is excluded as a different unit) are **directional-only**: report Spearman ρ with
+  CI and p-value plus a tie-corrected Kendall τ-b concordance leg, each requiring the
+  correct sign. **Validation is pre-labeled RETROSPECTIVE face-validity** (owner ruling
+  2026-08-06) — outcomes are `retrospective-pass` / `retrospective-fail`, and
+  "confirmatory" is reserved for a future campaign whose ratings are collected fresh and
+  blind to scores. At most ONE pre-registered revision; on failure the **stop-gate**
   fires: the score remains an "exploratory surrogate," R3 may not issue a score-only verdict,
   and convergent evidence (R4 pilot) is required. **Until validation passes, scores are
   non-authoritative for any conclusion** — R2 may use them only as reproducibility smoke data

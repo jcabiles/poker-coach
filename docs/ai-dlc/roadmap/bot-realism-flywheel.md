@@ -100,12 +100,29 @@ status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instru
       option / corpus decision / explicitly-rejected, with evidence grade) · appetite: ~1 wk
       in session R, parallel to S2a–S4 · no-gos: docs-only session (no git, no code, no sims);
       no data downloads without licensing review.
-- [ ] **S3 — Realism score v0 + validation (per S2a plan)** — problem: measurement costs
+- [x] **S3 — Realism score v0 + validation (per S2a plan)** — ✅ 2026-08-07. Built +
+      dual-reviewed end-to-end (scorer 0.71 s/50k batch, byte-identical; five §a.5
+      checkers; both campaigns scored incl. a July-engine reconstruction). **Validation
+      outcome: retrospective-FAIL on all three legs under F0 AND the one-shot F1 —
+      every statistic NEGATIVE-signed (F0 ρ=−0.20, F1 ρ=−0.38; two independent
+      reviewers reproduced every number from scratch, zero mismatches; sign negative
+      within each campaign independently). The §e.3 stop-gate fired as preregistered:
+      score status = exploratory-surrogate; S5 may not issue a score-only verdict; §e.3
+      is spent.** The slice's own pass/fail (below) is met — the deliverable was honest
+      execution with the stop-gate honored, and it held. — problem: measurement costs
       agent fleets; no computable objective exists · outcome-link: flywheel inner loop ·
-      pass/fail: per-persona score (graded distance over the S2a target registry) runs on the
-      sim50k export in <5 min, deterministic given seed; validation executed EXACTLY per S2a
-      plan (e) with its stop-gate honored — score's status (validated vs exploratory
-      surrogate) recorded in the output · appetite: 3–4 days · no-gos: no internal-theory-
+      pass/fail: the TWO-TIER score (graded distance over the S2a target registry) runs on the
+      sim50k export in <5 min, deterministic given seed — pool-level D(x) is the ONLY verdict
+      anchor; the per-persona tier is reported, never gating: avg = the progress metric,
+      floor = worst persona = a non-gating diagnostic (**the per-persona gate was deleted by
+      owner ruling 2026-08-06** — it could only ever bind on PFR/3-bet; §a.5 keeps five rules,
+      not six); validation executed EXACTLY per S2a plan (e) as amended — the legs run on the
+      per-persona score — with its stop-gate honored, and the score's status recorded in the
+      output as **retrospective-pass / retrospective-fail / exploratory-surrogate**
+      (validation is pre-labeled RETROSPECTIVE face-validity by owner ruling 2026-08-06;
+      "confirmatory" is reserved for a future campaign with fresh blind ratings)
+      · appetite: 5–7 days (re-costed 2026-08-06: the two-tier ruling added the
+      per-persona tier and the registry swap to pinned external data) · no-gos: no internal-theory-
       contract bands; no rendered-text parsing; **scores are non-authoritative for any
       conclusion until validation passes** (S4 may use them only as reproducibility smoke
       data — stated identically in the PRD).
@@ -137,7 +154,7 @@ status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instru
 
 **Scope valves (appetite is a cap — cut scope, not quality):** S5 confirmatory study deferred
 unless the pilot is ambiguous · S2b commercial lane is the first research cut · S6 pilot may
-shrink judge count, never blinding. Critical path S1→S2a→S3→S4→S5 ≈ 13–18 working days with
+shrink judge count, never blinding. Critical path S1→S2a→S3→S4→S5 ≈ 15–21 working days with
 S2b and S6 in parallel; if that exceeds the part-time window, the valves fire in the order
 listed rather than the gate slipping silently.
 
