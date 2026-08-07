@@ -48,7 +48,9 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import subprocess
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -63,10 +65,29 @@ from app.domain.table.engine import apply, legal_actions, settle, start_hand
 from app.domain.table.play import bot_decision
 from app.domain.table.sizing import last_aggressor_position, postflop_node_key
 from tools import counterfactual
+from tools.counterfactual import CounterfactualConfigError
 
-CONTRACT_VERSION = "1.2.0"  # semver of the ODCS contract this export conforms to
+_ODCS_PATH = Path(__file__).resolve().parent / "poker_events.odcs.yaml"
+_ODCS_VERSION_RE = re.compile(r"^version:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def _odcs_contract_version(path: Path = _ODCS_PATH) -> str:
+    """Derive the ODCS contract version from the vendored yaml's top-level
+    `version:` field (S4 T2 fix #2), so the constant below can never drift
+    silently from the file it names. No YAML parser dependency: the ODCS
+    top-level `version:` key is unindented and unique in this file (verified
+    by test), so a plain regex read is exact and dependency-free — `pyyaml`
+    is not installed in this venv."""
+    match = _ODCS_VERSION_RE.search(path.read_text(encoding="utf-8"))
+    if match is None:
+        raise RuntimeError(f"{path}: no top-level `version:` field found")
+    return match.group(1)
+
+
+CONTRACT_VERSION = _odcs_contract_version()  # derived from poker_events.odcs.yaml
 SCHEMA_PATH_VERSION = "v1"  # data-path major; bumps only on a breaking change
 STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
+_CONFIG_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
 # Default lineup mirrors the persona test harness: the 6 personas in sorted
 # order, wrapped around 9 seats. The button rotates hand-by-hand so every
@@ -260,6 +281,12 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
             "run_export: `packs` and `config_hash` must both be given (sweep "
             "path) or both omitted (default path) — mixed args are an error"
         )
+    if config_hash is not None and not _CONFIG_HASH_RE.fullmatch(config_hash):
+        raise ValueError(
+            f"run_export: config_hash {config_hash!r} is not 64 lowercase hex "
+            f"chars — a malformed hash would otherwise be baked into run_id "
+            f"and every exported row, failing only later at the analytics gate"
+        )
 
     lineup = lineup or DEFAULT_LINEUP
     persona_by_seat = {i: lineup[i % len(lineup)] for i in range(9)}
@@ -376,9 +403,23 @@ def main() -> None:
     ap.add_argument("--lineup", type=str, default=None,
                     help="comma-separated persona names for the 9 seats "
                          "(wraps if fewer than 9; default: DEFAULT_LINEUP)")
+    ap.add_argument("--config", type=Path, default=None,
+                    help="path to a §c counterfactual-config JSON file "
+                         "(backend/tools/counterfactual.py); validated and "
+                         "overlaid onto the baseline packs before export. "
+                         "Omit for the default (raw baseline packs) path.")
     args = ap.parse_args()
     lineup = args.lineup.split(",") if args.lineup else None
-    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup)
+    packs = config_hash = None
+    if args.config is not None:
+        try:
+            validated = counterfactual.load_config(args.config)
+        except CounterfactualConfigError as exc:
+            print(f"ERROR: {args.config}: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+        packs, config_hash = validated.packs, validated.config_hash
+    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup,
+                          packs=packs, config_hash=config_hash)
     print(json.dumps(manifest, indent=2))
     if not args.skip_contract_test:
         _advisory_contract_test(args.out)
