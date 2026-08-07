@@ -107,10 +107,6 @@ class SweepSpecError(ValueError):
     """The sweep spec JSON is malformed, or a config/seed set is invalid."""
 
 
-class SweepRunError(RuntimeError):
-    """A sweep-internal invariant failed (e.g. the producer-rerun check)."""
-
-
 # ---------------------------------------------------------------------------
 # Spec
 # ---------------------------------------------------------------------------
