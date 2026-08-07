@@ -325,3 +325,20 @@ tickets, contract, ledger) that lived uncommitted through the build, ticked
 the roadmap, and applied §f's mechanical-revision update in poker-analytics
 using the corrected W5-1 figures. Tips: poker-coach feat/flywheel-s4 @ 4f52353
 (T7's parent); poker-analytics feat/flywheel-s4 @ c5604e8.
+
+## 2026-08-07 — S2b CLOSED (director fan-in complete)
+
+Owner picked S6 (detection pilot) as the next slice and S2b fan-in first.
+Fan-in: session R's four dossiers + consumption map + `_raw/` audit trail
+(already committed on feat/s2b-research-wave @ 59184c8, never pushed) reviewed
+and ACCEPTED — they had passed a blind Codex Sol review (13 findings, all
+accepted and folded) and the completion note documents five Lead corrections
+against primary sources. S2a-amendment check: NO amendment forced — the
+ESTIMAND consumption items (E1–E8, GGPoker-aggregate registry swap) are
+carried by the "Population-statistics ingestion + target-registry upgrade"
+NEXT item, whose future slice owns the contract amendment the frozen registry
+requires. Integration re-based as a fresh branch feat/s2b-fanin off main
+(the old branch's roadmap edit predated the S2a/S3/S4 outcome notes; its
+NEXT-item re-scope was already on main verbatim) — research dir taken from
+59184c8 unchanged, roadmap S2b box ticked with the fan-in record. S6 spec
+starts on owner's /ai-org:spec.
