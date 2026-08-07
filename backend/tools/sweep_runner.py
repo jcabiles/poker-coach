@@ -9,6 +9,10 @@ Design (spec `docs/ai-dlc/specs/flywheel-s4.md`, "Design rulings"):
 - ALL configs are validated up front (`counterfactual.load_config`) before any
   export runs — one bad config fails the whole sweep before simulation money
   is spent. Duplicate `config_hash` across configs is a sweep-spec error.
+  `analytics_repo` (must be a directory with a `Makefile`), `cov_artifact`
+  (required — every `make score` call pins an explicit covariance artifact,
+  never the Makefile default), and `out_root`'s writability are also checked
+  at spec-load time, before any simulation runs.
 - Exports run with bounded 5-worker parallelism: a `ThreadPoolExecutor` whose
   workers each shell out to `python -m tools.export_analytics --config ...`
   (NOT `ProcessPoolExecutor` — its semaphores are sandbox-blocked). The
@@ -16,26 +20,46 @@ Design (spec `docs/ai-dlc/specs/flywheel-s4.md`, "Design rulings"):
   in the driver thread (make invocations are cheap; the analytics side is
   intentionally not parallelized).
 - Every batch is scored from its `OUT=` JSON file — never from stdout — and
-  no success-bearing subprocess call is ever piped.
+  no success-bearing subprocess call is ever piped. `score.json` is unlinked
+  before every `make score` invocation (a stale leftover file must never be
+  mistaken for a fresh result), and a fresh regular file is required after.
+- FAIL-CLOSED, including on UNEXPECTED failures, not just expected ones: a
+  worker exception, a launch error (`make`/the analytics repo missing), a
+  malformed or self-inconsistent score payload, or an identity mismatch
+  between what was requested and what `_SUCCESS`/the score payload actually
+  describe, all mark that one run "failed" (with a captured traceback or
+  stderr tail) and let the sweep continue — never an unhandled crash with no
+  manifest. `main()` carries a last-resort safety net: even an exception that
+  somehow escapes every inner guard still lands a labeled, partial manifest
+  before a nonzero exit.
 - A designated (config, seed) arm is exported a second time, to a scratch
   directory, purely to prove producer determinism (closes an S3 declared
   gap): the two batches' Parquet tables must be equal (excluding
-  `exported_at`), and their score canonical payloads equal after masking
-  `gate.parquet_sha256` only.
+  `exported_at`), and their score canonical payloads equal (compared as
+  canonical BYTES, not Python dict equality — `1 == 1.0` in Python but they
+  serialize differently, and the byte claim is what matters) after masking
+  `gate.parquet_sha256` only. The dup batch's own pipeline outcome (status,
+  failed step, stderr tail) is recorded too, so a dup-side `make` failure
+  reads as "dup pipeline failed" rather than a false "batches differ" verdict
+  accusing the engine of nondeterminism.
 - Raw Parquet is deleted after a successful score (manifest keeps
   seed + config_hash -> any batch is reproducible on demand) unless
-  `--keep-raw`.
+  `--keep-raw`. Deletion of the rerun-check pair (designated + dup) is gated
+  on the WHOLE check having passed — on any failure, BOTH directories are
+  retained for post-mortem, never destroyed.
 - `lineup` (an optional sweep-spec field, forwarded verbatim as
   `--lineup` to every export — including the rerun-dup) is
   IDENTITY-BEARING: it is resolved once (mirroring the exporter's own
   9-seat wrap) and recorded in the manifest's canonical section; every
-  batch's `_SUCCESS.lineup` is cross-checked against that resolved value
-  and the run fails closed on any disagreement. Omitted -> the exporter's
-  own default, unchanged.
-- Any export/gate/score failure marks that run failed, the sweep continues,
-  and the manifest is stamped `sweep_status: "partial"` (a nonzero process
-  exit follows). "complete" only when every run — and the rerun check —
-  succeeded.
+  batch's `_SUCCESS` and score `producer_run` are cross-checked against the
+  requested arm on `{config_hash, seed, n_hands, run_id, lineup}` and the run
+  fails closed on any disagreement (a config edited after prevalidation, or a
+  wrong-seed/wrong-lineup export, must never silently read as "complete").
+  Omitted -> the exporter's own default, unchanged.
+- Any export/identity/validate/score failure marks that run failed, the
+  sweep continues, and the manifest is stamped `sweep_status: "partial"` (a
+  nonzero process exit follows). "complete" only when every run — and the
+  rerun check — succeeded.
 
 Usage:
     python -m tools.sweep_runner --spec sweep.json [--keep-raw]
@@ -46,11 +70,15 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -69,6 +97,8 @@ PARQUET_TABLES = ("hands.parquet", "seat_outcomes.parquet", "decisions.parquet")
 EXPORTED_AT_COLUMN = "exported_at"
 MAX_WORKERS = 5
 STDERR_TAIL_CHARS = 4000
+# Three-part semver, no leading zeros (matches counterfactual.py's §c.1 reading).
+_SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent  # backend/
 
@@ -94,7 +124,7 @@ class SweepSpec:
     n_hands: int
     out_root: Path
     analytics_repo: Path
-    cov_artifact: str | None
+    cov_artifact: str
     lineup: str | None
     spec_path: Path
 
@@ -102,7 +132,16 @@ class SweepSpec:
 def load_spec(path: Path | str) -> SweepSpec:
     """Parse and structurally validate a sweep-spec JSON. Does NOT validate
     the configs themselves (see `validate_configs`) — that step is separate
-    so it can run with a clear "N configs validated" boundary."""
+    so it can run with a clear "N configs validated" boundary.
+
+    Validates, up front (before ANY simulation runs): every required field is
+    present and well-typed; `schema_version` is a strict three-part semver;
+    `analytics_repo` is a real directory with a `Makefile` in it (a
+    nonexistent/wrong repo must be caught here, not mid-sweep as a launch
+    crash); `cov_artifact` is present and non-empty (the spec's own binding
+    ruling: "always explicit OUT and COV" — never the Makefile default);
+    `out_root`'s parent exists and is writable.
+    """
     path = Path(path)
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
@@ -116,6 +155,13 @@ def load_spec(path: Path | str) -> SweepSpec:
     missing = [k for k in required if k not in document]
     if missing:
         raise SweepSpecError(f"{path}: missing required field(s): {missing}")
+
+    schema_version = document["schema_version"]
+    if not isinstance(schema_version, str) or not _SEMVER.fullmatch(schema_version):
+        raise SweepSpecError(
+            f"{path}: `schema_version` {schema_version!r} is not a three-part "
+            f"semver string MAJOR.MINOR.PATCH"
+        )
 
     configs_raw = document["configs"]
     if not isinstance(configs_raw, list) or not configs_raw:
@@ -139,11 +185,33 @@ def load_spec(path: Path | str) -> SweepSpec:
     if not isinstance(n_hands, int) or isinstance(n_hands, bool) or n_hands <= 0:
         raise SweepSpecError(f"{path}: `n_hands` must be a positive int")
 
-    out_root = Path(document["out_root"])
     analytics_repo = Path(document["analytics_repo"])
+    if not analytics_repo.is_dir():
+        raise SweepSpecError(
+            f"{path}: analytics_repo {analytics_repo} is not a directory — "
+            f"refusing before any export runs"
+        )
+    if not (analytics_repo / "Makefile").is_file():
+        raise SweepSpecError(
+            f"{path}: analytics_repo {analytics_repo} has no Makefile — not a "
+            f"poker-analytics checkout"
+        )
+
+    out_root = Path(document["out_root"])
+    out_root_parent = out_root.parent
+    if not out_root_parent.is_dir() or not os.access(out_root_parent, os.W_OK):
+        raise SweepSpecError(
+            f"{path}: out_root's parent {out_root_parent} does not exist or "
+            f"is not writable"
+        )
+
     cov_artifact = document.get("cov_artifact")
-    if cov_artifact is not None and not isinstance(cov_artifact, str):
-        raise SweepSpecError(f"{path}: `cov_artifact` must be a string when present")
+    if not isinstance(cov_artifact, str) or not cov_artifact:
+        raise SweepSpecError(
+            f"{path}: `cov_artifact` is required and must be a non-empty "
+            f"string — the spec's binding ruling is \"always explicit OUT "
+            f"and COV\" (never the Makefile's default artifact)"
+        )
 
     lineup_raw = document.get("lineup")
     if lineup_raw is None:
@@ -162,7 +230,7 @@ def load_spec(path: Path | str) -> SweepSpec:
         )
 
     return SweepSpec(
-        schema_version=document["schema_version"],
+        schema_version=schema_version,
         configs=configs,
         seeds=seeds,
         n_hands=n_hands,
@@ -337,7 +405,76 @@ def mask_gate_hash(canonical: dict) -> dict:
 
 
 def score_payloads_equal_ignoring_gate_hash(a: dict, b: dict) -> bool:
-    return mask_gate_hash(a) == mask_gate_hash(b)
+    """Compare via CANONICAL BYTES, not Python dict equality — `1 == 1.0` is
+    `True` in Python but the two serialize to different JSON, and the claim
+    this function proves ("scored twice, byte-identical") is a claim about
+    bytes."""
+    return (counterfactual.canonical_bytes(mask_gate_hash(a))
+            == counterfactual.canonical_bytes(mask_gate_hash(b)))
+
+
+# ---------------------------------------------------------------------------
+# Score-payload / identity validation
+# ---------------------------------------------------------------------------
+
+
+def _validate_score_payload(payload: Any) -> str | None:
+    """Structural + self-consistency check on a `make score` OUT payload.
+
+    "ok" must mean USABLE, not merely "parsed as JSON" — a `{}` OUT file
+    parses fine but has no `canonical`, and a payload can claim a
+    `canonical_sha256` that does not match its own `canonical` object (a
+    truncated write, a hand-edited file, a scorer regression). Returns an
+    error string on any problem, `None` when the payload is trustworthy.
+    """
+    if not isinstance(payload, dict):
+        return f"score payload is not a JSON object (got {type(payload).__name__})"
+    canonical = payload.get("canonical")
+    if not isinstance(canonical, dict):
+        return "score payload has no `canonical` object"
+    claimed = payload.get("canonical_sha256")
+    if not isinstance(claimed, str):
+        return "score payload has no `canonical_sha256` string"
+    recomputed = hashlib.sha256(counterfactual.canonical_bytes(canonical)).hexdigest()
+    if recomputed != claimed:
+        return (
+            f"score payload's claimed canonical_sha256 {claimed!r} does not "
+            f"match the hash recomputed over its own `canonical` object "
+            f"({recomputed!r}) — the payload is internally inconsistent"
+        )
+    if not isinstance(canonical.get("producer_run"), dict):
+        return "score payload's canonical.producer_run is missing or not an object"
+    return None
+
+
+def _identity_mismatches(manifest_like: dict, item: RunItem, canonical_lineup: dict[str, str],
+                         source: str, expected_run_id: str | None = None) -> list[str]:
+    """Cross-check a `_SUCCESS` manifest (or a score payload's
+    `producer_run`) against the arm that was actually requested. A config
+    edited after prevalidation, a wrong-seed export, or a stale/foreign batch
+    directory must never silently read as "complete" — it must fail this one
+    run, explicitly, with the disagreement named.
+    """
+    problems = []
+    if manifest_like.get("seed") != item.seed:
+        problems.append(f"{source}.seed {manifest_like.get('seed')!r} != requested {item.seed!r}")
+    if manifest_like.get("n_hands") != item.n_hands:
+        problems.append(
+            f"{source}.n_hands {manifest_like.get('n_hands')!r} != requested {item.n_hands!r}")
+    if manifest_like.get("config_hash") != item.config_hash:
+        problems.append(
+            f"{source}.config_hash {manifest_like.get('config_hash')!r} != "
+            f"requested {item.config_hash!r}"
+        )
+    if manifest_like.get("lineup") != canonical_lineup:
+        problems.append(
+            f"{source}.lineup does not match the sweep's canonical lineup "
+            f"(identity-bearing — drives the covariance artifact match)"
+        )
+    if expected_run_id is not None and manifest_like.get("run_id") != expected_run_id:
+        problems.append(
+            f"{source}.run_id {manifest_like.get('run_id')!r} != expected {expected_run_id!r}")
+    return problems
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +490,9 @@ class RunOutcome:
     score_payload: dict | None = None
     stderr_tail: str | None = None
     wall_seconds: float = 0.0
-    failed_step: str | None = None  # "export" | "lineup_mismatch" | "validate" | "score"
+    # "export" | "identity_mismatch" | "validate" | "score" |
+    # "score_payload_invalid" | "rerun_check" | "crash"
+    failed_step: str | None = None
 
 
 def _score_batch(spec: SweepSpec, item: RunItem, export_cp: subprocess.CompletedProcess,
@@ -362,25 +501,28 @@ def _score_batch(spec: SweepSpec, item: RunItem, export_cp: subprocess.Completed
     if export_cp.returncode != 0:
         return RunOutcome(item, "failed", stderr_tail=_stderr_tail(export_cp),
                           wall_seconds=time.monotonic() - started, failed_step="export")
+    try:
+        return _score_batch_body(spec, item, keep_raw, canonical_lineup, started)
+    except Exception:  # noqa: BLE001 - fail-closed: NO unhandled exception may abort the sweep
+        return RunOutcome(
+            item, "failed", stderr_tail=traceback.format_exc()[-STDERR_TAIL_CHARS:],
+            wall_seconds=time.monotonic() - started, failed_step="crash")
 
+
+def _score_batch_body(spec: SweepSpec, item: RunItem, keep_raw: bool,
+                      canonical_lineup: dict[str, str], started: float) -> RunOutcome:
     success_path = item.out_dir / "_SUCCESS"
     try:
-        manifest = json.loads(success_path.read_text(encoding="utf-8"))
-        run_id = manifest["run_id"]
+        success_manifest = json.loads(success_path.read_text(encoding="utf-8"))
+        run_id = success_manifest["run_id"]
     except Exception as exc:  # noqa: BLE001 - fail-closed on any manifest defect
         return RunOutcome(item, "failed", stderr_tail=f"_SUCCESS unreadable: {exc}",
                           wall_seconds=time.monotonic() - started, failed_step="export")
 
-    if manifest.get("lineup") != canonical_lineup:
-        return RunOutcome(
-            item, "failed", run_id=run_id,
-            stderr_tail=(
-                f"_SUCCESS lineup {manifest.get('lineup')!r} does not match the "
-                f"sweep's canonical lineup {canonical_lineup!r} — lineup is "
-                f"identity-bearing (drives the covariance artifact match) and "
-                f"must agree across every batch in the sweep"
-            ),
-            wall_seconds=time.monotonic() - started, failed_step="lineup_mismatch")
+    mismatches = _identity_mismatches(success_manifest, item, canonical_lineup, "_SUCCESS")
+    if mismatches:
+        return RunOutcome(item, "failed", run_id=run_id, stderr_tail="; ".join(mismatches),
+                          wall_seconds=time.monotonic() - started, failed_step="identity_mismatch")
 
     validate_cp = _make_validate(spec.analytics_repo, item.out_dir)
     if validate_cp.returncode != 0:
@@ -388,17 +530,35 @@ def _score_batch(spec: SweepSpec, item: RunItem, export_cp: subprocess.Completed
                           wall_seconds=time.monotonic() - started, failed_step="validate")
 
     score_out = item.out_dir / "score.json"
-    cov = spec.cov_artifact
-    score_cp = _make_score(spec.analytics_repo, item.out_dir, score_out, cov)
+    score_out.unlink(missing_ok=True)  # never trust a stale leftover OUT file
+    score_cp = _make_score(spec.analytics_repo, item.out_dir, score_out, spec.cov_artifact)
     if score_cp.returncode != 0:
         return RunOutcome(item, "failed", run_id=run_id, stderr_tail=_stderr_tail(score_cp),
                           wall_seconds=time.monotonic() - started, failed_step="score")
+    if not score_out.is_file():
+        return RunOutcome(
+            item, "failed", run_id=run_id,
+            stderr_tail=f"make score exited 0 but {score_out} was not written",
+            wall_seconds=time.monotonic() - started, failed_step="score")
 
     try:
         payload = json.loads(score_out.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
         return RunOutcome(item, "failed", run_id=run_id, stderr_tail=f"score OUT unreadable: {exc}",
                           wall_seconds=time.monotonic() - started, failed_step="score")
+
+    payload_error = _validate_score_payload(payload)
+    if payload_error:
+        return RunOutcome(item, "failed", run_id=run_id, stderr_tail=payload_error,
+                          wall_seconds=time.monotonic() - started,
+                          failed_step="score_payload_invalid")
+
+    producer_run = payload["canonical"]["producer_run"]
+    mismatches = _identity_mismatches(producer_run, item, canonical_lineup, "score producer_run",
+                                      expected_run_id=run_id)
+    if mismatches:
+        return RunOutcome(item, "failed", run_id=run_id, stderr_tail="; ".join(mismatches),
+                          wall_seconds=time.monotonic() - started, failed_step="identity_mismatch")
 
     outcome = RunOutcome(item, "ok", run_id=run_id, score_payload=payload,
                          wall_seconds=time.monotonic() - started)
@@ -459,7 +619,11 @@ def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
     runs = [_run_canonical_entry(o) for o in outcomes]
 
     canonical = {
-        "schema_version": spec.schema_version,
+        # The MODULE's manifest-schema constant, never the spec author's
+        # unvalidated `schema_version` value — the two are different
+        # identities (what the user's spec claims to conform to vs. what
+        # shape this manifest actually is).
+        "schema_version": SCHEMA_VERSION,
         "configs": [chash for _, chash in resolved_configs],
         "seeds": list(spec.seeds),
         "n_hands": spec.n_hands,
@@ -473,12 +637,13 @@ def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
             "parquet_equal": rerun_check["parquet_equal"],
             "score_equal": rerun_check["score_equal"],
             "passed": rerun_check["passed"],
+            # "passed" | "batches_differ" | "designated_pipeline_failed" |
+            # "dup_pipeline_failed" | "crash"
+            "check_status": rerun_check["check_status"],
         },
         "runs": runs,
     }
-    canonical_bytes = counterfactual.canonical_bytes(canonical)
-    import hashlib
-    canonical_sha256 = hashlib.sha256(canonical_bytes).hexdigest()
+    canonical_sha256 = hashlib.sha256(counterfactual.canonical_bytes(canonical)).hexdigest()
 
     volatile_runs = []
     for outcome in outcomes:
@@ -499,9 +664,47 @@ def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
         "canonical_sha256": canonical_sha256,
         "runs": volatile_runs,
         "producer_rerun_check": {
-            "run_dir": str(rerun_check["run_dir"]),
-            "dup_dir": str(rerun_check["dup_dir"]),
+            "run_dir": str(rerun_check["run_dir"]) if rerun_check["run_dir"] is not None else None,
+            "dup_dir": str(rerun_check["dup_dir"]) if rerun_check["dup_dir"] is not None else None,
+            "dup_status": rerun_check.get("dup_status"),
+            "dup_failed_step": rerun_check.get("dup_failed_step"),
+            "dup_stderr_tail": rerun_check.get("dup_stderr_tail"),
         },
+    }
+    return {"canonical": canonical, "volatile": volatile}
+
+
+def _crash_manifest(spec: SweepSpec, tb_text: str) -> dict[str, Any]:
+    """Last-resort manifest for an exception that escaped `run_sweep` itself
+    (every INNER failure mode is already caught closer to its source — this
+    is the outermost net, for the fixed idea "no crash ever produces zero
+    manifest"). Always `sweep_status: "partial"`."""
+    canonical = {
+        "schema_version": SCHEMA_VERSION,
+        "configs": [],
+        "seeds": list(spec.seeds),
+        "n_hands": spec.n_hands,
+        "lineup": resolve_lineup_dict(spec.lineup),
+        "covariance_artifact_id": None,
+        "score_authority": SCORE_AUTHORITY,
+        "sweep_status": "partial",
+        "producer_rerun_check": {
+            "config_hash": None, "seed": None, "parquet_equal": False,
+            "score_equal": False, "passed": False, "check_status": "crash",
+        },
+        "runs": [],
+    }
+    canonical_sha256 = hashlib.sha256(counterfactual.canonical_bytes(canonical)).hexdigest()
+    volatile = {
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "spec_path": str(spec.spec_path),
+        "out_root": str(spec.out_root),
+        "analytics_repo": str(spec.analytics_repo),
+        "canonical_sha256": canonical_sha256,
+        "runs": [],
+        "producer_rerun_check": {"run_dir": None, "dup_dir": None, "dup_status": None,
+                                 "dup_failed_step": None, "dup_stderr_tail": None},
+        "crash_traceback_tail": tb_text[-STDERR_TAIL_CHARS:],
     }
     return {"canonical": canonical, "volatile": volatile}
 
@@ -527,30 +730,41 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
     spec.out_root.mkdir(parents=True, exist_ok=True)
 
     # Phase A: parallel export (bounded 5 workers), all arms + the rerun dup.
+    # A worker exception (not just a nonzero export) must not abort the
+    # sweep — it is converted into a synthetic failed CompletedProcess so
+    # phase B's ordinary "export failed" path handles it uniformly.
     export_results: dict[int, subprocess.CompletedProcess] = {}
     all_export_items = [*items, dup_item]
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         futures = {pool.submit(_export_subprocess, it): it for it in all_export_items}
         for future in as_completed(futures):
             it = futures[future]
-            export_results[it.index if it.kind == "primary" else -1] = future.result()
+            try:
+                cp = future.result()
+            except Exception:  # noqa: BLE001 - fail-closed
+                cp = subprocess.CompletedProcess(
+                    args=[], returncode=1, stdout="",
+                    stderr=f"export worker raised an exception:\n{traceback.format_exc()}",
+                )
+            export_results[it.index if it.kind == "primary" else -1] = cp
     dup_export_cp = export_results.pop(-1)
 
-    # Phase B: serial validate + score in the driver.
+    # Phase B: serial validate + score in the driver. `_score_batch` already
+    # catches everything internally (see its own try/except) — nothing here
+    # can raise.
     outcomes: list[RunOutcome] = []
-    designated_outcome: RunOutcome | None = None
     for item in items:
         keep = keep_raw or item.index == designated.index  # keep designated raw
         # until the rerun check below has run.
         outcome = _score_batch(spec, item, export_results[item.index], keep, canonical_lineup)
         outcomes.append(outcome)
-        if item.index == designated.index:
-            designated_outcome = outcome
+    designated_outcome = outcomes[rerun_check_index]
 
     dup_outcome = _score_batch(spec, dup_item, dup_export_cp, True, canonical_lineup)
 
-    # Producer-rerun check.
-    rerun_check = {
+    # Producer-rerun check — also fail-closed: an exception here (e.g. a
+    # corrupt Parquet file) marks the check "crash", never propagates.
+    rerun_check: dict[str, Any] = {
         "config_hash": designated.config_hash,
         "seed": designated.seed,
         "run_dir": designated.out_dir,
@@ -558,33 +772,46 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
         "parquet_equal": False,
         "score_equal": False,
         "passed": False,
+        "check_status": "designated_pipeline_failed",
+        "dup_status": dup_outcome.status,
+        "dup_failed_step": dup_outcome.failed_step,
+        "dup_stderr_tail": dup_outcome.stderr_tail,
     }
-    assert designated_outcome is not None
-    if designated_outcome.status == "ok" and dup_outcome.status == "ok":
-        try:
+    try:
+        if designated_outcome.status != "ok":
+            rerun_check["check_status"] = "designated_pipeline_failed"
+        elif dup_outcome.status != "ok":
+            rerun_check["check_status"] = "dup_pipeline_failed"
+        else:
             rerun_check["parquet_equal"] = parquet_batches_equal(
                 designated.out_dir, dup_item.out_dir)
-        except Exception as exc:  # noqa: BLE001 - fail closed
-            rerun_check["parquet_equal"] = False
-            rerun_check["error"] = f"parquet compare failed: {exc}"
-        rerun_check["score_equal"] = score_payloads_equal_ignoring_gate_hash(
-            designated_outcome.score_payload["canonical"],
-            dup_outcome.score_payload["canonical"],
-        )
-    rerun_check["passed"] = rerun_check["parquet_equal"] and rerun_check["score_equal"]
+            rerun_check["score_equal"] = score_payloads_equal_ignoring_gate_hash(
+                designated_outcome.score_payload["canonical"],
+                dup_outcome.score_payload["canonical"],
+            )
+            rerun_check["check_status"] = (
+                "passed" if rerun_check["parquet_equal"] and rerun_check["score_equal"]
+                else "batches_differ")
+    except Exception:  # noqa: BLE001 - fail-closed
+        rerun_check["check_status"] = "crash"
+        rerun_check["error"] = traceback.format_exc()[-STDERR_TAIL_CHARS:]
+    rerun_check["passed"] = rerun_check["check_status"] == "passed"
 
-    if not rerun_check["passed"]:
+    if not rerun_check["passed"] and designated_outcome.status == "ok":
         designated_outcome.status = "failed"
-        designated_outcome.failed_step = designated_outcome.failed_step or "rerun_check"
+        designated_outcome.failed_step = "rerun_check"
 
-    # Raw-data retirement for the designated run (deferred until now).
-    if not keep_raw:
+    # Raw-data retirement: gated on the WHOLE rerun check having passed. On
+    # any failure (designated failed, dup failed, batches differ, or a crash
+    # comparing them), BOTH directories are retained for post-mortem —
+    # deleting either would destroy the evidence needed to diagnose it.
+    if rerun_check["passed"] and not keep_raw:
         _delete_raw_parquet(designated.out_dir)
-    if not keep_raw and dup_item.out_dir.exists():
-        shutil.rmtree(dup_item.out_dir, ignore_errors=True)
-        rerun_dir = dup_item.out_dir.parent
-        if rerun_dir.exists() and not any(rerun_dir.iterdir()):
-            rerun_dir.rmdir()
+        if dup_item.out_dir.exists():
+            shutil.rmtree(dup_item.out_dir, ignore_errors=True)
+            rerun_dir = dup_item.out_dir.parent
+            if rerun_dir.exists() and not any(rerun_dir.iterdir()):
+                rerun_dir.rmdir()
 
     sweep_status = (
         "complete"
@@ -592,12 +819,12 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
         else "partial"
     )
 
-    manifest = build_manifest(spec, resolved_configs, outcomes, rerun_check, sweep_status,
-                              canonical_lineup)
-    return manifest
+    return build_manifest(spec, resolved_configs, outcomes, rerun_check, sweep_status,
+                          canonical_lineup)
 
 
 def write_manifest(spec: SweepSpec, manifest: dict[str, Any]) -> Path:
+    spec.out_root.mkdir(parents=True, exist_ok=True)  # crash paths may predate this
     out_path = spec.out_root / "sweep_manifest.json"
     out_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n",
                         encoding="utf-8")
@@ -608,8 +835,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--spec", type=Path, required=True,
                     help="sweep-spec JSON (schema_version, configs, seeds, "
-                         "n_hands, out_root, analytics_repo[, cov_artifact, "
-                         "lineup])")
+                         "n_hands, out_root, analytics_repo, cov_artifact"
+                         "[, lineup])")
     ap.add_argument("--keep-raw", action="store_true",
                     help="do not delete raw Parquet after a successful score")
     ap.add_argument("--rerun-check-index", type=int, default=0,
@@ -620,11 +847,20 @@ def main() -> None:
 
     try:
         spec = load_spec(args.spec)
-        manifest = run_sweep(spec, keep_raw=args.keep_raw,
-                             rerun_check_index=args.rerun_check_index)
-    except (SweepSpecError, SweepRunError) as exc:
+    except SweepSpecError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
+
+    try:
+        manifest = run_sweep(spec, keep_raw=args.keep_raw,
+                             rerun_check_index=args.rerun_check_index)
+    except SweepSpecError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+    except Exception:  # noqa: BLE001 - last-resort: still land a labeled manifest
+        tb_text = traceback.format_exc()
+        print(f"ERROR: sweep runner crashed:\n{tb_text}", file=sys.stderr)
+        manifest = _crash_manifest(spec, tb_text)
 
     out_path = write_manifest(spec, manifest)
     status = manifest["canonical"]["sweep_status"]
