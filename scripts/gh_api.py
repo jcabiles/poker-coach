@@ -13,6 +13,8 @@ Usage:
 Output: HTTP status on stderr, response JSON on stdout.
 """
 
+import gzip
+import http.client
 import json
 import pathlib
 import sys
@@ -43,16 +45,42 @@ def main() -> None:
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
             "User-Agent": "poker-coach-sandbox-client",
+            # The sandbox proxy truncates larger plain bodies (~22KB observed);
+            # gzip keeps most GitHub responses well under that on the wire.
+            "Accept-Encoding": "gzip",
         },
     )
     try:
         with urllib.request.urlopen(req) as resp:
             print(f"HTTP {resp.status}", file=sys.stderr)
-            sys.stdout.write(resp.read().decode())
+            sys.stdout.write(_decode(_read_all(resp), resp).decode())
     except urllib.error.HTTPError as e:
         print(f"HTTP {e.code}", file=sys.stderr)
-        sys.stdout.write(e.read().decode())
+        sys.stdout.write(_decode(_read_all(e), e).decode())
         sys.exit(1)
+
+
+def _decode(body: bytes, resp) -> bytes:
+    if resp.headers.get("Content-Encoding", "") == "gzip":
+        return gzip.decompress(body)
+    return body
+
+
+def _read_all(resp) -> bytes:
+    # The sandbox's network proxy can mis-report Content-Length on larger
+    # bodies, making a plain read() raise IncompleteRead even though the full
+    # payload arrives. Stream in chunks and keep whatever was delivered.
+    chunks = []
+    while True:
+        try:
+            chunk = resp.read(8192)
+        except http.client.IncompleteRead as e:
+            chunks.append(e.partial)
+            break
+        if not chunk:
+            break
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 if __name__ == "__main__":
