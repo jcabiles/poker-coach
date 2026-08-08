@@ -148,3 +148,26 @@ source files before acceptance; nothing folded on authority. The two independent
 converged on the duplicate-bundle gap, the appetite problem, and the amendment-discipline
 theme from different angles — consistent with prior slices' experience that convergent
 findings are the real ones.
+
+## Post-merge follow-on — panel amendment 2026-08-07-B (docs-only)
+
+Owner ruling (2026-08-07, after both S6 PRs merged, BEFORE any judging): judge panel
+recomposed from five one-per-vendor slots to **4 judges / 2 vendors** — Claude Sonnet +
+Claude Opus (Anthropic), gpt-5.6-terra + gpt-5.6-sol (OpenAI). Recorded as estimand
+contract **§g.3 amendment 2026-08-07-B** (poker-analytics), pre-judging, so full
+preregistration validity is retained.
+
+Verified before implementation (director, against code — not assumed):
+- `detection_judge.parse_judges_arg` accepts repeated vendors; one key per vendor
+  (`S6_JUDGE_<VENDOR>_KEY`) shared by same-vendor slots. **No code change needed.**
+- `detection_analysis` generalizes to any k: control label conjunct `ceil(4k/5)` ⇒
+  **4 of 4 (unanimous)** at k=4; the ≥3-usable bundle rule is an absolute §d pin ⇒ 3-of-4.
+- `detection_corpus --judges 4` at build; default constant `JUDGE_SLOTS = 5` left
+  untouched (historical), checklist passes the flag explicitly.
+- Volume: 85 presentation entries, 82 per judge ⇒ 328 judged + 4 preflight = 332 calls.
+
+Files touched (docs only): poker-analytics `estimand-contract.md` (§g.3),
+`detection-pilot-s6.md` (panel §3.3, control rule, bias row 9, §7.1 row),
+`FLYWHEEL-STATUS.md`; poker-coach `flywheel-s6-execution-checklist.md` (deck build flag,
+2-key credentials, S6_JUDGES string, volume/cost, pre-screen note), `flywheel-s6.md`
+(historical-reading banner), this ledger.
