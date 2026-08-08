@@ -20,8 +20,10 @@ parameter and not a branch.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
+import re
 from pathlib import Path
 
 import pytest
@@ -32,6 +34,7 @@ from app.domain.personas import load_persona_packs
 from tools.detection_corpus import (
     BOT_STRIDE_GAP,
     DEFAULT_CONTROL_CONFIG,
+    DUPLICATE_SLOT_KEY,
     HERO_SEAT,
     HUMAN_FIRST_HAND_NO,
     N_SEATS,
@@ -43,8 +46,10 @@ from tools.detection_corpus import (
     Bundle,
     CorpusBuildError,
     HumanHandRow,
+    PresentationRecord,
     Window,
     assert_disjoint,
+    assert_duplicate_plan,
     assign_constrained_focus_seats,
     assign_presentation_ids,
     build_corpus,
@@ -54,6 +59,7 @@ from tools.detection_corpus import (
     derive_seed,
     enumerate_windows,
     group_rows,
+    payload_digest,
     phase_id,
     presentation_document,
     read_human_snapshot,
@@ -62,6 +68,7 @@ from tools.detection_corpus import (
     run_id_for,
     seat_coverage,
     seat_trajectories,
+    select_duplicate_sources,
     select_windows,
     validate_human_window,
     write_presentation_manifest,
@@ -438,15 +445,33 @@ def _one_bundle(human_states, key="human/w0000") -> Bundle:
     )
 
 
-def _records(human_states) -> list[tuple[str, str]]:
+def _records(human_states) -> list[PresentationRecord]:
     rendered = render_bundles([_one_bundle(human_states)], 1, BUNDLE, ())
-    return [("B001", rendered[0][2])]
+    return [PresentationRecord("B001", rendered[0][2])]
 
 
 def test_presentation_document_has_exactly_three_keys_per_bundle(human_states):
     doc = presentation_document(_records(human_states))
     assert set(doc) == set(PRESENTATION_TOP_KEYS)
     assert set(doc["bundles"][0]) == set(PRESENTATION_BUNDLE_KEYS)
+    assert doc["judge_slots"] == 0
+
+
+def test_presentation_document_marks_only_duplicate_entries(human_states):
+    """The frozen shape: `duplicate_for_slot` on exactly the duplicates, and no
+    other key anywhere."""
+    text = _records(human_states)[0].rendered_text
+    doc = presentation_document(
+        [
+            PresentationRecord("B001", text),
+            PresentationRecord("B002", text, duplicate_for_slot=0),
+        ],
+        judge_slots=1,
+    )
+    assert set(doc["bundles"][0]) == set(PRESENTATION_BUNDLE_KEYS)
+    assert set(doc["bundles"][1]) == set(PRESENTATION_BUNDLE_KEYS) | {DUPLICATE_SLOT_KEY}
+    assert doc["bundles"][1][DUPLICATE_SLOT_KEY] == 0
+    assert doc["bundle_count"] == 2 and doc["judge_slots"] == 1
 
 
 @pytest.mark.parametrize(
@@ -465,6 +490,14 @@ def test_presentation_document_has_exactly_three_keys_per_bundle(human_states):
         pytest.param(
             lambda d: d["bundles"].append(dict(d["bundles"][0])), id="duplicate-id"
         ),
+        pytest.param(
+            lambda d: d["bundles"][0].update({"duplicate_for_slot": 0}), id="unclaimed-slot"
+        ),
+        pytest.param(
+            lambda d: d["bundles"][0].update({"duplicate_for_slot": "human"}),
+            id="slot-not-an-int",
+        ),
+        pytest.param(lambda d: d.pop("judge_slots"), id="missing-judge-slots"),
     ],
 )
 def test_presentation_manifest_rejects_label_bearing_or_broken_documents(
@@ -479,14 +512,16 @@ def test_presentation_manifest_rejects_label_bearing_or_broken_documents(
 
     clean = presentation_document(_records(human_states))
 
-    def doctored(records):
+    def doctored(records, judge_slots=0):
         doc = json.loads(json.dumps(clean))
         mutate(doc)
         return doc
 
     monkeypatch.setattr(corpus, "presentation_document", doctored)
     with pytest.raises(CorpusBuildError):
-        corpus.write_presentation_manifest(tmp_path / "presentation.json", [("B001", "x")])
+        corpus.write_presentation_manifest(
+            tmp_path / "presentation.json", [PresentationRecord("B001", "x")]
+        )
     assert not (tmp_path / "presentation.json").exists()
 
 
@@ -516,6 +551,28 @@ def test_presentation_manifest_writes_when_clean(tmp_path, human_states):
     assert len(digest) == 64
     doc = json.loads((tmp_path / "presentation.json").read_text())
     assert doc["bundle_count"] == 1
+
+
+def test_presentation_manifest_requires_every_declared_slot_to_be_filled(
+    tmp_path, human_states
+):
+    """`judge_slots: N` is a promise about the entries; an unfilled or repeated
+    slot is a broken schedule, not a cosmetic mismatch."""
+    text = _records(human_states)[0].rendered_text
+    with pytest.raises(CorpusBuildError, match="not exactly 0"):
+        write_presentation_manifest(
+            tmp_path / "p1.json", [PresentationRecord("B001", text)], judge_slots=1
+        )
+    with pytest.raises(CorpusBuildError, match="not exactly 0"):
+        write_presentation_manifest(
+            tmp_path / "p2.json",
+            [
+                PresentationRecord("B001", text),
+                PresentationRecord("B002", text, duplicate_for_slot=0),
+                PresentationRecord("B003", text, duplicate_for_slot=0),
+            ],
+            judge_slots=2,
+        )
 
 
 # --- 8. render + leak abort -------------------------------------------------
@@ -739,6 +796,8 @@ def test_replay_keep_does_not_change_the_hands():
 # --- 11. scaled end-to-end --------------------------------------------------
 
 
+JUDGES = 3
+
 BUILD_KWARGS = {
     "bot_seed": 7,
     "bot_hands": 25,
@@ -747,7 +806,17 @@ BUILD_KWARGS = {
     "bundle_size": BUNDLE,
     "human_bundles": 3,
     "bot_bundles": 3,
+    "judges": JUDGES,
 }
+
+
+def _deck_entries(presentation: dict) -> list[dict]:
+    """Presentation entries that are analysis-deck bundles (not duplicates)."""
+    return [b for b in presentation["bundles"] if DUPLICATE_SLOT_KEY not in b]
+
+
+def _duplicate_entries(presentation: dict) -> list[dict]:
+    return [b for b in presentation["bundles"] if DUPLICATE_SLOT_KEY in b]
 
 
 @pytest.fixture(scope="module")
@@ -762,7 +831,11 @@ def built(tmp_path_factory, human_db):
 def test_e2e_deck_shape_and_success_marker(built):
     out, success, presentation, unblinding = built
     assert success["counts"] == {"human": 3, "bot": 3, "control": 1}
-    assert success["bundle_count"] == 7 == presentation["bundle_count"]
+    assert success["bundle_count"] == 7  # the analysis deck
+    assert success["judge_slots"] == JUDGES
+    # bundle_count in the presentation file INCLUDES the judge duplicates.
+    assert presentation["bundle_count"] == 7 + JUDGES == success["presentation_entries"]
+    assert presentation["judge_slots"] == JUDGES
     assert (out / SUCCESS_FILENAME).exists()
     # _SUCCESS is written last and names the artifacts it certifies.
     assert set(success["artifacts"]) == {"presentation.json", "unblinding.json"}
@@ -771,8 +844,10 @@ def test_e2e_deck_shape_and_success_marker(built):
 def test_e2e_presentation_is_blind(built):
     _, _, presentation, unblinding = built
     assert set(presentation) == set(PRESENTATION_TOP_KEYS)
-    for bundle in presentation["bundles"]:
+    for bundle in _deck_entries(presentation):
         assert set(bundle) == set(PRESENTATION_BUNDLE_KEYS)
+    for bundle in _duplicate_entries(presentation):
+        assert set(bundle) == set(PRESENTATION_BUNDLE_KEYS) | {DUPLICATE_SLOT_KEY}
     blob = json.dumps(presentation)
     for token in ("control", "persona", "human", "session", "run-s", HUMAN_SESSION):
         assert token not in blob
@@ -786,8 +861,8 @@ def test_e2e_presentation_is_blind(built):
 def test_e2e_unblinding_joins_and_records_the_pins(built):
     _, success, presentation, unblinding = built
     by_id = {b["presentation_id"]: b for b in unblinding["bundles"]}
-    assert set(by_id) == {b["presentation_id"] for b in presentation["bundles"]}
-    for bundle in presentation["bundles"]:
+    assert set(by_id) == {b["presentation_id"] for b in _deck_entries(presentation)}
+    for bundle in _deck_entries(presentation):
         assert by_id[bundle["presentation_id"]]["sha256"] == bundle["sha256"]
     assert unblinding["master_seed"] == success["master_seed"]
     pins = unblinding["pins"]
@@ -870,7 +945,7 @@ def test_e2e_no_position_phase_belongs_to_only_one_class(built):
     _, _, presentation, unblinding = built
     label_of = {b["presentation_id"]: b["class"] for b in unblinding["bundles"]}
     phases: dict[str, set[tuple[str, ...]]] = {"human": set(), "bot": set()}
-    for bundle in presentation["bundles"]:
+    for bundle in _deck_entries(presentation):
         trajectory = _payload_trajectory(bundle["rendered_text"])
         assert len(trajectory) == BUNDLE
         phases[label_of[bundle["presentation_id"]]].add(trajectory)
@@ -885,7 +960,7 @@ def test_e2e_no_position_phase_belongs_to_only_one_class(built):
 def test_e2e_bundle_phase_ids_match_their_payloads(built):
     _, _, presentation, unblinding = built
     by_id = {b["presentation_id"]: b for b in unblinding["bundles"]}
-    for bundle in presentation["bundles"]:
+    for bundle in _deck_entries(presentation):
         record = by_id[bundle["presentation_id"]]
         assert record["phase_id"] == phase_id(
             _payload_trajectory(bundle["rendered_text"])
@@ -962,7 +1037,199 @@ def test_build_aborts_when_the_human_corpus_is_too_small(tmp_path, human_states)
     assert not (tmp_path / "z" / SUCCESS_FILENAME).exists()
 
 
-# --- 13. the pinned control config ------------------------------------------
+# --- 13. judge duplicates (§A.3) --------------------------------------------
+
+
+def test_duplicate_selection_is_seeded_deterministic_and_slot_separated():
+    keys = [f"human/w{i:04d}" for i in range(40)]
+    first = select_duplicate_sources(keys, 5, 20260807)
+    assert len(first) == 5
+    assert first == select_duplicate_sources(keys, 5, 20260807)
+    assert first == select_duplicate_sources(list(reversed(keys)), 5, 20260807)
+    assert first != select_duplicate_sources(keys, 5, 1)
+    # Slots are independent: a sixth judge cannot disturb the first five.
+    assert select_duplicate_sources(keys, 6, 20260807)[:5] == first
+    assert set(first) <= set(keys)
+
+
+def test_duplicate_plan_rejects_a_non_human_source():
+    labels = {"human/w0000": "human", "bot/w0000": "bot"}
+    assert_duplicate_plan(("human/w0000",), labels, 1)  # the happy path
+    with pytest.raises(CorpusBuildError, match="pins the per-judge duplicate"):
+        assert_duplicate_plan(("bot/w0000",), labels, 1)
+    with pytest.raises(CorpusBuildError, match="not a bundle in this deck"):
+        assert_duplicate_plan(("human/w0999",), labels, 1)
+    with pytest.raises(CorpusBuildError, match="duplicate sources"):
+        assert_duplicate_plan(("human/w0000",), labels, 2)
+
+
+def test_e2e_duplicates_are_one_human_repeat_per_slot(built):
+    _, _, presentation, unblinding = built
+    duplicates = _duplicate_entries(presentation)
+    assert len(duplicates) == JUDGES
+    assert sorted(d[DUPLICATE_SLOT_KEY] for d in duplicates) == list(range(JUDGES))
+
+    deck_by_id = {b["presentation_id"]: b for b in _deck_entries(presentation)}
+    label_of = {b["presentation_id"]: b["class"] for b in unblinding["bundles"]}
+    control_ids = {b["presentation_id"] for b in unblinding["bundles"] if b["is_control"]}
+    slots = {s["slot"]: s for s in unblinding["judge_duplicates"]["slots"]}
+    assert unblinding["judge_duplicates"]["n_slots"] == JUDGES
+    assert sorted(slots) == list(range(JUDGES))
+    for entry in duplicates:
+        record = slots[entry[DUPLICATE_SLOT_KEY]]
+        assert record["presentation_id"] == entry["presentation_id"]
+        source = deck_by_id[record["source_presentation_id"]]
+        # §A.3: human class only, never the control.
+        assert record["class"] == "human"
+        assert label_of[source["presentation_id"]] == "human"
+        assert source["presentation_id"] not in control_ids
+        # Byte-identical stimulus — the whole point of the repeat...
+        assert entry["rendered_text"] == source["rendered_text"]
+        assert entry["presentation_id"] != source["presentation_id"]
+        # ...but NOT an identical hash: the digest is salted with the entry's
+        # own id, so the hash column cannot be used to pick the (human-only)
+        # duplicates out of the blind manifest.
+        assert entry["sha256"] != source["sha256"]
+        assert entry["sha256"] == payload_digest(
+            entry["presentation_id"], entry["rendered_text"]
+        )
+
+
+def test_no_two_presentation_entries_share_a_hash_even_when_text_is_identical(built):
+    """The blind manifest must not contain a hash collision: a collision would
+    hand a `presentation.json` holder up to N confirmed HUMAN bundles (§A.3
+    pins duplicates to the human class), which is exactly the label the file
+    exists not to carry."""
+    _, _, presentation, _ = built
+    hashes = [b["sha256"] for b in presentation["bundles"]]
+    texts = [b["rendered_text"] for b in presentation["bundles"]]
+    assert len(set(hashes)) == len(hashes)
+    assert len(set(texts)) < len(texts)  # text twins DO exist — by design
+    for entry in presentation["bundles"]:
+        assert entry["sha256"] == payload_digest(
+            entry["presentation_id"], entry["rendered_text"]
+        )
+        assert entry["sha256"] != hashlib.sha256(
+            entry["rendered_text"].encode("utf-8")
+        ).hexdigest()
+
+
+def test_salted_digest_rule_is_uniform_and_id_sensitive(human_states):
+    """One rule for every entry — a duplicate-only salt would itself be the
+    tell. Same text under two ids must give two digests."""
+    text = _records(human_states)[0].rendered_text
+    doc = presentation_document(
+        [
+            PresentationRecord("B001", text),
+            PresentationRecord("B002", text, duplicate_for_slot=0),
+        ],
+        judge_slots=1,
+    )
+    first, second = doc["bundles"]
+    assert first["sha256"] == payload_digest("B001", text)
+    assert second["sha256"] == payload_digest("B002", text)
+    assert first["sha256"] != second["sha256"]
+    assert payload_digest("B001", text) == payload_digest("B001", text)
+
+
+def test_presentation_writer_rejects_an_unsalted_hash(tmp_path, human_states, monkeypatch):
+    """Adversarial: a document whose hashes were computed the OLD way (raw
+    text) must not be writable."""
+    import tools.detection_corpus as corpus
+
+    clean = presentation_document(_records(human_states))
+
+    def unsalted(records, judge_slots=0):
+        doc = json.loads(json.dumps(clean))
+        doc["bundles"][0]["sha256"] = hashlib.sha256(
+            doc["bundles"][0]["rendered_text"].encode("utf-8")
+        ).hexdigest()
+        return doc
+
+    monkeypatch.setattr(corpus, "presentation_document", unsalted)
+    with pytest.raises(CorpusBuildError, match="salted digest"):
+        corpus.write_presentation_manifest(
+            tmp_path / "presentation.json", [PresentationRecord("B001", "x")]
+        )
+
+
+def test_e2e_unblinding_carries_the_same_salted_digest(built):
+    """T6 cross-checks the two manifests by EQUALITY of the recorded field (it
+    never recomputes from text), so the unblinding copy must be the salted one."""
+    _, _, presentation, unblinding = built
+    presentation_hashes = {
+        b["presentation_id"]: b["sha256"] for b in presentation["bundles"]
+    }
+    for record in unblinding["bundles"]:
+        assert record["sha256"] == presentation_hashes[record["presentation_id"]]
+
+
+def test_e2e_duplicate_ids_come_from_the_same_space_and_do_not_collide(built):
+    _, _, presentation, _ = built
+    ids = [b["presentation_id"] for b in presentation["bundles"]]
+    assert len(set(ids)) == len(ids)
+    assert ids == sorted(ids)  # canonical order, no duplicates-at-the-end tell
+    assert all(re.fullmatch(r"B\d{3}", pid) for pid in ids)
+    dup_ids = {b["presentation_id"] for b in _duplicate_entries(presentation)}
+    # The duplicates are not simply the last N ids handed out.
+    assert dup_ids != set(ids[-JUDGES:])
+
+
+def test_e2e_build_aborts_when_a_duplicate_would_be_a_bot_bundle(
+    tmp_path, human_db, monkeypatch, built
+):
+    """Adversarial: force the selector to pick a REAL bot bundle of this deck —
+    the build must refuse rather than ship a deck whose visible mix contradicts
+    §A.3."""
+    import tools.detection_corpus as corpus
+
+    _, _, _, unblinding = built
+    bot_key = next(
+        b["bundle_key"] for b in unblinding["bundles"]
+        if b["class"] == "bot" and not b["is_control"]
+    )
+    monkeypatch.setattr(
+        corpus, "select_duplicate_sources",
+        lambda human_keys, judges, master_seed: (bot_key,) * judges,
+    )
+    out = tmp_path / "dup-bot"
+    with pytest.raises(CorpusBuildError, match="pins the per-judge duplicate"):
+        build_corpus(master_seed=1, db_path=human_db, out_dir=out, **BUILD_KWARGS)
+    assert not (out / SUCCESS_FILENAME).exists()
+    assert not (out / "presentation.json").exists()
+
+
+def test_e2e_zero_judges_produces_no_duplicates(tmp_path, human_db):
+    out = tmp_path / "no-judges"
+    success = build_corpus(
+        master_seed=1, db_path=human_db, out_dir=out,
+        **{**BUILD_KWARGS, "judges": 0},
+    )
+    presentation = json.loads((out / "presentation.json").read_text())
+    assert success["judge_slots"] == 0 and presentation["judge_slots"] == 0
+    assert _duplicate_entries(presentation) == []
+    assert presentation["bundle_count"] == 7
+
+
+def test_e2e_more_judges_add_entries_without_changing_the_deck(tmp_path, human_db, built):
+    """The deck itself must not depend on the judge count — only the extra
+    entries do (ids are re-drawn over the larger space, membership is not)."""
+    out = tmp_path / "more-judges"
+    build_corpus(
+        master_seed=1, db_path=human_db, out_dir=out, **{**BUILD_KWARGS, "judges": 4}
+    )
+    _, _, _, unblinding = built
+    redo = json.loads((out / "unblinding.json").read_text())
+    assert len(redo["judge_duplicates"]["slots"]) == 4
+    assert [s["source_bundle_key"] for s in redo["judge_duplicates"]["slots"]][:JUDGES] == [
+        s["source_bundle_key"] for s in unblinding["judge_duplicates"]["slots"]
+    ]
+    assert {b["bundle_key"] for b in redo["bundles"]} == {
+        b["bundle_key"] for b in unblinding["bundles"]
+    }
+
+
+# --- 14. the pinned control config ------------------------------------------
 
 
 def test_shipped_control_config_hashes_to_the_protocol_pin():

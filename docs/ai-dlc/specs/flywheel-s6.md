@@ -70,7 +70,11 @@ contract (bold, per §g) by ticket T7, before the first judged bundle.
   generator — extra amendment; axis-registry extension — frozen registry, out of
   appetite.)
 - **Blinding split (least privilege):** two artifacts — (i) blinded presentation manifest:
-  opaque presentation IDs, rendered text, payload hashes ONLY; (ii) secret unblinding
+  opaque presentation IDs, rendered text, payload hashes ONLY (hashes salted with the
+  presentation_id so duplicate entries don't hash-collide with their sources; **accepted
+  residual, disclosed:** a holder of this file can still find text twins by direct
+  rendered_text comparison — inherent to §d.2's identical-stimulus duplicate; judges
+  never see the manifest); (ii) secret unblinding
   manifest: class labels, seat/persona/window map, corpus pins. **The judge harness takes
   only (i) as input and has no code path to read (ii);** only analysis joins them, after
   judging. Both local/gitignored (owner hand data; never-push umbrella).

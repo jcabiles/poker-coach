@@ -8,8 +8,13 @@ Assembles the §d-preregistered deck for the S6 detection pilot:
 
 and splits it into TWO artifacts (spec `flywheel-s6.md`, "Blinding split"):
 
-    presentation.json  presentation_id + rendered_text + sha256, and NOTHING else
-    unblinding.json    class labels, source windows, seat maps, every corpus pin
+    presentation.json  presentation_id + rendered_text + sha256 (salted with
+                       the id, see `payload_digest`), and NOTHING else — except
+                       `duplicate_for_slot` on the one repeated entry each judge
+                       gets (§A.3), which routes an entry to a judge without
+                       saying anything about its class
+    unblinding.json    class labels, source windows, seat maps, every corpus pin,
+                       and which human bundle each judge's duplicate repeats
 
 The judge harness takes only `presentation.json`; nothing in that file names a
 class, a seat, a run, a session, or a hand number, and `_assert_presentation_blind`
@@ -144,9 +149,14 @@ UNBLINDING_FILENAME = "unblinding.json"
 SUCCESS_FILENAME = "_SUCCESS"
 SCHEMA_VERSION = "1.0.0"
 
-# The ONLY keys a presentation-manifest bundle may carry.
+# The ONLY keys a presentation-manifest bundle may carry, plus the one optional
+# key that appears on exactly the judge-duplicate entries (§A.3). FROZEN — the
+# judge harness (T5) is written against this shape.
 PRESENTATION_BUNDLE_KEYS = ("presentation_id", "rendered_text", "sha256")
-PRESENTATION_TOP_KEYS = ("bundle_count", "bundles", "schema_version")
+DUPLICATE_SLOT_KEY = "duplicate_for_slot"
+PRESENTATION_TOP_KEYS = ("bundle_count", "bundles", "judge_slots", "schema_version")
+# §d.2 / owner Gate-1 decision 3: five pinned judge vendors, one duplicate each.
+JUDGE_SLOTS = 5
 # Substrings that would betray a class, a source, or a seed if they ever
 # appeared as a KEY anywhere in the presentation manifest.
 _LABEL_KEY_TOKENS = (
@@ -187,6 +197,25 @@ def derive_rng(master_seed: int, domain: str, *parts: str) -> random.Random:
 
 def _sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def payload_digest(presentation_id: str, rendered_text: str) -> str:
+    """The per-entry hash: `sha256(presentation_id + "\\n" + rendered_text)`.
+
+    SALTED with the entry's own id, uniformly for every entry. An unsalted
+    payload hash would make each judge duplicate collide exactly with its
+    source, and since §A.3 pins duplicates to the HUMAN class, anyone holding
+    only `presentation.json` could read up to N human bundles straight off the
+    hash column — a labelled subset inside the one artifact whose job is to
+    carry no labels. The rule is uniform (no duplicate-only special case), so
+    the field itself signals nothing about which entries are repeats.
+
+    Residual, accepted: a `presentation.json` holder can still spot text twins
+    by comparing `rendered_text` directly. That is inherent to the §d.2
+    identical-stimulus design — the duplicate MUST be the same bytes — and the
+    judges never see the manifest, only one bundle's text per call.
+    """
+    return _sha256_text(f"{presentation_id}\n{rendered_text}")
 
 
 # ---------------------------------------------------------------------------
@@ -621,8 +650,73 @@ def render_bundles(
 
 
 # ---------------------------------------------------------------------------
+# Judge duplicates (§A.3): one repeated bundle per judge, always HUMAN class
+# ---------------------------------------------------------------------------
+
+
+def select_duplicate_sources(
+    human_keys: Iterable[str], judges: int, master_seed: int
+) -> tuple[str, ...]:
+    """Which HUMAN bundle each judge slot sees twice.
+
+    §A.3 pins the duplicate to the human class (a bot duplicate would make the
+    judge-visible mix 42/40 and contradict the stated 50/50 base rate), and the
+    selection needs labels — which is why it lives here, in the builder that
+    has them, and not in the blind harness.
+
+    Slots draw INDEPENDENTLY from their own domain-separated streams
+    (`judge-duplicate|<slot>`), so two judges may land on the same bundle and
+    adding a sixth judge cannot change the first five. Each judge's within-judge
+    consistency is measured against its own repeat, so cross-slot collisions
+    cost nothing.
+    """
+    if judges < 0:
+        raise CorpusBuildError(f"judges must be >= 0, got {judges}")
+    pool = sorted(human_keys)
+    if judges and not pool:
+        raise CorpusBuildError("no human bundles to duplicate")
+    return tuple(
+        derive_rng(master_seed, "judge-duplicate", str(slot)).choice(pool)
+        for slot in range(judges)
+    )
+
+
+def assert_duplicate_plan(
+    sources: Sequence[str], label_by_key: Mapping[str, str], judges: int
+) -> None:
+    """Fail closed on any duplicate that is not exactly one human bundle per slot."""
+    if len(sources) != judges:
+        raise CorpusBuildError(
+            f"{len(sources)} duplicate sources for {judges} judge slots"
+        )
+    for slot, key in enumerate(sources):
+        label = label_by_key.get(key)
+        if label is None:
+            raise CorpusBuildError(f"slot {slot}: {key!r} is not a bundle in this deck")
+        if label != "human":
+            raise CorpusBuildError(
+                f"slot {slot}: duplicate source {key!r} is class {label!r} — "
+                f"§A.3 pins the per-judge duplicate to the HUMAN class"
+            )
+
+
+def duplicate_key(slot: int) -> str:
+    return f"duplicate/slot{slot:02d}"
+
+
+# ---------------------------------------------------------------------------
 # Blinding split
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationRecord:
+    """One judge-facing entry: an opaque id, the rendered text, and — only on a
+    judge duplicate — the slot it is routed to."""
+
+    presentation_id: str
+    rendered_text: str
+    duplicate_for_slot: int | None = None
 
 
 def _label_bearing_keys(document: object, path: str = "") -> list[str]:
@@ -658,12 +752,26 @@ def _assert_presentation_blind(document: Mapping, forbidden: Sequence[str] = ())
         raise CorpusBuildError("presentation manifest has no bundles")
     if document["bundle_count"] != len(bundles):
         raise CorpusBuildError("presentation manifest bundle_count does not match bundles")
+    judge_slots = document["judge_slots"]
+    if not isinstance(judge_slots, int) or isinstance(judge_slots, bool) or judge_slots < 0:
+        raise CorpusBuildError(f"judge_slots {judge_slots!r} is not a slot count")
     seen: set[str] = set()
+    slots_seen: list[int] = []
     for entry in bundles:
-        if not isinstance(entry, Mapping) or set(entry) != set(PRESENTATION_BUNDLE_KEYS):
+        allowed = (
+            set(PRESENTATION_BUNDLE_KEYS),
+            set(PRESENTATION_BUNDLE_KEYS) | {DUPLICATE_SLOT_KEY},
+        )
+        if not isinstance(entry, Mapping) or set(entry) not in allowed:
             raise CorpusBuildError(
-                f"presentation bundle keys {sorted(entry)} != {sorted(PRESENTATION_BUNDLE_KEYS)}"
+                f"presentation bundle keys {sorted(entry)} != "
+                f"{sorted(PRESENTATION_BUNDLE_KEYS)} (+ optional {DUPLICATE_SLOT_KEY!r})"
             )
+        if DUPLICATE_SLOT_KEY in entry:
+            slot = entry[DUPLICATE_SLOT_KEY]
+            if not isinstance(slot, int) or isinstance(slot, bool) or slot < 0:
+                raise CorpusBuildError(f"{DUPLICATE_SLOT_KEY} {slot!r} is not a slot index")
+            slots_seen.append(slot)
         pid, text, digest = (
             entry["presentation_id"], entry["rendered_text"], entry["sha256"]
         )
@@ -674,37 +782,60 @@ def _assert_presentation_blind(document: Mapping, forbidden: Sequence[str] = ())
         seen.add(pid)
         if not isinstance(text, str) or not text:
             raise CorpusBuildError(f"{pid}: rendered_text is empty")
-        if digest != _sha256_text(text):
-            raise CorpusBuildError(f"{pid}: sha256 does not match rendered_text")
+        if digest != payload_digest(pid, text):
+            raise CorpusBuildError(
+                f"{pid}: sha256 is not the salted digest of its rendered_text"
+            )
         violations = leak_check(text, forbidden=forbidden)
         if violations:
             raise CorpusBuildError(f"{pid}: leak audit failed at write time — {violations}")
+    if sorted(slots_seen) != list(range(judge_slots)):
+        raise CorpusBuildError(
+            f"duplicate slots {sorted(slots_seen)} are not exactly 0..{judge_slots - 1}, "
+            f"one entry each"
+        )
     stray = _label_bearing_keys(document)
     if stray:
         raise CorpusBuildError(f"presentation manifest has label-bearing keys: {stray}")
 
 
-def presentation_document(
-    records: Sequence[tuple[str, str]],
-) -> dict:
-    """Build the judge-facing document from (presentation_id, rendered_text)."""
-    bundles = [
-        {
-            "presentation_id": pid,
-            "rendered_text": text,
-            "sha256": _sha256_text(text),
+def presentation_document(records: Sequence[PresentationRecord], judge_slots: int = 0) -> dict:
+    """Build the judge-facing document.
+
+    `duplicate_for_slot` is the ONLY optional key: it routes an entry to one
+    judge without saying anything about its class. A duplicate's `rendered_text`
+    is its source's, byte for byte — the §d.2 duplicate measures within-judge
+    consistency on IDENTICAL stimulus, so re-rendering it (a different seat map,
+    different opaque labels) would silently measure something else.
+    """
+    bundles = []
+    for record in sorted(records, key=lambda r: r.presentation_id):
+        entry = {
+            "presentation_id": record.presentation_id,
+            "rendered_text": record.rendered_text,
+            # Salted with the id — see `payload_digest`. Two entries with
+            # identical text (a judge duplicate and its source) therefore hash
+            # differently, so the hash column carries no class information.
+            "sha256": payload_digest(record.presentation_id, record.rendered_text),
         }
-        for pid, text in sorted(records)
-    ]
+        if record.duplicate_for_slot is not None:
+            entry[DUPLICATE_SLOT_KEY] = record.duplicate_for_slot
+        bundles.append(entry)
     return {
         "schema_version": SCHEMA_VERSION,
+        # Includes the duplicates: this is the count of entries a judge panel
+        # will be shown, not the size of the analysis deck.
         "bundle_count": len(bundles),
+        "judge_slots": judge_slots,
         "bundles": bundles,
     }
 
 
 def write_presentation_manifest(
-    path: Path, records: Sequence[tuple[str, str]], forbidden: Sequence[str] = ()
+    path: Path,
+    records: Sequence[PresentationRecord],
+    forbidden: Sequence[str] = (),
+    judge_slots: int = 0,
 ) -> str:
     """Validate-then-write the judge-facing manifest; returns its file sha256.
 
@@ -712,7 +843,7 @@ def write_presentation_manifest(
     presentation manifest on disk without it having passed the blindness
     assertions.
     """
-    document = presentation_document(records)
+    document = presentation_document(records, judge_slots)
     _assert_presentation_blind(document, forbidden)
     return _write_json(path, document)
 
@@ -757,6 +888,7 @@ def build_corpus(
     bot_bundles: int = BOT_BUNDLES,
     lineup: Sequence[str] = RATIFIED_LINEUP,
     non_protocol_control: bool = False,
+    judges: int = JUDGE_SLOTS,
 ) -> dict:
     """Build the whole deck and write both manifests + `_SUCCESS`.
 
@@ -765,7 +897,8 @@ def build_corpus(
     are the defaults, not a separate branch. `non_protocol_control` is the ONLY
     way to build against a control config other than the pinned one, and it
     stamps `non_protocol` on both manifests so such a deck can never be mistaken
-    for the protocol deck.
+    for the protocol deck. `judges` is the number of judge slots, each of which
+    gets one extra presentation entry repeating a HUMAN bundle (§A.3).
     """
     if not 0 < bundle_size <= MAX_LOCAL_HAND_INDEX:
         raise CorpusBuildError(
@@ -958,14 +1091,39 @@ def build_corpus(
         - {""}
     )
     rendered = render_bundles(bundles, master_seed, bundle_size, forbidden)
-    presentation_ids = assign_presentation_ids(
-        (b.key for b in bundles), derive_rng(master_seed, "presentation-ids")
+    text_by_key = {bundle.key: text for bundle, _, text in rendered}
+
+    # --- judge duplicates (§A.3): one repeated HUMAN bundle per judge -------
+    label_by_key = {bundle.key: bundle.label for bundle in bundles}
+    duplicate_sources = select_duplicate_sources(
+        [key for key, label in label_by_key.items() if label == "human"],
+        judges,
+        master_seed,
     )
+    assert_duplicate_plan(duplicate_sources, label_by_key, judges)
+
+    # Duplicates draw their ids from the SAME shuffled space as the deck, so a
+    # duplicate's id is not recognisable as one (only its repeated text is, and
+    # that is inherent to the design).
+    presentation_ids = assign_presentation_ids(
+        [b.key for b in bundles] + [duplicate_key(k) for k in range(judges)],
+        derive_rng(master_seed, "presentation-ids"),
+    )
+    records = [
+        PresentationRecord(presentation_ids[bundle.key], text)
+        for bundle, _, text in rendered
+    ]
+    records += [
+        PresentationRecord(
+            presentation_ids[duplicate_key(slot)],
+            text_by_key[source_key],  # byte-identical stimulus, never re-rendered
+            duplicate_for_slot=slot,
+        )
+        for slot, source_key in enumerate(duplicate_sources)
+    ]
 
     presentation_sha = write_presentation_manifest(
-        out_dir / PRESENTATION_FILENAME,
-        [(presentation_ids[b.key], text) for b, _, text in rendered],
-        forbidden,
+        out_dir / PRESENTATION_FILENAME, records, forbidden, judge_slots=judges
     )
 
     built_at = datetime.now(UTC).isoformat(timespec="seconds")
@@ -1032,6 +1190,24 @@ def build_corpus(
             "bot_window_stride": bot_stride,
         },
         "position_phases": phase_records,
+        # §A.3: the per-judge duplicate is drawn from the HUMAN class. Recorded
+        # here (never in the presentation file) so analysis can join a
+        # duplicate's answers back to its source bundle.
+        "judge_duplicates": {
+            "n_slots": judges,
+            "selection": "derive_rng(master_seed, 'judge-duplicate', str(slot)).choice("
+                         "sorted(human bundle keys)) — independent per slot",
+            "slots": [
+                {
+                    "slot": slot,
+                    "presentation_id": presentation_ids[duplicate_key(slot)],
+                    "source_presentation_id": presentation_ids[source_key],
+                    "source_bundle_key": source_key,
+                    "class": "human",
+                }
+                for slot, source_key in enumerate(duplicate_sources)
+            ],
+        },
         "human_windows": {
             "candidates": _window_records(human_checks),
             "selected": list(human_selected),
@@ -1057,7 +1233,10 @@ def build_corpus(
                     "is_control": bundle.is_control,
                     "focus_seat": bundle.focus_seat,
                     "n_hands": len(bundle.hands),
-                    "sha256": _sha256_text(text),
+                    # The SAME salted digest the presentation entry carries, so
+                    # analysis can cross-check the two manifests by equality
+                    # without ever recomputing a hash from rendered text.
+                    "sha256": payload_digest(presentation_ids[bundle.key], text),
                     "phase_id": phase_id(bundle_trajectory(bundle.hands)),
                     "seat_id_map": {str(s): o for s, o in seat_id_map.items()},
                     "seat_map_seed": (
@@ -1085,7 +1264,11 @@ def build_corpus(
         # Stamped here too: a reader who only ever opens _SUCCESS must still be
         # unable to mistake a non-protocol control deck for the real one.
         "non_protocol": is_non_protocol,
+        # The ANALYSIS deck (duplicates and the control are excluded from deck
+        # statistics); `presentation_entries` is what the panel is shown.
         "bundle_count": len(bundles),
+        "presentation_entries": len(records),
+        "judge_slots": judges,
         "counts": counts,
         "artifacts": {
             PRESENTATION_FILENAME: presentation_sha,
@@ -1128,6 +1311,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                        help="hands per bundle (§d pins 30; smaller only for dry runs)")
     build.add_argument("--human-bundles", type=int, default=HUMAN_BUNDLES)
     build.add_argument("--bot-bundles", type=int, default=BOT_BUNDLES)
+    build.add_argument("--judges", type=int, default=JUDGE_SLOTS,
+                       help="judge slots; each gets one extra presentation entry "
+                            "repeating a HUMAN bundle byte-identically (§A.3)")
     args = ap.parse_args(argv)
 
     success = build_corpus(
@@ -1144,6 +1330,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         human_bundles=args.human_bundles,
         bot_bundles=args.bot_bundles,
         non_protocol_control=args.non_protocol_control,
+        judges=args.judges,
     )
     print(json.dumps(success, indent=2, sort_keys=True))
 
