@@ -89,6 +89,28 @@ SCHEMA_PATH_VERSION = "v1"  # data-path major; bumps only on a breaking change
 STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
 _CONFIG_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
+# F1 (flywheel S6 T2): mirrors the live table's re-buy spread EXACTLY
+# (`app/services/sim_session.py:148-149` `_BUYIN_MIN_BB`/`_BUYIN_MAX_BB`) —
+# same bounds, same integer-cent granularity, same per-hand-seed-derived
+# stream. Kept as a distinct pair of constants (not imported from
+# sim_session, a web-layer module the domain-pure export tool must not
+# depend on) — cross-checked against the live values by a conformance test.
+_BUYIN_MIN_BB = 95.0
+_BUYIN_MAX_BB = 105.0
+
+
+def _draw_buyin_targets(hand_seed: int) -> list[float]:
+    """Nine per-seat buy-in targets (seat order 0..8), mirroring
+    `sim_session._rebuy_seats`: integer cents drawn uniform on
+    `[_BUYIN_MIN_BB, _BUYIN_MAX_BB]` from a distinct per-hand RNG stream
+    (`hand_seed ^ 1`, matching sim_session.py:220-255's `seed ^ 1`
+    derivation from the hand's OWN seed — never the run's global RNG
+    mid-stream) so the same hand seed reproduces the same targets
+    regardless of how many hands preceded it."""
+    lo, hi = int(_BUYIN_MIN_BB * 100), int(_BUYIN_MAX_BB * 100)
+    rng = random.Random(hand_seed ^ 1)
+    return [rng.randint(lo, hi) / 100 for _ in range(9)]
+
 # Default lineup mirrors the persona test harness: the 6 personas in sorted
 # order, wrapped around 9 seats. The button rotates hand-by-hand so every
 # persona plays every position.
@@ -155,12 +177,18 @@ def _git_sha() -> str:
 
 
 def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
-                  persona_by_seat: dict[int, str], packs) -> dict:
+                  persona_by_seat: dict[int, str], packs,
+                  stacks_bb: list[float] | None = None) -> dict:
     """One full production-policy playout. Returns the raw rows for all
     three tables. Deliberately thin: derivations that SQL can do (facing,
-    aggression, VPIP flags...) belong downstream in dbt, not here."""
+    aggression, VPIP flags...) belong downstream in dbt, not here.
+
+    `stacks_bb`: per-seat starting stacks (seat order 0..8). Defaults to
+    the flat 100bb reset (F1 default path); `run_export`'s `--buyin-spread`
+    path supplies `_draw_buyin_targets(hand_seed)` instead."""
+    stacks_bb = stacks_bb if stacks_bb is not None else [STACKS_BB] * 9
     state = start_hand(deal_hand(random.Random(hand_seed)), button_seat,
-                       stacks_bb=[STACKS_BB] * 9)
+                       stacks_bb=stacks_bb)
     decision_rows: list[dict] = []
     seq = 0
     # Blind posts happen inside start_hand; emit them as action rows so the
@@ -241,7 +269,7 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
             "seat": s.seat, "persona": persona_by_seat[s.seat],
             "position": s.position.value,
             "hole_cards": " ".join(s.hole_cards),
-            "starting_stack_bb": STACKS_BB,
+            "starting_stack_bb": stacks_bb[s.seat],
             "invested_bb": round(s.invested_total_bb, 2),
             "delta_bb": delta,
             "final_status": s.status.value,
@@ -264,7 +292,8 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
 def run_export(n_hands: int, seed: int, out_dir: Path,
                lineup: list[str] | None = None,
                packs: dict[VillainType, PersonaPack] | None = None,
-               config_hash: str | None = None) -> dict:
+               config_hash: str | None = None,
+               buyin_spread: bool = False) -> dict:
     """T2 (flywheel S4): `packs`/`config_hash` travel together — both given
     (sweep path: already-validated in-memory pack overlays + their §c.6
     hash), or both omitted (default path: simulate the RAW as-loaded packs
@@ -272,7 +301,15 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     `counterfactual.baseline_config_hash()` as a side-channel so the baseline
     packs fed to `play_one_hand` are never canonicalized — see spec `Design
     rulings`, "The default (no-config) export path simulates the RAW
-    as-loaded packs")."""
+    as-loaded packs").
+
+    `buyin_spread` (F1, flywheel S6 T2): when True, every seat re-buys to a
+    fresh per-hand target drawn by `_draw_buyin_targets` (mirrors the live
+    table's `_rebuy_seats` exactly) instead of the flat 100bb reset; `run_id`
+    gains a `-bspread-` mode token and the manifest records the mode +
+    bounds. Default False: output is byte-identical (canonical comparison,
+    per the S4 convention) to the pre-flag export — no new manifest fields,
+    no run_id change."""
     import pyarrow as pa
     import pyarrow.parquet as pq
 
@@ -300,14 +337,17 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     # collide on run_id/hand_id. S1's pinned per-persona counts reference the
     # old format — the config-hash suffix below is new; the lineup component
     # remains a disclosed wart.
-    run_id = f"run-s{seed}-n{n_hands}-c{config_hash[:12]}"
+    mode_token = "-bspread" if buyin_spread else ""
+    run_id = f"run-s{seed}-n{n_hands}{mode_token}-c{config_hash[:12]}"
     exported_at = datetime.now(UTC).isoformat(timespec="seconds")
 
     hands, seats, decisions = [], [], []
     for i in range(n_hands):
         hand_id = f"{run_id}-h{i:07d}"
-        res = play_one_hand(rng, rng.randrange(1_000_000_000), i % 9,
-                            persona_by_seat, packs)
+        hand_seed = rng.randrange(1_000_000_000)
+        stacks_bb = _draw_buyin_targets(hand_seed) if buyin_spread else None
+        res = play_one_hand(rng, hand_seed, i % 9,
+                            persona_by_seat, packs, stacks_bb=stacks_bb)
         hands.append({"hand_id": hand_id, "run_id": run_id, "hand_no": i,
                       **res["hand"], "exported_at": exported_at})
         for r in res["seats"]:
@@ -341,6 +381,12 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
         "exported_at": exported_at,
         "row_counts": row_counts,
     }
+    # F1: spread-only fields are added ONLY when the flag is set, so the
+    # default path's manifest shape is byte-identical to pre-change.
+    if buyin_spread:
+        manifest["buyin_spread"] = True
+        manifest["buyin_min_bb"] = _BUYIN_MIN_BB
+        manifest["buyin_max_bb"] = _BUYIN_MAX_BB
 
     wall_seconds = time.monotonic() - start
     timing = {
@@ -408,6 +454,12 @@ def main() -> None:
                          "(backend/tools/counterfactual.py); validated and "
                          "overlaid onto the baseline packs before export. "
                          "Omit for the default (raw baseline packs) path.")
+    ap.add_argument("--buyin-spread", action="store_true",
+                    help="F1: every seat re-buys to a fresh per-hand target "
+                         "on [95,105]bb, mirroring the live table's re-buy "
+                         "exactly, instead of the flat 100bb reset. Adds a "
+                         "-bspread- run_id token + manifest fields; default "
+                         "path is unaffected.")
     args = ap.parse_args()
     lineup = args.lineup.split(",") if args.lineup else None
     packs = config_hash = None
@@ -419,7 +471,8 @@ def main() -> None:
             raise SystemExit(1) from exc
         packs, config_hash = validated.packs, validated.config_hash
     manifest = run_export(args.hands, args.seed, args.out, lineup=lineup,
-                          packs=packs, config_hash=config_hash)
+                          packs=packs, config_hash=config_hash,
+                          buyin_spread=args.buyin_spread)
     print(json.dumps(manifest, indent=2))
     if not args.skip_contract_test:
         _advisory_contract_test(args.out)

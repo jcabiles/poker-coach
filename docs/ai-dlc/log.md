@@ -342,3 +342,25 @@ requires. Integration re-based as a fresh branch feat/s2b-fanin off main
 NEXT-item re-scope was already on main verbatim) — research dir taken from
 59184c8 unchanged, roadmap S2b box ticked with the fan-in record. S6 spec
 starts on owner's /ai-org:spec.
+
+## 2026-08-07 — S6 BUILT (detection-protocol pilot; awaiting owner execution)
+
+Full slice in one session: spec (28 dual-review findings folded pre-build, three
+owner-approved §d amendments declared up front), then five build waves with dual
+review at every fan-in. Shipped on feat/flywheel-s6: --buyin-spread export flag
+(live re-buy mirrored exactly, default path golden-pinned), leak-proof shared
+renderer (canonical schema, fail-closed invariants, one-cent fix), deck builder
+(40+40+control, blinding split enforced in the writer, focus seats phase-matched
+to close a position-trajectory side channel), judge harness (5 stdlib vendor
+adapters, verbatim §d.3 prompt + base-rate preamble, checkpoint/resume), and the
+statistics module (control invalidation fail-closed, BA/AUC/d′, stratified
+bootstrap, Kish n_eff incl. per-judge tables). Protocol deck built twice at
+pinned master seed 20260807, byte-identical, 86/86 payloads leak-clean. Review
+system earned its keep repeatedly: Codex caught the phase side channel and the
+judge-harness never-sent-the-hands bug; acceptance caught the one-cent false
+reject (which was also mislabeling a seat all-in in judge-facing text). Suite
+1,886 green. Analytics side (feat/flywheel-s6-docs): §g.2 amendments recorded
+pre-judging, write-up scaffold, status. Remaining: owner gathers 5 vendor keys,
+runs control pre-screen then full judging per
+specs/flywheel-s6-execution-checklist.md; write-up fills from analysis.json.
+Ledger: ledger/flywheel-s6.md (all ~46 findings with dispositions).
