@@ -12,6 +12,7 @@ On conflict the canonical wins. Owner-approved initiative, 2026-08-05.
 | Export producer `backend/tools/export_analytics.py` | poker-coach |
 | Vendored ODCS copy `backend/tools/poker_events.odcs.yaml` | poker-coach — whoever changes the export schema updates the vendored copy IN THE SAME CHANGE; sync check: `diff` against the canonical below |
 | Counterfactual-config execution (S4) | poker-coach |
+| Detection pilot (S6, owner ruling Gate 1 2026-08-07) | S6 detection pilot tooling (corpus/judging/analysis) → poker-coach; pilot write-up + methodology → poker-analytics |
 | ODCS contract canonical `contracts/poker_events.odcs.yaml` | poker-analytics |
 | Ingestion gate `ingest/validate.py` (+ `make validate`) | poker-analytics |
 | Scorer (`scorer/`), target registry, stat models | poker-analytics |

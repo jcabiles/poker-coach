@@ -70,7 +70,18 @@ from app.domain.table.engine import HandState, settle
 
 _SEATS = 9
 _BOARD_CARDS = 5
-_EPS = 0.011  # 2dp reconciliation tolerance (amounts are rounded floats)
+# Tolerance for RECONCILING sums of 2dp-rounded amounts. Never a semantic
+# threshold: it is wider than one chip, so it cannot be used to ask "does this
+# seat have chips left?".
+_EPS = 0.011
+# "No chips behind", in a game whose money is integer cents. Half a cent:
+# absorbs float residue (a real 0.01 stack arrives as 0.00999999999999801)
+# while never swallowing a legal one-cent chip. Under the §A.1 buy-in spread a
+# seat can legally call down to exactly 0.01bb and remain IN — the engine
+# marks ALLIN only at `stack_bb <= 1e-9` (`engine._pay`), and CALL caps its
+# increment at the seat's stack, so the remainder stays live. Using _EPS here
+# rejected exactly one legal hand in 1,500 (T7 acceptance).
+_ZERO_CHIPS = 0.005
 
 # Fixed render order; never a dict/set iteration order.
 _POSITION_ORDER: tuple[Position, ...] = (
@@ -263,9 +274,16 @@ def _validate_terminal_state(state: HandState) -> None:
     Pydantic types the fields but does not police their joint meaning, and it
     happily parses `NaN`/`Infinity` out of a JSON column — a corrupt human
     SQLite row would otherwise render a literal `nan` stack, which is a class
-    tell all by itself. Every invariant below was verified to hold across
-    1,853 real human hands and 200 production-policy bot hands before being
-    enforced, so it rejects corruption without rejecting real data.
+    tell all by itself.
+
+    Every invariant below is verified to hold across 1,853 real human hands
+    and 1,500 spread-mode production-policy bot hands (`--buyin-spread`, run
+    seed 60001) before being enforced, so it rejects corruption without
+    rejecting real data. The bot number is 1,500 and not a round few hundred
+    for a reason: the earlier 200-hand check passed while a legal one-cent
+    residue shape occurred exactly ONCE in 1,500 hands, and the `_EPS`-based
+    zero-chips test wrongly rejected it (T7 acceptance). A sample that cannot
+    contain the rare shape is not evidence about the rare shape.
     """
     if len(state.seats) != _SEATS:
         raise CanonicalHandError(f"expected {_SEATS} seats, got {len(state.seats)}")
@@ -298,7 +316,7 @@ def _validate_terminal_state(state: HandState) -> None:
     for name, value in amounts:
         if not math.isfinite(value):
             raise CanonicalHandError(f"{name} is not a finite number ({value!r})")
-        if value < -_EPS:
+        if value < -_ZERO_CHIPS:
             raise CanonicalHandError(f"{name} is negative ({value!r})")
 
     if len(state.full_board) != _BOARD_CARDS:
@@ -327,11 +345,11 @@ def _validate_terminal_state(state: HandState) -> None:
     _check_reveal_depth(state)
 
     for s in state.seats:
-        if s.status is PlayerStatus.ALLIN and s.stack_bb > _EPS:
+        if s.status is PlayerStatus.ALLIN and s.stack_bb > _ZERO_CHIPS:
             raise CanonicalHandError(
                 f"seat {s.seat} is all-in but still holds {s.stack_bb} behind"
             )
-        if s.status is PlayerStatus.IN and s.stack_bb <= _EPS:
+        if s.status is PlayerStatus.IN and s.stack_bb < _ZERO_CHIPS:
             raise CanonicalHandError(
                 f"seat {s.seat} has no chips behind but is not marked all-in"
             )
@@ -398,7 +416,10 @@ def _replay(state: HandState) -> tuple[CanonicalAction, ...]:
                 amount_bb=_r2(h.amount_bb),
                 to_bb=_r2(street_invested[seat]),
                 pot_before_bb=_r2(pot - h.amount_bb),
-                all_in=total_invested[seat] >= stack_of[seat] - _EPS,
+                # Same one-chip rule as the validator: a seat that called down
+                # to a single cent is NOT all-in, and must not be labelled so
+                # in judge-facing text.
+                all_in=total_invested[seat] >= stack_of[seat] - _ZERO_CHIPS,
             )
         )
     return tuple(out)

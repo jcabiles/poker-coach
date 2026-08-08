@@ -82,6 +82,15 @@ N_EFF_POPULATION_NOTE = (
     "deck; the point estimates beside it use only bundles with >=3 usable "
     "judges — the populations differ when exclusions occur."
 )
+# Per-judge deck performance (§d.3 "Per-judge statistics reported alongside")
+# uses each judge's OWN usable responses over the full analysis deck — like
+# n_eff, and for the same reason, it is NOT gated by the panel's >=3-usable
+# inclusion rule (that rule gates the panel-AGGREGATE point estimates only).
+PER_JUDGE_POPULATION_NOTE = (
+    "Per-judge rows use each judge's OWN usable responses over the full "
+    "analysis deck; they are not gated by the panel's >=3-usable-judges "
+    "inclusion rule, which applies only to the panel-aggregate point estimates."
+)
 
 VALID_LABELS = ("human", "bot")
 # NOTE: matches `detection_judge.py`'s actual on-disk status strings (its own
@@ -652,6 +661,67 @@ def judge_agreement_rate(
     return (agree / total) if total else None
 
 
+def per_judge_deck_stats(
+    deck_bundles: Sequence[BundleRecord],
+    judges: Sequence[Judge],
+    responses: Mapping[tuple[int, str], JudgeResponse],
+) -> dict:
+    """§d.3 "Per-judge statistics reported alongside": for each judge, over
+    its OWN usable responses on the analysis deck (non-control,
+    non-duplicate) — n_usable, balanced accuracy, human/bot recall, human
+    misclassification rate, and mean `confidence_human` by true class.
+    Inferential (deck-performance), so this belongs under the valid-batch
+    branch only; ordered deterministically by slot."""
+    rows = []
+    for judge in sorted(judges, key=lambda j: j.slot):
+        human_hits = human_total = 0
+        bot_hits = bot_total = 0
+        human_confidences: list[int] = []
+        bot_confidences: list[int] = []
+        n_usable = 0
+        for bundle in deck_bundles:
+            response = responses.get((judge.slot, bundle.presentation_id))
+            if response is None or not response.usable:
+                continue
+            n_usable += 1
+            if bundle.klass == "human":
+                human_total += 1
+                human_confidences.append(response.confidence)
+                if response.label == "human":
+                    human_hits += 1
+            else:
+                bot_total += 1
+                bot_confidences.append(response.confidence)
+                if response.label == "bot":
+                    bot_hits += 1
+        human_recall = (human_hits / human_total) if human_total else None
+        bot_recall = (bot_hits / bot_total) if bot_total else None
+        balanced = (
+            (human_recall + bot_recall) / 2
+            if human_recall is not None and bot_recall is not None
+            else None
+        )
+        human_misclass = (1 - human_recall) if human_recall is not None else None
+        rows.append(
+            {
+                "slot": judge.slot,
+                "vendor": judge.vendor,
+                "n_usable": n_usable,
+                "balanced_accuracy": balanced,
+                "human_recall": human_recall,
+                "bot_recall": bot_recall,
+                "human_misclassification_rate": human_misclass,
+                "mean_confidence_human": {
+                    "human": (
+                        statistics.mean(human_confidences) if human_confidences else None
+                    ),
+                    "bot": statistics.mean(bot_confidences) if bot_confidences else None,
+                },
+            }
+        )
+    return {"population_note": PER_JUDGE_POPULATION_NOTE, "rows": rows}
+
+
 # ---------------------------------------------------------------------------
 # Duplicate consistency (diagnostics only)
 # ---------------------------------------------------------------------------
@@ -875,12 +945,14 @@ def run_analysis(
     completeness = completeness_report(
         judges, control, deck_bundles, unblinding.duplicates, responses, deck_stats
     )
+    per_judge = per_judge_deck_stats(deck_bundles, judges, responses)
 
     analysis = {
         "schema_version": SCHEMA_VERSION,
         "batch_valid": True,
         "control": control_diag,
         "deck": deck,
+        "per_judge": per_judge,
         "bootstrap": {
             "seed": bootstrap_seed,
             "b_iterations": bootstrap_b,
@@ -941,6 +1013,21 @@ def render_report(analysis: Mapping) -> str:
             "-" * 60,
             f"  {analysis['bootstrap']['disclosure']}",
         ]
+        per_judge = analysis["per_judge"]
+        lines += [
+            "",
+            "Per-judge deck performance (§d.3 \"reported alongside\")",
+            "-" * 60,
+            f"  {per_judge['population_note']}",
+        ]
+        for row in per_judge["rows"]:
+            lines.append(
+                f"  slot={row['slot']} vendor={row['vendor']:16s} n_usable={row['n_usable']} "
+                f"balanced_accuracy={row['balanced_accuracy']!r} "
+                f"human_recall={row['human_recall']!r} bot_recall={row['bot_recall']!r} "
+                f"human_misclassification_rate={row['human_misclassification_rate']!r} "
+                f"mean_confidence_human={row['mean_confidence_human']!r}"
+            )
     lines += [
         "",
         "Diagnostics",

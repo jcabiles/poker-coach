@@ -23,11 +23,13 @@ import pytest
 
 from app.domain.action import Decision
 from app.domain.personas import load_persona_packs
-from app.domain.spot import ActionType, Street
+from app.domain.spot import ActionType, PlayerStatus, Street
 from app.domain.table.deck import deal_hand
 from app.domain.table.engine import HandState, apply, settle, start_hand
 from app.domain.table.play import bot_decision
 from tools.detection_render import (
+    _EPS,  # reconciliation tolerance — asserted against, never reused as one
+    _ZERO_CHIPS,
     MAX_LOCAL_HAND_INDEX,
     CanonicalHandError,
     from_bot,
@@ -614,6 +616,45 @@ def test_rejects_negative_money():
         from_bot(tampered, 4)
 
 
+def test_one_negative_cent_sits_between_the_old_and_new_thresholds():
+    """Premise guard for the boundary test below: -0.01 is exactly the value
+    the OLD `_EPS`-based guard tolerated and the tightened one rejects. If
+    someone widens `_ZERO_CHIPS` back toward `_EPS`, this fails first and
+    says why."""
+    assert -_EPS < -0.01 < -_ZERO_CHIPS
+
+
+def test_rejects_one_negative_cent():
+    """Boundary: a single negative cent is corrupt data, not float noise. The
+    original guard reused `_EPS` (0.011) and silently tolerated this — so a
+    revert to `_EPS` must turn this test red, which `-1.0` alone could not
+    detect."""
+    state = hand_foldout_preflop()
+    tampered = state.model_copy(deep=True)
+    tampered.seats[2].invested_total_bb = -0.01
+    with pytest.raises(CanonicalHandError, match="negative"):
+        from_bot(tampered, 4)
+
+
+def test_accepts_sub_half_cent_negative_residue():
+    """The other side of the boundary, and deliberately NOT zero tolerance.
+
+    Real engine float noise is ~1e-9 (see `engine._EPS`), so nothing legitimate
+    lands near -0.004; this guard exists for CORRUPT data, and the tolerance is
+    kept symmetric with `_ZERO_CHIPS` on purpose — the same "half a cent" line
+    separates chips from residue in both directions, so there is one rule to
+    reason about rather than two. A folded seat is used because a negative
+    stack on a live seat would (correctly) trip the zero-chips status check
+    first, which would mask what this test is measuring.
+    """
+    state = hand_foldout_preflop()
+    assert state.seats[2].status is PlayerStatus.FOLDED
+    tampered = state.model_copy(deep=True)
+    tampered.seats[2].stack_bb = -0.004
+    assert -_ZERO_CHIPS < -0.004
+    assert from_bot(tampered, 4) is not None
+
+
 def test_rejects_duplicate_seat_index():
     state = hand_foldout_preflop()
     tampered = state.model_copy(deep=True)
@@ -697,6 +738,86 @@ def test_rejects_street_investment_exceeding_hand_investment():
     tampered.seats[0].invested_street_bb = tampered.seats[0].invested_total_bb + 5.0
     with pytest.raises(CanonicalHandError, match="this street"):
         from_bot(tampered, 0)
+
+
+# --- 8c. one cent is a chip (T7 acceptance regression) ----------------------
+
+
+def hand_one_cent_behind() -> HandState:
+    """A seat that legally ends the hand IN with exactly 0.01bb behind.
+
+    UTG jams 10.00; the BB (buy-in 10.01) calls. CALL caps its increment at
+    `min(to_call, stack_bb)` = 9.00, leaving one cent, and `engine._pay` marks
+    ALLIN only at `stack_bb <= 1e-9` — so the BB stays IN holding a live chip.
+    Under the §A.1 integer-cent buy-in spread this is an ordinary outcome, not
+    a corrupt state.
+    """
+    stacks = list(FLAT)
+    stacks[6] = 10.00  # UTG
+    stacks[5] = 10.01  # BB
+    return play(
+        13,
+        BUTTON,
+        stacks,
+        [raise_to(10.0), FOLD, FOLD, FOLD, FOLD, FOLD, FOLD, FOLD, CALL],
+    )
+
+
+def test_one_cent_behind_is_a_state_the_engine_itself_produces():
+    """Premise guard: assert the ENGINE's semantics, so this regression can
+    never be explained away by loosening a validator against a state the
+    engine would supposedly never produce."""
+    state = hand_one_cent_behind()
+    bb = state.seats[5]
+    assert bb.status is PlayerStatus.IN
+    assert bb.stack_bb == pytest.approx(0.01, abs=1e-9)
+    assert bb.stack_bb > 1e-9  # the engine's own all-in threshold
+
+
+def test_accepts_seat_in_with_exactly_one_cent_behind():
+    """The T7 acceptance regression: `_EPS` (0.011, a RECONCILIATION
+    tolerance) had been reused as a zero-chips test and rejected this legal
+    hand — it occurs once per ~1,500 spread-mode hands, which was enough to
+    abort most master seeds."""
+    hand = from_bot(hand_one_cent_behind(), 5)
+    assert hand.seats[5].starting_stack_bb == pytest.approx(10.01)
+
+
+def test_one_cent_seat_is_not_labelled_all_in():
+    """The same one-chip confusion also corrupted judge-facing TEXT: a seat
+    with a cent behind is not all-in and must not read as such."""
+    state = hand_one_cent_behind()
+    hand = from_bot(state, 5)
+    bb_call = next(
+        a for a in hand.actions if a.seat == 5 and a.action == ActionType.CALL.value
+    )
+    assert not bb_call.all_in
+    utg_jam = next(
+        a for a in hand.actions if a.seat == 6 and a.action == ActionType.RAISE.value
+    )
+    assert utg_jam.all_in  # the genuinely all-in seat still reads all-in
+    text = render_one(state, 5)
+    assert "(all-in)" in text  # UTG's jam
+    assert "calls 9.00 (all-in)" not in text
+
+
+def test_rejects_live_seat_with_true_zero_behind():
+    """The tightened threshold must still catch a real zero — the fix must not
+    trade a false positive for a false negative."""
+    tampered = hand_one_cent_behind().model_copy(deep=True)
+    tampered.seats[5].stack_bb = 0.0
+    with pytest.raises(CanonicalHandError, match="not marked all-in"):
+        from_bot(tampered, 5)
+
+
+def test_rejects_all_in_seat_holding_a_single_cent():
+    """Inverse invariant preserved: one cent is a chip, so an ALLIN seat
+    holding one is still a contradiction."""
+    tampered = hand_one_cent_behind().model_copy(deep=True)
+    allin = next(s for s in tampered.seats if s.status is PlayerStatus.ALLIN)
+    allin.stack_bb = 0.01
+    with pytest.raises(CanonicalHandError, match="all-in but still holds"):
+        from_bot(tampered, 5)
 
 
 def test_rejects_empty_bundle():

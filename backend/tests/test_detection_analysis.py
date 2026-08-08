@@ -23,6 +23,7 @@ import pytest
 from tools.detection_analysis import (
     AGREEMENT_CAVEAT,
     N_EFF_POPULATION_NOTE,
+    PER_JUDGE_POPULATION_NOTE,
     AnalysisError,
     BundleRecord,
     DeckBundleStat,
@@ -43,6 +44,7 @@ from tools.detection_analysis import (
     load_presentation_hashes,
     load_responses,
     load_unblinding,
+    per_judge_deck_stats,
     render_report,
     run_analysis,
 )
@@ -153,30 +155,32 @@ def test_less_than_three_usable_judges_excluded():
 # ---------------------------------------------------------------------------
 
 
-def test_kish_n_eff_computable_hand_computed():
-    # 3 judges, 4 bundles (2 human, 2 bot). Judge error vectors (own label !=
-    # true class), chosen so Pearson correlations are exact fractions:
-    #   A = [0,0,0,1]   B = [0,1,0,1]   C = [1,0,1,0]
+def _abc_fixture():
+    """3 judges (A,B,C), 4 bundles (x1,x2 human; x3,x4 bot), every response
+    confidence pinned at 50 (irrelevant to n_eff/per-judge label stats, kept
+    constant to isolate the label-vs-true-class arithmetic). Judge error
+    vectors (own label != true class), chosen so Pearson correlations are
+    exact fractions:  A = [0,0,0,1]   B = [0,1,0,1]   C = [1,0,1,0]
+    (error = 1 on x4 for A; on x2,x4 for B; on x1,x3 for C)."""
     judges = [Judge(i, f"v{i}", "r", "r") for i in range(3)]
     bundles = [
         BundleRecord("x1", "human", False), BundleRecord("x2", "human", False),
         BundleRecord("x3", "bot", False), BundleRecord("x4", "bot", False),
     ]
-    # label sequences per judge over [x1,x2,x3,bot-x3(no),x4] matching classes
     # true classes: x1=human, x2=human, x3=bot, x4=bot
-    a_labels = ["human", "human", "bot", "bot"]  # errors [0,0,0,0]? recompute below
-    # We want errors A=[0,0,0,1] i.e. A wrong on x4 only:
     a_labels = ["human", "human", "bot", "human"]  # x4 mislabeled human -> error=1
-    # errors B=[0,1,0,1]: B wrong on x2 and x4
-    b_labels = ["human", "bot", "bot", "human"]
-    # errors C=[1,0,1,0]: C wrong on x1 and x3
-    c_labels = ["bot", "human", "human", "bot"]
+    b_labels = ["human", "bot", "bot", "human"]  # wrong on x2 and x4
+    c_labels = ["bot", "human", "human", "bot"]  # wrong on x1 and x3
     responses = {}
     pids = ["x1", "x2", "x3", "x4"]
     for slot, labels in zip((0, 1, 2), (a_labels, b_labels, c_labels), strict=True):
         for pid, label in zip(pids, labels, strict=True):
             responses[(slot, pid)] = JudgeResponse(slot, pid, "ok", label, 50)
+    return judges, bundles, responses
 
+
+def test_kish_n_eff_computable_hand_computed():
+    judges, bundles, responses = _abc_fixture()
     result = kish_n_eff(bundles, judges, responses)
     # r(A,B) = 1/sqrt(3), r(A,C) = -1/sqrt(3), r(B,C) = -1  (Pearson, by hand
     # via the raw-score formula r = (n*Sxy - Sx*Sy) / sqrt((n*Sxx-Sx^2)(n*Syy-Sy^2)))
@@ -246,6 +250,64 @@ def test_judge_agreement_rate_is_diagnostics_only_value():
     # every judge gives the identical label per bundle (uniform fixture) ->
     # pairwise agreement rate is exactly 1.0.
     assert judge_agreement_rate(stats_bundles, JUDGES5, responses) == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# Per-judge deck performance (§d.3 "reported alongside")
+# ---------------------------------------------------------------------------
+
+
+def test_per_judge_deck_stats_hand_computed():
+    judges, bundles, responses = _abc_fixture()
+    result = per_judge_deck_stats(bundles, judges, responses)
+    assert result["population_note"] == PER_JUDGE_POPULATION_NOTE
+    rows = result["rows"]
+    assert [row["slot"] for row in rows] == [0, 1, 2]  # deterministic, by slot
+
+    # Judge A (slot 0): x1(human)->human OK, x2(human)->human OK,
+    # x3(bot)->bot OK, x4(bot)->human WRONG.
+    # human_recall = 2/2 = 1.0, bot_recall = 1/2 = 0.5
+    # balanced_accuracy = (1.0 + 0.5)/2 = 0.75, human_misclass = 1 - 1.0 = 0.0
+    a = rows[0]
+    assert a["vendor"] == "v0"
+    assert a["n_usable"] == 4
+    assert a["human_recall"] == pytest.approx(1.0)
+    assert a["bot_recall"] == pytest.approx(0.5)
+    assert a["balanced_accuracy"] == pytest.approx(0.75)
+    assert a["human_misclassification_rate"] == pytest.approx(0.0)
+    # every response in this fixture is confidence=50 -> both class means are 50
+    assert a["mean_confidence_human"] == {"human": pytest.approx(50.0), "bot": pytest.approx(50.0)}
+
+    # Judge B (slot 1): x1->human OK, x2->bot WRONG, x3->bot OK, x4->human WRONG.
+    # human_recall = 1/2 = 0.5, bot_recall = 1/2 = 0.5 -> balanced_accuracy = 0.5
+    b = rows[1]
+    assert b["human_recall"] == pytest.approx(0.5)
+    assert b["bot_recall"] == pytest.approx(0.5)
+    assert b["balanced_accuracy"] == pytest.approx(0.5)
+    assert b["human_misclassification_rate"] == pytest.approx(0.5)
+
+    # Judge C (slot 2): x1->bot WRONG, x2->human OK, x3->human WRONG, x4->bot OK.
+    # human_recall = 1/2 = 0.5, bot_recall = 1/2 = 0.5 -> balanced_accuracy = 0.5
+    c = rows[2]
+    assert c["human_recall"] == pytest.approx(0.5)
+    assert c["bot_recall"] == pytest.approx(0.5)
+    assert c["balanced_accuracy"] == pytest.approx(0.5)
+
+
+def test_per_judge_deck_stats_unusable_responses_excluded_from_n_usable():
+    judges = [Judge(0, "v0", "r", "r")]
+    bundles = [BundleRecord("x1", "human", False), BundleRecord("x2", "bot", False)]
+    responses = {
+        (0, "x1"): JudgeResponse(0, "x1", "ok", "human", 90),
+        (0, "x2"): JudgeResponse(0, "x2", "malformed-final", None, None),  # unusable
+    }
+    result = per_judge_deck_stats(bundles, judges, responses)
+    row = result["rows"][0]
+    assert row["n_usable"] == 1
+    assert row["human_recall"] == pytest.approx(1.0)
+    assert row["bot_recall"] is None  # no usable bot responses at all
+    assert row["balanced_accuracy"] is None  # undefined when either recall is None
+    assert row["mean_confidence_human"] == {"human": pytest.approx(90.0), "bot": None}
 
 
 # ---------------------------------------------------------------------------
@@ -567,9 +629,13 @@ def test_full_run_batch_invalid_emits_diagnostics_only(tmp_path):
     assert "deck" not in analysis
     assert "bootstrap" not in analysis
     assert "n_eff" not in analysis
+    # per-judge deck performance is inferential (deck-performance) — the
+    # invalid branch keeps its diagnostics-only shape and never emits it.
+    assert "per_judge" not in analysis
     assert analysis["completeness"]["missing_pairs"] == []
     assert (out_dir / "analysis.json").exists()
     assert (out_dir / "report.txt").exists()
+    assert "Per-judge" not in (out_dir / "report.txt").read_text(encoding="utf-8")
 
 
 def test_full_run_valid_batch_has_registered_n_eff_uses(tmp_path):
@@ -639,6 +705,25 @@ def test_full_run_valid_batch_has_registered_n_eff_uses(tmp_path):
     report_text = (out_dir / "report.txt").read_text(encoding="utf-8")
     assert AGREEMENT_CAVEAT in report_text
     assert render_report(analysis) == report_text
+
+    # §d.3 "Per-judge statistics reported alongside": the uniform fixture
+    # gives every judge the identical response per bundle, so each of the 5
+    # per-judge rows reproduces the hand-computed panel-level numbers.
+    #   human confidences [80,75,65,60,55,30] -> mean = 365/6
+    #   bot confidences   [10,15,20,25,35,70] -> mean = 175/6
+    per_judge = analysis["per_judge"]
+    assert per_judge["population_note"] == PER_JUDGE_POPULATION_NOTE
+    assert [row["slot"] for row in per_judge["rows"]] == [0, 1, 2, 3, 4]
+    for row in per_judge["rows"]:
+        assert row["n_usable"] == 12
+        assert row["human_recall"] == pytest.approx(5 / 6)
+        assert row["bot_recall"] == pytest.approx(5 / 6)
+        assert row["balanced_accuracy"] == pytest.approx(5 / 6)
+        assert row["human_misclassification_rate"] == pytest.approx(1 / 6)
+        assert row["mean_confidence_human"]["human"] == pytest.approx(365 / 6)
+        assert row["mean_confidence_human"]["bot"] == pytest.approx(175 / 6)
+    assert "Per-judge deck performance" in report_text
+    assert PER_JUDGE_POPULATION_NOTE in report_text
 
 
 def test_full_run_byte_identical_same_seed(tmp_path):
