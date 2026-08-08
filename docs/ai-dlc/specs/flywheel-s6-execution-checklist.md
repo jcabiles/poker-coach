@@ -46,8 +46,12 @@ export S6_ROOT="../docs/ai-dlc/research/persona-realism-artifacts/detection-s6"
 .venv/bin/python -m tools.detection_corpus build \
   --master-seed 20260807 \
   --db-path data/poker_coach.db \
+  --judges 4 \
   --out-dir "$S6_ROOT/deck"
 ```
+
+**`--judges 4` is required** — the §g.3 panel amendment (four judges from two vendors)
+changed the slot count; the tool's built-in default is still the historical 5.
 
 **Pinned seeds — use these exact values, do not improvise:** master `20260807`,
 per-judge order `20260807`, bootstrap `20260807`. The master seed is the deck's identity:
@@ -56,65 +60,67 @@ a different one selects different windows, which is a different experiment, not 
 Check the printed `_SUCCESS` body before going on:
 
 - [ ] `counts` = `{"human": 40, "bot": 40, "control": 1}`
-- [ ] `presentation_entries` = 86 (81 bundles + one duplicate per judge)
+- [ ] `presentation_entries` = 85 (81 bundles + one duplicate per judge)
 - [ ] `non_protocol` = `false` — `true` means the control config is not the pinned one and
       the deck is NOT the protocol deck
-- [ ] `judge_slots` = 5
+- [ ] `judge_slots` = 4
 
 **Your deck may not be byte-identical to the acceptance build, and that is by design.**
 The human corpus is re-pinned at build time (§d): if the Simulate session has grown since
 2026-08-07, `n_pinned` rises, more candidate windows exist, and the seeded selection lands
 elsewhere. A rebuild is only expected to be byte-identical to ITSELF — same seed, same DB
-state. (For traceability, the acceptance build at this seed was `n_pinned` 1853, 61
-candidate human windows, `presentation.json` sha256
+state. (For traceability, the acceptance build at this seed — made pre-amendment with the
+then-current 5 judge slots, so your 4-slot build differs by design — was `n_pinned` 1853,
+61 candidate human windows, `presentation.json` sha256
 `da1990192232e02df18864a99a0bb54bd4fbee07c7e748128daa51a1545bdccc`.)
 
 The deck directory is gitignored. It holds owner hand data and the unblinding key: never
 push it, never paste its contents anywhere.
 
-## 3. Credentials — five environment variables
+## 3. Credentials — two environment variables
+
+**Panel per §g.3 amendment 2026-08-07-B** (recorded in
+`poker-analytics:docs/methods/estimand-contract.md`, pre-judging): four judges from two
+vendors — Claude Sonnet + Claude Opus (Anthropic) and gpt-5.6-terra + gpt-5.6-sol
+(OpenAI). Both same-vendor slots share ONE key; the harness maps one key per vendor.
 
 Set these in the shell you will run judging from. `export` only; nothing is read from a
 file.
 
-| Env var | Vendor | Where the key comes from |
+| Env var | Vendor (2 judge slots each) | Where the key comes from |
 |---|---|---|
-| `S6_JUDGE_ANTHROPIC_KEY` | Anthropic (Claude) | console.anthropic.com → API keys |
-| `S6_JUDGE_OPENAI_KEY` | OpenAI (GPT) | platform.openai.com → API keys |
-| `S6_JUDGE_GOOGLE_KEY` | Google (Gemini) | aistudio.google.com → Get API key (Generative Language API) |
-| `S6_JUDGE_META_KEY` | Meta (Llama, hosted) | whichever OpenAI-compatible host you choose to serve Llama — the key is that host's, not Meta's |
-| `S6_JUDGE_DEEPSEEK_KEY` | DeepSeek | platform.deepseek.com → API keys |
-
-**`S6_JUDGE_META_BASE_URL` is REQUIRED, not optional.** Meta publishes no vendor-native
-judge API, so that slot is implemented against an OpenAI-compatible chat endpoint at
-whatever host you point it at; without the base URL the slot fails preflight by design
-(`tools/detection_judge.py:347`). The other four accept an optional
-`S6_JUDGE_<VENDOR>_BASE_URL` override and otherwise use the vendor default.
+| `S6_JUDGE_ANTHROPIC_KEY` | Anthropic (Claude Sonnet + Claude Opus) | console.anthropic.com → API keys |
+| `S6_JUDGE_OPENAI_KEY` | OpenAI (gpt-5.6-terra + gpt-5.6-sol) | platform.openai.com → API keys |
 
 ```sh
 export S6_JUDGE_ANTHROPIC_KEY=...
 export S6_JUDGE_OPENAI_KEY=...
-export S6_JUDGE_GOOGLE_KEY=...
-export S6_JUDGE_META_KEY=...
-export S6_JUDGE_META_BASE_URL=https://<your-llama-host>/v1
-export S6_JUDGE_DEEPSEEK_KEY=...
 ```
 
-Then pin the five model IDs you are actually buying. §d.3 declares this recording
-amendment-exempt (providers rotate snapshots); **substituting a VENDOR is an amendment.**
-Slot order is fixed by this string and must not change between the pre-screen and the full
-run:
+(Both vendors also accept an optional `S6_JUDGE_<VENDOR>_BASE_URL` override and otherwise
+use the vendor default. The Google/Meta/DeepSeek variables from the pre-amendment panel
+are no longer used.)
+
+Then pin the four model IDs you are actually buying. §d.3 declares this recording
+amendment-exempt (providers rotate snapshots); **substituting a VENDOR or a MODEL FAMILY
+is a further amendment — the current panel composition is itself the recorded §g.3
+amendment.** Slot order is fixed by this string and must not change between the pre-screen
+and the full run:
 
 ```sh
-export S6_JUDGES="anthropic:<model>,openai:<model>,google:<model>,meta:<model>,deepseek:<model>"
+export S6_JUDGES="anthropic:<sonnet-model>,anthropic:<opus-model>,openai:gpt-5.6-terra,openai:gpt-5.6-sol"
 ```
 
-## 4. Preflight (automatic, one cheap call per vendor)
+(Confirm the current Anthropic model IDs at execution time — as of 2026-08-07 they are
+`claude-sonnet-5` and `claude-opus-5`.)
 
-There is no separate preflight command — the first `run` invocation does it: every
-credential is exercised once with an off-protocol one-word prompt, and requested vs
+## 4. Preflight (automatic, one cheap call per judge slot)
+
+There is no separate preflight command — the first `run` invocation does it: every judge
+slot is exercised once with an off-protocol one-word prompt (so each vendor's shared
+credential is hit twice, once per model), and requested vs
 provider-resolved model IDs are written to an immutable `launch.json`. It happens inside
-step 5, so **a credential problem surfaces on 5 cheap calls, not 410 expensive ones.**
+step 5, so **a credential problem surfaces on 4 cheap calls, not 328 expensive ones.**
 
 `launch.json` pins the deck's `presentation.json` hash. A later run against a different
 deck at the same output directory is refused, not silently re-launched.
@@ -151,11 +157,16 @@ status is not `ok`), **stop and revisit; do not run step 6.**
 
 This stop is deliberately **stricter than the registered rule, and is not a prediction of
 it.** §d.2 invalidates a batch only when the panel-aggregate confidence-human is < 50 AND
-≥4 of 5 judges label the control "bot" — a conjunctive rule over five judges, which one
-slot's answer cannot decide: the batch could still pass with slot 0 dissenting. What a
-slot-0 miss establishes is only that the cheapest available signal came back wrong, which
-is enough to stop spending on the other 405 calls and look again. It is an operational
-spend-stop, not evidence that the aggregate rule would have failed.
+≥`ceil(4k/5)` judges label the control "bot" (4 of 4 at the amended k=4, §g.3) — a
+conjunctive rule over the whole panel, which one slot's answer alone does not decide at
+pre-screen time. What a slot-0 miss establishes is only that the cheapest available signal
+came back wrong, which is enough to stop spending on the other 327 calls and look again.
+It is an operational spend-stop, not evidence that the aggregate rule would have failed.
+(One sharpening at k=4: checkpoints are per (bundle, judge) and terminal, so the
+pre-screen's slot-0 control response IS the full run's slot-0 control response. With the
+label conjunct now unanimous, a slot-0 "human" on the control would already guarantee
+batch invalidation — at k=4 the pre-screen stop rule and the registered rule happen to
+agree on that one slot, which was not true at k=5.)
 
 If it does fire, record that it fired and everything you did next — the pilot write-up has
 a slot for exactly this (`poker-analytics:docs/methods/detection-pilot-s6.md` §5), because
@@ -173,21 +184,21 @@ to be visible.
 ```
 
 **Volume:** each judge sees all 81 deck+control bundles plus **its own** duplicate = 82
-entries (not all five duplicates — each duplicate is routed to one slot). So
-**82 × 5 = 410 judged calls**, plus 5 preflight calls = **415 total**.
+entries (not all four duplicates — each duplicate is routed to one slot). So
+**82 × 4 = 328 judged calls**, plus 4 preflight calls = **332 total**.
 
 **Cost band (recompute at today's prices — this is arithmetic, not a quote):** the rendered
 30-hand bundles run ~21,000 characters ≈ **5.9k input tokens per call**. That is ~**0.48M
-input tokens per vendor**, ~**2.4M across the panel**. At flagship input pricing spanning
-roughly $0.30–$15 per million tokens depending on vendor, expect **single-digit to low-tens
-of US dollars for the whole panel** — the expensive vendor dominates.
+input tokens per judge slot**, ~**0.97M per vendor** (two slots each), ~**1.9M across the
+panel**. At flagship input pricing, expect **single-digit to low-tens of US dollars for
+the whole panel** — the most expensive model (Claude Opus) dominates.
 
 Output is a small JSON object (label, confidence, a short reason), so **expect** ~60 tokens
-per call, ~25k across the panel — negligible against input cost. Treat that as an
+per call, ~20k across the panel — negligible against input cost. Treat that as an
 expectation, **not a cap**: only the Anthropic adapter sends a hard output limit
-(`max_tokens: 300`), the other four set none, and the prompt's "≤50 words" reason limit is
-instruction text that the response parser does not enforce. A verbose vendor therefore
-costs more than the estimate rather than being truncated at it.
+(`max_tokens: 300`), the OpenAI adapter sets none, and the prompt's "≤50 words" reason
+limit is instruction text that the response parser does not enforce. A verbose vendor
+therefore costs more than the estimate rather than being truncated at it.
 
 **Resume after a failure — just re-run the identical command.** Checkpoints are per
 (bundle, judge) and atomic; `ok` and `malformed-final` are terminal and are skipped, so

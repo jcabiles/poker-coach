@@ -8,6 +8,13 @@ Governing preregistration: `poker-analytics:docs/methods/estimand-contract.md` �
 a formal amendment (bold, per §g), recorded BEFORE any judging. This spec declares three
 such amendments up front (§A below) rather than smuggling them.**
 
+> **Post-merge amendment (2026-08-07, owner-ruled, pre-judging):** the judge panel is now
+> **4 judges from 2 vendors** — Claude Sonnet + Claude Opus (Anthropic) and gpt-5.6-terra +
+> gpt-5.6-sol (OpenAI) — recorded as **§g.3 amendment 2026-08-07-B** in the estimand
+> contract. Every "5-vendor"/"5 judges" reading below is historical; the harness and
+> analysis generalize to any k (control rule `ceil(4k/5)` = 4 of 4 at k=4; deck builds with
+> `--judges 4` ⇒ 328 judged calls). See the execution checklist for the as-amended run.
+
 ## Goal (one line)
 
 Execute the §d-preregistered blind detection protocol once — 40 human + 40 bot anonymized
