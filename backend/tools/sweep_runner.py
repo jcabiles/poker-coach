@@ -122,6 +122,7 @@ class SweepSpec:
     analytics_repo: Path
     cov_artifact: str
     lineup: str | None
+    workers: int
     spec_path: Path
 
 
@@ -136,7 +137,11 @@ def load_spec(path: Path | str) -> SweepSpec:
     nonexistent/wrong repo must be caught here, not mid-sweep as a launch
     crash); `cov_artifact` is present and non-empty (the spec's own binding
     ruling: "always explicit OUT and COV" — never the Makefile default);
-    `out_root`'s parent exists and is writable.
+    `out_root`'s parent exists and is writable. `workers` is optional (int,
+    1..5, default 5 — unchanged from S4 behavior when omitted); it caps the
+    export `ThreadPoolExecutor`'s `max_workers` and exists as an engine-health
+    guard (an abnormally slow loaded batch flags a pathological engine state),
+    never a throughput preference.
     """
     path = Path(path)
     try:
@@ -225,6 +230,14 @@ def load_spec(path: Path | str) -> SweepSpec:
             f"persona-name strings when present"
         )
 
+    workers_raw = document.get("workers", MAX_WORKERS)
+    if (not isinstance(workers_raw, int) or isinstance(workers_raw, bool)
+            or not (1 <= workers_raw <= 5)):
+        raise SweepSpecError(
+            f"{path}: `workers` must be an int in 1..5 (an engine-health "
+            f"benchmark, not a throughput knob — got {workers_raw!r})"
+        )
+
     return SweepSpec(
         schema_version=schema_version,
         configs=configs,
@@ -234,6 +247,7 @@ def load_spec(path: Path | str) -> SweepSpec:
         analytics_repo=analytics_repo,
         cov_artifact=cov_artifact,
         lineup=lineup,
+        workers=workers_raw,
         spec_path=path,
     )
 
@@ -731,7 +745,7 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
     # phase B's ordinary "export failed" path handles it uniformly.
     export_results: dict[int, subprocess.CompletedProcess] = {}
     all_export_items = [*items, dup_item]
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+    with ThreadPoolExecutor(max_workers=spec.workers) as pool:
         futures = {pool.submit(_export_subprocess, it): it for it in all_export_items}
         for future in as_completed(futures):
             it = futures[future]

@@ -286,6 +286,50 @@ def test_load_spec_rejects_malformed_lineup(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# workers (S5 T5 — optional engine-health knob, default unchanged)
+# ---------------------------------------------------------------------------
+
+
+def test_load_spec_workers_omitted_defaults_to_five(tmp_path):
+    spec_path = _write_spec(tmp_path)
+    spec = sr.load_spec(spec_path)
+    assert spec.workers == 5
+
+
+@pytest.mark.parametrize("workers", [1, 2, 3, 4, 5])
+def test_load_spec_accepts_workers_in_range(tmp_path, workers):
+    spec_path = _write_spec(tmp_path, workers=workers)
+    spec = sr.load_spec(spec_path)
+    assert spec.workers == workers
+
+
+@pytest.mark.parametrize("workers", [0, 6, -1, 3.5, True, False, "2", None])
+def test_load_spec_rejects_invalid_workers(tmp_path, workers):
+    spec_path = _write_spec(tmp_path, workers=workers)
+    with pytest.raises(sr.SweepSpecError, match="workers"):
+        sr.load_spec(spec_path)
+
+
+def test_run_sweep_uses_spec_workers_as_max_workers(tmp_path, monkeypatch):
+    spec_path = _write_spec(tmp_path, workers=2)
+    spec = sr.load_spec(spec_path)
+    config_hashes = {spec.configs[0]: "a" * 12, spec.configs[1]: "b" * 12}
+    _stub_pipeline(monkeypatch, config_hashes)
+
+    captured_max_workers = {}
+    real_executor = sr.ThreadPoolExecutor
+
+    class _RecordingExecutor(real_executor):
+        def __init__(self, max_workers=None, *args, **kwargs):
+            captured_max_workers["value"] = max_workers
+            super().__init__(max_workers=max_workers, *args, **kwargs)
+
+    monkeypatch.setattr(sr, "ThreadPoolExecutor", _RecordingExecutor)
+    sr.run_sweep(spec)
+    assert captured_max_workers["value"] == 2
+
+
+# ---------------------------------------------------------------------------
 # lineup resolution (identity-bearing, mirrors the exporter's own wrap)
 # ---------------------------------------------------------------------------
 
@@ -811,7 +855,7 @@ def test_run_sweep_survives_nonexistent_analytics_repo_at_runtime(tmp_path, monk
     spec = sr.SweepSpec(
         schema_version="1.0.0", configs=(cfg_a,), seeds=(501,), n_hands=10,
         out_root=tmp_path / "out", analytics_repo=tmp_path / "does-not-exist",
-        cov_artifact="cov-fixture", lineup=None, spec_path=tmp_path / "sweep.json",
+        cov_artifact="cov-fixture", lineup=None, workers=5, spec_path=tmp_path / "sweep.json",
     )
 
     manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=0)
