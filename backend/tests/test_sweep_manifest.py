@@ -322,7 +322,7 @@ def test_run_sweep_uses_spec_workers_as_max_workers(tmp_path, monkeypatch):
     class _RecordingExecutor(real_executor):
         def __init__(self, max_workers=None, *args, **kwargs):
             captured_max_workers["value"] = max_workers
-            super().__init__(max_workers=max_workers, *args, **kwargs)
+            super().__init__(max_workers, *args, **kwargs)
 
     monkeypatch.setattr(sr, "ThreadPoolExecutor", _RecordingExecutor)
     sr.run_sweep(spec)
