@@ -13,7 +13,9 @@ Design (spec `docs/ai-dlc/specs/flywheel-s4.md`, "Design rulings"):
   (required — every `make score` call pins an explicit covariance artifact,
   never the Makefile default), and `out_root`'s writability are also checked
   at spec-load time, before any simulation runs.
-- Exports run with bounded 5-worker parallelism: a `ThreadPoolExecutor` whose
+- Exports run with bounded parallelism (worker count from the spec's
+  `workers` field, 1..5 — an engine-health benchmark knob, not a throughput
+  one): a `ThreadPoolExecutor` whose
   workers each shell out to `python -m tools.export_analytics --config ...`
   (NOT `ProcessPoolExecutor` — its semaphores are sandbox-blocked). The
   `make validate` / `make score` calls that follow each export run SERIALLY
@@ -739,7 +741,7 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
 
     spec.out_root.mkdir(parents=True, exist_ok=True)
 
-    # Phase A: parallel export (bounded 5 workers), all arms + the rerun dup.
+    # Phase A: parallel export (bounded by spec.workers), all arms + the rerun dup.
     # A worker exception (not just a nonzero export) must not abort the
     # sweep — it is converted into a synthetic failed CompletedProcess so
     # phase B's ordinary "export failed" path handles it uniformly.
