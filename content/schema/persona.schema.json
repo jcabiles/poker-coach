@@ -81,7 +81,7 @@
       "type": "object"
     },
     "PersonaSizing": {
-      "description": "Authored in S3, consumed in S4 (the S3 engine ignores it).",
+      "description": "Authored in S3, consumed in S4 (the S3 engine ignores it). Each scalar may be replaced by an optional weighted mix of sizes; omitting a mix keeps the scalar and is byte-identical to before.",
       "properties": {
         "open_bb": {
           "title": "Open Bb",
@@ -94,6 +94,51 @@
         "fourbet_mult": {
           "title": "Fourbet Mult",
           "type": "number"
+        },
+        "open_bb_mix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Open Bb Mix"
+        },
+        "threebet_mult_mix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threebet Mult Mix"
+        },
+        "fourbet_mult_mix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fourbet Mult Mix"
         }
       },
       "required": [

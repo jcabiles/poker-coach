@@ -135,11 +135,39 @@ class PersonaNode(BaseModel):
 
 
 class PersonaSizing(BaseModel):
-    """Authored in S3, consumed in S4 (the S3 engine ignores it)."""
+    """Authored in S3, consumed in S4 (the S3 engine ignores it).
+
+    The three scalars are the persona's raise sizes. Each may be replaced by a
+    weighted mix of sizes, in the same idiom the postflop block already uses
+    for pot-fractions: a map of size to weight, weights summing to one.
+
+    A mix rather than a jittered scalar, for two reasons. Sampling a scalar and
+    clamping it into a legal range piles probability mass on the clamp
+    boundary, which recreates a determinism at exactly the value the statistical
+    gates cannot see — and for a size already outside the range it collapses
+    every draw onto the boundary, shifting the centre instead of adding
+    variance. Declaring the permitted sizes explicitly makes both impossible.
+    It also keeps sizes at values a person would actually choose, rather than
+    the 3.17bb a continuous draw produces.
+
+    Every mix is optional and defaults to None, in which case the scalar is
+    used and behaviour is byte-identical to before.
+    """
 
     open_bb: float
     threebet_mult: float
     fourbet_mult: float
+
+    open_bb_mix: dict[str, float] | None = None
+    threebet_mult_mix: dict[str, float] | None = None
+    fourbet_mult_mix: dict[str, float] | None = None
+
+    @field_validator("open_bb_mix", "threebet_mult_mix", "fourbet_mult_mix")
+    @classmethod
+    def _size_mix_valid(cls, v: dict[str, float] | None) -> dict[str, float] | None:
+        """Same shape rules as a pot-fraction distribution: positive float
+        keys, positive weights, summing to ~1.0."""
+        return v if v is None else _validate_bucket_dist(v)
 
 
 def _validate_bucket_dist(v: dict[str, float]) -> dict[str, float]:

@@ -187,6 +187,25 @@ def _clamp(value: float, min_bb: float | None, max_bb: float | None) -> float:
     return round(v, 2)
 
 
+def _draw_size(scalar: float, mix: dict[str, float] | None, rng) -> float:
+    """One size from the persona's authored mix, or the scalar.
+
+    Both fallbacks matter. `mix is None` is a pack that has not opted in;
+    `rng is None` is a caller that has not (the statistical harness, the range
+    estimator, and every test predating this). Either way the scalar is
+    returned and behaviour is byte-identical to before.
+
+    Draw ordering: this runs after `sample_preflop_action` has drawn the
+    action, so it never precedes the action draw in the shared RNG stream —
+    the ordering `range_estimate._CaptureRng` and the pinned merit tests rely
+    on.
+    """
+    if mix is None or rng is None:
+        return scalar
+    keys = list(mix)
+    return float(rng.choices(keys, weights=[mix[k] for k in keys], k=1)[0])
+
+
 def preflop_raise_to(
     sizing,
     node: str,
@@ -195,18 +214,39 @@ def preflop_raise_to(
     limpers: int,
     min_bb: float | None,
     max_bb: float | None,
+    rng=None,
 ) -> float:
     """Persona preflop lever → a legal raise-TO in bb, clamped to
     `[min_bb, max_bb]`. `node` ∈ {open, iso, 3bet, 4bet, 5bet}. `last_raise_to`
-    is the last raise-TO faced (= `state.current_bet_bb`)."""
+    is the last raise-TO faced (= `state.current_bet_bb`).
+
+    With `rng` supplied and the pack authoring a size mix, the lever is drawn
+    per decision instead of being the persona's one fixed number — the
+    de-robotization change. `rng=None` (the default) reproduces the previous
+    behaviour exactly, so only the live bot loop opts in.
+
+    The clamp below is the ENGINE's legal-raise bracket, which reaches the full
+    stack; it is not, and never was, a grading bound. Sizes stay inside hero's
+    gradeable bands because only gradeable values are authored in the mixes,
+    which `tests/test_persona_pack_invariants.py` checks.
+    """
+    # `sizing` is duck-typed here — callers pass `PersonaPack.sizing`, but the
+    # bet-sizing tests pass a minimal stand-in carrying only the three scalars.
+    # Reading the mixes with a default keeps every such caller working and is
+    # the same "absent means the scalar" rule the packs themselves follow.
+    mix_open = getattr(sizing, "open_bb_mix", None)
+    mix_3bet = getattr(sizing, "threebet_mult_mix", None)
+    mix_4bet = getattr(sizing, "fourbet_mult_mix", None)
     if node == "open":
-        v = sizing.open_bb
+        v = _draw_size(sizing.open_bb, mix_open, rng)
     elif node == "iso":
-        v = sizing.open_bb + 1.0 * limpers  # open + 1bb per limper (live iso)
+        # open + 1bb per limper (live iso). Drawing the open here too is what
+        # stops the iso being one fixed number per limper count.
+        v = _draw_size(sizing.open_bb, mix_open, rng) + 1.0 * limpers
     elif node == "3bet":
-        v = sizing.threebet_mult * last_raise_to
+        v = _draw_size(sizing.threebet_mult, mix_3bet, rng) * last_raise_to
     elif node == "4bet":
-        v = sizing.fourbet_mult * last_raise_to
+        v = _draw_size(sizing.fourbet_mult, mix_4bet, rng) * last_raise_to
     elif node == "5bet":
         v = max_bb if max_bb is not None else last_raise_to
     else:
