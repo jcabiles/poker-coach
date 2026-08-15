@@ -114,31 +114,16 @@ def _self_play_bundle(
     phase set (contract #5)."""
     window = _one_window(PROBE_RUN_HANDS)
     persona_by_seat = {i: RATIFIED_LINEUP[i % len(RATIFIED_LINEUP)] for i in range(N_SEATS)}
-    if decision_fn is None:
-        states = replay_run(seed, PROBE_RUN_HANDS, persona_by_seat, packs, keep=set(window.keys()))
-    else:
-        # Mirror replay_run's loop with a custom policy (replay_run hardcodes
-        # bot_decision; detection_corpus is imports-only per the spec).
-        import random as _random
-
-        from app.domain.table.deck import deal_hand
-        from app.domain.table.engine import apply, start_hand
-        from tools.export_analytics import _draw_buyin_targets
-
-        rng = _random.Random(seed)
-        states = {}
-        for i in range(PROBE_RUN_HANDS):
-            hand_seed = rng.randrange(1_000_000_000)
-            stacks = _draw_buyin_targets(hand_seed)
-            state = start_hand(deal_hand(_random.Random(hand_seed)), i % N_SEATS, stacks)
-            guard = 0
-            while not state.hand_over:
-                guard += 1
-                if guard > 500:
-                    raise CorpusBuildError(f"probe hand {i} did not terminate")
-                state = apply(state, decision_fn(state, state.to_act_seat, None, rng))
-            if i in window.keys():
-                states[i] = state
+    # `replay_run` now takes the policy as a parameter, so the probe and the
+    # deck build share ONE loop. This used to be a hand-copied duplicate of that
+    # loop, which is the failure mode worth avoiding: a stimulus replayed by
+    # near-identical-but-not-identical code differs from the deck's bundles in
+    # ways nobody authored, and a judge cannot tell those differences apart from
+    # the ones the experiment meant to create.
+    states = replay_run(
+        seed, PROBE_RUN_HANDS, persona_by_seat, packs,
+        keep=set(window.keys()), decision_fn=decision_fn,
+    )
     focus = assign_constrained_focus_seats(
         [seat_trajectories(states, window.keys())],
         list(human_phases),

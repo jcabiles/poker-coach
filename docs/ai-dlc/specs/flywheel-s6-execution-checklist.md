@@ -61,8 +61,8 @@ Check the printed `_SUCCESS` body before going on:
 
 - [ ] `counts` = `{"human": 40, "bot": 40, "control": 1}`
 - [ ] `presentation_entries` = 85 (81 bundles + one duplicate per judge)
-- [ ] `non_protocol` = `false` — `true` means the control config is not the pinned one and
-      the deck is NOT the protocol deck
+- [ ] `non_protocol` = `false` — `true` means the control is not the pinned rule-breaking
+      policy ((g.5) §A) and the deck is NOT the protocol deck
 - [ ] `judge_slots` = 4
 
 **Your deck may not be byte-identical to the acceptance build, and that is by design.**

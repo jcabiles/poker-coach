@@ -122,6 +122,29 @@ worktree mid-review — that was this session applying Codex's fixes to the same
 tree while the review ran. Its verdict was against the committed `HEAD` and is
 unaffected, but the overlap was avoidable and should not recur.
 
+## T-control diff review (2026-08-15, fourth dual review)
+
+Reviewers: Claude `refuter` (pass-with-issues — 1 med, 2 optional) · Codex
+`gpt-5.6-sol` at high effort (6 findings: 3 med, 3 low). **All accepted.** Both
+independently verified the blinding split, the RNG-consumption equivalence of
+the `replay_run` signature change, and that the probe's de-duplicated loop
+produces identical stimuli.
+
+| # | Source | Sev | Finding | Fix |
+|---|---|---|---|---|
+| 32 | both | med | **The control's identity was a hand-typed label with nothing verifying the policy.** Editing `rule_breaker_decision` — the bet size, the never-fold rule — would silently change what the control *is* while every stamp and test still reported the deck as the pinned protocol control. The refuter added that the governing ticket explicitly requires "the chosen design's exact generator config (hash-pinned like T1 was)", so the diff fell short of a written acceptance bar. | **ACCEPTED — the most important finding.** Added `CONTROL_POLICY_DIGEST`, a behavioural fingerprint over a fixed 12-hand replay, asserted at build time by `assert_control_policy_pinned`. Behavioural rather than a source hash on purpose: a source hash breaks on a comment edit and says nothing about play, while this changes if and only if the control's play changes. Measured and pinned as **pack-independent**, which is what makes it a legitimate pin for a control that must outlive pack edits. Three tests including a negative case. |
+| 33 | Sol | med | `run_s6_dryrun.py:224` still read the removed `pins["control"]["config_hash"]`, so the official dry run would have died with a `KeyError`. The full suite missed it because nothing exercises that script. | **ACCEPTED — a genuine break.** Updated to the new keys, along with two stale "pinned control config" messages in the same file. |
+| 34 | Sol | med | Governing documents still defined the old control: `flywheel-s6.md` §Design rules and its appendix, and the execution checklist's reading of `non_protocol`. | **ACCEPTED.** Marked superseded rather than overwritten — the original text stays for the record with a dated supersession note above it, which is the amendment convention the research on preregistration practice specifically endorses. |
+| 35 | Sol | low | `test_the_control_survives_a_persona_pack_change` patches `detection_corpus.load_persona_packs`, but the OLD code path loaded its baseline independently through `counterfactual`, so the test would have passed against the old implementation too. | **ACCEPTED.** The claim it was making is instead carried by an end-to-end check: all six packs were genuinely edited on disk and the full corpus suite ran — 89 passed, where 24 had failed before the change. That is the real proof the blocker is gone; the monkeypatch test remains as a cheap guard. |
+| 36 | Sol | low | The replay test compared only action histories, so boards and stacks were unverified, and "actually rule-breaking" was established only as "different from production" — any deterministic policy would pass. | **ACCEPTED.** Now compares whole terminal states, and asserts the two traits that make this a usable control: it never folds, and its aggression lands on the fixed 7.77 size. |
+| 37 | Sol | low | The leak-check forbidden list gained `CONTROL_POLICY_ID` but not the policy's source path, also newly secret. | **ACCEPTED.** Added `CONTROL_POLICY_SOURCE` as a constant, used in both secret records and added to the forbidden list. |
+| 38 | refuter | opt | `replay_run` now passes the real persona pack to a custom `decision_fn`, where the probe's old copied loop passed `None`. Harmless today (the one custom policy ignores it) but undocumented. | **ACCEPTED.** Noted in the docstring for whoever writes the next custom policy. |
+
+**No findings rejected.** The convergence is worth noting: both reviewers
+independently landed on the identity-pinning gap, and both independently
+cleared the blinding split — which is the property that would have been most
+expensive to get wrong.
+
 ## Adjudication notes
 
 **Nothing was rejected.** Both reviewers independently reached FAIL on the same
