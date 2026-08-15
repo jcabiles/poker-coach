@@ -56,6 +56,12 @@ def test_preflop_raise_to_nodes_and_two_sided_clamp():
         open_bb = 3.0
         threebet_mult = 3.5
         fourbet_mult = 2.4
+        # Declared explicitly rather than left absent: `preflop_raise_to` reads
+        # the mixes directly, so a stand-in states its opt-out instead of
+        # relying on a getattr default that would also swallow a real typo.
+        open_bb_mix = None
+        threebet_mult_mix = None
+        fourbet_mult_mix = None
 
     kw = {"min_bb": 2.0, "max_bb": 100.0}
     assert sizing.preflop_raise_to(S(), "open", last_raise_to=1.0, limpers=0, **kw) == 3.0

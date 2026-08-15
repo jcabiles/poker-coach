@@ -8,9 +8,10 @@ frequencies with NO format change.
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.archetypes import VillainType
 from app.domain.content.notation import parse_range
@@ -152,7 +153,13 @@ class PersonaSizing(BaseModel):
 
     Every mix is optional and defaults to None, in which case the scalar is
     used and behaviour is byte-identical to before.
+
+    This model forbids unknown fields. Without that, a misspelled `open_bb_mxi`
+    would load without complaint, leave `open_bb_mix` at None, and silently
+    turn the whole feature into a no-op that nothing reports.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     open_bb: float
     threebet_mult: float
@@ -165,14 +172,38 @@ class PersonaSizing(BaseModel):
     @field_validator("open_bb_mix", "threebet_mult_mix", "fourbet_mult_mix")
     @classmethod
     def _size_mix_valid(cls, v: dict[str, float] | None) -> dict[str, float] | None:
-        """Same shape rules as a pot-fraction distribution: positive float
-        keys, positive weights, summing to ~1.0."""
-        return v if v is None else _validate_bucket_dist(v)
+        """Same shape rules as a pot-fraction distribution — positive float
+        keys, positive weights, summing to ~1.0 — plus finiteness.
+
+        `"nan"` and `"inf"` are legal JSON object keys and `float()` accepts
+        both, so without this a NaN size would flow into the engine, pass its
+        `<`/`>` legality comparisons (every comparison against NaN is False)
+        and poison the pot.
+        """
+        if v is None:
+            return None
+        # Shape first, so a non-numeric key reports the readable "not a float
+        # size" rather than dying inside the finiteness pass below.
+        _validate_bucket_dist(v, noun="size")
+        for key, weight in v.items():
+            # NaN survives `_validate_bucket_dist`: every comparison against it
+            # is False, so `frac <= 0.0` does not catch it.
+            if not math.isfinite(float(key)):
+                raise ValueError(f"sizing key {key!r} is not a finite size")
+            if not math.isfinite(weight):
+                raise ValueError(f"sizing weight for {key!r} is not finite")
+        return v
 
 
-def _validate_bucket_dist(v: dict[str, float]) -> dict[str, float]:
-    """A pot-fraction bucket distribution: float keys > 0, weights > 0, sum ~1.0.
-    Shared by the flat `sizing` field and each inner dist of `sizing_by_node`."""
+def _validate_bucket_dist(v: dict[str, float], noun: str = "pot fraction") -> dict[str, float]:
+    """A weighted distribution over numeric keys: keys > 0, weights > 0, sum ~1.0.
+
+    Shared by the flat `sizing` field, each inner dist of `sizing_by_node`, and
+    the preflop size mixes. `noun` names what the keys are so a rejected
+    preflop mix does not report a "pot fraction" problem — those keys are bb
+    amounts and raise multipliers, and the mismatch sends an author looking in
+    the wrong place.
+    """
     if not v:
         raise ValueError("sizing must be non-empty")
     total = 0.0
@@ -180,9 +211,9 @@ def _validate_bucket_dist(v: dict[str, float]) -> dict[str, float]:
         try:
             frac = float(key)
         except ValueError:
-            raise ValueError(f"sizing key {key!r} is not a float pot fraction") from None
+            raise ValueError(f"sizing key {key!r} is not a float {noun}") from None
         if frac <= 0.0:
-            raise ValueError(f"sizing fraction {key!r} must be > 0")
+            raise ValueError(f"sizing {noun} {key!r} must be > 0")
         if weight <= 0.0:
             raise ValueError(f"sizing weight for {key!r} must be > 0")
         total += weight

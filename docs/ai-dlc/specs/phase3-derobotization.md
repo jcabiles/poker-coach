@@ -78,10 +78,11 @@ second and is gated against damaging the first.
 
 | File | Change |
 |---|---|
-| `backend/app/domain/content/models.py` | Optional jitter fields on `PersonaSizing`; a validator asserting every authored postflop sizing key is a member of `RECOGNIZED_BET_FRACS`. |
-| `backend/app/domain/table/sizing.py` | `preflop_raise_to()` gains an optional `rng` and draws from a **pre-truncated valid interval**. It does not sample-then-clamp (§6.2). |
-| `content/personas/*.json` (6) | `sizing` jitter widths; `preflop` boundary mixes and positional nodes; `postflop.sizing` / `sizing_by_node` re-weighting. |
-| `content/schema/persona.schema.json` | Mirror the new optional fields. |
+| `backend/app/domain/content/models.py` | Optional weighted size-mix fields on `PersonaSizing`, with `extra="forbid"` and finiteness validation. |
+| `backend/app/domain/table/sizing.py` | `preflop_raise_to()` gains an optional `rng` and draws from an **enumerated weighted mix**, never sample-then-clamp (§6.2). |
+| `backend/app/domain/table/play.py` | Thread `rng` into `preflop_raise_to` so only the live bot loop opts in. |
+| `content/personas/*.json` (6) | `sizing` mixes; `preflop` boundary mixes and positional nodes; `postflop.sizing` / `sizing_by_node` re-weighting. |
+| `content/schema/persona.schema.json` | Regenerated from the model, with a sync test so drift cannot stay silent. |
 | `backend/tools/derobo_gate.py` (new) | Export a candidate batch at the pinned seed and lineup, then invoke the analytics-side check as a subprocess. |
 | `poker-analytics:analysis/derobo_gate_check.py` (new) | Call `scorer.constraints` rule 1 and rule 4 against the pinned baseline; emit PASS/FAIL JSON. **New integration glue — §5.1.** |
 | `backend/tests/test_coverage_baseline.py` | Refresh the recorded baseline when a change moves the hand stream, per that file's existing ratio convention (§7.1). |
@@ -225,8 +226,18 @@ any "must vary" assertion.
 ### 6.3 Postflop sizes stay on the recognised grid
 
 Re-weighting only, over {0.33, 0.5, 0.75, 1.0, 1.5}. `_validate_bucket_dist`
-(`models.py:145`) currently accepts *any* positive fraction, so this slice adds
-the pack-wide invariant that enforces grid membership.
+accepts *any* positive fraction, so this slice adds the invariant that enforces
+grid membership.
+
+**The check is a test, not a model validator, and that placement is
+deliberate.** `RECOGNIZED_BET_FRACS` lives in the table layer, which imports
+the content layer and never the reverse, so enforcing it inside
+`PersonaSizing` would invert an established dependency. More concretely: the
+same `_validate_bucket_dist` helper now serves the preflop size mixes, whose
+keys are bb amounts and multipliers. A grid check placed in that shared helper
+would reject every preflop key — "3.0" is not a member of the pot-fraction grid
+— and the two features would fight. Grid membership therefore belongs to the
+postflop fields alone, and a test proves a preflop mix survives it.
 
 ### 6.4 First-match-wins means a softened mix can be dead code
 

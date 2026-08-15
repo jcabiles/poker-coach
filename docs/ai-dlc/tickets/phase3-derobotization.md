@@ -156,12 +156,81 @@ there fails here. 22 tests.
 `content/schema/persona.schema.json`,
 `backend/tests/test_preflop_size_mix.py`.
 
-## T2b — Preflop size values (BLOCKED on the protocol decision above)
+## T2b — Preflop size values (BLOCKED, and the drafted values need rework)
 
-The values are drafted and verified to sit inside hero's grading bands, with
-the maniac's 4-bet deliberately excluded (its 3.0 already exceeds the 2.4 cap,
-so mixing it would shift its centre rather than add variance) and six at-cap
-levers drawing one-sided downward. They are held back only by the blocker.
+Blocked by the protocol pin above. Separately, the theory review passed the
+T2a mechanism but returned NEEDS-WORK on the drafted numbers — fortunate
+timing, since they had not shipped. The rework below is required first.
+
+**1. Draw conditioned on seat, not i.i.d. per decision (HIGH).** The central
+finding. A per-decision coin flip from a persona-global menu trades one machine
+signature — a constant — for another: noise correlated with nothing a human
+conditions on. Measured over a 4,000-hand export, 77–90% of every persona's
+opens come from seats whose canonical open is 3.0bb, and this repo's own model
+of a realistic ladder is already position-conditional (`scenarios.py:63-72` —
+3.0 early, 2.5 late). The drafted mixes would emit 2.5bb UTG opens at 20–35%,
+which no competent full-ring TAG does.
+
+The fix is the idiom T4 already applies to the `vs_rfi` nodes: thread
+`position` into `preflop_raise_to` and key the mix by seat. Regulars (tag, lag,
+nit) get a low-entropy seat table — roughly 0.85 on the seat's canonical size
+plus a small off-size rung — which yields the ~80/20 aggregate the flat mix was
+reaching for, but earned rather than asserted. Recreationals (station, fish,
+maniac) stay seat-blind with genuinely wider menus, because a player who does
+not adjust to position **is** the archetype, and that is the cheapest realistic
+source of size variety on the table. This inverts the draft's intuition:
+recreationals vary more; regulars vary by seat.
+
+**2. Narrow the maniac's open to {4.0: 0.30, 4.5: 0.70} (HIGH).** The draft
+drops its mean from 4.5 to 4.15 on the persona defined by maximal aggression
+and on the highest-volume lever measured (1,080 opens per 4,000 hands). Worse,
+20% of its opens would land at 3.5 — the station's own modal open — making one
+maniac open in five size-indistinguishable from the table's most passive seat.
+This also corrects a claim of mine: at a lever already on the cap, one-sided
+variance and mean preservation are arithmetically incompatible, so the mix
+design does not make a centre shift *impossible*, only *authored*. The honest
+statement is that a real maniac's open variance runs upward — 5x, 6x, jam — and
+the grading cap forbids expressing it, so this persona gets the least realism
+per unit of risk.
+
+**3. Drop the 3.5 rung from tag, lag and nit; consider a 2.8 3-bet rung
+(MED).** The "≤4.5bb" band is `_OVERSIZE_OPEN_CAP`, which governs only the
+hero-facing-an-open gate — the outer envelope cited as though it were the whole
+rule. At the vs-4-bet node the villain opener's open must additionally be at
+most `_STD_OPEN_CAP` = 3.0, so moving 20–25% of those personas' opens to 3.5
+makes those hands ungradeable and **reduces hero coverage**, which spec §7.1
+forbids. The seat-conditional design removes the rung anyway.
+
+The mirror image is a win worth banking: at the vs-3-bet node the cap is 3.5 ×
+the *canonical* open, so when hero opens 3.0 from a 2.5-canonical seat the cap
+is 8.75 and every shipped multiplier (all ≥3.0) is ungradeable. A 2.8 rung for
+tag and nit would create hero coverage that does not exist today (2.8 × 3.0 =
+8.4 maps; 3.0 × 3.0 = 9.0 does not).
+
+**4. Record the size-blind defence gap (MED).** Preflop response keys on the
+raise *count*, never the size (`_preflop_facing`), so once sizes mix,
+fold-to-open becomes flat across sizes by construction — a new machine tell
+created by the fix. Engine work is out of scope by the ruling, so do not build
+size-aware defence: keep the spread narrow (a second argument for the
+low-entropy regular design) and record the gap beside the maniac 4-bet
+exclusion. Escalate only if a measurement shows it is detectable.
+
+**5. Give every weight provenance, and add a histogram report (MED).** All 48
+weights are bare numbers. Nothing downstream can falsify one — the weight *is*
+the frequency, so the mix is self-fitting, and both gates are blind to sizing
+by construction. Attach a one-line source per lever, or say `[UNVERIFIED]` out
+loud as the contract's provenance duty requires, and add a non-gating report to
+acceptance printing each persona's realised open-size histogram, its mean, and
+the delta against the shipped scalar, so centre shifts are visible rather than
+inferred.
+
+**Confirmed sound by the same review:** the discrete-mix-over-jitter choice;
+identity preserved for five of six personas (only the maniac moves); the nit
+reading tighter-but-bigger is correct poker; and cross-persona size overlap
+does **not** damage separation, because the floor scores ten frequency
+statistics and sizing is not among them. Its guidance is to stop treating
+sizing as an identity axis at all — a TAG and a LAG are separated by how often
+they open, not by how much.
 
 ## T2 — Preflop raise-size variation (superseded by T2a/T2b above)
 

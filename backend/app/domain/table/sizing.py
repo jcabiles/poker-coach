@@ -226,17 +226,18 @@ def preflop_raise_to(
     behaviour exactly, so only the live bot loop opts in.
 
     The clamp below is the ENGINE's legal-raise bracket, which reaches the full
-    stack; it is not, and never was, a grading bound. Sizes stay inside hero's
-    gradeable bands because only gradeable values are authored in the mixes,
-    which `tests/test_persona_pack_invariants.py` checks.
+    stack. It is not, and never was, a grading bound, and neither is anything
+    else in this function: enumerating sizes *permits* safe authoring but does
+    not enforce it — nothing here rejects a 9bb open. Hero's preflop grading is
+    path-dependent (a directly-faced open may reach 4.5bb, but in a hero-3-bet
+    line the villain's open must be at most 3.0 and the 3-bet cap is a multiple
+    of the CANONICAL positional open rather than the actual one), so keeping
+    authored values gradeable is the authoring ticket's job, checked by
+    `tests/test_persona_pack_invariants.py::test_authored_preflop_sizes_stay_gradeable`.
     """
-    # `sizing` is duck-typed here — callers pass `PersonaPack.sizing`, but the
-    # bet-sizing tests pass a minimal stand-in carrying only the three scalars.
-    # Reading the mixes with a default keeps every such caller working and is
-    # the same "absent means the scalar" rule the packs themselves follow.
-    mix_open = getattr(sizing, "open_bb_mix", None)
-    mix_3bet = getattr(sizing, "threebet_mult_mix", None)
-    mix_4bet = getattr(sizing, "fourbet_mult_mix", None)
+    mix_open = sizing.open_bb_mix
+    mix_3bet = sizing.threebet_mult_mix
+    mix_4bet = sizing.fourbet_mult_mix
     if node == "open":
         v = _draw_size(sizing.open_bb, mix_open, rng)
     elif node == "iso":
