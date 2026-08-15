@@ -26,10 +26,13 @@ backend/data/*.sqlite3
 .claude/settings.local.json
 
 # ---- Local dev-server runtime (managed by scripts/serve.sh) ----
-.backend.pid
-.backend.log
-.frontend.pid
-.frontend.log
+# Globbed to cover the previous run's log, rolled aside on each start.
+.backend*.pid
+.backend*.log
+.backend*.log.*
+.frontend*.pid
+.frontend*.log
+.frontend*.log.*
 
 # ---- OS / editor ----
 .DS_Store
