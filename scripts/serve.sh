@@ -19,9 +19,14 @@ export FRONTEND_PORT="${FRONTEND_PORT:-7777}"
 BE_PIDFILE="$REPO/.backend.pid";  BE_LOG="$REPO/.backend.log"
 FE_PIDFILE="$REPO/.frontend.pid"; FE_LOG="$REPO/.frontend.log"
 
+PY="$REPO/backend/.venv/bin/python"
 UVICORN="$REPO/backend/.venv/bin/uvicorn"
 VITE="$REPO/frontend/node_modules/.bin/vite"
 HEALTH="http://localhost:${BACKEND_PORT}/api/v1/health"
+# `localhost`, not 127.0.0.1: vite binds IPv6 loopback only, so a v4-literal
+# probe is refused even when the dev server is perfectly healthy.
+FRONTEND_URL="http://localhost:${FRONTEND_PORT}/"
+READY_TIMEOUT="${READY_TIMEOUT:-30}"   # seconds to wait for each side to answer
 
 # Repo-anchored command-line patterns: only match processes launched from THIS
 # checkout's venv/node_modules on the expected port.
@@ -34,8 +39,43 @@ FE_PATTERN="$REPO/frontend/.*vite.*--port ${FRONTEND_PORT}"
 _pid_matches() {
   local pid="$1" pattern="$2" cmdline
   kill -0 "$pid" 2>/dev/null || return 1
-  if ! cmdline="$(ps -o command= -p "$pid" 2>/dev/null)"; then return 0; fi
+  # `-ww` asks for the untruncated command line. Piped output is not truncated in
+  # practice, so this changes nothing today; it is here so the check cannot start
+  # failing if ps is ever invoked somewhere that does clip to the terminal width.
+  if ! cmdline="$(ps -ww -o command= -p "$pid" 2>/dev/null)"; then return 0; fi
   printf '%s\n' "$cmdline" | grep -qE "$pattern"
+}
+
+# `curl` and `wget` are denied by this repo's Claude sandbox, so readiness is
+# probed with the backend venv's Python instead. The URL is passed as an argument
+# rather than interpolated, so a shell-special character in it cannot reach the
+# Python source.
+_http_ok() {
+  "$PY" - "$1" <<'PY' >/dev/null 2>&1
+import sys
+import urllib.request
+
+with urllib.request.urlopen(sys.argv[1], timeout=2) as response:
+    sys.exit(0 if response.status == 200 else 1)
+PY
+}
+
+# $1=label  $2=url  $3=logfile. Polls until the URL answers 200, then tails the
+# log to stderr and fails if it never does.
+_wait_ready() {
+  local label="$1" url="$2" log="$3"
+  printf 'waiting for %s %s' "$label" "$url"
+  local ticks=$(( READY_TIMEOUT * 2 ))
+  while [ "$ticks" -gt 0 ]; do
+    if _http_ok "$url"; then echo " — up"; return 0; fi
+    printf '.'
+    sleep 0.5
+    ticks=$(( ticks - 1 ))
+  done
+  echo " — FAILED"
+  echo "$label did not answer $url within ${READY_TIMEOUT}s — last lines of ${log#"$REPO"/}:" >&2
+  tail -n 15 "$log" >&2 || true
+  return 1
 }
 
 # Echo a live PID for each server, or nothing. Validated PID file first; then a
@@ -72,31 +112,27 @@ start() {
   fi
 
   if [ -z "$be" ]; then
+    if [ -f "$BE_LOG" ]; then mv -f "$BE_LOG" "$BE_LOG.1"; fi
     ( cd "$REPO/backend" && nohup "$UVICORN" app.main:app --reload --port "$BACKEND_PORT" >"$BE_LOG" 2>&1 & echo $! >"$BE_PIDFILE" )
     echo "backend  started (pid $(cat "$BE_PIDFILE") on :$BACKEND_PORT) — logs: .backend.log"
   else
     echo "backend  already up (pid $be on :$BACKEND_PORT)"
   fi
 
-  printf "waiting for backend health"
-  local up=""
-  for _ in $(seq 1 30); do
-    if curl -sf "$HEALTH" >/dev/null 2>&1; then up=1; echo " — up"; break; fi
-    printf "."; sleep 0.5
-  done
-  if [ -z "$up" ]; then
-    echo " — FAILED"
-    echo "backend did not answer $HEALTH within 15s — last lines of .backend.log:" >&2
-    tail -n 15 "$BE_LOG" >&2 || true
-    exit 1
-  fi
+  _wait_ready "backend " "$HEALTH" "$BE_LOG" || exit 1
 
   if [ -z "$fe" ]; then
+    if [ -f "$FE_LOG" ]; then mv -f "$FE_LOG" "$FE_LOG.1"; fi
     ( cd "$REPO/frontend" && nohup "$VITE" --port "$FRONTEND_PORT" --strictPort >"$FE_LOG" 2>&1 & echo $! >"$FE_PIDFILE" )
     echo "frontend started (pid $(cat "$FE_PIDFILE") on :$FRONTEND_PORT) — logs: .frontend.log"
   else
     echo "frontend already up (pid $fe on :$FRONTEND_PORT)"
   fi
+
+  # The frontend is waited on too. With --strictPort, vite exits rather than
+  # picking another port, so without this `start` would report success and print
+  # an "open" line for a server that never came up.
+  _wait_ready "frontend" "$FRONTEND_URL" "$FE_LOG" || exit 1
 
   echo "open http://localhost:${FRONTEND_PORT}"
 }
