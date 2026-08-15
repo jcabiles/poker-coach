@@ -60,11 +60,16 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 
 ## NOW (in order — appetite CAP: ~2–3 wk part-time to the phase-3 gate; scope valves below)
 
-> **STATE, 2026-08-13: nothing is in flight, and that is not the same as finished.** Every
-> slice in this lane is closed and S6 has moved to NEXT, so the usual resume rule — pick up the
-> first unchecked slice — has nothing to return. The initiative has reached its **phase-3 gate**
-> (the fix-versus-overhaul decision, in NEXT), and that decision is the owner's, not a slice
-> anyone can pick up. **Do not start anything from NEXT until it is made.** The evidence it
+> **STATE, 2026-08-15: the phase-3 gate is DECIDED — ruling A (fix the current bots).**
+> Owner ruling recorded in `docs/ai-dlc/specs/phase3-decision-matrix.md` §5, with the
+> supporting judge-bias probe evidence attached; protocol changes consolidated and
+> ratified as estimand-contract §g.5 (2026-08-15-A). The active work is now the
+> improvement phase that ruling defines: de-robotization first, then invest-then-fold
+> lines, calldown as the scope valve; engine/stack work excluded; 2–3 weeks appetite;
+> one finale detection run at the end under the new rule-breaker control, plus the
+> preregistered owner blind play-test as product acceptance.
+> *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
+> NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
 > pilot, is deliberately absent. *(Update 2026-08-14: the pilot was subsequently attempted —
 > owner-initiated — and terminated at its control pre-screen as a protocol shakedown; see the
