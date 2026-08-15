@@ -280,6 +280,16 @@ def _post_json(url: str, headers: dict, body: dict, timeout: float) -> dict:
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             raw = response.read()
+    except urllib.error.HTTPError as exc:
+        # Surface the vendor's error body — a bare "HTTP Error 400" is undiagnosable.
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — IncompleteRead etc.; never let diagnostics raise
+            detail = "<error body unreadable>"
+        # Redact anything key-shaped BEFORE truncating — truncation first could cut a
+        # token below the pattern's minimum length and let the fragment through.
+        detail = re.sub(r"sk-[A-Za-z0-9_\-]{8,}", "[REDACTED-KEY]", detail)[:2000]
+        raise TransportError(f"{exc}: {detail}") from exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise TransportError(str(exc)) from exc
     try:
@@ -296,17 +306,19 @@ def _call_openai_compatible(
     user_prompt: str,
     api_key: str,
     timeout: float,
+    temperature: int | None = 0,
 ) -> tuple[str, str]:
     url = base_url.rstrip("/") + path
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     body = {
         "model": model,
-        "temperature": 0,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
     }
+    if temperature is not None:
+        body["temperature"] = temperature
     obj = _post_json(url, headers, body, timeout)
     try:
         raw_text = obj["choices"][0]["message"]["content"]
@@ -320,9 +332,13 @@ def call_openai(
     base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     del context
+    # No temperature: gpt-5.6 reasoning models reject explicit temperature 0
+    # (400 unsupported_value, observed 2026-08-14) — provider default only.
+    # Contract branch: "temperature 0 (or the provider's deterministic
+    # setting; recorded)" — recorded in detection-pilot-s6.md and launch.json.
     return _call_openai_compatible(
         base_url or "https://api.openai.com/v1", "/chat/completions",
-        model, system_prompt, user_prompt, api_key, timeout,
+        model, system_prompt, user_prompt, api_key, timeout, temperature=None,
     )
 
 
@@ -367,15 +383,30 @@ def call_anthropic(
     }
     body = {
         "model": model,
-        "max_tokens": 300,
-        "temperature": 0,
+        # 4096, not 300: current models think by default (cannot be disabled) and
+        # thinking tokens count INSIDE max_tokens — a small cap risks thinking-only
+        # truncation (stop_reason max_tokens, no text block) on bundle-sized input.
+        # Reasoning effort is left at the provider default: an earlier low-effort
+        # setting coincided with the control pre-screen miss (recorded in
+        # detection-pilot-s6.md §5) and judge sensitivity outranks token cost here.
+        "max_tokens": 4096,
+        # No temperature: Anthropic deprecated the parameter for current models
+        # (400 invalid_request_error, observed 2026-08-14). The contract's decoding
+        # pin — "temperature 0 or the provider's deterministic setting; recorded"
+        # (estimand-contract.md §d.3) — covers using the provider default here;
+        # recorded in detection-pilot-s6.md.
         "system": system_prompt,
         "messages": [{"role": "user", "content": user_prompt}],
     }
     obj = _post_json(url, headers, body, timeout)
     try:
-        raw_text = obj["content"][0]["text"]
-    except (KeyError, IndexError, TypeError) as exc:
+        # content may lead with non-text blocks (e.g. a "thinking" block on
+        # current Opus models) — take the first text block, not content[0].
+        raw_text = next(
+            block["text"] for block in obj["content"]
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+    except (KeyError, IndexError, TypeError, StopIteration) as exc:
         raise TransportError(f"unexpected response shape: {exc}") from exc
     return raw_text, obj.get("model", model)
 
@@ -596,6 +627,7 @@ def _preflight_and_write_launch(
 ) -> dict:
     judge_records = []
     decoding = {}
+    failures: list[str] = []
     for slot, (vendor, model) in enumerate(judges):
         adapter = VENDOR_ADAPTERS[vendor]
         api_key = env.get(env_var_name(vendor), "")
@@ -614,16 +646,39 @@ def _preflight_and_write_launch(
                 },
             )
         except TransportError as exc:
-            raise HarnessError(
-                f"preflight failed for vendor {vendor!r} (slot {slot}): {exc}"
-            ) from exc
+            # Collect every slot's failure rather than raising on the first —
+            # one preflight run must surface ALL broken slots at once.
+            failures.append(f"vendor {vendor!r} (slot {slot}): {exc}")
+            continue
         judge_records.append(
             {
                 "slot": slot, "vendor": vendor,
                 "requested_model": model, "resolved_model": resolved_model,
             }
         )
-        decoding[vendor] = {"temperature": 0}
+        # launch.json must record what is actually sent (§d.3 "recorded"):
+        # anthropic and openai current-generation models both reject an explicit
+        # temperature, so those slots run at the provider default.
+        if vendor == "anthropic":
+            decoding[vendor] = {
+                "temperature": "provider-default (explicit value rejected by provider)",
+                "max_tokens": 4096,
+                "reasoning_effort": "provider-default",
+                "thinking": "provider-forced adaptive (cannot be disabled)",
+            }
+        elif vendor == "openai":
+            decoding[vendor] = {
+                "temperature": "provider-default (explicit value rejected by provider)"
+            }
+        else:
+            decoding[vendor] = {"temperature": 0}
+    if failures:
+        raise HarnessError(
+            "preflight failed for "
+            + str(len(failures))
+            + " slot(s):\n  - "
+            + "\n  - ".join(failures)
+        )
     launch = {
         "schema_version": SCHEMA_VERSION,
         "judges": judge_records,

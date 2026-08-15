@@ -1,29 +1,26 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-05 (rev 2, post dual review)
-status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instruction; next action: /ai-org:spec S1)
+# Bot-Realism Flywheel Roadmap — updated 2026-08-13 (rev 4)
+status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review
+and uncommitted; the rulings it records were made 2026-08-09 through 2026-08-13.
 
-> **Governing initiative for all bot-realism work.** Supersedes the NOW-lane of
-> `persona-realism.md` (paused by owner ruling 2026-08-05: *no further persona-fix work until
-> the ceiling verdict*; its history and contracts remain authoritative for what shipped).
-> PRD: `../prd/bot-realism-flywheel.md`. Evidence base: `../research/persona-realism-artifacts/
-> remeasure-2026-08-05/SYNTHESIS.md`. Cross-repo: poker-coach produces data; **poker-analytics**
-> produces judgment (scorer, targets, corpus, methodology docs — also the portfolio surface).
-> Contract maps: the dial engine is mapped by the theory contract +
-> `docs/research/12-persona-engine-and-realism-fixes.md`; the export interface by the analytics
-> contract (PR #161); the measurement instrument by remeasure SYNTHESIS §5 — no new
-> contract-mapper pass needed.
-> **Rev 2** folds the dual roadmap review (refuter NEEDS-WORK + Codex Sol FAIL; adjudication
-> ledger: `../ledger/bot-realism-flywheel-roadmap-review.md`).
-> **Durability (owner rulings 2026-08-05):** this roadmap, the PRD, the review ledger, and
-> START-HERE.md are COMMITTED (PR #169 — exception to the docs-stay-uncommitted practice).
-> The remeasure SYNTHESIS/PROTOCOL stay LOCAL (never-push artifacts dir upheld; their public
-> form gets authored fresh in poker-analytics). Orientation: `../START-HERE.md`.
-> **Cleanup obligation (owner ruling 2026-08-05):** when this roadmap completes, run a cleanup
-> slice — delete or banner every artifact that is no longer needed (superseded reports, stale
-> spot lists, sim exports, interim status docs, stale memory entries) so the repo doesn't
-> accumulate misleading history.
-> Resume rule: work slices in order; verify a pass/fail ACTUALLY passes before `[x]`. On any
-> conflict between this roadmap and another doc/ticket, STOP and surface it to the owner
-> (tripwires in `.claude/CLAUDE.md`).
+## Bottom line
+
+We are finding out whether the poker bots can be made to play like humans at all, before
+spending weeks trying to make them. The big search finished its first stage and was then
+**stopped early on purpose**: 730 settings tried, none good enough, and the most powerful dial
+already pushed to the edge of what it is allowed. There is no verdict — the owner stopped the
+study before the stages that would produce one, judging the diagnosis already sufficient to
+decide what comes next. What it bought is that diagnosis, written up in poker-analytics at
+`docs/methods/reachability-verdict-s5.md`. Read that, not this paragraph, for what was found.
+
+> **Read first — governing initiative for all bot-realism work.** Supersedes the NOW-lane of
+> `persona-realism.md` (paused 2026-08-05; its history and contracts remain authoritative for
+> what shipped). PRD: `../prd/bot-realism-flywheel.md`. Evidence base:
+> `../research/persona-realism-artifacts/remeasure-2026-08-05/SYNTHESIS.md`. Cross-repo:
+> poker-coach produces data, **poker-analytics** produces judgment. Standing rulings on
+> durability, the end-of-initiative cleanup obligation, the resume rule, contract-map
+> pointers, and the full rev-3/rev-4 amendment log all live in
+> `bot-realism-flywheel-archive.md` — they have not changed, they were moved there to keep this
+> file readable.
 
 ## North-star outcome
 
@@ -41,133 +38,105 @@ status: approved (owner, 2026-08-05 — PR #169 merged + explicit handoff instru
   / red-flag-line limits, an archetype-separation floor (blind-ID must stay high), coaching
   usefulness, and runtime/reproducibility budgets. A bot that gets "harder to detect" by going
   bland fails the initiative.
+- **Two different things, never to be conflated (clarified 2026-08-09, qualified 2026-08-13).**
+  *Recognisable as a type* — a judge can tell that seat is playing like a maniac — is DESIRABLE;
+  real players are readable, and a table of unreadable mush would be worse training and worse
+  poker. *Recognisable as a machine* — folding 48 times out of 49 in the same spot, folding
+  identically regardless of seat, investing then folding for no reason — is the defect. Every
+  finding in remeasure SYNTHESIS §B/§C is the second kind, and none of them is about
+  readability.
+- **The separation floor is a BAND, and it is not yet measurable (added 2026-08-13).** Two
+  honest limits on the bullet above. First, the guard says only that blind identification must
+  stay "high", with no threshold and no human comparator — a one-sided floor cannot be passed or
+  failed, and taken literally it makes *more* identifiable monotonically better, which is the
+  mirror image of the Goodhart failure the guard exists to prevent. A seat identifiable with
+  certainty from a short sample is itself a machine tell; real players are readable *and* drift.
+  Second, the "56 of 56" result does not carry the weight first placed on it: per
+  `remeasure-2026-08-05/PROTOCOL.md:41-44` that was a **closed-set** task — judges were told the
+  roster composition and matched eight seats to six known labels — not human-versus-bot
+  detection, with no preregistered threshold. Before this floor can gate anything it needs a
+  declared band measured under the S2a exposure regime against a human comparator. Until then
+  treat it as an interpretive principle, not a pass/fail criterion.
 
 ## NOW (in order — appetite CAP: ~2–3 wk part-time to the phase-3 gate; scope valves below)
 
-- [x] **S1 — Cross-repo working agreement + walking skeleton** *(2026-08-05: agreement in
-      both repos + stub pipe verified — exact per-persona counts, dual fan-in review; ledger
-      `../ledger/flywheel-s1.md`)* — problem: two repos + two
-      parallel sessions, no collision protocol; loop must span repos in one command ·
-      outcome-link: enables everything · pass/fail: agreement doc committed in BOTH repos
-      (ownership manifest, interface, versioning, session-R/session-F protocol, S6∥S5
-      scheduling note) AND a stub scorer in poker-analytics runs end-to-end from one
-      poker-coach command against the **sim50k export**
-      (`remeasure-2026-08-05/sim50k/`, local/gitignored) · appetite: 1–2 days · no-gos: no
-      real scoring logic; no bot-code changes.
-- [x] **S2a — Methods & estimand contract** *(2026-08-05: `poker-analytics:docs/methods/
-      estimand-contract.md` v2.3 — dual review PASSED after 4 rounds; ledger
-      `../ledger/flywheel-s2a.md`; P1/P2 artifacts in `../research/flywheel-s2a/`)*
-      (BLOCKS the design of S3/S4/S5/S6) — problem:
-      score, sweep, and detection specs were being written before the methodology that must
-      shape them (Sol HIGH-8); "dial space" and "reachable" are undefined against a config
-      model that is NOT a 5-dim box (coupled optional levers, frozen references, sizing
-      distributions, preflop mix tables — `backend/app/domain/content/models.py`) ·
-      outcome-link: trustworthiness of the ceiling verdict · pass/fail: one contract doc,
-      dual-reviewed, containing (a) **search-space & estimand contract** — swept parameters +
-      bounds + coupled constraints + persona joint-vs-independent treatment + the
-      REACHABLE / NOT-REACHABLE / INCONCLUSIVE decision rule, with the verdict explicitly
-      framed as an *operational ceiling within declared space and compute budget*; (b)
-      **target registry** — per-stat numerator/denominator, source, population/format
-      compatibility, uncertainty, confidence grade; graded distance + covariance-aware
-      weighting (no hard in/out cliffs); (c) **counterfactual-config schema** — ephemeral
-      override layer validated through the real pack model; "read-only" = no committed
-      production-value changes, validated temporary counterfactuals allowed; (d) **detection
-      protocol preregistration** — judgment unit, exposure length, balanced priors, matched
-      information, statistic (balanced accuracy/AUC/d′), leak controls, cluster-aware CIs;
-      (e) **score-validation plan** — n=13 is directional-only: report Spearman ρ WITH CI and
-      p-value + sign-agreement check; at most ONE pre-registered score revision; if it still
-      fails → STOP-GATE: score stays "exploratory surrogate," S5 may NOT issue a score-only
-      verdict, convergent evidence (detection pilot) required; (f) **compute budget** — one
-      full config benchmarked, N chosen from the budget · appetite: 3–4 days (consumes the
-      DS-methodology research, pulled INTO this slice from the research wave) · no-gos: no
-      implementation.
-- [x] **S2b — Research wave** *(2026-08-06: session R delivered 3 dossiers + consumption map
-      in `../research/realism-architecture/`; corpus verdict **PARTIAL**; blind cross-family
-      review NEEDS-WORK → 13 findings all accepted and folded; two owner rulings recorded —
-      use-and-disclose on published aggregates, and this roadmap's corpus NEXT item re-scoped.
-      Headline: **the phase-3 gate is not a fix-vs-rebuild binary** — the only mechanism in the
-      retrieved literature with a blind-test pass behind it is hand-authored targeting of
-      human-likeness, structurally what the dial engine already is, re-aimed. See
-      `COMPLETION-NOTE.md` §5. **Fan-in 2026-08-07:** director review ACCEPTED all four
-      dossiers + `_raw/` audit trail; S2a-amendment check = NO amendment forced now — the
-      ESTIMAND items (E1–E8, the aggregate-source swap) are deliberately carried by the
-      "Population-statistics ingestion" NEXT item, whose slice owns the contract amendment
-      the frozen registry requires)* **(parallel session R; launched after S1 completed — the
-      session-R protocol it depends on is S1's deliverable)** — problem: architecture bet needs
-      evidence; prior planning missed known prior art (Alberta CPRG); NLHE-corpus existence
-      unknown · outcome-link: phase-3 gate quality + corpus bet · pass/fail: 3 dossiers in
-      `docs/ai-dlc/research/realism-architecture/` (academic incl. Alberta lineage ·
-      commercial practice · NLHE-corpus gate brief ending GO/PARTIAL/NO-GO with licensing
-      assessment; on PARTIAL/NO-GO the brief must evaluate the owner-agreed **fallback
-      ladder**: (i) limit-era data for era-stable shape parameters only, each with explicit
-      justification, (ii) modern tracker-site population statistics (aggregates, not hands),
-      (iii) spot-level expert/LLM elicitation panels, (iv) literature bands as the floor) PLUS
-      a **consumption map** (each conclusion → scorer / sweep / detection / architecture
-      option / corpus decision / explicitly-rejected, with evidence grade) · appetite: ~1 wk
-      in session R, parallel to S2a–S4 · no-gos: docs-only session (no git, no code, no sims);
-      no data downloads without licensing review.
-- [x] **S3 — Realism score v0 + validation (per S2a plan)** — ✅ 2026-08-07. Built +
-      dual-reviewed end-to-end (scorer 0.71 s/50k batch, byte-identical; five §a.5
-      checkers; both campaigns scored incl. a July-engine reconstruction). **Validation
-      outcome: retrospective-FAIL on all three legs under F0 AND the one-shot F1 —
-      every statistic NEGATIVE-signed (F0 ρ=−0.20, F1 ρ=−0.38; two independent
-      reviewers reproduced every number from scratch, zero mismatches; sign negative
-      within each campaign independently). The §e.3 stop-gate fired as preregistered:
-      score status = exploratory-surrogate; S5 may not issue a score-only verdict; §e.3
-      is spent.** The slice's own pass/fail (below) is met — the deliverable was honest
-      execution with the stop-gate honored, and it held. — problem: measurement costs
-      agent fleets; no computable objective exists · outcome-link: flywheel inner loop ·
-      pass/fail: the TWO-TIER score (graded distance over the S2a target registry) runs on the
-      sim50k export in <5 min, deterministic given seed — pool-level D(x) is the ONLY verdict
-      anchor; the per-persona tier is reported, never gating: avg = the progress metric,
-      floor = worst persona = a non-gating diagnostic (**the per-persona gate was deleted by
-      owner ruling 2026-08-06** — it could only ever bind on PFR/3-bet; §a.5 keeps five rules,
-      not six); validation executed EXACTLY per S2a plan (e) as amended — the legs run on the
-      per-persona score — with its stop-gate honored, and the score's status recorded in the
-      output as **retrospective-pass / retrospective-fail / exploratory-surrogate**
-      (validation is pre-labeled RETROSPECTIVE face-validity by owner ruling 2026-08-06;
-      "confirmatory" is reserved for a future campaign with fresh blind ratings)
-      · appetite: 5–7 days (re-costed 2026-08-06: the two-tier ruling added the
-      per-persona tier and the registry swap to pinned external data) · no-gos: no internal-theory-
-      contract bands; no rendered-text parsing; **scores are non-authoritative for any
-      conclusion until validation passes** (S4 may use them only as reproducibility smoke
-      data — stated identically in the PRD).
-- [x] **S4 — Batch sweep runner + counterfactual-config layer** — ✅ 2026-08-07. Shipped:
-      one command (`sweep_runner`) delivering N configs → N seeded runs → N pinned scores;
-      §c acceptance tests pass incl. canonicalization byte-safety; 10-config 50k smoke
-      sweep complete with producer-rerun determinism check and 10/10 re-score
-      byte-identity; measured capacity 404.7 configs/night loaded (program 2.58-3.03
-      nights, hard cap 3.71 of 6 — §f escalation does NOT fire); S3 declared gaps closed
-      (config_hash sentinel retired end-to-end with the rebuilt Σ_sim artifact
-      cov-4a718ef1f6c30391, producer-rerun check, run_id collision); scores remained
-      smoke-data-only throughout (stop-gate honored). — problem: no way to price N
-      dial configs · outcome-link: reachability + all future tuning · pass/fail: one command:
-      N configs (S2a schema) → N seeded runs → N scores, manifest-pinned (engine sha · seed ·
-      config hash · scorer version · registry version); 10-config smoke batch reproduces
-      byte-identical scores; one-config benchmark recorded against the S2a compute budget ·
-      appetite: 2–3 days (re-costed 2026-08-07 at Gate 2: **4–6 days**, owner-approved as one
-      slice — spec dual-review made the baseline covariance-artifact rebuild, the §f 5-worker
-      parallel runner + raw-data retirement, and an ODCS minor-version window mandatory; see
-      `docs/ai-dlc/ledger/flywheel-s4.md`) · no-gos: configs sweep the S2a-declared space only
-      — no policy-code edits, no committed pack changes.
-- [ ] **S5 — Reachability study + operational-ceiling verdict** — problem: unknown whether
-      ANY declared-space config reaches human-band behavior (the owner's gate question) ·
-      outcome-link: decides phase 3 · pass/fail: verdict doc per the S2a estimand contract:
-      pilot response surface + DoE-style mechanism probes (per-dial and interaction effects
-      for each failing stat), **winner's-curse guard** (top configs re-run on fresh seeds
-      before any "reachable" claim), verdict ∈ {REACHABLE, NOT-REACHABLE, INCONCLUSIVE}
-      framed as operational-ceiling-within-declared-space, dual-adversarially reviewed ·
-      appetite: 4–5 days (pilot; a confirmatory study runs ONLY if the pilot is ambiguous —
-      that is the appetite scope valve) · no-gos: no fix recommendations smuggled in; no
-      score-only verdict if the S3 stop-gate fired.
-- [ ] **S6 — Detection-protocol feasibility pilot** — problem: the north star has no working
-      protocol and no number of any kind · outcome-link: the north star itself · pass/fail:
-      the S2a-preregistered protocol executed once on a mixed corpus (bot seats + owner HERO
-      hands as the v0 human class); result reported as a SINGLE-PLAYER PILOT with the
-      single-subject/session/opponent-composition biases and their expected direction named
-      in the write-up; judges see opaque IDs only (remeasure blinding lessons applied) ·
-      appetite: 2–3 days, runs in parallel with S5 (after S2a + S3) · no-gos: this number is
-      NOT the baseline for target-setting; no judge sees labels or seat maps.
+> **STATE, 2026-08-13: nothing is in flight, and that is not the same as finished.** Every
+> slice in this lane is closed and S6 has moved to NEXT, so the usual resume rule — pick up the
+> first unchecked slice — has nothing to return. The initiative has reached its **phase-3 gate**
+> (the fix-versus-overhaul decision, in NEXT), and that decision is the owner's, not a slice
+> anyone can pick up. **Do not start anything from NEXT until it is made.** The evidence it
+> rests on is the S5 close-out below; note that one of its two planned inputs, the detection
+> pilot, is deliberately absent. *(Update 2026-08-14: the pilot was subsequently attempted —
+> owner-initiated — and terminated at its control pre-screen as a protocol shakedown; see the
+> S6 entry in NEXT. The gate still has no detection number, but it now has a finding about
+> the instrument itself.)*
+
+- [x] **S1–S4 complete** — cross-repo working agreement + walking skeleton (2026-08-05) ·
+      methods & estimand contract v2.3 (2026-08-05) · research wave, corpus verdict PARTIAL
+      (2026-08-06) · realism score v0, **validation retrospective-FAILED and the stop-gate
+      fired** (2026-08-07) · batch sweep runner + counterfactual-config layer (2026-08-07).
+      Full slice text, pass/fail wording, and the rulings each one produced:
+      `bot-realism-flywheel-archive.md`. The two consequences that still bind everything
+      downstream: the realism score is an **exploratory surrogate** and may never carry a
+      verdict on its own, and configs may sweep only the S2a-declared space.
+- [x] **S5 — Reachability study — CLOSED 2026-08-11, stopped early by owner ruling** —
+      problem: unknown whether ANY declared-space config reaches human-band behaviour (the
+      owner's gate question) · outcome-link: decides phase 3 · riskiest assumption:
+      **tested-FAILED** — that the declared space contains a human-band config. Stage 1
+      falsified it for the single-persona case; the multi-persona combination case was never
+      run and remains untested (close-out §9.3).
+      **PASS/FAIL AMENDED 2026-08-13, after results, deliberately and visibly.** The original
+      condition required a verdict ∈ {REACHABLE, NOT-REACHABLE, INCONCLUSIVE}. That became
+      unsatisfiable: `reachability_verdict()` refuses to run without stage-3 finalists, which
+      were never produced, so the study has no verdict *at all* — not even INCONCLUSIVE.
+      Ticking the original wording would have been false. Amended condition, met: **a
+      close-out doc that fills every §a.4 slot from a real artifact or marks it
+      never-evaluated, states plainly that no verdict exists and why, and delivers the
+      mechanism diagnosis in its place — dual-adversarially reviewed.** Amending a success
+      condition after seeing results is exactly what preregistration exists to prevent, so it
+      is recorded here in the open with its reason rather than quietly reworded; a reader is
+      entitled to discount the tick accordingly. · appetite: spent 800 of a 1,500-run budget
+      · no-gos held: no fix recommendations smuggled in, no score-only verdict.
+      **OUTCOME.** Zero of 730 configs were both close enough to human play and still
+      recognisably their own persona. The dominant dial (`postflop.call_looseness`) is
+      exhausted at its declared floor in every persona's best result. A mechanism probe then
+      swept the one dial frozen out of that search, `postflop.continue_ref`, across its full
+      declared range: it cannot rescue the result either, for an arithmetic reason. The
+      distance measure is near-linear in the pooled share of flops reaching showdown
+      (R² 0.993); the cutoff needs ~40 percentage points; any one persona is a single seat of
+      nine, so zeroing `maniac`'s showdown rate entirely still leaves the pool at 44.92 —
+      a distance of ~6.69 against a 5.1586 cutoff. **No single-persona config can reach the
+      cutoff at any dial value.** That bounds single-persona probes only; a stage-3
+      combination faces no seat-share ceiling, which is why §a.4 routes REACHABLE through
+      stage 3. Owner declined widening the dial's declared range on 2026-08-13.
+      **Close-out (every §a.4 slot filled or marked never-evaluated), and the disclosures
+      that must travel with any quotation of this result:**
+      `poker-analytics:docs/methods/reachability-verdict-s5.md`. Findings and three review
+      rounds: `docs/ai-dlc/ledger/flywheel-s5-tprobe.md`, `docs/ai-dlc/ledger/flywheel-s5.md`.
+      Execution history (build, pins, runner defects, the overnight-run amendment) is in
+      `bot-realism-flywheel-archive.md`.
+      **LIMITATION — carried into the close-out 2026-08-13, T7 now CLOSED (added
+      2026-08-09, corrected and applied 2026-08-13).** Every wave swept the ratified nine-seat
+      lineup, in which same-type seats are identical: three copies of one tag and two of one
+      passive_fish (`poker-analytics:docs/methods/s5-study-pins.md:16` — not the exporter
+      default, which duplicates different personas; confirmed independently in every run's
+      covariance key). The study therefore says nothing about whether a table of *varied* bots
+      of the same type reads as more human than a table of clones. **The cause is
+      configuration, not the engine** — verified in source: the domain engine already accepts
+      a per-seat strategy pack (`play.py:291,313`; no persona-name reads in
+      `personas_postflop.py`), and the cloning is done by the callers, the persona-keyed
+      override schema and the persistence column. Do not cite it as an architectural gap —
+      see the phase-3 gate item in NEXT. This text now appears in
+      `poker-analytics:docs/methods/reachability-verdict-s5.md` §8, so the T7 instruction in
+      `docs/ai-dlc/tickets/flywheel-s5.md` is satisfied.
+> ⚠️ **THE NORTH STAR IS CURRENTLY UNMEASURED, AND NOTHING IS SCHEDULED TO MEASURE IT.**
+> How often a reader can tell a bot from a human has never been measured, not once, at any
+> point in this initiative. S6 was the only planned measurement and it is deferred (below), so
+> every number in the NOW lane above comes from the realism score — a surrogate that failed
+> its own validation in S3 and may never carry a verdict alone. Read every finding here with
+> that in mind, and do not let "the score improved" stand in for "fewer bots were spotted".
+
+S6, the only planned measurement of it, is built but deferred — it now sits in NEXT.
 
 **Scope valves (appetite is a cap — cut scope, not quality):** S5 confirmatory study deferred
 unless the pilot is ambiguous · S2b commercial lane is the first research cut · S6 pilot may
@@ -177,6 +146,37 @@ listed rather than the gate slipping silently.
 
 ## NEXT (validated problems, not yet spec'd)
 
+- **S6 — Detection pilot: MEASUREMENT ATTEMPTED 2026-08-14 (owner-initiated, overriding
+  the 2026-08-13 deferral) → PROTOCOL SHAKEDOWN, terminated at the control pre-screen.**
+  The harness ran end-to-end on live vendor APIs, but the pre-screen judge labelled the
+  T1 control bot `human` twice (second time at full reasoning effort, while explicitly
+  noticing its "always 3x opens" tell), so the paid run was stopped at ~4¢ of spend —
+  under §d.2's 4-of-4 control rule a full run was near-certain to be invalidated. Full
+  record: `poker-analytics:docs/methods/detection-pilot-s6.md` §5 + §7. Two consequences:
+  (i) any future S6 execution first needs a stronger control —
+  `docs/ai-dlc/tickets/flywheel-s6-control-redesign.md`, gated on phase-3; (ii) the
+  phase-3 gate's open question about this metric now has a second, sharper edge —
+  see the amended bullet below. Original entry follows for provenance:
+  ~~BUILT AND MERGED, MEASUREMENT DEFERRED (owner, 2026-08-13)~~ —
+  outcome-link: the north star itself · what exists: corpus builder, renderer, judging harness
+  and statistics all merged (coach PRs #176, #177), stub-judge dry run passed; only the live
+  judging run is outstanding (API keys + ~330 model calls) · why deferred: it cannot unlock the
+  S5 verdict on its own, since §a.4's ladder fails for independent reasons (stages 2 and 3 were
+  never run), and the measurement **recurs every time the bots change** while today's answer is
+  predictable from S5 and expires at the next change · **run it when there is a changed bot
+  worth measuring** · cost basis and panel pinning: the owner execution checklist
+  `docs/ai-dlc/specs/flywheel-s6-execution-checklist.md` (cost band + the §g.3 4-judge/2-vendor
+  panel; the older ticket `docs/ai-dlc/tickets/flywheel-s6.md` predates the §g.3 panel
+  amendment — trust the checklist);
+  substituting a model family is an amendment, permitted only before the first call fires ·
+  **open question for the phase-3 gate, now two-edged (second edge added 2026-08-14): (a)
+  cost — single-digit to low-tens of dollars per measurement (checklist cost band; recompute
+  at live prices, and thinking tokens are now a real Anthropic output-cost line) recurring
+  each cycle may be too expensive for the flywheel's north-star metric; (b) sensitivity — the shakedown showed a
+  strong LLM judge reading the registry's most degenerate possible bot as human over a
+  30-hand window, so the protocol may be unable to distinguish bots this initiative could
+  plausibly build; settle both before building an iteration loop around it** · no-gos unchanged: not the baseline for
+  target-setting; no judge sees labels or seat maps; scope frozen.
 - **True detection baseline + owner target** — evidence: S6 is single-player by design; a
   target set on pilot numbers would inherit its biases · candidate slices: multi-player human
   sample (licensed corpus per S2b verdict, and/or recruited sessions), matched-environment
@@ -186,11 +186,60 @@ listed rather than the gate slipping silently.
   the owner ruled must precede any persona work · candidate slices: **preregistered decision
   matrix** (score/detection attainability · which failures are structurally unreachable ·
   effort/risk of current-engine fixes · the out-of-scope capability gaps (stacks, session
-  memory, multiway pricing, economy) · runtime constraints · confidence, with an INCONCLUSIVE
-  path); if FIX → re-scope A1–A4 (SYNTHESIS §4 families) as flywheel-priced slices; if
-  OVERHAUL → architecture design brief **ingesting the stack/multiway/state-awareness
-  requirements so the architecture is designed once** · open questions: owner's decision
-  weights.
+  memory, multiway pricing, economy, **and within-archetype variation — added 2026-08-09**) ·
+  runtime constraints · confidence, with an INCONCLUSIVE path); if FIX → re-scope A1–A4
+  (SYNTHESIS §4 families) as flywheel-priced slices; if OVERHAUL → architecture design brief
+  **ingesting the stack/multiway/state-awareness requirements so the architecture is designed
+  once** · open questions: owner's decision weights.
+  - **Within-archetype variation — evidence pointing at FIX, not overhaul (corrected
+    2026-08-13).** An earlier draft of this roadmap filed "two seats of the same type cannot
+    differ" in the structurally-unreachable column. That was wrong, and the correction points
+    the opposite way. The **policy engine is already seat-keyed**: `advance_to_hero` takes a
+    `dict[int, PersonaPack]` and hands each seat its own pack
+    (`backend/app/domain/table/play.py:291,313`), `bot_decision` receives a pack as an argument
+    rather than looking one up (`play.py:209`), the live app already builds a seat→pack map
+    (`backend/app/services/sim_session.py:188`), and nothing in postflop behaviour branches on
+    which archetype a seat is (`personas_postflop.py` contains no `pack.persona` reads). What is
+    missing sits **outside** the domain core: the export tools bind packs by persona name
+    (`tools/export_analytics.py:329`), a seat has nowhere to persist a variant identity, and the
+    counterfactual override document is persona-keyed rather than seat-keyed (an S2a contract
+    change). Only one narrow case genuinely needs domain edits — adding a *seventh named
+    archetype*, because `PersonaPack.persona` is a `VillainType` enum
+    (`app/domain/content/models.py:336`) and packs load by that enum (`personas.py:40-52`).
+    **Weigh this as configuration and persistence work on an engine that already supports the
+    behaviour, not as an architectural gap** — and re-open whether the product lane's third
+    slice is blocked at all.
+- **Training-app table controls (persona labels · table picker · roster chooser)** *(new
+  2026-08-09, from owner observation; **FROZEN until the phase-3 gate by owner ruling** — see
+  the no-gos block)* — problem: the app names each opponent's type on screen, so the player
+  never practises forming a read; and there is one fixed nine-seat lineup, so every session is
+  spent against the same table · **outcome-link: none — this is owner-stated product quality,
+  tracked as a bet, not as movement on a north-star metric** (corrected 2026-08-13: an earlier
+  draft linked it to "coaching usefulness", a phrase this roadmap never defines, baselines, or
+  measures — claiming it as an outcome-link was an outcome-in-costume) · candidate slices, one
+  line each, to be specified properly only if the test below passes: **(1) persona-label
+  toggle** — hide every persona name and badge in Simulate, opt-in reveal after the session;
+  **(2) random table picker** — choose between up to three freshly generated rosters,
+  regenerated on restart and on leaving a table, each reproducible from a stored seed;
+  **(3) custom roster chooser** — the player specifies the archetype mix.
+  · riskiest assumption: *hiding labels and varying the roster measurably improves training
+  value* — **untested**. Cheapest test, rewritten 2026-08-13 because the first version was
+  unusable: it proposed hiding labels to test the value of hiding labels, which is slice 1 and
+  therefore inside the freeze, and it scored the result on one person's unaided impression with
+  no criterion. Replacement: **before each reveal the owner writes down a predicted archetype
+  for three named seats; pass = at least four of six predictions correct across two sessions,
+  plus a written judgement that the session played differently from the labelled baseline.**
+  That still needs labels hidden, so name the execution path explicitly at the gate — either a
+  local uncommitted hide (nothing committed, nothing shipped) or the test simply starts when the
+  freeze lifts. Per the assumption-first rule the test goes first and alone; the three slices
+  stay in NEXT until it reports · no-gos: no change to persona policy code or committed pack
+  values (that is the global freeze) · **re-opened 2026-08-13:** the fourth thing the owner asked
+  for — bots of the same type differing slightly — was excluded from this lane on the false
+  grounds that the engine could not express it. The engine can (see the phase-3 gate item). It
+  stays out of this lane only because the gate owns the config/persistence decision it depends
+  on, not because it is impossible · open questions: whether table choice persists across
+  restarts; whether hidden labels should also hide the post-hand grader's references to
+  opponent type.
 - **Population-statistics ingestion + target-registry upgrade** *(RE-SCOPED 2026-08-06 by owner
   ruling on S2b's gate brief — was "Corpus ingestion"; the acquire-hands framing is CLOSED)* —
   evidence: S2b verdict **PARTIAL**
@@ -236,6 +285,15 @@ listed rather than the gate slipping silently.
   stacks, multiway pricing) · confidence: hi on desirability, unknown on architecture fit ·
   assumptions: architecture decision ingests these requirements first · review-by: after the
   phase-3 decision (phases 4–5 of the owner's plan).
+- **Bet: per-seat identity — bots of the same type that differ from one another** *(new
+  2026-08-09)* · segment: whole roster · owner's own examples: a table of three maniacs where
+  one opens a much tighter preflop range and another bluffs less often · confidence: hi on
+  desirability (owner-stated), unknown on architecture fit · assumptions to test: that a varied
+  table reads as more human than a clone table at all (no evidence either way today); that
+  per-seat pack binding is cheap in whatever architecture the phase-3 gate chooses; that
+  varying within a type does not blur the archetype-separation floor the Goodhart guard
+  protects · review-by: at the phase-3 gate, together with the capability-gap evidence in the
+  gate item above.
 - **Bet: detection-rate as the portfolio centerpiece** (before/after curves) · confidence:
   med · assumptions: S2a protocol credible to a technical interviewer; multi-player baseline
   exists · review-by: first post-fix detection measurement.
@@ -247,11 +305,23 @@ listed rather than the gate slipping silently.
 - 🚫 Persona-fix code or COMMITTED pack-value changes before the phase-3 gate (verification:
   clean `git diff` on `backend/app/domain/` + `content/`; S4's ephemeral counterfactual
   configs are explicitly not commits).
+- 🚫 **The training-app table-controls lane, in full, before the phase-3 gate** (owner ruling
+  2026-08-09). This is stricter than the rule above it: the label toggle and the table picker
+  touch only frontend and table composition, so the persona-code freeze would not have caught
+  them. The owner froze all three anyway to keep attention on the gate. Known consequence
+  (2026-08-13): the lane's own falsification test needs labels hidden, which is slice 1, so the
+  freeze also freezes the test that would justify the lane — resolve that at the gate rather
+  than by quietly exempting one slice.
 - 🚫 Per-decision-LLM bot policy (latency + throughput constraints).
 - 🚫 Corpus data in poker-coach; unlicensed data anywhere public.
 - 🚫 Flywheel v0 blocking on the corpus (registry v0 = graded literature bands by design).
 - 🚫 Detection optimization outside the Goodhart constraint set (north-star section).
 - 🚫 Standing repo no-gos: no solver tables · no auth/hosting/billing · no hand-history
   imports as an APP feature (research corpora in poker-analytics are distinct and allowed).
+- 🚫 Treating archetype separation *per se* as a defect — being recognisable as a type is
+  wanted, not broken (north-star section). Narrowed 2026-08-13: this bans the reflex, NOT the
+  finding. A future, evidenced result that identifiability above the human rate is itself a
+  detection signal is permitted and should be reported; the earlier wording banned an
+  interpretation of future data, which has no place in an initiative built on preregistration.
 - Owner-parked: owner-plays-personas calibration sessions (revisit only if a node lacks any
   trustworthy target; nit/TAG/LAG only, ~100–200 hands).

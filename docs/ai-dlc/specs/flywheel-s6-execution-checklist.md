@@ -196,7 +196,10 @@ the whole panel** — the most expensive model (Claude Opus) dominates.
 Output is a small JSON object (label, confidence, a short reason), so **expect** ~60 tokens
 per call, ~20k across the panel — negligible against input cost. Treat that as an
 expectation, **not a cap**: only the Anthropic adapter sends a hard output limit
-(`max_tokens: 300`), the OpenAI adapter sets none, and the prompt's "≤50 words" reason
+(`max_tokens: 4096` — raised from 300 on 2026-08-14 because current Anthropic models
+think by default at provider-default effort and thinking tokens count inside the cap;
+expect real output cost from thinking tokens, roughly 1–2k per Anthropic call), the
+OpenAI adapter sets none, and the prompt's "≤50 words" reason
 limit is instruction text that the response parser does not enforce. A verbose vendor
 therefore costs more than the estimate rather than being truncated at it.
 
