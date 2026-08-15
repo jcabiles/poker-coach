@@ -75,6 +75,30 @@ below the scorer's own 350 hands/second reference figure (that figure belongs
 to rule 5, which this gate does not run). The five-seed slice-level set
 therefore costs roughly 17 minutes, not the 11 estimated in the spec.
 
+## PR-0 diff review (2026-08-15, second dual review)
+
+Reviewers: Claude `refuter` (verdict **pass**, 1 low + 1 optional) · Codex
+`gpt-5.6-sol` at high effort (8 findings: 1 high, 4 med, 3 low). Both ran the
+targeted suites; both confirmed independently that `measure()` aggregates seats
+to personas identically to `run_checks`. **All ten findings accepted and
+fixed.**
+
+| # | Source | Sev | Finding | Fix |
+|---|---|---|---|---|
+| 14 | Sol | high | The gate cannot establish that a change made progress — the unchanged defective roster passes both rules, so any behavioural no-op passes. Concrete example: a change confined to the BB `unopened` node, documented as structurally unreachable in organic play, would preserve every invariant and measure byte-identically. | **ACCEPTED as reinforcement**, not a new defect — the spec and the T0 record already say this. Sol's unreachable-node example is added to the ledger because it is sharper than the general argument. Mitigation is unchanged: per-ticket positive tests carry the goal. |
+| 15 | Sol | med | The self-test proves nothing about `rule4_determinism`: the artifact stores no determinism answer, so a broken query or a wrong context-to-persona mapping still passes. | **ACCEPTED.** The docstring now states the asymmetry plainly instead of claiming both rules are covered. Rule 4 keeps its own pass/fail unit tests upstream. |
+| 16 | Sol | med | **The self-test's two checks are both positive, so a `measure()` that ignored the batch and echoed `baseline["raw_vectors"]` would satisfy both — and then certify every future candidate as unchanged.** | **ACCEPTED — the most valuable finding of this round.** Added a metamorphic check: permuting the seat-to-persona map must move the measured vectors. Permutation is free (no re-export), and an echoing checker fails it while passing everything else. Verified live: the check runs and passes. |
+| 17 | Sol | med | `run_check` converts malformed output into PASS — `{"pass": "false"}` is a truthy string — and never checks that the exit code agrees with the verdict, so a checker that crashed after printing a stale verdict reads as PASS. | **ACCEPTED.** Only a boolean `pass` is believed, and the exit code must agree with it. Six new tests. Writing them exposed a further bug: the error path itself crashed on a non-object result, which is now handled. |
+| 18 | Sol | med | The analytics checkout is selected by a marker file alone, with no provenance binding. Since both the pins and the comparison values are read from that one checkout, a stale one would be internally self-consistent and pass. | **ACCEPTED.** `read_pins` binds to the expected baseline `artifact_id`; a substituted artifact fails loudly and names the pin. |
+| 19 | Sol | low | The contiguous `0..N` seat check is too weak — `run_export` always plays nine seats and wraps a shorter lineup, so a shorter contiguous map would be measured under seats the checker never sees. | **ACCEPTED.** Exactly `0..8` is required, and the returned manifest's seed and hand count are verified against the requested pins rather than trusted. |
+| 20 | Sol | low | `zip` over `raw_vectors` is non-strict: a longer stored vector is silently truncated and can pass on its prefix. Tolerance 5e-6 is looser than the 5e-7 implied by six-decimal rounding. | **ACCEPTED.** Length is validated explicitly, `zip(..., strict=True)`, tolerance tightened to 5e-7. The 50k self-test still reproduces every value at the tighter bound. |
+| 21 | Sol | low | The shadowing invariant accepts an empty combo set, which is permanently dead but never reported. | **ACCEPTED.** An empty expansion is now reported as its own violation. |
+| 22 | both | low | `_check_position_coverage` groups strictly by `(facing, role)` and only credits a full wildcard toward role-tagged strata, so an untagged node with an explicit position list is not credited to the strata it actually answers. Fails safe (false positive) and does not affect the shipped packs. | **ACCEPTED.** Rewritten to ask the runtime question directly — for each facing, each reachable role, and each seat, would any node match, using the predicate copied from `sample_preflop_action`. Correct by construction rather than by reasoning about wildcards. |
+| 23 | refuter | opt | Same as 22, independently found. | Folded into 22. |
+
+**No findings rejected.** Both reviewers verified the aggregation equivalence
+independently, which is the single claim the whole gate rests on.
+
 ## Adjudication notes
 
 **Nothing was rejected.** Both reviewers independently reached FAIL on the same

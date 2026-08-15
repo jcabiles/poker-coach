@@ -21,7 +21,9 @@ import pytest
 from tools import derobo_gate as dg
 
 BASELINE_STUB = {
-    "artifact_id": "a5baseline-test",
+    # The real pinned id: `read_pins` binds to it so a different analytics
+    # checkout cannot be substituted silently.
+    "artifact_id": dg.EXPECTED_BASELINE_ARTIFACT_ID,
     "min_pairwise_distance": 1.792042,
     "personas": ["calling_station", "lag", "maniac", "nit", "passive_fish", "tag"],
     "stats": ["vpip", "pfr"],
@@ -101,17 +103,21 @@ def test_read_pins_stringifies_lineup_keys(tmp_path):
 
 # --- lineup conversion ------------------------------------------------------
 
-def test_export_candidate_rejects_a_non_contiguous_lineup(tmp_path):
-    """`run_export` takes a seat-ORDERED list. A lineup missing a seat would
-    otherwise shift every later persona by one, silently measuring the wrong
-    bot at every seat."""
+@pytest.mark.parametrize("lineup", [
+    {"0": "tag", "2": "nit"},                              # gaps
+    {str(i): "tag" for i in range(8)},                     # too few
+    {str(i): "tag" for i in range(11)},                    # too many
+])
+def test_export_candidate_requires_exactly_nine_seats(tmp_path, lineup):
+    """`run_export` always plays nine seats and wraps a shorter lineup to fill
+    them, so anything but an exact 0..8 map is measured under seats the checker
+    never hears about."""
     with pytest.raises(dg.GateError) as exc:
-        dg.export_candidate(tmp_path, 601, 10, {"0": "tag", "2": "nit"})
-    assert "contiguous" in str(exc.value)
+        dg.export_candidate(tmp_path, 601, 10, lineup)
+    assert "not exactly" in str(exc.value)
 
 
-def test_export_candidate_orders_seats_numerically(tmp_path, monkeypatch):
-    """Seat 10 must not sort before seat 2."""
+def test_export_candidate_passes_a_seat_ordered_list(tmp_path, monkeypatch):
     captured = {}
 
     def fake_run_export(**kwargs):
@@ -119,10 +125,35 @@ def test_export_candidate_orders_seats_numerically(tmp_path, monkeypatch):
         return {"run_id": "r", "config_hash": "c"}
 
     monkeypatch.setattr(dg.export_analytics, "run_export", fake_run_export)
-    lineup = {str(i): f"p{i}" for i in range(11)}
+    lineup = {str(i): f"p{i}" for i in range(9)}
     dg.export_candidate(tmp_path, 601, 10, lineup)
-    assert captured["lineup"] == [f"p{i}" for i in range(11)]
+    assert captured["lineup"] == [f"p{i}" for i in range(9)]
     assert captured["buyin_spread"] is False
+
+
+def test_export_candidate_rejects_a_manifest_that_ignored_the_pins(tmp_path,
+                                                                   monkeypatch):
+    """The batch is worthless if it was played under different pins than the
+    ones the baseline fixed, so the manifest is checked rather than trusted."""
+    monkeypatch.setattr(dg.export_analytics, "run_export",
+                        lambda **kw: {"seed": 999, "n_hands": kw["n_hands"]})
+    with pytest.raises(dg.GateError) as exc:
+        dg.export_candidate(tmp_path, 601, 10,
+                            {str(i): "tag" for i in range(9)})
+    assert "seed=999" in str(exc.value)
+
+
+def test_read_pins_rejects_a_different_baseline_artifact(tmp_path):
+    """Both the pins and the comparison values come from this one file, so a
+    substituted artifact would be internally self-consistent and would pass
+    everything while measuring against the wrong frozen roster."""
+    artifact = json.loads(json.dumps(BASELINE_STUB))
+    artifact["artifact_id"] = "a5baseline-someone-elses"
+    path = tmp_path / "artifact.json"
+    path.write_text(json.dumps(artifact))
+    with pytest.raises(dg.GateError) as exc:
+        dg.read_pins(path)
+    assert dg.EXPECTED_BASELINE_ARTIFACT_ID in str(exc.value)
 
 
 def test_export_candidate_pins_buyin_spread_off(tmp_path, monkeypatch):
@@ -178,6 +209,36 @@ def test_run_check_parses_json_and_passes_self_test_flag(tmp_path, monkeypatch):
     assert out == {"pass": True}
     assert "--self-test" in seen["cmd"]
     assert json.loads(seen["cmd"][seen["cmd"].index("--lineup") + 1]) == {"0": "tag"}
+
+
+@pytest.mark.parametrize("stdout,code", [
+    ('{"pass": "false"}', 1),   # truthy string would read as PASS
+    ('{"pass": 1}', 0),         # truthy int
+    ('{"pass": null}', 1),
+    ('["pass"]', 0),            # not an object
+    ('{"verdict": true}', 0),   # no `pass` key at all
+])
+def test_run_check_refuses_an_ambiguous_verdict(tmp_path, monkeypatch, stdout,
+                                                code):
+    """A false PASS silently certifies a broken change, so only an unambiguous
+    boolean verdict is believed."""
+    _stub_proc(monkeypatch, stdout, "", code)
+    with pytest.raises(dg.GateError) as exc:
+        dg.run_check(Path("py"), Path("ck"), Path("bl"), tmp_path, {},
+                     self_test=False)
+    assert "boolean `pass`" in str(exc.value)
+
+
+@pytest.mark.parametrize("verdict,code", [(True, 1), (False, 0)])
+def test_run_check_refuses_when_exit_code_contradicts_the_verdict(
+        tmp_path, monkeypatch, verdict, code):
+    """A checker that crashed after printing a stale verdict must not be
+    believed just because the JSON parses."""
+    _stub_proc(monkeypatch, json.dumps({"pass": verdict}), "boom", code)
+    with pytest.raises(dg.GateError) as exc:
+        dg.run_check(Path("py"), Path("ck"), Path("bl"), tmp_path, {},
+                     self_test=False)
+    assert "disagrees with its verdict" in str(exc.value)
 
 
 def test_run_check_omits_self_test_flag_when_judging(tmp_path, monkeypatch):

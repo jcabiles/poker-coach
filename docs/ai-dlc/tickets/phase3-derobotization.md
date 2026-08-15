@@ -91,7 +91,79 @@ pack; `./scripts/verify.sh` green.
 
 ---
 
-## T2 — Preflop raise-size variation
+## ⛔ Blocker found 2026-08-15 — persona-pack edits invalidate a preregistered protocol pin
+
+**Any change to a persona pack's content breaks the S6 detection machinery, and
+un-breaking it is an owner decision rather than a code fix.** This was found by
+running T2's pack values through the suite: 24 tests in
+`tests/test_detection_corpus.py` fail, all from one root cause.
+
+`docs/ai-dlc/specs/flywheel-s6-control-config.json` is a preregistered protocol
+artifact. It carries a `base_pack_hash` declaring which persona packs it was
+authored against, and `tools/counterfactual.load_config` refuses the config
+when that hash no longer matches the loaded packs — correctly, since the config
+describes a counterfactual on packs the engine is no longer running. A second
+pin, `PROTOCOL_CONTROL_CONFIG_HASH` in `tools/detection_corpus.py`, fixes the
+config's own hash.
+
+The mechanism is behaving exactly as designed. The question is what should be
+re-pinned and by whom, and it is genuinely governance-shaped:
+
+- The ratified amendment (g.5) §A **removes this T1 dial control from the
+  finale deck entirely** and keeps it only as an off-deck diagnostic, so the
+  finale does not need it re-derived against the improved roster.
+- The shakedown tree it belongs to is closed history that the amendment says is
+  never reused.
+- But the corpus builder refuses to build *anything* while the shipped config
+  is stale, so the code must acknowledge the roster moved.
+
+**Not resolved autonomously.** Re-pinning a preregistered protocol artifact, or
+narrowing the check that guards one, is a protocol act. The options — mark the
+shipped config explicitly historical, re-derive it against the final roster, or
+scope the protocol check to runs that actually use it — differ in what they
+claim about the finale, which is exactly the kind of decision the amendment
+reserves.
+
+**Consequence for the plan: T2 splits.** T2a ships the mechanism with no pack
+values, which is byte-identical and green. T2b authors the values and is
+blocked. T3, T4 and T5 are all pack-content changes and are blocked behind the
+same decision.
+
+## T2a — Preflop raise-size variation, mechanism only ✅
+
+**Do:** Add optional weighted size mixes to `PersonaSizing` and draw from them
+in `preflop_raise_to`, with no pack authoring any mix yet.
+
+A weighted mix of enumerated sizes, not a jittered scalar. Sampling and then
+clamping into a legal range piles probability mass on the clamp boundary —
+recreating a determinism at exactly the value neither gate can see — and for a
+lever already outside the range it collapses every draw onto the boundary,
+shifting the centre rather than adding variance. Enumerating the permitted
+sizes makes both impossible, keeps every value inside hero's grading bands by
+construction, and keeps sizes at numbers a person would actually pick.
+
+**Acceptance (met):** shipped packs author no mix, so behaviour is
+byte-identical; `rng=None` and mix-absent both fall back to the scalar; a
+duck-typed sizing object without the new fields still works; malformed mixes
+are rejected; the action draw remains the first RNG call; a seeded draw is
+reproducible; grading-band constants are pinned against the grader so a drift
+there fails here. 22 tests.
+
+**Done-condition:** `./scripts/verify.sh`
+
+**Owns:** `backend/app/domain/table/sizing.py`,
+`backend/app/domain/content/models.py` (`PersonaSizing`),
+`content/schema/persona.schema.json`,
+`backend/tests/test_preflop_size_mix.py`.
+
+## T2b — Preflop size values (BLOCKED on the protocol decision above)
+
+The values are drafted and verified to sit inside hero's grading bands, with
+the maniac's 4-bet deliberately excluded (its 3.0 already exceeds the 2.4 cap,
+so mixing it would shift its centre rather than add variance) and six at-cap
+levers drawing one-sided downward. They are held back only by the blocker.
+
+## T2 — Preflop raise-size variation (superseded by T2a/T2b above)
 
 **Do:** Give each persona's open, iso, 3-bet and 4-bet a distribution instead
 of a single number.

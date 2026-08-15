@@ -89,11 +89,14 @@ def _check_shadowed_mixes(pack: PersonaPack) -> list[str]:
         covered: set[str] = set()
         for index, mix in enumerate(node.mixes):
             combos = _combos(mix.combos)
-            if combos and not (combos - covered):
-                violations.append(
-                    f"{pack.persona}: facing={node.facing} "
-                    f"positions={node.positions} role={node.role} "
-                    f"mix[{index}] is fully shadowed by earlier mixes")
+            where = (f"{pack.persona}: facing={node.facing} "
+                     f"positions={node.positions} role={node.role} mix[{index}]")
+            if not combos:
+                # An empty range expands to the empty set, so the mix can never
+                # match any hand — dead on arrival rather than shadowed.
+                violations.append(f"{where} expands to no combos at all")
+            elif not (combos - covered):
+                violations.append(f"{where} is fully shadowed by earlier mixes")
             covered |= combos
     return violations
 
@@ -124,31 +127,37 @@ def _check_position_coverage(pack: PersonaPack) -> list[str]:
     omitted while splitting a wildcard node into per-position nodes makes that
     persona fold 100% from that seat, silently.
 
-    A facing is complete if it has a wildcard node (which answers every
-    position) or if its explicit nodes together cover every position. The check
-    runs per (facing, role) stratum, matching the lookup's own semantics.
+    Rather than reasoning about wildcards and strata separately — which is easy
+    to get subtly wrong, since an UNTAGGED node answers both role strata
+    whatever its position list — this asks the runtime question directly: for
+    each facing the pack authors, each role a production caller can pass, and
+    each seat, would any node match? That predicate is copied from
+    `sample_preflop_action` and stays correct as long as it does.
+
+    Production callers (`play.bot_decision`, `range_estimate`) always pass a
+    real boolean, so the reachable strata are "opener" and "cold".
     """
-    strata: dict[tuple[str, str | None], set[Position]] = {}
-    wildcards: set[tuple[str, str | None]] = set()
-    for node in pack.preflop:
-        key = (node.facing, node.role)
-        if node.positions is None:
-            wildcards.add(key)
-        else:
-            strata.setdefault(key, set()).update(node.positions)
+
+    def matches(node, facing: str, position: Position, want_role: str) -> bool:
+        if node.facing != facing:
+            return False
+        if node.positions is not None and position not in node.positions:
+            return False
+        return not (node.role is not None and node.role != want_role)
+
     violations = []
-    for key, covered in strata.items():
-        if key in wildcards:
-            continue
-        # An untagged wildcard serves every role stratum of the same facing.
-        if (key[0], None) in wildcards:
-            continue
-        missing = ALL_POSITIONS - covered
-        if missing:
-            names = sorted(p.value for p in missing)
-            violations.append(
-                f"{pack.persona}: facing={key[0]!r} role={key[1]!r} has no node "
-                f"for {names} — those seats fold 100% silently")
+    for facing in sorted({n.facing for n in pack.preflop}):
+        for want_role in ("opener", "cold"):
+            missing = [
+                position for position in sorted(ALL_POSITIONS, key=lambda p: p.value)
+                if not any(matches(n, facing, position, want_role)
+                           for n in pack.preflop)
+            ]
+            if missing:
+                names = [p.value for p in missing]
+                violations.append(
+                    f"{pack.persona}: facing={facing!r} role={want_role!r} has "
+                    f"no node for {names} — those seats fold 100% silently")
     return violations
 
 

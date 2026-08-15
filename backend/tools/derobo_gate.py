@@ -100,6 +100,15 @@ DEFAULT_ANALYTICS = _default_analytics_root()
 # separation floor can otherwise flip verdict on seed noise alone.
 SEED_SET = (601, 602, 603, 604, 605)
 
+# The frozen pre-fix roster this gate compares every candidate against. Pinned
+# here so a different analytics checkout cannot be substituted silently.
+EXPECTED_BASELINE_ARTIFACT_ID = "a5baseline-98abd160f03a501b"
+
+# `export_analytics.run_export` always plays a nine-seat table and wraps a
+# shorter lineup to fill it, so a lineup of any other length would be measured
+# under seats the checker never hears about.
+EXPECTED_SEATS = tuple(str(i) for i in range(9))
+
 
 class GateError(RuntimeError):
     """The gate could not be run (distinct from the gate returning FAIL)."""
@@ -124,8 +133,23 @@ def analytics_paths(analytics_root: Path) -> tuple[Path, Path, Path]:
 
 
 def read_pins(baseline: Path) -> dict:
-    """Seed, hand count and lineup, taken from the baseline artifact itself."""
+    """Seed, hand count and lineup, taken from the baseline artifact itself.
+
+    The artifact id is checked against `EXPECTED_BASELINE_ARTIFACT_ID`. Because
+    both the pins and the comparison values come from this one file, a
+    different-but-plausible artifact would be internally self-consistent and
+    would pass every check while silently measuring against the wrong frozen
+    roster. Binding the id is what stops a stale sibling checkout doing that.
+    """
     artifact = json.loads(baseline.read_text())
+    got = artifact.get("artifact_id")
+    if got != EXPECTED_BASELINE_ARTIFACT_ID:
+        raise GateError(
+            f"baseline artifact at {baseline} has id {got!r}, but this gate is "
+            f"pinned to {EXPECTED_BASELINE_ARTIFACT_ID!r} — the frozen pre-fix "
+            "roster it compares against. Point --analytics-root at the right "
+            "checkout, or update the pin deliberately if the baseline was "
+            "legitimately rebuilt.")
     source = artifact["source_batch"]
     return {
         "seed": int(source["seed"]),
@@ -148,19 +172,29 @@ def export_candidate(out_dir: Path, seed: int, n_hands: int,
     # `run_export` wants a seat-ORDERED list; the artifact stores a
     # seat-keyed map. Convert via sorted integer seat so a map that happens to
     # serialise out of order cannot silently reorder the lineup.
-    seats = sorted(lineup, key=int)
-    expected = [str(i) for i in range(len(seats))]
-    if seats != expected:
+    seats = tuple(sorted(lineup, key=int))
+    if seats != EXPECTED_SEATS:
         raise GateError(
-            f"baseline lineup seats {seats} are not a contiguous 0..N range; "
-            "refusing to guess the seat order")
-    return export_analytics.run_export(
+            f"baseline lineup seats {list(seats)} are not exactly "
+            f"{list(EXPECTED_SEATS)}. `run_export` plays nine seats and wraps a "
+            "shorter lineup to fill them, so anything else would be measured "
+            "under seats the checker never sees.")
+    manifest = export_analytics.run_export(
         n_hands=n_hands,
         seed=seed,
         out_dir=out_dir,
         lineup=[lineup[s] for s in seats],
         buyin_spread=False,
     )
+    # Confirm the exporter actually honoured the pins rather than trusting that
+    # it did — the batch is worthless if it was played under different ones.
+    for key, want in (("seed", seed), ("n_hands", n_hands)):
+        got = manifest.get(key)
+        if got is not None and got != want:
+            raise GateError(
+                f"export manifest reports {key}={got!r} but the pins asked for "
+                f"{want!r}; the candidate is not comparable to the baseline")
+    return manifest
 
 
 def run_check(python: Path, checker: Path, baseline: Path, batch: Path,
@@ -175,12 +209,36 @@ def run_check(python: Path, checker: Path, baseline: Path, batch: Path,
             f"checker produced no output (exit {proc.returncode}).\n"
             f"stderr:\n{proc.stderr[-2000:]}")
     try:
-        return json.loads(proc.stdout)
+        result = json.loads(proc.stdout)
     except json.JSONDecodeError as e:
         raise GateError(
             f"checker output was not JSON ({e}).\n"
             f"stdout:\n{proc.stdout[-2000:]}\nstderr:\n{proc.stderr[-2000:]}"
         ) from e
+
+    # A verdict is only believed when it is unambiguous. `{"pass": "false"}` is
+    # a truthy string, and a crashed checker that still printed a stale verdict
+    # would otherwise read as PASS — the one failure mode this gate must never
+    # have, since a false PASS silently certifies a broken change.
+    if not isinstance(result, dict):
+        raise GateError(
+            "checker verdict is not a JSON object with a boolean `pass` "
+            f"(got a {type(result).__name__}).\n"
+            f"stdout:\n{proc.stdout[-2000:]}")
+    verdict = result.get("pass")
+    if not isinstance(verdict, bool):
+        raise GateError(
+            "checker verdict is not a JSON object with a boolean `pass` "
+            f"(got {verdict!r} of type {type(verdict).__name__}).\n"
+            f"stdout:\n{proc.stdout[-2000:]}")
+    expected_code = 0 if result["pass"] else 1
+    if proc.returncode != expected_code:
+        raise GateError(
+            f"checker exit code {proc.returncode} disagrees with its verdict "
+            f"pass={result['pass']} (expected {expected_code}) — the process "
+            "did not end the way its own output claims.\n"
+            f"stderr:\n{proc.stderr[-2000:]}")
+    return result
 
 
 def gate(analytics_root: Path, seeds: tuple[int, ...] | None,
