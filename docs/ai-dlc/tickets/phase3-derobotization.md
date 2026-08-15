@@ -91,7 +91,37 @@ pack; `./scripts/verify.sh` green.
 
 ---
 
-## ⛔ Blocker found 2026-08-15 — persona-pack edits invalidate a preregistered protocol pin
+## ✅ Blocker CLEARED by T-control — the deck's control no longer fingerprints the packs
+
+**T-control replaced the deck's control with the rule-breaking scripted policy
+that amendment (g.5) §A already ratified, so editing a persona pack no longer
+breaks the detection machinery.** Proven end to end: with all six packs
+genuinely edited, all 89 detection-corpus tests pass, where 24 previously
+failed.
+
+**No new amendment was needed.** (g.5) §A already states that the finale deck's
+single control is the rule-breaking bot and that the T1 dial config is demoted
+to an off-deck diagnostic. This was code catching up to a ruling, not a fresh
+protocol decision.
+
+**Why this is a structural fix rather than a re-pin.** The old control was a
+counterfactual *on* the shipped packs, so its identity depended on them and any
+routine bot change became a protocol event. The new control is defined by its
+own policy code and runs against whatever packs ship. That mirrors how benchmark
+suites separate concerns — the workload stays frozen while the system under test
+varies freely, and the system's identity is recorded beside the result rather
+than embedded in the benchmark.
+
+**Disclosure, carried in the code as well as here:** the T1 diagnostic that
+(g.5) §A retains becomes unavailable once the packs change, because its config
+describes packs that no longer exist. Re-deriving it against a changed roster
+would change what the diagnostic *is*, so it is deliberately left alone. Nothing
+in the finale depends on it.
+
+**T2b, T3, T4 and T5 are unblocked.** T2b still needs the value rework the theory
+review asked for (recorded below); T3, T4 and T5 are ready to start.
+
+### Original blocker write-up, kept for the record
 
 **Any change to a persona pack's content breaks the S6 detection machinery, and
 un-breaking it is an owner decision rather than a code fix.** This was found by

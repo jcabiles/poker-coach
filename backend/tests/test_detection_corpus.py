@@ -33,14 +33,14 @@ from app.db.models import SimHand, SimSession
 from app.domain.personas import load_persona_packs
 from tools.detection_corpus import (
     BOT_STRIDE_GAP,
-    DEFAULT_CONTROL_CONFIG,
+    CONTROL_POLICY_DIGEST,
+    CONTROL_POLICY_ID,
     DUPLICATE_SLOT_KEY,
     HERO_SEAT,
     HUMAN_FIRST_HAND_NO,
     N_SEATS,
     PRESENTATION_BUNDLE_KEYS,
     PRESENTATION_TOP_KEYS,
-    PROTOCOL_CONTROL_CONFIG_HASH,
     RATIFIED_LINEUP,
     SUCCESS_FILENAME,
     Bundle,
@@ -48,6 +48,7 @@ from tools.detection_corpus import (
     HumanHandRow,
     PresentationRecord,
     Window,
+    assert_control_policy_pinned,
     assert_disjoint,
     assert_duplicate_plan,
     assign_constrained_focus_seats,
@@ -55,6 +56,7 @@ from tools.detection_corpus import (
     build_corpus,
     build_seat_id_map,
     bundle_trajectory,
+    control_policy_digest,
     derive_rng,
     derive_seed,
     enumerate_windows,
@@ -768,19 +770,81 @@ def test_replay_matches_a_real_export_run():
     _assert_run_equivalence(manifest, tables, states, seed, n)
 
 
-def test_replay_matches_a_real_export_run_on_the_control_config():
-    """Same equivalence on the CONTROL path, where the exporter runs overlay
-    packs — the control bundle is only traceable if this holds too."""
-    pytest.importorskip("pyarrow")
-    from tools import counterfactual
+def test_the_control_replay_is_reproducible_and_actually_rule_breaking():
+    """The control is traceable by SEED, not by matching an exporter run.
 
-    validated = counterfactual.load_config(DEFAULT_CONTROL_CONFIG)
-    seed, n = 60002, 8
-    manifest, tables, states = _export_and_replay(
-        seed, n, validated.packs, validated.config_hash
+    It used to be a counterfactual over overlay packs, so `export_analytics`
+    could reproduce it and the old test asserted exactly that. The control is
+    now a scripted policy the exporter cannot run — it hardcodes
+    `bot_decision` — so exporter-traceability is genuinely lost, and what
+    replaces it is what the deck actually needs: the same seed gives the same
+    hands, and those hands are demonstrably the rule-breaker's.
+    """
+    from app.domain.action import ActionType
+    from tools.probe_policies import rule_breaker_decision
+
+    packs = load_persona_packs()
+    seed, n = 60002, 6
+    first = replay_run(seed, n, PERSONA_BY_SEAT, packs, decision_fn=rule_breaker_decision)
+    second = replay_run(seed, n, PERSONA_BY_SEAT, packs, decision_fn=rule_breaker_decision)
+    # Whole terminal states, not just action histories: boards and stacks have
+    # to reproduce too, or "the same hands" is not what got checked.
+    assert [s.model_dump_json() for s in first.values()] == [
+        s.model_dump_json() for s in second.values()
+    ]
+
+    as_bots = replay_run(seed, n, PERSONA_BY_SEAT, packs)
+    assert [s.action_history for s in first.values()] != [
+        s.action_history for s in as_bots.values()
+    ], "the control must not play like the production roster"
+
+    # "Different from production" is satisfied by ANY deterministic policy, so
+    # assert the two traits that make this one a usable control: it never folds,
+    # and its aggression lands on the fixed nonsense size when the legal bracket
+    # does not clamp it away.
+    actions = [h for s in first.values() for h in s.action_history]
+    assert actions, "the replay produced no actions"
+    assert not [h for h in actions if h.action is ActionType.FOLD], (
+        "a control that folds is not the never-folding policy that was ratified"
     )
-    assert manifest["config_hash"] == PROTOCOL_CONTROL_CONFIG_HASH
-    _assert_run_equivalence(manifest, tables, states, seed, n)
+    aggressive = [h for h in actions if h.action in (ActionType.BET, ActionType.RAISE)]
+    assert aggressive, "the control never bet or raised"
+    assert any(abs(h.amount_bb - 7.77) < 0.01 for h in aggressive), (
+        "no aggression landed on the policy's fixed 7.77 size"
+    )
+
+
+def test_control_policy_behaviour_is_pinned():
+    """A changed control must fail loudly rather than silently ship.
+
+    The old control was hash-pinned; this is the replacement pin. It is
+    behavioural rather than a source hash, so it survives a comment edit and
+    breaks on a play change — which is the way round that matters.
+    """
+    packs = load_persona_packs()
+    assert control_policy_digest(packs) == CONTROL_POLICY_DIGEST
+    assert assert_control_policy_pinned(packs) == CONTROL_POLICY_DIGEST
+
+
+def test_the_control_pin_survives_a_persona_pack_change():
+    """The pin would be worthless if the thing it protects broke on a pack edit
+    — that was the old control's whole problem. The rule-breaker ignores packs,
+    so its digest must be identical across a changed roster."""
+    packs = load_persona_packs()
+    mutated = dict(packs)
+    tag = packs["tag"].model_copy(deep=True)
+    tag.sizing.open_bb = 3.25
+    mutated["tag"] = tag
+    assert control_policy_digest(mutated) == control_policy_digest(packs)
+
+
+def test_a_drifted_control_policy_is_refused(monkeypatch):
+    """The negative case. Without it, the pin has never been seen to fail."""
+    import tools.detection_corpus as dc
+
+    monkeypatch.setattr(dc, "CONTROL_POLICY_DIGEST", "0" * 64)
+    with pytest.raises(CorpusBuildError, match="does not match the pinned"):
+        dc.assert_control_policy_pinned(load_persona_packs())
 
 
 def test_replay_keep_does_not_change_the_hands():
@@ -871,7 +935,7 @@ def test_e2e_unblinding_joins_and_records_the_pins(built):
     assert pins["bot"]["run_id"].startswith("run-s7-n25-bspread-c")
     assert pins["bot"]["buyin_spread"] is True
     assert list(pins["bot"]["lineup"].values()) == list(RATIFIED_LINEUP)
-    assert pins["control"]["config_hash"].startswith("3a64601c")
+    assert pins["control"]["control_policy"] == CONTROL_POLICY_ID
     assert unblinding["human_windows"]["selected"] and unblinding["human_windows"]["candidates"]
     assert len(unblinding["bot_windows"]["selected"]) == 3
     assert set(unblinding["derived_seeds"]) >= {"human-select", "bot-windows", "focus-seats"}
@@ -1232,64 +1296,74 @@ def test_e2e_more_judges_add_entries_without_changing_the_deck(tmp_path, human_d
 # --- 14. the pinned control config ------------------------------------------
 
 
-def test_shipped_control_config_hashes_to_the_protocol_pin():
-    """Full-hash assert (not a prefix): the file in the repo IS the config the
-    spec appendix pins."""
-    from tools import counterfactual
-
-    assert len(PROTOCOL_CONTROL_CONFIG_HASH) == 64
-    assert (
-        counterfactual.load_config(DEFAULT_CONTROL_CONFIG).config_hash
-        == PROTOCOL_CONTROL_CONFIG_HASH
-    )
-
-
-@pytest.fixture(scope="module")
-def other_control_config(tmp_path_factory) -> Path:
-    """A valid §c config that is NOT the pinned control."""
-    document = json.loads(DEFAULT_CONTROL_CONFIG.read_text())
-    overrides = document["overrides"]
-    persona = sorted(overrides)[0]
-    path = sorted(overrides[persona])[0]
-    overrides[persona][path] = round(float(overrides[persona][path]) * 0.5 + 0.01, 4)
-    out = tmp_path_factory.mktemp("cfg") / "other-control.json"
-    out.write_text(json.dumps(document, indent=2))
-    return out
+def test_the_control_is_the_rule_breaking_policy_not_a_pack_counterfactual(built):
+    """Amendment (g.5) §A: the deck's control is the rule-breaking scripted
+    policy. It carries no `base_pack_hash`, and that absence is the point — the
+    old control was a counterfactual ON the shipped packs, so every persona edit
+    invalidated it and turned a routine bot change into a protocol event."""
+    _, _, _, unblinding = built
+    control = unblinding["pins"]["control"]
+    assert control["control_policy"] == CONTROL_POLICY_ID
+    assert control["control_policy_source"] == "backend/tools/probe_policies.py"
+    assert "config_hash" not in control
+    assert "config_path" not in control
 
 
-def test_build_refuses_an_unpinned_control_config(tmp_path, human_db, other_control_config):
-    with pytest.raises(CorpusBuildError, match="not the protocol-pinned"):
-        build_corpus(
-            master_seed=1, db_path=human_db, out_dir=tmp_path / "np1",
-            **{**BUILD_KWARGS, "control_config": other_control_config},
-        )
-    assert not (tmp_path / "np1" / SUCCESS_FILENAME).exists()
+def test_the_control_survives_a_persona_pack_change(tmp_path, human_db, monkeypatch):
+    """The regression this whole change exists to prevent.
+
+    The previous control refused to load once any pack differed from the ones it
+    was authored against, which blocked all bot-improvement work. Editing a pack
+    must now leave the control buildable.
+    """
+    from app.domain.personas import load_persona_packs as real_load
+
+    def mutated_packs(*args, **kwargs):
+        packs = real_load(*args, **kwargs)
+        tag = packs["tag"].model_copy(deep=True)
+        tag.sizing.open_bb = 3.25  # any change at all invalidated the old control
+        return {**packs, "tag": tag}
+
+    monkeypatch.setattr("tools.detection_corpus.load_persona_packs", mutated_packs)
+    out = tmp_path / "changed-packs"
+    success = build_corpus(master_seed=1, db_path=human_db, out_dir=out, **BUILD_KWARGS)
+    assert success["non_protocol"] is False
+    assert (out / SUCCESS_FILENAME).exists()
 
 
-def test_non_protocol_flag_builds_but_stamps_both_manifests(
-    tmp_path, human_db, other_control_config
-):
+def test_exactly_one_control_bundle_labelled_bot(built):
+    """A control that plays like the bots is not a control, and a deck with two
+    of them is not the deck the protocol pins."""
+    _, _, _, unblinding = built
+    controls = [
+        b for b in unblinding["bundles"] if b.get("source", {}).get("kind") == "control"
+    ]
+    assert len(controls) == 1
+    assert controls[0]["class"] == "bot"
+
+
+def test_non_protocol_flag_stamps_both_manifests(tmp_path, human_db):
     """A dry-run deck must never be mistakable for the protocol deck."""
     out = tmp_path / "np2"
     success = build_corpus(
         master_seed=1, db_path=human_db, out_dir=out, non_protocol_control=True,
-        **{**BUILD_KWARGS, "control_config": other_control_config},
+        **BUILD_KWARGS,
     )
     unblinding = json.loads((out / "unblinding.json").read_text())
     assert success["non_protocol"] is True
     assert unblinding["non_protocol"] is True
-    assert unblinding["pins"]["control"]["config_hash"] != PROTOCOL_CONTROL_CONFIG_HASH
 
 
 def test_protocol_deck_is_not_stamped_non_protocol(built):
+    """Scale is not what the stamp means: the fixture shrinks seeds, hand counts
+    and bundle counts and is still a protocol-shaped deck."""
     _, success, _, unblinding = built
     assert success["non_protocol"] is False
     assert unblinding["non_protocol"] is False
-    assert unblinding["pins"]["control"]["config_hash"] == PROTOCOL_CONTROL_CONFIG_HASH
 
 
 def test_the_flag_alone_does_not_relax_anything_else(tmp_path, human_db):
-    """`--non-protocol-control` waives the config pin and NOTHING else."""
+    """`--non-protocol-control` waives the control pin and NOTHING else."""
     with pytest.raises(CorpusBuildError, match="short deck"):
         build_corpus(
             master_seed=1, db_path=human_db, out_dir=tmp_path / "np3",

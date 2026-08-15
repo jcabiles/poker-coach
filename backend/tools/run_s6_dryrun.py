@@ -19,9 +19,9 @@ there. Anything else that differs is a determinism failure.
 
 Deck shape — **the spec's Verify-by item 2 pins "6+6 + control + duplicates"**, so
 the counts below are the pin, not a convenience. Only the SIZES are scaled:
-every other §d pin is unchanged, including the protocol control config, so
-`non_protocol` is false in both manifests and this is the same code path the
-real deck takes.
+every other §d pin is unchanged, including the rule-breaking control policy
+((g.5) §A), so `non_protocol` is false in both manifests and this is the same
+code path the real deck takes.
 
     6 human + 6 bot bundles of 5 hands + 1 control bundle + 5 judge duplicates
     = 18 presentation entries, of which each judge sees 14 (the 13 bundles plus
@@ -206,7 +206,7 @@ def assert_manifests(pass_dir: Path) -> None:
         "human": DRY_HUMAN_BUNDLES, "bot": DRY_BOT_BUNDLES, "control": 1,
     }, f"deck counts {success['counts']} are not 3 human / 3 bot / 1 control")
     check(success["non_protocol"] is False,
-          "dry deck is stamped non_protocol — it should use the pinned control config")
+          "dry deck is stamped non_protocol — it should use the pinned control policy")
     check(success["judge_slots"] == DRY_JUDGES, "judge slot count mismatch in _SUCCESS")
     expected_entries = DRY_HUMAN_BUNDLES + DRY_BOT_BUNDLES + 1 + DRY_JUDGES
     check(success["presentation_entries"] == expected_entries,
@@ -221,7 +221,8 @@ def assert_manifests(pass_dir: Path) -> None:
             *pins["bot"]["lineup"].values(),
             pins["human"]["session_id"], pins["bot"]["run_id"],
             pins["control"]["run_id"], pins["bot"]["config_hash"],
-            pins["control"]["config_hash"], pins["git_sha"],
+            pins["control"]["control_policy"],
+            pins["control"]["control_policy_source"], pins["git_sha"],
         } - {""}
     )
     for entry in presentation["bundles"]:

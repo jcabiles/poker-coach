@@ -66,7 +66,26 @@ contract (bold, per §g) by ticket T7, before the first judged bundle.
 - **Bot windows globally disjoint:** 40 disjoint 30-hand windows from a ≥1,200-hand spread
   run; exactly one focus seat per window, assigned across the 9 ratified seats by a
   recorded deterministic scheme. (No two bundles share any hand.)
-- **Control bundle (T1 outcome + owner ruling 2026-08-07):** the §c axes cap decision
+- **⛔ SUPERSEDED 2026-08-15 by estimand-contract amendment (g.5) §A. The bullet that
+  follows is the ORIGINAL design, kept for the record and not as instruction.** The
+  finale deck's single control is now the **rule-breaking scripted policy**
+  (`backend/tools/probe_policies.py`), pinned by the behavioural digest
+  `CONTROL_POLICY_DIGEST` in `backend/tools/detection_corpus.py` and asserted at build
+  time. The T1 dial config is demoted to an off-deck sensitivity diagnostic and is no
+  longer built into any deck.
+
+  Two reasons. T1 was judged *human* (confidence 62) at both shakedown pre-screens and
+  again on a fresh window, so it never had the sensitivity a control needs. And because
+  it was a counterfactual **on** the persona packs, every routine bot edit invalidated
+  it — which blocked the bot-improvement work outright. The "bespoke non-dial
+  generator" rejected below was, in the end, the right design, and (g.5) §A adopts it.
+
+  ⚠️ The T1 config stops loading once any persona pack changes, so the retained
+  diagnostic becomes unavailable after the de-robotization work. Re-deriving it against
+  a changed roster would change what the diagnostic *is*, so it is left alone. Nothing
+  in the finale depends on it.
+
+- **Control bundle (T1 outcome + owner ruling 2026-08-07) — SUPERSEDED, see above:** the §c axes cap decision
   degeneracy at ~0.54 (preflop mix tables sit outside the axis registry), so the 0.90
   "near-deterministic" build proxy is RETIRED. Control = the T1 best-effort config
   (hash `3a64601c…`, max-aggression profile; appendix below), generated with the same
@@ -212,7 +231,7 @@ write-up to a follow-on execution step (build accepted on stub-judge dry run), (
 **Finding: the registered §a.2 axes CANNOT produce ≥0.90 decision-level degeneracy.**
 Best-effort config (`docs/ai-dlc/specs/flywheel-s6-control-config.json`,
 `config_hash 3a64601cbe060373d06a93fd7cd285bd6b0d47b58b23c53ad2e1031ef088b3f8`) measured,
-in **spread mode** (F1 `--buyin-spread`, the treatment the control bundle actually ships
+in **spread mode** (F1 `--buyin-spread`, the treatment the control bundle ships
 with — buy-in mode is run-identity, not config content, so the hash is unchanged),
 **degeneracy 0.5407** (fold, 3880/7176 non-post decisions) at `seed 901, n_hands 500` —
 this is the OPERATIVE number. The flat-100bb number (no `--buyin-spread`) measured

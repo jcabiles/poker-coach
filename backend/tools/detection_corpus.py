@@ -4,7 +4,7 @@ Assembles the §d-preregistered deck for the S6 detection pilot:
 
     40 human bundles   one owner Simulate session, consecutive 30-hand windows
     40 bot bundles     one fresh seeded self-play run (--buyin-spread, ratified lineup)
-     1 control bundle  a second run under the T1 control config (spec appendix)
+     1 control bundle  a run under the rule-breaking scripted policy (g.5 §A)
 
 and splits it into TWO artifacts (spec `flywheel-s6.md`, "Blinding split"):
 
@@ -104,6 +104,7 @@ from tools.detection_render import (
 # `_draw_buyin_targets` and `_git_sha` are imported (rather than re-derived) so
 # the corpus can never drift from the exporter's buy-in spread or provenance.
 from tools.export_analytics import _draw_buyin_targets, _git_sha
+from tools.probe_policies import rule_breaker_decision
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -133,9 +134,46 @@ BOT_RUN_HANDS = 1500
 CONTROL_RUN_SEED = 60002
 CONTROL_RUN_HANDS = 120
 
+# The deck's control policy (amendment (g.5) §A). Identity is the policy code
+# in `tools/probe_policies.py`, not a config file — see the control block in
+# `build_corpus` for why that difference matters.
+#
+# The ID alone is only a LABEL: editing `rule_breaker_decision` without touching
+# this string would still stamp the deck as the protocol control. The old
+# control was hash-pinned, and the replacement has to be too, so identity is
+# carried by a BEHAVIOURAL digest over a fixed short replay, asserted at build
+# time by `assert_control_policy_pinned`.
+#
+# The digest is deliberately behavioural rather than a hash of the source file:
+# a source hash breaks on a comment edit and says nothing about what the policy
+# does, whereas this changes if and only if the control's play changes.
+#
+# It is also PACK-INDEPENDENT — `rule_breaker_decision` ignores the pack it is
+# handed, and deals come from the run seed — so it stays stable across exactly
+# the persona edits that used to invalidate the old control. That property is
+# the whole reason this pin can exist at all, and a test pins it too.
+CONTROL_POLICY_ID = "rulebreaker00"
+CONTROL_POLICY_SOURCE = "backend/tools/probe_policies.py"
+CONTROL_POLICY_DIGEST = (
+    "fac83a14202200ca9ccecc527754800aef794d184e10141daabcb42888bb86f6"
+)
+# Fixed inputs for the digest replay. Small enough to cost nothing at build
+# time, long enough to exercise every street.
+CONTROL_POLICY_DIGEST_SEED = 4242
+CONTROL_POLICY_DIGEST_HANDS = 12
+
+# --- OFF-DECK ONLY, retained per amendment (g.5) §A --------------------------
+# The T1 dial counterfactual is no longer the deck's control. It survives as a
+# pre-screen sensitivity diagnostic judged outside the deck, and only
+# `tools/detection_probe.py` loads it. Both constants stay here because that
+# module imports them from this one.
+#
+# ⚠️ This config declares a `base_pack_hash` of the persona packs it was
+# authored against, so it stops loading the moment any pack changes — which the
+# de-robotization work does deliberately. Re-deriving it against a changed
+# roster would change what the diagnostic IS, so it is left alone and simply
+# becomes unavailable once the packs move. Nothing in the finale depends on it.
 DEFAULT_CONTROL_CONFIG = _REPO_ROOT / "docs/ai-dlc/specs/flywheel-s6-control-config.json"
-# The T1 control config the protocol pins (spec `flywheel-s6.md`, appendix).
-# Building the real deck against anything else is an amendment, not a build.
 PROTOCOL_CONTROL_CONFIG_HASH = (
     "3a64601cbe060373d06a93fd7cd285bd6b0d47b58b23c53ad2e1031ef088b3f8"
 )
@@ -555,6 +593,49 @@ def group_rows(rows: Iterable[HumanHandRow]) -> dict[int, list[HumanHandRow]]:
 # ---------------------------------------------------------------------------
 
 
+def control_policy_digest(packs: Mapping) -> str:
+    """A behavioural fingerprint of the deck's control policy.
+
+    Replays a fixed short run under `rule_breaker_decision` and hashes the
+    resulting action histories. Changes if and only if the control's PLAY
+    changes — unlike a source hash, which a comment edit would break and which
+    says nothing about behaviour.
+
+    `packs` is accepted and passed through for call-shape parity only; the
+    rule-breaking policy ignores it, which is what makes the digest stable
+    across the persona edits that used to invalidate the old control.
+    """
+    persona_by_seat = {i: RATIFIED_LINEUP[i] for i in range(N_SEATS)}
+    states = replay_run(
+        CONTROL_POLICY_DIGEST_SEED, CONTROL_POLICY_DIGEST_HANDS,
+        persona_by_seat, packs, decision_fn=rule_breaker_decision,
+    )
+    canonical = [
+        [
+            (h.street.value, h.position.value, h.action.value, round(h.amount_bb, 2))
+            for h in state.action_history
+        ]
+        for _, state in sorted(states.items())
+    ]
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True).encode()
+    ).hexdigest()
+
+
+def assert_control_policy_pinned(packs: Mapping) -> str:
+    """Refuse to build a deck whose control no longer plays as ratified."""
+    digest = control_policy_digest(packs)
+    if digest != CONTROL_POLICY_DIGEST:
+        raise CorpusBuildError(
+            f"control policy digest {digest} does not match the pinned "
+            f"{CONTROL_POLICY_DIGEST} — `{CONTROL_POLICY_SOURCE}` no longer "
+            "plays the way the ratified control does. Re-pinning is an "
+            "amendment, not a build: change the pin deliberately, with the "
+            "reason recorded, or restore the policy."
+        )
+    return digest
+
+
 def run_id_for(seed: int, n_hands: int, config_hash: str, buyin_spread: bool = True) -> str:
     """The run identity `export_analytics.run_export` would mint for this run.
 
@@ -572,6 +653,7 @@ def replay_run(
     *,
     buyin_spread: bool = True,
     keep: set[int] | None = None,
+    decision_fn=None,
 ) -> dict[int, HandState]:
     """Replay a self-play run forward and return the TERMINAL states.
 
@@ -581,7 +663,21 @@ def replay_run(
     real export of `(seed, n_hands, lineup, config)` would contain. `keep`
     limits what is RETAINED, never what is played: skipping a hand would change
     the RNG state for every hand after it.
+
+    `decision_fn` defaults to the production `bot_decision` and takes the same
+    `(state, seat, pack, rng)` shape. The control bundle passes the
+    rule-breaking policy instead. It is a parameter rather than a second copy
+    of this loop because the copy is the failure mode: a control replayed by
+    near-identical-but-not-identical code differs from the bot class in ways
+    nobody authored, and the judge cannot tell those apart from the ones we
+    meant.
+
+    Note for future custom policies: a `decision_fn` receives the seat's REAL
+    persona pack, not `None`. The probe's old hand-copied loop passed `None`,
+    and today's only custom policy ignores the argument entirely, so nothing
+    changes — but a policy that reads `pack` would see a pack here.
     """
+    play = decision_fn if decision_fn is not None else bot_decision
     rng = random.Random(seed)
     kept: dict[int, HandState] = {}
     for i in range(n_hands):
@@ -594,7 +690,8 @@ def replay_run(
             if guard > 500:
                 raise CorpusBuildError(f"hand {i} did not terminate (seed={hand_seed})")
             seat = state.to_act_seat
-            state = apply(state, bot_decision(state, seat, packs[persona_by_seat[seat]], rng))
+            pack = packs[persona_by_seat[seat]] if packs is not None else None
+            state = apply(state, play(state, seat, pack, rng))
         if keep is None or i in keep:
             kept[i] = state
     return kept
@@ -882,7 +979,6 @@ def build_corpus(
     bot_hands: int = BOT_RUN_HANDS,
     control_seed: int = CONTROL_RUN_SEED,
     control_hands: int = CONTROL_RUN_HANDS,
-    control_config: Path = DEFAULT_CONTROL_CONFIG,
     bundle_size: int = BUNDLE_SIZE,
     human_bundles: int = HUMAN_BUNDLES,
     bot_bundles: int = BOT_BUNDLES,
@@ -894,10 +990,10 @@ def build_corpus(
 
     Returns the `_SUCCESS` body. Every parameter that is not a §d pin exists so
     the dry run can build a scaled deck through the SAME code path — the pins
-    are the defaults, not a separate branch. `non_protocol_control` is the ONLY
-    way to build against a control config other than the pinned one, and it
-    stamps `non_protocol` on both manifests so such a deck can never be mistaken
-    for the protocol deck. `judges` is the number of judge slots, each of which
+    are the defaults, not a separate branch. `non_protocol_control` stamps
+    `non_protocol` on both manifests so a deck built off-pin can never be
+    mistaken for the protocol deck. `judges` is the number of judge slots, each
+    of which
     gets one extra presentation entry repeating a HUMAN bundle (§A.3).
     """
     if not 0 < bundle_size <= MAX_LOCAL_HAND_INDEX:
@@ -993,15 +1089,28 @@ def build_corpus(
         )
 
     # --- control ----------------------------------------------------------
-    validated = counterfactual.load_config(Path(control_config))
-    if validated.config_hash != PROTOCOL_CONTROL_CONFIG_HASH and not non_protocol_control:
-        raise CorpusBuildError(
-            f"control config hash {validated.config_hash} is not the protocol-pinned "
-            f"{PROTOCOL_CONTROL_CONFIG_HASH} — pass non_protocol_control=True "
-            f"(--non-protocol-control) to build a clearly-marked non-protocol deck"
-        )
-    is_non_protocol = validated.config_hash != PROTOCOL_CONTROL_CONFIG_HASH
-    control_run_id = run_id_for(control_seed, control_hands, validated.config_hash)
+    # Fail closed on a drifted control BEFORE building anything with it. The
+    # old control was hash-pinned and this one has to be as well, or "the
+    # protocol control" becomes whatever `probe_policies.py` happens to say
+    # today — silent protocol drift is exactly what the pin exists to prevent.
+    assert_control_policy_pinned(packs)
+    # Amendment (g.5) §A: the deck's one control bundle is the RULE-BREAKING
+    # scripted policy, not the T1 dial counterfactual it replaced. The T1
+    # config is demoted to an off-deck sensitivity diagnostic and is loaded by
+    # `tools/detection_probe.py`, never here.
+    #
+    # The control therefore no longer carries a `base_pack_hash`, and that is
+    # the point: the old control was a counterfactual ON the shipped packs, so
+    # every persona edit invalidated it and made a routine bot change into a
+    # protocol event. This control is defined by its own policy code and runs
+    # against whatever packs ship, so improving the bots cannot break it.
+    # `non_protocol` is a claim about the control STIMULUS, not about scale: the
+    # dry run legitimately shrinks seeds, hand counts and bundle counts and is
+    # still a protocol-shaped deck. Since the stimulus is now fixed in code
+    # rather than selected by a config file, the only way to build off-pin is to
+    # say so explicitly.
+    is_non_protocol = non_protocol_control
+    control_run_id = run_id_for(control_seed, control_hands, CONTROL_POLICY_ID)
     control_windows = enumerate_windows(
         0, control_hands - 1, bundle_size, stride=bot_stride
     )
@@ -1010,8 +1119,9 @@ def build_corpus(
     )
     control_window = control_windows[control_selected[0]]
     control_states = replay_run(
-        control_seed, control_hands, persona_by_seat, validated.packs,
+        control_seed, control_hands, persona_by_seat, packs,
         keep=set(control_window.keys()),
+        decision_fn=rule_breaker_decision,
     )
     # The control is a bot bundle and obeys the same phase constraint.
     control_focus = assign_constrained_focus_seats(
@@ -1032,8 +1142,8 @@ def build_corpus(
                 "kind": "control",
                 "run_id": control_run_id,
                 "run_seed": control_seed,
-                "config_path": str(Path(control_config)),
-                "config_hash": validated.config_hash,
+                "control_policy": CONTROL_POLICY_ID,
+                "control_policy_source": CONTROL_POLICY_SOURCE,
                 "window_index": control_window.index,
                 "hand_index_start": control_window.start,
                 "hand_index_end": control_window.end,
@@ -1085,7 +1195,12 @@ def build_corpus(
             bot_run_id,
             control_run_id,
             bot_config_hash,
-            validated.config_hash,
+            # The control's identity is now its policy id and source path rather
+            # than a config hash; both stay on the forbidden list for the same
+            # reason the hash did — a rendered bundle naming either identifies
+            # the control to a judge.
+            CONTROL_POLICY_ID,
+            CONTROL_POLICY_SOURCE,
             git_sha,
         }
         - {""}
@@ -1175,8 +1290,8 @@ def build_corpus(
                 "n_hands": control_hands,
                 "buyin_spread": True,
                 "lineup": {str(seat): name for seat, name in persona_by_seat.items()},
-                "config_path": str(Path(control_config)),
-                "config_hash": validated.config_hash,
+                "control_policy": CONTROL_POLICY_ID,
+                "control_policy_source": CONTROL_POLICY_SOURCE,
                 "n_bundles": 1,
             },
         },
@@ -1302,11 +1417,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     build.add_argument("--bot-hands", type=int, default=BOT_RUN_HANDS)
     build.add_argument("--control-seed", type=int, default=CONTROL_RUN_SEED)
     build.add_argument("--control-hands", type=int, default=CONTROL_RUN_HANDS)
-    build.add_argument("--control-config", type=Path, default=DEFAULT_CONTROL_CONFIG)
     build.add_argument("--non-protocol-control", action="store_true",
-                       help="allow a control config other than the protocol-pinned "
-                            f"{PROTOCOL_CONTROL_CONFIG_HASH[:12]}…; the resulting deck "
-                            "is stamped non_protocol in both manifests")
+                       help="mark this deck as built with a control other than the "
+                            "protocol's rule-breaking policy; stamps non_protocol in "
+                            "both manifests")
     build.add_argument("--bundle-size", type=int, default=BUNDLE_SIZE,
                        help="hands per bundle (§d pins 30; smaller only for dry runs)")
     build.add_argument("--human-bundles", type=int, default=HUMAN_BUNDLES)
@@ -1325,7 +1439,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         bot_hands=args.bot_hands,
         control_seed=args.control_seed,
         control_hands=args.control_hands,
-        control_config=args.control_config,
         bundle_size=args.bundle_size,
         human_bundles=args.human_bundles,
         bot_bundles=args.bot_bundles,
