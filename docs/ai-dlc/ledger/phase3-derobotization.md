@@ -99,6 +99,29 @@ fixed.**
 **No findings rejected.** Both reviewers verified the aggregation equivalence
 independently, which is the single claim the whole gate rests on.
 
+## T2a diff review (2026-08-15, third dual review)
+
+Reviewers: Claude `refuter` (pass-with-issues — 2 med, 1 low, 1 optional) ·
+Codex `gpt-5.6-sol` at high effort (6 findings, 4 med). Both independently
+confirmed the byte-identity claim by probing the RNG stream directly, and both
+independently found the same two gaps. **All accepted.**
+
+| # | Source | Sev | Finding | Fix |
+|---|---|---|---|---|
+| 24 | Sol | med | **"Enumerating sizes keeps every value inside hero's grading bands by construction" is false.** `PersonaSizing` validates positivity, weight sum and nothing else — a test in the same commit literally proves a 9bb open is accepted. The docstring also cited an invariant test that did not exist. | **ACCEPTED — the claim was simply wrong.** Reworded to "enumeration permits safe authoring"; the invariant it falsely cited now exists (`test_authored_preflop_sizes_stay_gradeable`), reads its caps from the grader so a drift there fails here, and carries a negative test. Its docstring states plainly that the caps are the outer envelope and that grading is path-dependent. |
+| 25 | Sol | med | A misspelled mix field (`open_bb_mxi`) loads cleanly — pydantic allows extra fields by default — leaving the real field None and silently turning the feature into a no-op nothing reports. | **ACCEPTED.** `extra="forbid"` on `PersonaSizing`, plus a test. |
+| 26 | Sol | med | Non-finite values accepted: `"nan"` and `"inf"` are legal JSON keys and `float()` takes both. A NaN size passes the engine's `<`/`>` legality checks — every comparison against NaN is False — and poisons the pot. | **ACCEPTED.** Finiteness enforced for keys and weights, four new cases. Ordering matters: shape is validated first so a non-numeric key still reports the readable message. |
+| 27 | both | med | **The ordering test did not exercise the changed code.** It called `sample_preflop_action` directly, so it would pass if `rng=rng` were deleted from `play.py`, or if sizing were reordered ahead of the action draw. With no pack authoring a mix, such a regression would be invisible today and would surface only once values ship. | **ACCEPTED — the sharpest finding of this round.** Replaced with tests that drive `_preflop_decision` itself, with mixes authored so the size draw is reachable, across open, iso, 3-bet and 4-bet, asserting the action population is drawn first and that a size draw actually happened. A separate test asserts the 5-bet jam draws the action only. |
+| 28 | Sol | low | The byte-identity test compared only returned values, so an implementation that drew a number and then returned the scalar would pass while shifting every later hand in the seeded harnesses. | **ACCEPTED.** It now compares `rng.getstate()` before and after, with a mirror test proving a mix does consume from the stream — otherwise both tests would pass on a feature that never drew at all. |
+| 29 | refuter | med | `content/schema/persona.schema.json` does not match what pydantic emits, and unlike its sibling `contentpack.schema.json` it has no sync test, so drift is silent and nothing in the app reads the file. | **ACCEPTED.** Schema regenerated from the model; sync test added, mirroring `test_content.py::test_checked_in_schema_matches_model`. |
+| 30 | refuter | low | Validator error text says "pot fraction" for preflop mixes, whose keys are bb amounts and multipliers — sends a pack author looking in the wrong place. | **ACCEPTED.** The shared helper takes the noun; a test asserts a rejected mix does not mention pot fractions. |
+| 31 | refuter | opt | The `getattr(..., None)` duck-typing fallback masks the very failure mode it guards against. | **ACCEPTED**, converging with 25. Direct attribute access now; the one stand-in in `test_bet_sizing.py` declares `*_mix = None` explicitly. |
+
+**Process note.** The refuter observed uncommitted edits appearing in its
+worktree mid-review — that was this session applying Codex's fixes to the same
+tree while the review ran. Its verdict was against the committed `HEAD` and is
+unaffected, but the overlap was avoidable and should not recur.
+
 ## Adjudication notes
 
 **Nothing was rejected.** Both reviewers independently reached FAIL on the same

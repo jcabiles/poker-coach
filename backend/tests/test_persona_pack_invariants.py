@@ -72,6 +72,55 @@ def test_grid_check_catches_an_off_grid_fraction(packs):
     assert _check_grid(pack), "an off-grid 0.66 must be reported"
 
 
+# --- 1b. authored preflop sizes stay gradeable ------------------------------
+
+def _check_preflop_sizes(pack: PersonaPack) -> list[str]:
+    """Authored preflop size-mix values that hero's grader would refuse.
+
+    Nothing in `PersonaSizing` enforces this — it validates positivity, weight
+    sum and finiteness only — so enumerating sizes *permits* safe authoring
+    rather than guaranteeing it. This check is what makes the guarantee real.
+
+    Caps are read from the grader itself, so a drift there fails here instead
+    of silently widening what may be authored. They are the OUTER ENVELOPE and
+    not the whole rule: hero's preflop grading is path-dependent, and in a
+    hero-3-bet line the villain's own open must additionally be at most
+    `_STD_OPEN_CAP` while the 3-bet cap applies to the canonical positional
+    open rather than the actual one. A value passing here can still be
+    ungradeable down a particular line; a value failing here is ungradeable
+    everywhere.
+    """
+    from app.domain.table import grade_map_preflop as gmp
+
+    caps = (
+        ("open_bb_mix", gmp._OVERSIZE_OPEN_CAP, "open bb"),
+        ("threebet_mult_mix", gmp._THREEBET_MULT_CAP, "3-bet multiplier"),
+        ("fourbet_mult_mix", gmp._FOURBET_MULT_CAP, "4-bet multiplier"),
+    )
+    violations = []
+    for field, cap, label in caps:
+        for key in (getattr(pack.sizing, field) or {}):
+            if float(key) > cap + 1e-9:
+                violations.append(
+                    f"{pack.persona}: {label} {key} exceeds the grading cap "
+                    f"{cap} — hero would see 'no baseline yet'")
+    return violations
+
+
+def test_authored_preflop_sizes_stay_gradeable(packs):
+    violations = [v for pack in packs.values() for v in _check_preflop_sizes(pack)]
+    assert not violations, "\n".join(violations)
+
+
+def test_preflop_size_check_catches_an_ungradeable_value(packs):
+    """Negative case. `PersonaSizing` itself happily accepts a 9bb open —
+    which is exactly why this check has to exist."""
+    pack = packs["tag"].model_copy(deep=True)
+    pack.sizing.open_bb_mix = {"3.0": 0.5, "9.0": 0.5}
+    violations = _check_preflop_sizes(pack)
+    assert violations and "9.0" in violations[0], violations
+
+
 # --- 2. no preflop mix is shadowed dead -------------------------------------
 
 def _check_shadowed_mixes(pack: PersonaPack) -> list[str]:

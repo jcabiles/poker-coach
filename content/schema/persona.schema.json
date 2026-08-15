@@ -34,6 +34,13 @@
           "title": "Facing",
           "type": "string"
         },
+        "mixes": {
+          "items": {
+            "$ref": "#/$defs/PersonaActionMix"
+          },
+          "title": "Mixes",
+          "type": "array"
+        },
         "positions": {
           "anyOf": [
             {
@@ -64,13 +71,6 @@
           ],
           "default": null,
           "title": "Role"
-        },
-        "mixes": {
-          "items": {
-            "$ref": "#/$defs/PersonaActionMix"
-          },
-          "title": "Mixes",
-          "type": "array"
         }
       },
       "required": [
@@ -80,20 +80,208 @@
       "title": "PersonaNode",
       "type": "object"
     },
-    "PersonaSizing": {
-      "description": "Authored in S3, consumed in S4 (the S3 engine ignores it).",
+    "PersonaPostflop": {
+      "description": "Postflop lever block (S4) \u2014 every persona-differentiating number lives\nhere; the shared mechanics live in app/domain/personas_postflop.py.",
       "properties": {
+        "aggression": {
+          "exclusiveMinimum": 0.0,
+          "title": "Aggression",
+          "type": "number"
+        },
+        "bluff_freq": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Bluff Freq",
+          "type": "number"
+        },
+        "call_looseness": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Call Looseness"
+        },
+        "continue_ref": {
+          "anyOf": [
+            {
+              "maximum": 8.0,
+              "minimum": 0.05,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Continue Ref"
+        },
+        "line_sensitivity": {
+          "anyOf": [
+            {
+              "maximum": 2.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Sensitivity"
+        },
+        "multiway_bluff_damp": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Multiway Bluff Damp",
+          "type": "number"
+        },
+        "position_sensitivity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position Sensitivity"
+        },
+        "size_elasticity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size Elasticity"
+        },
+        "sizing": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Sizing",
+          "type": "object"
+        },
+        "sizing_by_node": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sizing By Node"
+        },
+        "spr_commit": {
+          "exclusiveMinimum": 0.0,
+          "title": "Spr Commit",
+          "type": "number"
+        },
+        "stickiness": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stickiness"
+        }
+      },
+      "required": [
+        "aggression",
+        "bluff_freq",
+        "sizing",
+        "spr_commit",
+        "multiway_bluff_damp"
+      ],
+      "title": "PersonaPostflop",
+      "type": "object"
+    },
+    "PersonaSizing": {
+      "additionalProperties": false,
+      "description": "Authored in S3, consumed in S4 (the S3 engine ignores it).\n\nThe three scalars are the persona's raise sizes. Each may be replaced by a\nweighted mix of sizes, in the same idiom the postflop block already uses\nfor pot-fractions: a map of size to weight, weights summing to one.\n\nA mix rather than a jittered scalar, for two reasons. Sampling a scalar and\nclamping it into a legal range piles probability mass on the clamp\nboundary, which recreates a determinism at exactly the value the statistical\ngates cannot see \u2014 and for a size already outside the range it collapses\nevery draw onto the boundary, shifting the centre instead of adding\nvariance. Declaring the permitted sizes explicitly makes both impossible.\nIt also keeps sizes at values a person would actually choose, rather than\nthe 3.17bb a continuous draw produces.\n\nEvery mix is optional and defaults to None, in which case the scalar is\nused and behaviour is byte-identical to before.\n\nThis model forbids unknown fields. Without that, a misspelled `open_bb_mxi`\nwould load without complaint, leave `open_bb_mix` at None, and silently\nturn the whole feature into a no-op that nothing reports.",
+      "properties": {
+        "fourbet_mult": {
+          "title": "Fourbet Mult",
+          "type": "number"
+        },
+        "fourbet_mult_mix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fourbet Mult Mix"
+        },
         "open_bb": {
           "title": "Open Bb",
           "type": "number"
+        },
+        "open_bb_mix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Open Bb Mix"
         },
         "threebet_mult": {
           "title": "Threebet Mult",
           "type": "number"
         },
-        "fourbet_mult": {
-          "title": "Fourbet Mult",
-          "type": "number"
+        "threebet_mult_mix": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threebet Mult Mix"
         }
       },
       "required": [
@@ -133,12 +321,8 @@
     }
   },
   "properties": {
-    "id": {
-      "title": "Id",
-      "type": "string"
-    },
-    "version": {
-      "title": "Version",
+    "display_name": {
+      "title": "Display Name",
       "type": "string"
     },
     "domain": {
@@ -146,15 +330,23 @@
       "title": "Domain",
       "type": "string"
     },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
     "persona": {
       "$ref": "#/$defs/VillainType"
     },
-    "display_name": {
-      "title": "Display Name",
-      "type": "string"
-    },
-    "sizing": {
-      "$ref": "#/$defs/PersonaSizing"
+    "postflop": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PersonaPostflop"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "preflop": {
       "items": {
@@ -162,6 +354,13 @@
       },
       "title": "Preflop",
       "type": "array"
+    },
+    "sizing": {
+      "$ref": "#/$defs/PersonaSizing"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
     }
   },
   "required": [

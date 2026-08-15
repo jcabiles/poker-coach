@@ -139,6 +139,10 @@ def _preflop_decision(
         la = next(x for x in legal if x.action == act_action)
         # R2: size from the persona preflop levers (open_bb / threebet_mult /
         # fourbet_mult), not the engine min-raise. Clamped legal by the helper.
+        # The rng is threaded so a pack authoring a size mix draws its raise
+        # size per decision instead of using one fixed number. This draw is
+        # always AFTER the action draw above, which the range estimator's
+        # capture and the pinned merit tests both depend on.
         size = preflop_raise_to(
             pack.sizing,
             preflop_node(facing),
@@ -146,6 +150,7 @@ def _preflop_decision(
             limpers=limpers,
             min_bb=la.min_bb,
             max_bb=la.max_bb,
+            rng=rng,
         )
         return Decision(action=act_action, size_bb=size)
     return Decision(action=act_action)
