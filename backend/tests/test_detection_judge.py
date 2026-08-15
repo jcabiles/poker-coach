@@ -545,6 +545,104 @@ class TestEndToEnd:
             dj.run(deck_dir, judges_arg, order_seed=1, out_dir=out, env=env, sleep=lambda s: None)
 
 
+class TestPostJsonHTTPErrorBody:
+    """The HTTPError branch of _post_json: body surfaced, truncated, redacted."""
+
+    @staticmethod
+    def _http_error(body: bytes) -> dj.urllib.error.HTTPError:
+        import io
+        return dj.urllib.error.HTTPError(
+            "https://api.example.com/v1/x", 400, "Bad Request", hdrs=None,  # type: ignore[arg-type]
+            fp=io.BytesIO(body),
+        )
+
+    def test_body_is_surfaced(self, monkeypatch) -> None:  # noqa: ANN001
+        err = self._http_error(b'{"error": {"message": "model not found"}}')
+        monkeypatch.setattr(
+            dj.urllib.request, "urlopen",
+            lambda request, timeout=None: (_ for _ in ()).throw(err),
+        )
+        with pytest.raises(dj.TransportError, match="model not found"):
+            dj._post_json("https://api.example.com/v1/x", {}, {}, 1.0)
+
+    def test_body_is_truncated_to_2000_chars(self, monkeypatch) -> None:  # noqa: ANN001
+        err = self._http_error(b"x" * 5000)
+        monkeypatch.setattr(
+            dj.urllib.request, "urlopen",
+            lambda request, timeout=None: (_ for _ in ()).throw(err),
+        )
+        with pytest.raises(dj.TransportError) as excinfo:
+            dj._post_json("https://api.example.com/v1/x", {}, {}, 1.0)
+        assert len(str(excinfo.value)) < 2100
+
+    def test_key_shaped_tokens_are_redacted(self, monkeypatch) -> None:  # noqa: ANN001
+        err = self._http_error(b'{"message": "bad key sk-ant-abcdef1234567890"}')
+        monkeypatch.setattr(
+            dj.urllib.request, "urlopen",
+            lambda request, timeout=None: (_ for _ in ()).throw(err),
+        )
+        with pytest.raises(dj.TransportError) as excinfo:
+            dj._post_json("https://api.example.com/v1/x", {}, {}, 1.0)
+        assert "sk-ant-abcdef" not in str(excinfo.value)
+        assert "[REDACTED-KEY]" in str(excinfo.value)
+
+    def test_key_straddling_truncation_boundary_is_redacted(self, monkeypatch) -> None:  # noqa: ANN001
+        # Redaction must run BEFORE truncation: a key starting just before the
+        # 2000-char cut must not survive as a fragment.
+        body = b"x" * 1995 + b"sk-ant-abcdef1234567890" + b"y" * 100
+        err = self._http_error(body)
+        monkeypatch.setattr(
+            dj.urllib.request, "urlopen",
+            lambda request, timeout=None: (_ for _ in ()).throw(err),
+        )
+        with pytest.raises(dj.TransportError) as excinfo:
+            dj._post_json("https://api.example.com/v1/x", {}, {}, 1.0)
+        assert "sk-ant" not in str(excinfo.value)
+
+    def test_unreadable_body_does_not_raise_secondary(self, monkeypatch) -> None:  # noqa: ANN001
+        err = self._http_error(b"")
+        err.read = lambda: (_ for _ in ()).throw(  # type: ignore[method-assign]
+            dj.urllib.error.ContentTooShortError("truncated", None),
+        )
+        monkeypatch.setattr(
+            dj.urllib.request, "urlopen",
+            lambda request, timeout=None: (_ for _ in ()).throw(err),
+        )
+        with pytest.raises(dj.TransportError, match="error body unreadable"):
+            dj._post_json("https://api.example.com/v1/x", {}, {}, 1.0)
+
+
+class TestCallAnthropicContentBlocks:
+    """The anthropic adapter must find the text block wherever it sits."""
+
+    @staticmethod
+    def _mock_response(monkeypatch, content: list) -> None:  # noqa: ANN001
+        import io
+        body = json.dumps({"content": content, "model": "resolved-m"}).encode()
+        monkeypatch.setattr(
+            dj.urllib.request, "urlopen",
+            lambda request, timeout=None: io.BytesIO(body),
+        )
+
+    def test_text_block_first(self, monkeypatch) -> None:  # noqa: ANN001
+        self._mock_response(monkeypatch, [{"type": "text", "text": "hi"}])
+        raw, resolved = dj.call_anthropic("m", "sys", "user", "sk-x", None, 1.0)
+        assert raw == "hi" and resolved == "resolved-m"
+
+    def test_thinking_block_precedes_text(self, monkeypatch) -> None:  # noqa: ANN001
+        self._mock_response(monkeypatch, [
+            {"type": "thinking", "thinking": "mulling"},
+            {"type": "text", "text": "answer"},
+        ])
+        raw, _ = dj.call_anthropic("m", "sys", "user", "sk-x", None, 1.0)
+        assert raw == "answer"
+
+    def test_no_text_block_is_transport_error(self, monkeypatch) -> None:  # noqa: ANN001
+        self._mock_response(monkeypatch, [{"type": "thinking", "thinking": "only"}])
+        with pytest.raises(dj.TransportError, match="unexpected response shape"):
+            dj.call_anthropic("m", "sys", "user", "sk-x", None, 1.0)
+
+
 def test_env_var_names() -> None:
     assert dj.env_var_name("anthropic") == "S6_JUDGE_ANTHROPIC_KEY"
     assert dj.env_var_name("openai") == "S6_JUDGE_OPENAI_KEY"
