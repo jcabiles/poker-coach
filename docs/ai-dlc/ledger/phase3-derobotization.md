@@ -165,3 +165,129 @@ mapper's path-dependence (#4) and on pack-validation gaps (#6, #7); the refuter
 went deeper on the RNG-stream consequences for the coverage estimand (#1) and
 verified the contract map's citation layer exhaustively (#13). The two sets are
 complementary, not conflicting.
+
+## T3 + T4 build record (2026-08-15) — PR-2
+
+**Bottom line: the seat split and the edge softening both shipped, both gates
+pass, and the roster stayed distinguishable — separation 1.75071 against a
+required 1.254429, from a pre-slice baseline of 1.792042. Twenty-one pinned
+tests moved across the two commits and every one was adjudicated. Three things
+could not be settled inside this slice and are escalated below rather than
+absorbed.**
+
+Commits: `d4a66df` (T4, seat gradients) then `f214e76` (T3, edge softening).
+The ticket sequences T3 before T4; the order was swapped because T4 restructures
+the very nodes T3 softens, so softening first would have meant authoring the
+same edges twice. Nothing else about either ticket changed.
+
+### What was built
+
+**T4 — seat gradients.** `vs_rfi`, `vs_limpers` and `vs_3bet` are answered per
+seat in all six packs. `vs_4bet` is deliberately excluded: facing a 4-bet the
+decision is hand strength and stack depth, and position barely moves it, so a
+gradient there would be manufacturing a distinction real players do not make.
+
+Regulars get four seat bands, recreationals two. A player who does not adjust
+to position IS the archetype for the station and the fish, so those two respond
+to money already invested — wider from the blinds — and stay seat-blind
+elsewhere. This is the same principle the theory review established for T2b's
+sizing values, applied to ranges.
+
+**T3 — edge softening.** The recreationals' step functions are gone: blocks 19%
+to 56% of the deck wide that played one way at weight 1.0 now play at 0.86-0.90
+with an adjacent band outside them at 0.24-0.49. The regulars were left alone
+because their boundaries are already ramps — emitted opening ladders carry a
+0.4-0.5 tail band and their response nodes are tiered.
+
+### The design rule that made both safe
+
+**Hold each persona's table-realised frequency; change only where it comes
+from.** Four of the separation floor's ten statistics (vpip, pfr, three_bet,
+fold_to_3bet) are driven by exactly these nodes, so a slice that widened ranges
+would have spent separation headroom on nothing. Every band was authored
+against measured seat volumes — how often each seat actually faces each
+decision, from a 6,000-hand export at seed 601 — and every fringe was sized to
+return what shaving the core removed.
+
+It worked. Per-facing combo-weighted continue, before to after:
+
+| facing | tag | lag | nit | maniac | station | fish |
+|---|---|---|---|---|---|---|
+| vs_rfi | 16.94→17.05 | 26.46→26.77 | 5.82→6.15 | 38.13→37.58 | 56.56→56.61 | 43.59→44.05 |
+| vs_limpers | 8.97→8.98 | 12.58→12.63 | 4.13→4.45 | 45.48→45.50 | 56.56→56.53 | 28.51→28.49 |
+
+Meanwhile the fold-to-a-raise SPREAD across seats, which was flat by
+construction, is now 79.8–87.8 for the tag, 65.0–79.1 for the lag, 55.7–67.6
+for the maniac, and 34.8–46.2 for the station.
+
+### Two defects this slice introduced and fixed rather than shipped
+
+**The maniac's big-blind catch-all would have flatted any two cards**, breaking
+audit-F11 in a seat no test covers — the F11 gate checks the cutoff only. Found
+by reading the authored numbers back rather than by a test. The defensible
+subset is now authored explicitly.
+
+**The range lint caught four authoring slips**: bands that played Q9s while
+folding QJs, 96s while folding 97s, A5s while folding A7s, and an AQo 3-bet
+sitting below the weaker tier beneath it. All fixed in the packs. Only the
+pre-existing polar wheel-ace exception and the premium-first tiering idiom were
+added to its inventory, and the two entries that MOVED (station 1.0 → 0.88) are
+the softening working rather than a new defect.
+
+### The finding worth carrying forward
+
+**Several test helpers select a persona node with a first-match `next()`,
+silently assuming one node per facing.** Once nodes split by seat, those helpers
+returned whichever band happened to be authored first — so a pin could move
+several points while every seat's behaviour was intact. Two dossier gates were
+affected. Both now average over the nine seats, which is the population policy
+they were always about and which reduces exactly to the old value for an unsplit
+pack.
+
+**The proof that this was a measurement bug and not a behaviour change: after
+the repair, every pin they feed passed UNCHANGED** — maniac 0.3073, lag 0.6012,
+and both nm4bet arrival gates. Nothing was re-recorded to make them green.
+
+This is the same failure mode as the shadowed-mix trap, one layer up: the packs
+grew an axis and the instruments reading them did not.
+
+### Escalated — three things this slice could not settle
+
+**1. The coverage-ratio criterion cannot be met by any slice that makes bots
+fold less, and spec §7.1 states it as pass/fail.** Villains continuing more
+often hands hero more POSTFLOP decisions, and postflop grading coverage is
+about 7% — the `T-cover` defect — so the ratio falls even when nothing is lost.
+Measured at 2,000 hands across three seeds: overall −0.73pp, preflop −0.91pp
+and bracketing zero, against a preflop seed-to-seed spread of about 14pp. The
+400-hand single-seed fixture reported −3.05pp, roughly four times the effect.
+Recommend the criterion be restated per street, or against graded count at a
+fixed sample, before the next improvement slice is judged by it.
+
+**2. The `r9d_s5` fold-rate ladder was passing on a sample-specific
+coincidence.** Its `nit > tag > {lag, fish, maniac} > station` ordering breaks
+on the PRE-SLICE packs at three times the pinned sample. This slice narrowed
+the assertion to what holds in all four measurements. Separately and more
+importantly, the slice LOWERED the regulars' rise (tag .0867 → .0570, nit
+.1563 → .0918 at the pinned N), with a plausible mechanism: they now defend the
+blinds wider, so they reach barrel nodes with weaker holdings that were folding
+anyway. The λ mechanism is untouched and its node-level gate still passes.
+Whether the population effect should be re-fitted is an owner call.
+
+**3. `test_personas.py::_stats` weights all nine seats equally**, including UTG,
+which can never face `vs_rfi` because it acts first. While every node was
+position-blind that was harmless; now it measures a different quantity from
+table-realised frequency, and the two diverged by about 2pp for the tag. This
+slice satisfied BOTH — the authored bands hold the pinned bands and the volume-
+weighted aggregate — rather than changing the measurement to suit itself. The
+measurement question is left open deliberately.
+
+### Verification
+
+- `./scripts/verify.sh` equivalent: 2022 passed, 3 skipped. `ruff check .` clean.
+- Gate at seed 601 after T4: separation 1.747895, labels 6/6, determinism ok.
+- Gate at seed 601 after T3: separation 1.75071, labels 6/6, determinism ok.
+- Positive tests the gates cannot see: `test_persona_positional_gradients.py`
+  (17 named seat pairs must play some hand materially differently, plus a
+  negative case that flattens every band and must fail) and
+  `test_persona_range_edges.py` (the width rule, plus a negative case that
+  restores the station's 56% block).
