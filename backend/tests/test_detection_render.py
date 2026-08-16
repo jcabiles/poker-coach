@@ -197,7 +197,17 @@ def test_cross_source_identical_for_a_whole_bundle():
     )
 
 
-REAL_HANDS = 8
+# Raised 8 -> 32 by the de-robotization slice (2026-08-15). Eight hands at seed
+# 905 happened to include a preflop fold-out; once the villains' preflop ranges
+# changed, the same eight drew none and the branch-coverage guard below fired.
+# Nothing about fold-outs meaningfully changed — measured over 3,000 hands at
+# this seed, the share of hands ending preflop is 16.17% before the slice and
+# 15.70% after — so a short run is not a reliable way to catch a roughly
+# one-in-six event. Coverage returns at 28 hands, and 30 is the ceiling:
+# `MAX_LOCAL_HAND_INDEX` caps local hand numbering, so a 32-hand bundle leaks an
+# absolute hand number and the leak check rejects it — which is the blinding
+# rule working, and the reason this is 30 rather than something rounder.
+REAL_HANDS = 30
 
 
 def real_bot_hands(seed: int = 905, n: int = REAL_HANDS) -> list[HandState]:
@@ -256,7 +266,10 @@ def test_real_production_hands_exercise_more_than_one_shape():
     span every rendering branch: a preflop fold-out (no board), a flop
     ending, rivers, showdown and no-showdown ends, and a side pot."""
     hands = [from_bot(s, 4) for s in real_bot_hands()]
-    assert {len(h.board) for h in hands} == {0, 3, 5}
+    # Superset, not equality: the claim is that every rendering branch is
+    # covered, and a turn ending (board of 4) is one more branch rather than a
+    # missing one. Equality made a wider sample fail for being wider.
+    assert {len(h.board) for h in hands} >= {0, 3, 5}
     assert any(h.showdown_seats for h in hands)
     assert any(not h.showdown_seats for h in hands)
     assert any(len(h.pots) > 1 for h in hands)

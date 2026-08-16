@@ -162,19 +162,42 @@ def _hash_manifest(manifest: dict) -> str:
 # S6 T2 dual review). NOT self-referential: unlike the two-runs-of-this-build
 # comparison above, a future edit that silently changes default-path output
 # fails against these hard-coded digests, not against another run of itself.
+# RE-PINNED for the de-robotization slice (2026-08-15, slice-authorized). The
+# six persona packs now answer `vs_rfi`, `vs_limpers` and `vs_3bet` per seat,
+# so the bots play differently and every byte of a seeded export changes with
+# them. Re-pinned three times within that slice: the seat split, the range-edge
+# softening on top of it, and the review rework that split the recreationals'
+# small blind from their big blind. Each is a deliberate behaviour change.
+# All four digests moving TOGETHER is the expected signature of a
+# behaviour change: an export-writer regression would move the table digests
+# while leaving the manifest's own fields alone, and a manifest-only change
+# would leave the tables untouched.
+#
+# ⚠️ THESE ARE STREAM *AND IDENTITY* FINGERPRINTS, and a pack `version` bump
+# alone moves them. `config_hash` covers the pack model (version included),
+# `run_id` embeds `config_hash`, and `hand_id` embeds `run_id` — so bumping a
+# version string re-writes an identifier column in all three tables while the
+# cards and actions stay byte-identical. Verified directly: with `hand_id`
+# dropped, a version-only change leaves the decisions digest unchanged. If
+# this test fires and you cannot find a behaviour change, check that first
+# rather than hunting a bug in the engine. Old values, for anyone bisecting:
+#   manifest      24a0b5f398e619036285f7083cda5b96096720d721e47fe054dc28c39536a734
+#   hands         fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32
+#   seat_outcomes 9f9a096fc93b6341625319307b97b524168b43610016191be877efe2be54e233
+#   decisions     fa3f059492a97487bc52499c5ff17df1b743d8aec8e2fab5ee7f3aa9a9660cea
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "24a0b5f398e619036285f7083cda5b96096720d721e47fe054dc28c39536a734"
+    "581e42b9f6142870e8b3945c7276ec9f1be34be30816a404fdbf185599b1318d"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32"
+    "a25b7c339bb89291f05e773cafdd488c85149734b50ef3652869e2978e71ebab"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "9f9a096fc93b6341625319307b97b524168b43610016191be877efe2be54e233"
+    "2cb05b500cb04575984b00a2cfa8bfa46646351f473be2182621e498212cd9c6"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "fa3f059492a97487bc52499c5ff17df1b743d8aec8e2fab5ee7f3aa9a9660cea"
+    "989f630eb9010959f13e8ad6696bb10e4dbba38be6bb1df8a72e908059af6d69"
 )
 
 

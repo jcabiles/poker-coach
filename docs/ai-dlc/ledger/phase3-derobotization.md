@@ -165,3 +165,224 @@ mapper's path-dependence (#4) and on pack-validation gaps (#6, #7); the refuter
 went deeper on the RNG-stream consequences for the coverage estimand (#1) and
 verified the contract map's citation layer exhaustively (#13). The two sets are
 complementary, not conflicting.
+
+
+## T3 + T4 build record and dual review (2026-08-15) — PR-2
+
+**Bottom line: shipped after a three-reviewer round returned fail / fail /
+needs-work, whose findings changed the packs rather than the wording. Two
+reviewers independently found that the first draft re-introduced an any-two
+cold-call the F11 audit had already struck, and the theory reviewer found the
+big blind defending the same as the button. Both are fixed. The roster stays
+distinguishable — separation 1.68 to 2.04 across five seeds against a required
+1.254429 — and hero's grading coverage, re-measured at the tip, is flat.**
+
+Commits: `d4a66df` (T4, seat gradients), `f214e76` (T3, edge softening),
+`60a7e5c` (docs), then the review rework. The ticket sequences T3 before T4;
+the order was swapped because T4 restructures the very nodes T3 softens.
+
+### What shipped, stated precisely
+
+The earlier draft of this section said all three facings are answered per seat
+"in all six packs". That was wrong, and both a reviewer and this pack's own
+`_doc` entries contradicted it. What actually shipped:
+
+| pack | `vs_rfi` | `vs_limpers` | `vs_3bet` |
+|---|---|---|---|
+| tag | BB · SB · CO+BTN · rest | CO+BTN · rest | CO+BTN · SB+BB · rest |
+| lag | BB · SB · CO+BTN · rest | CO+BTN · rest | SB+BB · rest (opener stratum only) |
+| nit | BB · SB · CO+BTN · rest | CO+BTN · rest | CO+BTN · SB+BB · rest |
+| maniac | BB · SB · CO+BTN · rest | already positional before this slice | SB+BB · rest (opener stratum only) |
+| calling_station | BB · SB · rest | position-blind, deliberately | position-blind, deliberately |
+| passive_fish | BB · SB · rest | position-blind, deliberately | position-blind, deliberately |
+
+The recreationals' exclusions are archetype reasoning, not omissions: over-
+limping and calling down are where a weak player adjusts least, and
+`fold_to_3bet` is those two packs' single strongest separating statistic (7.8
+and 5.5 against a next-lowest of 28.8), so it is the worst place to spend
+separation headroom for the least realism.
+
+`vs_4bet` is excluded from the split everywhere. The theory reviewer supplied
+affirmative evidence rather than agreement: because the upstream 3-bet range is
+now seat-dependent, that node already inherits a per-seat conditional spread
+for free — conditional fold-to-4bet runs 63.6 to 73.7 across seats for the tag
+and 64.5 to 78.2 for the lag, in the right direction, because the big blind's
+3-bet range is the most value-heavy. Splitting it would double-count.
+
+### The design rule, and the way the first draft applied it wrongly
+
+**Hold each persona's frequency; change only where it comes from.** Four of the
+separation floor's ten statistics are driven by these nodes, so a slice that
+widened ranges would spend headroom for nothing.
+
+The rule is right. The first draft applied it by spreading the pre-existing
+FLAT value symmetrically around itself, which makes the flat number the centre
+of the shape — and produced a tag whose big blind defended 20.17% against its
+button's 20.15%. The seat that pays 2bb into 4.5 and closes the action is not
+the same seat as the one paying 3bb with two players behind it.
+
+Corrected by deriving the SHAPE first (big blind widest by a clear margin, then
+CO/BTN, then early, then the small blind, which is worst) and then scaling to
+the held aggregate. The constraint was far looser than the draft treated it:
+the big blind carries about 18% of `vs_rfi` volume, so a realistic widening
+moves the node aggregate by under 2pp against 0.5 of separation headroom.
+
+| persona | BB ÷ CO+BTN, first draft | shipped |
+|---|---|---|
+| tag | 1.00 | 1.42 |
+| lag | 1.11 | 1.43 |
+| nit | 1.55 | 1.55 |
+
+The nit was flagged in the brief as a possible cop-out and is in fact the best
+of the three: judged by ratio rather than percentage points, its big blind is
+2.14× its small blind, the largest relative spread on the roster.
+
+### Two metrics, and which one the claim is about
+
+The first draft claimed "table-realised frequency is HELD" while reporting a
+number that is nothing of the kind. Both are reported here, labelled.
+
+**Realised** — measured from self-play, 12,000 hands across three seeds at the
+pinned lineup, counting what actually arrives at each node. This is the claim
+that matters and the one a detector would see.
+
+| persona | `vs_rfi` | `vs_limpers` |
+|---|---|---|
+| calling_station | 65.97 → 65.41 | 60.32 → 58.69 |
+| lag | 27.71 → 27.20 | 18.65 → 19.02 |
+| maniac | 37.30 → 37.06 | 56.04 → 55.70 |
+| nit | 5.62 → 6.68 | 16.26 → 14.87 |
+| passive_fish | 51.26 → 49.87 | 39.22 → 37.38 |
+| tag | 16.90 → 17.34 | 16.14 → 15.49 |
+
+Every move is within 1.9pp, mean 0.9pp. **Before the review rework the same
+measurement read −3.53pp for the station and −3.58pp for the fish** — the
+reviewer's finding, and the reason the packs changed rather than the sentence.
+
+**Authored width** — combo-weighted over the whole deck, then weighted by
+measured seat volume. Useful for authoring, not a population claim, because the
+arriving population at a node is not deck-uniform: early-seat `vs_rfi`
+decisions are dominated by the limped-then-raised path, so they sit inside the
+node's core. Shaving a core and repaying in a fringe the conditional population
+rarely contains holds this number while moving the realised one.
+
+| persona | `vs_rfi` | `vs_limpers` |
+|---|---|---|
+| tag | 16.94 → 17.01 | 8.97 → 9.16 |
+| lag | 26.46 → 26.82 | 12.58 → 12.63 |
+| nit | 5.82 → 6.21 | 4.13 → 4.56 |
+| maniac | 38.13 → 37.58 | 48.25 → 48.26 |
+| calling_station | 56.56 → 57.73 | 56.56 → 56.53 |
+| passive_fish | 43.59 → 43.98 | 28.51 → 26.81 |
+
+### Three defects caught before shipping, one of them twice
+
+**The recreationals cold-called an open with any two cards.** Both independent
+reviewers found it, and the committed theory contract settles it outright: F11
+requires the `vs_rfi` `*` catch-all to be 3-bet-or-fold, so this was a contract
+violation rather than an open question. The station was calling 32o from the
+small blind one time in three. Removed; the defensible subset is authored
+explicitly, exactly as the maniac's big blind already had it. That the same
+slice congratulated itself for catching this in one pack while shipping it in
+two others is the sharpest thing the review found.
+
+**The maniac's big-blind catch-all** would have done the same, in a seat no
+test covers — caught during the build by reading the authored numbers back.
+
+**Four authoring slips the range lint caught**: bands playing Q9s while folding
+QJs, 96s while folding 97s, A5s while folding A7s, and an AQo 3-bet below the
+weaker tier beneath it. Fixed at source rather than inventoried.
+
+### What the reviewers found in the tests, and what changed
+
+Every positive test this slice added was gameable as first written, and all
+three reviewers said so independently.
+
+- **The gradient test scored the MAXIMUM per-hand difference**, so moving one
+  hand class satisfied an entire seat pair while the other 168 stayed
+  identical. Replaced with the share of a persona's own continuing mass played
+  differently — scale-free, so a nit is judged against its own range rather
+  than against a deck it never plays. Every declared pair now clears 15% with
+  margin (19.7% to 70.2%), and a new negative case pins the exact evasion.
+- **The width rule examined each mix separately**, so one 56%-wide
+  deterministic block spelled as four sub-threshold mixes would have passed
+  unchanged. Now summed per node and action, with a negative case that spells
+  the station's old block six ways and must still fail.
+- **The ramp test counted the untouched premium tier** toward its three
+  required levels, so a node with exactly one softened step passed as a ramp.
+  Now counts only levels strictly between 0 and 1.
+- **`_opener_fold_to_3bet` was mathematically wrong.** It averaged the response
+  policy across seats, aggregated the opening range across seats, and multiplied
+  the two aggregates. E[policy] × E[range] is not E[policy × range] once both
+  vary by seat. Now paired per seat. Every dossier pin it feeds still passes
+  unchanged.
+- **The "every pin passed unchanged" proof was weaker than claimed.** For the
+  maniac and lag the `cold` stratum is a single position-blind node and every
+  consumer defaults to it, and the arrival helper normalises the /9 away — so
+  those pins return the old value by construction. The repair is still correct;
+  the evidence offered for it was not, and is withdrawn.
+- **"Reduces exactly to the old value" was false.** Sum-then-divide is exact
+  only for dyadic weights; 0.45 comes back as 0.44999999999999996 on five of
+  six base packs. Every gate reading it is a tolerance or a bound, so nothing
+  breaks today — but the claim was wrong and is corrected in place.
+
+### Verification at the shipped tip
+
+- Suite 2027 passed, 3 skipped. `ruff check .` clean.
+- Five-seed gate: PASS at every seed — 1.947995 / 1.683556 / 2.002838 /
+  1.806508 / 2.041750 at seeds 601-605, against a required 1.254429; labels
+  6/6 and determinism ok at all five. All five carry the same config hash
+  `c609bd6458872`, which is how the run proves the packs did not move under
+  it — an earlier run of this gate was discarded precisely because pack
+  metadata was edited while it was in flight.
+- Hero grading coverage, re-measured at 2,000 hands across three seeds:
+  overall 0.2475 → 0.2467 (−0.08pp, flat), preflop 0.5718 → 0.5634. The
+  400-hand single-seed fixture reads 0.2753 → 0.2568, which is the instrument,
+  not the effect — its preflop ratio spans about 14pp across seeds at 2,000
+  hands.
+- Realised per-node rates: table above, all within 1.9pp.
+
+### Escalated
+
+**1. `line_sensitivity` is out of fit, not an open question.** The theory
+reviewer corrected the earlier framing. Its closed-loop statistic moved about
+40% (tag .0867 → .0570, nit .1563 → .0918 at the pinned N), which by the theory
+contract's §2 makes it an un-refit constant. A NEW inversion also appeared that
+the weakened `_R9D_S5_ORDER` tier would otherwise absorb, and it is named here
+rather than left implicit: **at N=24,000 the tag now reads .0429 against the
+passive_fish's .0515**, where the tag was above the fish at every pre-slice
+sample. A fish reacting to a persistent hostile line more than a tag is
+backwards for both archetypes. The λ mechanism is untouched and its node-level
+gate still passes, so this is a re-fit of one seed against the new arrival
+distribution, not a mechanism change. **Owner call.**
+
+**2. The `_R9D_S5_ORDER` weakening was done before that owner decision**, which
+a reviewer fairly objected to, and the evidence offered for it was thinner than
+presented — the pre-slice reversal it cited is 0.0016 between lag and tag, with
+no uncertainty attached. It stands as the only way to ship green, and it is
+disclosed in the test's own source, but it should be re-examined with item 1.
+
+**3. The coverage-ratio criterion still needs restating even though this slice
+now meets it.** §7.1 says a ticket must not reduce the ratio and also says a
+moved baseline is refreshed with a recorded reason; those pull against each
+other the moment bots fold less, because extra postflop decisions land in a
+zone graded at about 7%. This slice comes out flat at adequate sample, so
+nothing is being waved through — but the next improvement slice will hit the
+same wall, and the criterion should say per-street or per-count before it does.
+
+**4. Uniform nine-seat weighting is used in two test helpers while this ledger
+escalates exactly that flaw for `test_personas.py::_stats`.** It gives UTG a
+ninth of the weight at `vs_rfi`, a facing UTG can never see. Re-weighting the
+nm4bet legs by measured volume moves them under a point and flips no bound, so
+nothing is wrong today. The inconsistency is real and should be settled once,
+in one place, rather than per helper.
+
+### One incidental finding, recorded because it will confuse someone
+
+**A pack `version` bump re-writes `hand_id` in every exported table.**
+`config_hash` covers the pack model including `version`, `run_id` embeds
+`config_hash`, and `hand_id` embeds `run_id` — so editing a version string
+moves all four export digests while the cards and actions stay byte-identical.
+Verified by dropping the `hand_id` column: a version-only change then leaves
+the decisions digest unchanged. It cost time here, twice, and the note now
+lives in `test_buyin_spread.py` where it will be read.

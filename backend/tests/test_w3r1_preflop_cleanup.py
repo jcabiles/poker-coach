@@ -275,18 +275,58 @@ def test_lag_sb_no_open_limp(packs, hand, expected):
 # fold mass does, and it goes to call. The node is a FIVE-mix shape now;
 # "offsuit trash never cold-calls" is unchanged (AQo is not trash) and the
 # dominant non-fold weights still only descend, so RR-LINT stays clean.
-_LAG_VS_RFI = [
+# Pin RESHAPED for the de-robotization slice (2026-08-15), same precedent
+# again, but the reshape matters more than the value update. `vs_rfi` is now
+# split by seat, so "the lag vs_rfi node" is four nodes, and a pin that looks
+# one seat up silently follows whichever band that seat happens to land in —
+# it would keep passing while measuring something else. Two invariants replace
+# the single-node shape, and together they cover more than it did:
+#
+#   1. TIER MEMBERSHIP. The five combo tiers this node has carried since W3R-1
+#      appear in every band, in order, with identical membership. A band may
+#      APPEND a tier (BB and BTN/CO add a fringe of hands only worth playing
+#      with position or a price) but may not reorder, drop or re-cut the five.
+#      That is the structural claim the old pin was really making.
+#   2. WILDCARD WEIGHTS. The early/middle band keeps an explicit weight pin.
+#      Those weights DID move in this slice — tier 3 gained a call leg and
+#      tier 4 came off 1.0 — so the pin is not "these seats are unchanged".
+#      It is "these seats cannot drift FURTHER without a deliberate edit",
+#      which is what a pin on a band nobody is currently re-aiming buys.
+#
+# The per-band weights ARE the point of this slice, so pinning them here would
+# pin the feature to its first draft. That they genuinely differ from one
+# another is asserted instead by test_persona_positional_gradients.py.
+_LAG_VS_RFI_TIERS = [
+    "JJ+, AQs+, AKo",
+    "AQo",
+    "TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, "
+    "JTs, AJo, ATo, KQo, KJo",
+    "77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, "
+    "54s, QJo, JTo, T9o, 98o",
+    "A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",
+]
+
+_LAG_VS_RFI_WILDCARD = [
     ("JJ+, AQs+, AKo", {"3bet": 1.0}),
     ("AQo", {"3bet": 0.6, "call": 0.4}),
-    ("TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, "
-     "JTs, AJo, ATo, KQo, KJo", {"3bet": 0.6, "fold": 0.4}),
-    ("77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, "
-     "54s, QJo, JTo, T9o, 98o", {"call": 1.0}),
-    ("A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",
-     {"call": 0.65, "fold": 0.35}),
+    (_LAG_VS_RFI_TIERS[2], {"3bet": 0.55, "call": 0.13, "fold": 0.32}),
+    (_LAG_VS_RFI_TIERS[3], {"call": 0.85, "fold": 0.15}),
+    (_LAG_VS_RFI_TIERS[4], {"call": 0.52, "fold": 0.48}),
 ]
 
 
-def test_lag_vs_rfi_byte_identical(packs):
-    node = _find_node(packs[VillainType("lag")], "vs_rfi", Position.CO)
-    assert node is not None and _mix_shape(node) == _LAG_VS_RFI
+def test_lag_vs_rfi_tiers_are_identical_in_every_seat_band(packs):
+    nodes = [n for n in packs[VillainType("lag")].preflop if n.facing == "vs_rfi"]
+    assert nodes, "lag must author a vs_rfi node"
+    for node in nodes:
+        where = [p.value for p in node.positions] if node.positions else "wildcard"
+        tiers = [m.combos for m in node.mixes]
+        assert tiers[:len(_LAG_VS_RFI_TIERS)] == _LAG_VS_RFI_TIERS, (
+            f"lag vs_rfi {where}: the five W3R-1 tiers were reordered or re-cut")
+
+
+def test_lag_vs_rfi_wildcard_band_byte_identical(packs):
+    node = _find_node(packs[VillainType("lag")], "vs_rfi", Position.HJ)
+    assert node is not None and node.positions is None, (
+        "HJ must still resolve to the wildcard band")
+    assert _mix_shape(node) == _LAG_VS_RFI_WILDCARD

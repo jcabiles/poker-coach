@@ -118,8 +118,9 @@ describes packs that no longer exist. Re-deriving it against a changed roster
 would change what the diagnostic *is*, so it is deliberately left alone. Nothing
 in the finale depends on it.
 
-**T2b, T3, T4 and T5 are unblocked.** T2b still needs the value rework the theory
-review asked for (recorded below); T3, T4 and T5 are ready to start.
+**T2b, T3, T4 and T5 are unblocked.** T3 and T4 SHIPPED as PR-2 (2026-08-15);
+see their sections below. T2b still needs the value rework the theory review
+asked for (recorded below), and T5 is ready to start.
 
 ### Original blocker write-up, kept for the record
 
@@ -295,7 +296,26 @@ the fields stay byte-identical.
 
 ---
 
-## T3 — Range-edge softening
+## T3 — Range-edge softening ✅ (shipped as PR-2, commit `f214e76`)
+
+**Shipped scope, narrower than drafted and recorded as such.** The two
+recreationals plus the maniac's two isolation cores were the step functions:
+blocks 19% to 56% of the deck wide played one way at weight 1.0, with
+everything outside at 0. Those now play at 0.86-0.90 with an adjacent band at
+0.24-0.49, sized so combo-weighted width holds to within 0.05pp.
+
+**The regulars were deliberately left alone.** Their opening ranges are emitted
+from `content/personas/ladders/*.json` under proving tests and already carry a
+0.4-0.5 tail band; their response nodes are already tiered. Their boundaries
+are ramps already, so softening them would have meant editing the range emitter
+for no realism gain. Owner-approved exclusion.
+
+Positive tests live in `backend/tests/test_persona_range_edges.py`, including a
+general width rule that fails if any block above 15% of the deck ever takes a
+single non-fold action at >=0.99.
+
+### Original ticket text
+
 
 **Do:** Replace hard 100%/0% weights at the *edge* of each persona's preflop
 ranges with mixed weights, so marginal hands are sometimes played and sometimes
@@ -321,7 +341,28 @@ softening widths come down.
 
 ---
 
-## T4 — Positional response gradients
+## T4 — Positional response gradients ✅ (shipped as PR-2, commit `d4a66df`)
+
+**Shipped for `vs_rfi` in all six packs; `vs_limpers` and `vs_3bet` in the
+four regulars only; `vs_4bet` excluded everywhere.** The recreationals keep
+position-blind `vs_limpers` and `vs_3bet` deliberately — over-limping and
+calling down are where a weak player adjusts least, and `fold_to_3bet` is
+those two packs' strongest separating statistic. The maniac's `vs_limpers`
+was already positional before this slice.
+Facing a 4-bet the decision is hand strength and stack depth, and position
+barely moves it — a gradient there would manufacture a distinction real players
+do not make. Owner-approved exclusion, recorded rather than silently dropped.
+
+Regulars get four seat bands, recreationals two, on the principle the theory
+review established for sizing: a player who does not adjust to position IS the
+archetype. Each facing's table-realised frequency is held; only its
+distribution across seats changed. Sequenced BEFORE T3 rather than after,
+because T4 restructures the nodes T3 softens.
+
+Positive tests live in `backend/tests/test_persona_positional_gradients.py`.
+
+### Original ticket text
+
 
 **Do:** Split the wildcard `vs_rfi`, `vs_limpers`, `vs_3bet` and `vs_4bet`
 nodes (`positions: None`) into position-aware nodes, so a persona stops

@@ -222,6 +222,15 @@ _ROW_GAPS = {
     # bluffs from wheel-ace blockers). Lag's old As gap was FIXED in the same
     # rewrite (full suited-ace coverage).
     ("tag", "vs_3bet", "*", "As", ("A9s", "A8s", "A7s", "A6s")),
+    # De-robotization slice 1 (2026-08-15): tag's vs_3bet is now split into
+    # BTN/CO, BB/SB and wildcard bands, so the SAME authored exception above is
+    # visible at three node keys instead of one. Nothing new is folded in — the
+    # polar wheel-ace construction is unchanged and every band carries it. The
+    # row gaps this slice DID introduce (lag's vs_limpers and vs_rfi bands
+    # playing Q9s but not QJs, 96s but not 97s; nit's BB band playing A5s but
+    # not A7s) were authoring slips and are fixed in the packs, not listed.
+    ("tag", "vs_3bet", "BB/SB", "As", ("A9s", "A8s", "A7s", "A6s")),
+    ("tag", "vs_3bet", "BTN/CO", "As", ("A9s", "A8s", "A7s", "A6s")),
 }
 
 # RR-HOLES (2026-07-31): tag's three vs_rfi inert tokens (ATs/KJs shadowed by
@@ -241,12 +250,48 @@ _WEIGHT_INTERLEAVING = {
     # limp 0.5 -> 1.0 IS the station's limped-aces tell surfacing at scale —
     # deliberate character, frozen not judged (tie-revealed by the co-dominant
     # semantics; invisible to the earlier dict-order max()).
-    ("calling_station", "unopened", "*", "22+", "limp", 0.5, 1.0),
-    ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 1.0),
-    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 1.0),
+    ("calling_station", "unopened", "*", "22+", "limp", 0.5, 0.88),
+    ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 0.88),
     ("maniac", "vs_4bet", "*", "QQ", "5bet_shove", 0.7, 1.0),
-    ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 1.0),
     ("passive_fish", "vs_4bet", "*", "KK", "call", 0.5, 1.0),
+    # --- De-robotization slice 1 (2026-08-15) ------------------------------
+    # Every entry below is the idiom this file's docstring already names as
+    # sometimes deliberate: premium-first tiering with a rising call weight. A
+    # premium tier splits its mass between raising and calling, so its CALL
+    # weight sits below that of the medium tier under it, which only calls.
+    # That is how these packs were authored before this slice. Splitting
+    # `vs_rfi` and `vs_3bet` by seat gives each band its own node key, so one
+    # pre-existing shape is now counted once per band.
+    #
+    # Two entries were REMOVED from the list above rather than fixed: the
+    # station's and nit's wildcard-band weights moved (1.0 -> 0.95 and
+    # 1.0 -> 0.9), so the tuple changed while the shape did not. Both are
+    # re-listed here at their new values.
+    #
+    # One genuinely new inversion was NOT inventoried but FIXED in the pack:
+    # lag's BTN/CO AQo 3-bet sat below the weaker tier beneath it (0.70 against
+    # 0.75). AQo now 3-bets 0.78. An entry here would have frozen a mistake.
+    # The four station entries moved DOWN in the same slice that added the
+    # rest of this block: edge softening cut its wide blocks from 1.0 to
+    # 0.88-0.90, so the interleaving shrank rather than disappearing. The
+    # shape is unchanged and stays listed; the numbers track it.
+    # Re-measured after review: the recreationals' vs_rfi nodes were rebuilt
+    # with the small blind split from the big blind and a real fringe, and the
+    # regulars' big blinds were widened, so the SAME tiering shape is counted
+    # at new node keys and new weights. No new shape was introduced.
+    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 0.97),
+    ("calling_station", "vs_rfi", "BB", "22+", "call", 0.6, 0.95),
+    ("calling_station", "vs_rfi", "SB", "22+", "call", 0.6, 0.9),
+    ("lag", "vs_rfi", "BB", "77", "call", 0.6, 1.0),
+    ("lag", "vs_rfi", "BB", "TT", "call", 0.55, 0.6),
+    ("tag", "vs_rfi", "BB", "99", "call", 0.5, 1.0),
+    ("nit", "vs_3bet", "BTN/CO", "QQ", "call", 0.55, 0.65),
+    ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 0.9),
+    ("nit", "vs_rfi", "BB", "88-JJ", "call", 0.7, 1.0),
+    ("nit", "vs_rfi", "BTN/CO", "88-JJ", "call", 0.6, 1.0),
+    ("nit", "vs_rfi", "SB", "88-JJ", "call", 0.5, 0.85),
+    ("tag", "vs_3bet", "BTN/CO", "AKo", "call", 0.58, 0.62),
+    ("tag", "vs_3bet", "BTN/CO", "JJ", "call", 0.62, 0.7),
 }
 
 

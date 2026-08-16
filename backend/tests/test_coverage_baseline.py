@@ -299,6 +299,37 @@ ATTRIBUTION PROVEN BOTH WAYS: the control worktree at base `b0a6a4e` measures
 1288/335 and passes against ITS OWN on-disk fixture (also 1288/335)
 unmodified; this tip measures 1195/329. The slice is the sole cause.
 Seeded-fixture re-record; population bands stay frozen to W4-b.
+
+RE-RECORDED for the de-robotization slice (2026-08-15, slice-authorized):
+total 1195 -> 1274, graded 329 -> 314, ratio 27.53% -> 24.65%. (Recorded
+once for the whole slice; the seat split and the edge softening each shift
+the stream, and the figures below are measured at the slice tip.) The six packs
+now answer `vs_rfi`, `vs_limpers` and `vs_3bet` per seat, so villains fold
+less and the hand stream drifts.
+
+⚠️ THIS FIXTURE CANNOT RESOLVE THE QUESTION IT IS BEING ASKED, and the
+-3.05pp above is largely an artifact of its size. Two measurements, both made
+for this re-record:
+
+  By street, at this seed: preflop total 509 -> 510 with graded 306 -> 295;
+  POSTFLOP total 686 -> 789 with graded 23 -> 23. Nearly the whole ratio drop
+  is the denominator — hero reaches 103 more postflop decisions because
+  villains continue more often, and postflop grading coverage is about 7%,
+  which is the `T-cover` defect this repo already tracks. The mapper lost
+  almost nothing; it was handed far more of the street it cannot grade.
+
+  At 2,000 hands across three seeds (20260718/19/20) the same old-vs-new
+  comparison reads: overall 26.75->25.75, 21.67->20.59, 25.84->25.72 (mean
+  -0.73pp); preflop 59.45->59.61, 49.51->46.84, 62.59->62.35 (mean -0.91pp,
+  bracketing zero). The preflop ratio's spread ACROSS SEEDS is about 14pp —
+  an order of magnitude larger than any effect being read off one 400-hand
+  seed.
+
+The honest reading: overall coverage is down slightly and the postflop
+denominator is why; preflop coverage is flat within noise. This fixture is
+kept because it is a reliable STREAM tripwire, which is a different and
+useful thing. Anyone using it to accept or reject a bot change should
+re-measure at a larger n across several seeds first.
 """
 
 from __future__ import annotations

@@ -1,8 +1,18 @@
 {
   "id": "persona_nit",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "domain": "persona",
   "_doc": [
+    "1.8.0 (de-robotization slice 1, 2026-08-15, review rework) — `vs_rfi`,",
+    "`vs_limpers` and `vs_3bet` are answered per seat. Facing a raise, the fold",
+    "runs 89.64% in the big blind, 93.30% cutoff/button, 94.96% early and 95.17%",
+    "in the small blind, against a flat 94.18% before.",
+    "That 5.5-point spread is the roster's narrowest in absolute terms and its",
+    "WIDEST in relative terms — the big blind continues 2.14x as often as the",
+    "small blind and 1.55x as often as the button. Judging a tight range by",
+    "percentage points understates it; a nit adjusting less than a lag is the",
+    "archetype, and widening it to match would trade one defect for a worse one.",
+    "[UNVERIFIED] — per-seat defence targets have no committed source.",
     "1.6.0 (R9-LOOSEFIT rev4, 2026-08-04) — ONE postflop number, `call_looseness`:",
     "0.6 -> 0.45, so the nit folds materially more at facing nodes than it did",
     "and more often than tag wherever the lever reaches (self leg + population",
@@ -120,10 +130,58 @@
     },
     {
       "facing": "vs_limpers",
+      "positions": ["CO", "BTN"],
+      "mixes": [
+        { "combos": "JJ+, AQs+, AKo", "weights": { "raise": 1.0 } },
+        { "combos": "22-77", "weights": { "limp": 0.35, "fold": 0.65 } },
+        { "combos": "88, 99, TT, AJs, ATs, KQs, AQo", "weights": { "raise": 0.3, "fold": 0.7 } }
+      ]
+    },
+    {
+      "facing": "vs_limpers",
       "positions": null,
       "mixes": [
         { "combos": "JJ+, AQs+, AKo", "weights": { "raise": 1.0 } },
-        { "combos": "22-77", "weights": { "limp": 0.3, "fold": 0.7 } }
+        { "combos": "22-77", "weights": { "limp": 0.36, "fold": 0.64 } }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["BB"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
+        { "combos": "QQ, AKs, AKo", "weights": { "3bet": 0.3, "call": 0.7 } },
+        { "combos": "88-JJ", "weights": { "call": 1.0 } },
+        { "combos": "AQs, AQo, KQs, KQo", "weights": { "call": 0.85, "fold": 0.15 } },
+        {
+          "combos": "77, 66, 55, AJs, ATs, KJs, QJs, JTs, T9s, 98s, AJo",
+          "weights": { "call": 0.55, "fold": 0.45 }
+        },
+        {
+          "combos": "44, 33, 22, A9s, A8s, A7s, A6s, A5s, A4s, KTs, QTs, 87s, 76s",
+          "weights": { "call": 0.35, "fold": 0.65 }
+        }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["CO", "BTN"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
+        { "combos": "QQ, AKs, AKo", "weights": { "3bet": 0.4, "call": 0.6 } },
+        { "combos": "88-JJ", "weights": { "call": 1.0 } },
+        { "combos": "AQs, AQo, KQs, KQo", "weights": { "call": 0.7, "fold": 0.3 } },
+        { "combos": "77, 66, AJs, ATs, KJs", "weights": { "call": 0.35, "fold": 0.65 } }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["SB"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
+        { "combos": "QQ, AKs, AKo", "weights": { "3bet": 0.5, "call": 0.5 } },
+        { "combos": "88-JJ", "weights": { "call": 0.85, "fold": 0.15 } },
+        { "combos": "AQs, AQo, KQs, KQo", "weights": { "call": 0.3, "fold": 0.7 } }
       ]
     },
     {
@@ -132,8 +190,32 @@
       "mixes": [
         { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
         { "combos": "QQ, AKs, AKo", "weights": { "3bet": 0.35, "call": 0.65 } },
-        { "combos": "88-JJ", "weights": { "call": 1.0 } },
-        { "combos": "AQs, AQo, KQs, KQo", "weights": { "call": 0.6, "fold": 0.4 } }
+        { "combos": "88-JJ", "weights": { "call": 0.9, "fold": 0.1 } },
+        { "combos": "AQs, AQo, KQs, KQo", "weights": { "call": 0.35, "fold": 0.65 } }
+      ]
+    },
+    {
+      "facing": "vs_3bet",
+      "positions": ["CO", "BTN"],
+      "mixes": [
+        { "combos": "KK", "weights": { "call": 0.78, "4bet": 0.22 } },
+        { "combos": "AA", "weights": { "4bet": 0.45, "call": 0.55 } },
+        { "combos": "QQ", "weights": { "call": 0.65, "4bet": 0.05, "fold": 0.3 } },
+        { "combos": "AKs", "weights": { "call": 0.65, "fold": 0.35 } },
+        { "combos": "JJ, AKo", "weights": { "call": 0.55, "fold": 0.45 } },
+        { "combos": "TT, AQs", "weights": { "call": 0.4, "fold": 0.6 } }
+      ]
+    },
+    {
+      "facing": "vs_3bet",
+      "positions": ["SB", "BB"],
+      "mixes": [
+        { "combos": "KK", "weights": { "call": 0.6, "4bet": 0.4 } },
+        { "combos": "AA", "weights": { "4bet": 0.55, "call": 0.45 } },
+        { "combos": "QQ", "weights": { "call": 0.4, "4bet": 0.15, "fold": 0.45 } },
+        { "combos": "AKs", "weights": { "call": 0.4, "fold": 0.6 } },
+        { "combos": "JJ, AKo", "weights": { "call": 0.28, "fold": 0.72 } },
+        { "combos": "TT, AQs", "weights": { "call": 0.15, "fold": 0.85 } }
       ]
     },
     {

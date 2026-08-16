@@ -1,7 +1,26 @@
 {
   "id": "persona_passive_fish",
-  "version": "1.3.0",
+  "version": "1.6.0",
   "domain": "persona",
+  "_doc": [
+    "1.6.0 (de-robotization slice 1, 2026-08-15, review rework) — `vs_rfi` is",
+    "answered per seat as three bands (big blind, small blind, everyone else), on",
+    "the same reasoning as the calling station. Facing a raise the fold runs 44.14%",
+    "in the big blind and 57.84% elsewhere, against a flat 56.41% before. The small",
+    "blind reads 57.83%, essentially the non-blind value, which is correct rather",
+    "than lazy: 0.5bb invested against 2.5bb to call, out of position, is not a",
+    "better price than a non-blind seat gets.",
+    "This pack is deliberately MORE price-elastic than the station — its big blind",
+    "continues 1.32x its baseline against the station's 1.17x — because price",
+    "elasticity is the fish's defining axis under the theory contract's P8, and an",
+    "earlier draft had authored it at the station's magnitude.",
+    "⚠️ The catch-all does NOT call; see the calling station entry for the F11",
+    "contract violation this removes. Range boundaries elsewhere are ramps: blocks",
+    "19% to 43% of the deck wide that played one way at weight 1.0 now play at",
+    "0.83-0.95 with adjacent bands outside them.",
+    "[UNVERIFIED] — fringe and per-seat weights have no committed source; they are",
+    "scaled to hold this pack's pre-slice measured rates."
+  ],
   "persona": "passive_fish",
   "display_name": "Passive Fish",
   "sizing": { "open_bb": 4.0, "threebet_mult": 3.0, "fourbet_mult": 2.2 },
@@ -24,7 +43,11 @@
         { "combos": "QQ+, AKs, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22-JJ, A2s+, K8s+, Q9s+, J9s+, T8s+, 97s+, 87s, 76s, 65s, A9o+, KJo+, QJo",
-          "weights": { "limp": 1.0 }
+          "weights": { "limp": 0.86, "fold": 0.14 }
+        },
+        {
+          "combos": "K6s, K7s, Q7s, Q8s, J7s, J8s, T7s, 96s, 86s, 75s, 64s, 54s, A8o, A7o, KTo, QTo, JTo, T9o",
+          "weights": { "limp": 0.3, "fold": 0.7 }
         }
       ]
     },
@@ -35,7 +58,11 @@
         { "combos": "TT+, AQs+, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22-99, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
-          "weights": { "limp": 1.0 }
+          "weights": { "limp": 0.87, "fold": 0.13 }
+        },
+        {
+          "combos": "Q3s, Q2s, J4s, J5s, T4s, T5s, 94s, 84s, 73s, 62s, 52s, 42s, 32s, K6o, K7o, Q7o, Q8o, J7o, J8o, T7o, T8o, 98o, 97o",
+          "weights": { "limp": 0.4, "fold": 0.6 }
         }
       ]
     },
@@ -46,7 +73,45 @@
         { "combos": "QQ+, AKs, AKo", "weights": { "raise": 1.0 } },
         {
           "combos": "22-JJ, A2s+, K5s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, A9o+, KTo+, QTo+, JTo",
-          "weights": { "limp": 1.0 }
+          "weights": { "limp": 0.83, "fold": 0.17 }
+        },
+        {
+          "combos": "K4s, K3s, K2s, Q5s, Q6s, J5s, J6s, T5s, T6s, 95s, 85s, 74s, 63s, 53s, 43s, A8o, K9o, Q9o, J9o, T9o",
+          "weights": { "limp": 0.3, "fold": 0.7 }
+        }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["BB"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
+        {
+          "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
+          "weights": { "call": 0.95, "fold": 0.05 }
+        },
+        {
+          "combos": "Q3s, Q2s, J5s, J4s, T5s, T4s, 94s, 84s, 73s, 62s, 52s, 42s, 32s, K7o, K6o, Q8o, Q7o, J8o, J7o, T8o, T7o, 98o, 97o",
+          "weights": { "call": 0.7, "fold": 0.3 }
+        },
+        {
+          "combos": "J3s, J2s, T3s, T2s, 93s, 92s, 83s, 82s, 72s, K5o, K4o, Q6o, J6o, T6o, 96o, 87o, 86o, 76o, 65o, 54o",
+          "weights": { "call": 0.42, "fold": 0.58 }
+        }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["SB"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
+        {
+          "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
+          "weights": { "call": 0.9, "fold": 0.1 }
+        },
+        {
+          "combos": "Q3s, Q2s, J5s, J4s, T5s, T4s, 94s, 84s, 73s, 62s, 52s, 42s, 32s, K7o, K6o, Q8o, Q7o, J8o, J7o, T8o, T7o, 98o, 97o",
+          "weights": { "call": 0.22, "fold": 0.78 }
         }
       ]
     },
@@ -57,10 +122,15 @@
         { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
         {
           "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
-          "weights": { "call": 1.0 }
+          "weights": { "call": 0.93, "fold": 0.07 }
+        },
+        {
+          "combos": "Q3s, Q2s, J5s, J4s, T5s, T4s, 94s, 84s, 73s, 62s, 52s, 42s, 32s, K7o, K6o, Q8o, Q7o, J8o, J7o, T8o, T7o, 98o, 97o",
+          "weights": { "call": 0.12, "fold": 0.88 }
         }
       ]
     },
+
     {
       "facing": "vs_3bet",
       "positions": null,
