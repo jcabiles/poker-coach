@@ -1,18 +1,26 @@
 {
   "id": "persona_tag",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "domain": "persona",
   "_doc": [
-    "1.6.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi`, `vs_limpers` and",
-    "`vs_3bet` are answered PER SEAT instead of identically from all nine. The",
-    "measured defect was a flat 83.06% fold to a raise from every seat; that fold",
-    "now runs 79.8% in the big blind to 87.8% in the small blind, with the button",
-    "and cutoff between them. Each facing's TABLE-REALISED frequency is HELD —",
-    "weighting every seat by how often it actually faces that decision (measured",
-    "over a 6,000-hand export at seed 601), vs_rfi continue moves 16.94 -> 17.05",
-    "and vs_limpers 8.97 -> 8.98. The slice changes WHERE the frequency comes",
-    "from, not how much of it there is, which is both what real positional play",
-    "is and what keeps the separation gate green. Sizing and postflop untouched.",
+    "1.7.0 (de-robotization slice 1, 2026-08-15, review rework) — `vs_rfi`,",
+    "`vs_limpers` and `vs_3bet` are answered PER SEAT instead of identically from",
+    "all nine. Facing a raise, the fold runs 75.30% in the big blind, 82.58% on",
+    "the cutoff and button, 85.21% early and 87.75% in the small blind — the",
+    "worst seat, which pays more than the big blind and does not close. It was a",
+    "flat 83.06%.",
+    "The big blind is 1.42x the button by continue rate. The first draft of this",
+    "slice made them EQUAL (20.17 against 20.15) by spreading the old flat number",
+    "symmetrically around itself; the shape is now derived first and scaled to the",
+    "held aggregate afterwards. The cutoff and button paid for it, which is right —",
+    "that seat has to cold-call or 3-bet rather than close for a price.",
+    "The CO/BTN tier that cold-called AQo, ATo and KJo 100% of the time is softened",
+    "to 0.85. It was named in this slice's own ledger as a defect the statistical",
+    "gates cannot see, and it sat in the band that reaches that node most.",
+    "[UNVERIFIED] — no committed source in this repo covers per-seat DEFENCE",
+    "frequencies (R9-SEATPROV governs `unopened` ladders only). These targets are",
+    "authored to a realistic per-seat SHAPE and scaled to the pack's pre-slice",
+    "measured aggregate; the aggregate is the provenance, the shape is judgement.",
     "1.5.0 (R9-DEFENCE-a T1, 2026-08-02) — ONE new postflop number,",
     "`line_sensitivity`: 0.5 (directional fit seed, tag tier). It is READ by",
     "`personas_postflop._line_scaled`, which scales the facing-node CALL and",
@@ -189,7 +197,7 @@
       "positions": null,
       "mixes": [
         { "combos": "88+, ATs+, KJs+, AJo+", "weights": { "raise": 1.0 } },
-        { "combos": "55, 66, 77, A9s, KQo", "weights": { "raise": 0.2, "fold": 0.8 } }
+        { "combos": "55, 66, 77, A9s, KQo", "weights": { "raise": 0.3, "fold": 0.7 } }
       ]
     },
     {
@@ -199,16 +207,16 @@
         { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
         {
           "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
-          "weights": { "3bet": 0.55, "call": 0.35, "fold": 0.1 }
+          "weights": { "3bet": 0.5, "call": 0.5 }
         },
-        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 0.85, "fold": 0.15 } },
+        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
         {
           "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
-          "weights": { "call": 0.75, "fold": 0.25 }
+          "weights": { "call": 0.95, "fold": 0.05 }
         },
         {
           "combos": "A2s, K9s, K8s, K7s, Q9s, Q8s, J9s, J8s, T8s, T7s, 98s, 97s, 76s, 65s, 54s, QTo, JTo, T9o",
-          "weights": { "call": 0.45, "fold": 0.55 }
+          "weights": { "call": 0.72, "fold": 0.28 }
         }
       ]
     },
@@ -219,16 +227,16 @@
         { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
         {
           "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
-          "weights": { "3bet": 0.9, "call": 0.1 }
+          "weights": { "3bet": 0.85, "fold": 0.15 }
         },
-        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
+        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 0.85, "fold": 0.15 } },
         {
           "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
-          "weights": { "call": 0.8, "fold": 0.2 }
+          "weights": { "call": 0.7, "fold": 0.3 }
         },
         {
           "combos": "A2s, K9s, Q9s, J9s, T8s, 98s, 76s, 65s, QTo, JTo",
-          "weights": { "call": 0.35, "fold": 0.65 }
+          "weights": { "call": 0.25, "fold": 0.75 }
         }
       ]
     },

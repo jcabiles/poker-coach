@@ -70,6 +70,10 @@ def _total_variation(a: dict[str, float], b: dict[str, float]) -> float:
     return 0.5 * sum(abs(a.get(k, 0.0) - b.get(k, 0.0)) for k in set(a) | set(b))
 
 
+def _combo_count(hand_class: str) -> int:
+    return 6 if len(hand_class) == 2 else (4 if hand_class.endswith("s") else 12)
+
+
 # The seat splits this ticket authored, as (persona, facing, is_opener) and the
 # pair of seats whose answers must differ. NAMED pairs rather than "some two
 # seats differ anywhere", so a split that varies in a corner nobody reaches
@@ -91,18 +95,51 @@ DECLARED_PAIRS = [
     ("maniac", "vs_rfi", False, Position.BTN, Position.SB),
     ("maniac", "vs_3bet", True, Position.SB, Position.CO),
     ("calling_station", "vs_rfi", False, Position.BB, Position.CO),
-    ("passive_fish", "vs_rfi", False, Position.SB, Position.BTN),
+    ("passive_fish", "vs_rfi", False, Position.BB, Position.BTN),
 ]
 
-# A pair qualifies only if some hand class is played materially differently.
-# Total variation, so a shift between two continuing actions counts and a
-# rounding-level nudge does not.
-MIN_TOTAL_VARIATION = 0.15
+# A pair qualifies on MASS, and on mass measured against the range the node
+# actually plays.
+#
+# Two iterations got this wrong. First was "the largest per-hand difference
+# must exceed 0.15", which review correctly called a hole: moving ONE hand
+# class satisfied an entire seat pair while the other 168 stayed identical.
+# Replacing it with total variation averaged over the deck fixed that but
+# introduced a second unfairness — a nit plays about 4% of the deck facing a
+# 3-bet, so a deck-weighted score can never be large for it no matter how
+# differently it plays the hands it does play, while a station clears any floor
+# by accident.
+#
+# The measure is therefore the share of a persona's OWN CONTINUING MASS that is
+# played differently between the two seats: total variation weighted by combo
+# count, divided by the mean continue mass across the pair. Scale-free, so the
+# same floor is meaningful for the tightest and loosest personas on the roster.
+MIN_DIVERGENCE_SHARE = 0.15
 
 
 @pytest.fixture(scope="module")
 def packs() -> dict:
     return load_persona_packs()
+
+
+def _divergence_share(pack, facing: str, left: Position, right: Position,
+                      is_opener: bool) -> float:
+    """Share of the persona's own continuing mass played differently by seat.
+
+    Numerator: combo-weighted total variation between the two seats.
+    Denominator: the mean continuing mass across the two seats, so a tight
+    persona is judged against its own range rather than against the deck.
+    """
+    tv = 0.0
+    played = 0.0
+    for hand_class in CLASSES:
+        weight = _combo_count(hand_class) / 1326.0
+        a = _distribution(pack, facing, left, hand_class, is_opener)
+        b = _distribution(pack, facing, right, hand_class, is_opener)
+        tv += weight * _total_variation(a, b)
+        played += weight * 0.5 * ((1.0 - a.get("fold", 0.0))
+                                  + (1.0 - b.get("fold", 0.0)))
+    return 0.0 if played <= 1e-9 else tv / played
 
 
 @pytest.mark.parametrize(
@@ -112,19 +149,11 @@ def packs() -> dict:
 )
 def test_declared_seat_pairs_are_played_differently(
         packs, persona, facing, is_opener, left, right):
-    pack = packs[persona]
-    biggest = 0.0
-    worst_class = None
-    for hand_class in CLASSES:
-        gap = _total_variation(
-            _distribution(pack, facing, left, hand_class, is_opener),
-            _distribution(pack, facing, right, hand_class, is_opener))
-        if gap > biggest:
-            biggest, worst_class = gap, hand_class
-    assert biggest >= MIN_TOTAL_VARIATION, (
-        f"{persona} answers {facing} the same from {left.value} and "
-        f"{right.value}: the largest per-hand difference is {biggest:.3f} "
-        f"(on {worst_class}), under the {MIN_TOTAL_VARIATION} floor. The nodes "
+    share = _divergence_share(packs[persona], facing, left, right, is_opener)
+    assert share >= MIN_DIVERGENCE_SHARE, (
+        f"{persona} answers {facing} materially the same from {left.value} and "
+        f"{right.value}: only {share:.1%} of its continuing mass is played "
+        f"differently, under the {MIN_DIVERGENCE_SHARE:.0%} floor. The nodes "
         f"were split but the numbers were not.")
 
 
@@ -136,13 +165,41 @@ def test_the_gradient_check_fails_on_a_split_that_says_nothing(packs):
     assert len(nodes) > 1, "fixture assumption: tag's vs_rfi is split by seat"
     for node in nodes[1:]:
         node.mixes = [m.model_copy(deep=True) for m in nodes[0].mixes]
-    biggest = max(
-        _total_variation(
-            _distribution(pack, "vs_rfi", Position.BB, hand_class, False),
-            _distribution(pack, "vs_rfi", Position.UTG1, hand_class, False))
-        for hand_class in CLASSES)
-    assert biggest < MIN_TOTAL_VARIATION, (
-        "flattening every band must leave no per-hand difference to find")
+    assert _divergence_share(pack, "vs_rfi", Position.BB, Position.UTG1,
+                                 False) < MIN_DIVERGENCE_SHARE, (
+        "flattening every band must leave no divergence to find")
+
+
+def test_a_single_hand_class_cannot_satisfy_a_declared_pair(packs):
+    """The hole the mass measure closes, pinned as its own case.
+
+    A split that moves ONE hand class to the maximum possible extent, and
+    leaves the other 168 identical, must fail. Under the old max-over-classes
+    measure it passed outright.
+    """
+    pack = packs["tag"].model_copy(deep=True)
+    nodes = [n for n in pack.preflop if n.facing == "vs_rfi"]
+    for node in nodes[1:]:
+        node.mixes = [m.model_copy(deep=True) for m in nodes[0].mixes]
+    # One class, moved as far as a probability can move.
+    bb = next(n for n in pack.preflop
+              if n.facing == "vs_rfi" and n.positions and Position.BB in n.positions)
+    bb.mixes.insert(0, bb.mixes[0].model_copy(
+        update={"combos": "72o", "weights": {"call": 1.0}}))
+    assert _divergence_share(pack, "vs_rfi", Position.BB, Position.UTG1,
+                                 False) < MIN_DIVERGENCE_SHARE, (
+        "one hand class must not be able to satisfy a whole seat pair")
+
+
+def test_report_declared_pair_divergence(packs, capsys):
+    """Non-gating report: how far each declared pair sits above the floor."""
+    rows = []
+    for persona, facing, is_opener, left, right in DECLARED_PAIRS:
+        share = _divergence_share(packs[persona], facing, left, right, is_opener)
+        rows.append(f"  {persona:<16} {facing:<11} "
+                    f"{left.value}v{right.value:<4} divergence {share:6.1%}")
+    with capsys.disabled():
+        print("\n" + "\n".join(rows))
 
 
 def test_no_seat_answers_a_split_facing_by_folding_everything(packs):

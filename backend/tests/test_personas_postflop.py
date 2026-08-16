@@ -3627,12 +3627,12 @@ _GOLDEN_STATS_N200 = {
     # across just these two commits: the station reads 0.308 then 0.402, and
     # the fish 0.750 then 0.971, from pack edits that hold every combo-weighted
     # width to within 0.05pp. Read the n=2000 table, not these numbers.
-    "calling_station": (0.4016393442622951, 0.19298245614035087, 0.6793893129770993),
-    "lag": (2.3773584905660377, None, 0.5076923076923077),
-    "maniac": (3.0, 0.3111111111111111, 0.6030150753768844),
-    "nit": (None, None, 0.6617647058823529),
-    "passive_fish": (0.970873786407767, 0.6590909090909091, 0.4474885844748858),
-    "tag": (2.484848484848485, None, 0.6144578313253012),
+    "calling_station": (0.39067055393586003, 0.15384615384615385, 0.6831683168316832),
+    "lag": (2.423076923076923, None, 0.5714285714285714),
+    "maniac": (3.106060606060606, 0.40384615384615385, 0.5539906103286385),
+    "nit": (None, None, 0.4772727272727273),
+    "passive_fish": (0.8731343283582089, 0.46153846153846156, 0.4585152838427948),
+    "tag": (2.6486486486486487, None, 0.4945054945054945),
 }
 
 
@@ -4287,10 +4287,16 @@ def _vs_3bet_effective_policy(pack, role: str = "cold") -> dict[str, dict[str, f
                 per_class = policy.setdefault(cls, {})
                 for act, w in mix.weights.items():
                     per_class[act] = per_class.get(act, 0.0) + w
-    # Divide ONCE at the end. Accumulating `w / 9` nine times does not return
-    # the authored value: 9 x (0.5/9) is 0.5000000000000001, which breaks the
-    # exact-identity pins for position-blind packs that this helper must leave
-    # untouched. Summing first and dividing once is exact for them.
+    # Divide ONCE at the end rather than accumulating `w / 9` nine times, which
+    # does not return the authored value: 9 x (0.5/9) is 0.5000000000000001,
+    # breaking the exact-identity pin on the fish's AA.
+    #
+    # This is NOT exact in general, and an earlier version of this comment
+    # wrongly claimed it was. Sum-then-divide is exact only for dyadic weights;
+    # review measured 0.45 coming back as 0.44999999999999996 on five of the
+    # six base packs. Every gate reading this helper is a tolerance or a bound,
+    # so the drift is harmless today — but an exact pin on a non-dyadic weight
+    # would break, and would be right to.
     seats = len(Position)
     return {cls: {act: w / seats for act, w in per_class.items()}
             for cls, per_class in policy.items()}
@@ -5369,39 +5375,67 @@ def test_r10_3bet_fold_to_3bet_stratified_report():
 # 756-hand corpus figures quoted in the roadmap). Deterministic, so no CI.
 
 
-def _open_range_mass(pack) -> dict[str, float]:
-    """class -> combo-weighted mass this pack OPENS the pot with, summed over
-    the nine `unopened` nodes (first-match-wins per position)."""
+def _open_range_mass_by_seat(pack) -> dict[Position, dict[str, float]]:
+    """seat -> (class -> combo-weighted mass this pack OPENS the pot with)."""
     from app.domain.content.notation import parse_range
 
-    out: dict[str, float] = {}
+    by_seat: dict[Position, dict[str, float]] = {}
     for pos in Position:
-        node = next(
-            n
-            for n in pack.preflop
-            if n.facing == "unopened" and (n.positions is None or pos in n.positions)
-        )
-        policy: dict[str, dict[str, float]] = {}
+        node = _node_for_seat(pack, "unopened", pos)
+        seat_mass: dict[str, float] = {}
+        seen: set[str] = set()
         for mix in node.mixes:
             for cls in parse_range(mix.combos):
-                policy.setdefault(cls, dict(mix.weights))
-        for cls, w in policy.items():
-            raise_w = w.get("raise", 0.0)
-            if raise_w > 0.0:
-                out[cls] = out.get(cls, 0.0) + _combo_count(cls) * raise_w
+                if cls in seen:  # first-match-wins
+                    continue
+                seen.add(cls)
+                raise_w = mix.weights.get("raise", 0.0)
+                if raise_w > 0.0:
+                    seat_mass[cls] = _combo_count(cls) * raise_w
+        by_seat[pos] = seat_mass
+    return by_seat
+
+
+def _open_range_mass(pack) -> dict[str, float]:
+    """class -> combo-weighted opening mass, summed over the nine seats."""
+    out: dict[str, float] = {}
+    for seat_mass in _open_range_mass_by_seat(pack).values():
+        for cls, m in seat_mass.items():
+            out[cls] = out.get(cls, 0.0) + m
     return out
 
 
 def _opener_fold_to_3bet(pack, role: str = "opener") -> float:
-    """Fold-to-3-bet over the OPENER stratum: the pack's `role` vs_3bet table
-    applied to its own opening-range mass (1 - call - 4bet, per class)."""
-    policy = _vs_3bet_effective_policy(pack, role)
-    mass = _open_range_mass(pack)
-    num = sum(
-        m * (1.0 - policy.get(cls, {}).get("call", 0.0) - policy.get(cls, {}).get("4bet", 0.0))
-        for cls, m in mass.items()
-    )
-    return num / sum(mass.values())
+    """Fold-to-3-bet over the OPENER stratum: each seat's own vs_3bet table
+    applied to the range it opened with (1 - call - 4bet, per class).
+
+    ⚠️ PAIRED PER SEAT, and it has to be. An earlier form of this averaged the
+    response policy across seats, aggregated the opening range across seats, and
+    multiplied the two aggregates — which is only the same number when at least
+    one of them is position-blind. Once both vary by seat, E[policy] x E[range]
+    is not E[policy x range], and the error is silent. A seat that opens widest
+    and defends tightest is exactly the case it gets wrong.
+    """
+    from app.domain.content.notation import parse_range  # noqa: F401 — see below
+
+    num = 0.0
+    den = 0.0
+    for seat, seat_mass in _open_range_mass_by_seat(pack).items():
+        node = _node_for_seat(pack, "vs_3bet", seat, role)
+        policy: dict[str, dict[str, float]] = {}
+        if node is not None:
+            seen: set[str] = set()
+            for mix in node.mixes:
+                for cls in parse_range(mix.combos):
+                    if cls in seen:
+                        continue
+                    seen.add(cls)
+                    policy[cls] = dict(mix.weights)
+        for cls, m in seat_mass.items():
+            w = policy.get(cls, {})
+            num += m * (1.0 - w.get("call", 0.0) - w.get("4bet", 0.0))
+            den += m
+    return num / den
 
 
 def test_n3bstrata_defect_gates_fail_at_pre_slice_head():
@@ -9523,9 +9557,19 @@ _R9D_S5_NIT_RISE_FLOOR = 0.03
 # anyway, leaving line-sensitivity less room to move the rate. The MECHANISM is
 # untouched and its λ-exact node-level gate
 # (`test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie`)
-# still passes. Whether the population effect should be re-fitted is an owner
-# call recorded in docs/ai-dlc/ledger/phase3-derobotization.md, not something
-# this slice decided by editing a number.
+# still passes.
+#
+# ⚠️ NAMED so the widened tier cannot absorb it: a NEW inversion appeared
+# that this weakening would otherwise hide. At N=24,000 the tag now reads
+# .0429 against the passive_fish's .0515, where the tag sat ABOVE the fish at
+# every pre-slice sample. A fish reacting to a persistent hostile line more
+# than a tag is backwards for both archetypes, and backwards against λ too
+# (fish 0.35 < tag 0.50). Theory review calls `line_sensitivity` OUT OF FIT
+# rather than an open question — its closed-loop statistic moved about 40%,
+# which by the theory contract's §2 makes it an un-refit constant. That
+# re-fit is an owner call recorded in
+# docs/ai-dlc/ledger/phase3-derobotization.md, not something this slice
+# decided by editing a number.
 _R9D_S5_ORDER = (("nit",), ("tag", "lag", "passive_fish", "maniac"), ("calling_station",))
 
 # ── THE DEMOTED COMPANION ──────────────────────────────────────────────────

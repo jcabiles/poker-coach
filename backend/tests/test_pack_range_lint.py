@@ -275,9 +275,16 @@ _WEIGHT_INTERLEAVING = {
     # rest of this block: edge softening cut its wide blocks from 1.0 to
     # 0.88-0.90, so the interleaving shrank rather than disappearing. The
     # shape is unchanged and stays listed; the numbers track it.
-    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 0.88),
-    ("calling_station", "vs_rfi", "BB/SB", "22+", "call", 0.6, 0.9),
-    ("lag", "vs_rfi", "BB", "77", "call", 0.43, 1.0),
+    # Re-measured after review: the recreationals' vs_rfi nodes were rebuilt
+    # with the small blind split from the big blind and a real fringe, and the
+    # regulars' big blinds were widened, so the SAME tiering shape is counted
+    # at new node keys and new weights. No new shape was introduced.
+    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 0.97),
+    ("calling_station", "vs_rfi", "BB", "22+", "call", 0.6, 0.95),
+    ("calling_station", "vs_rfi", "SB", "22+", "call", 0.6, 0.9),
+    ("lag", "vs_rfi", "BB", "77", "call", 0.6, 1.0),
+    ("lag", "vs_rfi", "BB", "TT", "call", 0.55, 0.6),
+    ("tag", "vs_rfi", "BB", "99", "call", 0.5, 1.0),
     ("nit", "vs_3bet", "BTN/CO", "QQ", "call", 0.55, 0.65),
     ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 0.9),
     ("nit", "vs_rfi", "BB", "88-JJ", "call", 0.7, 1.0),

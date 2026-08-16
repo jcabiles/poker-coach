@@ -343,7 +343,12 @@ softening widths come down.
 
 ## T4 — Positional response gradients ✅ (shipped as PR-2, commit `d4a66df`)
 
-**Shipped for `vs_rfi`, `vs_limpers` and `vs_3bet`; `vs_4bet` excluded.**
+**Shipped for `vs_rfi` in all six packs; `vs_limpers` and `vs_3bet` in the
+four regulars only; `vs_4bet` excluded everywhere.** The recreationals keep
+position-blind `vs_limpers` and `vs_3bet` deliberately — over-limping and
+calling down are where a weak player adjusts least, and `fold_to_3bet` is
+those two packs' strongest separating statistic. The maniac's `vs_limpers`
+was already positional before this slice.
 Facing a 4-bet the decision is hand strength and stack depth, and position
 barely moves it — a gradient there would manufacture a distinction real players
 do not make. Owner-approved exclusion, recorded rather than silently dropped.

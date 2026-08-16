@@ -338,9 +338,11 @@ _PRE_M3_FIRES = {
     # Re-recorded a second time in the same slice: range-edge softening
     # (commit 2) shifts the stream again on top of the seat split (commit 1).
     # Every _WANT_* shape still fires at this tip: BB1 61, BB2 29, BB3 7.
-    ("UTG2", 1): 86, ("LJ", 1): 123, ("HJ", 1): 113, ("CO", 1): 108,
-    ("CO", 2): 28, ("SB", 1): 78, ("SB", 2): 47, ("BTN", 1): 85,
-    ("BTN", 2): 28,
+    # Re-recorded a third time in the same slice, for the review rework.
+    # Every _WANT_* shape still fires: BB1 49, BB2 28, BB3 3.
+    ("UTG2", 1): 101, ("LJ", 1): 118, ("HJ", 1): 115, ("CO", 1): 98,
+    ("CO", 2): 37, ("SB", 1): 68, ("SB", 2): 36, ("BTN", 1): 77,
+    ("BTN", 2): 34,
 }
 
 

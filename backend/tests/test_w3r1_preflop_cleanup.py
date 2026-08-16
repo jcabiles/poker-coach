@@ -287,8 +287,11 @@ def test_lag_sb_no_open_limp(packs, hand, expected):
 #      APPEND a tier (BB and BTN/CO add a fringe of hands only worth playing
 #      with position or a price) but may not reorder, drop or re-cut the five.
 #      That is the structural claim the old pin was really making.
-#   2. WILDCARD WEIGHTS. The early/middle band keeps an explicit weight pin,
-#      so the seats that were not deliberately re-aimed cannot drift silently.
+#   2. WILDCARD WEIGHTS. The early/middle band keeps an explicit weight pin.
+#      Those weights DID move in this slice — tier 3 gained a call leg and
+#      tier 4 came off 1.0 — so the pin is not "these seats are unchanged".
+#      It is "these seats cannot drift FURTHER without a deliberate edit",
+#      which is what a pin on a band nobody is currently re-aiming buys.
 #
 # The per-band weights ARE the point of this slice, so pinning them here would
 # pin the feature to its first draft. That they genuinely differ from one

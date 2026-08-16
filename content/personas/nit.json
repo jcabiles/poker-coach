@@ -1,15 +1,18 @@
 {
   "id": "persona_nit",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "domain": "persona",
   "_doc": [
-    "1.7.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi`, `vs_limpers` and",
-    "`vs_3bet` are answered per seat. Fold to a raise ran a flat 94.18% and now",
-    "runs 90.1% in the big blind to 95.2% in the small blind. That spread is",
-    "deliberately the roster's narrowest: a nit not adjusting much to position IS",
-    "the archetype, and widening it to match the others would trade one defect",
-    "(reads as a machine) for a worse one (stops reading as a nit). Table-realised",
-    "frequency held: vs_rfi continue 5.82 -> 6.15, vs_limpers 4.13 -> 4.45.",
+    "1.8.0 (de-robotization slice 1, 2026-08-15, review rework) — `vs_rfi`,",
+    "`vs_limpers` and `vs_3bet` are answered per seat. Facing a raise, the fold",
+    "runs 89.64% in the big blind, 93.30% cutoff/button, 94.96% early and 95.17%",
+    "in the small blind, against a flat 94.18% before.",
+    "That 5.5-point spread is the roster's narrowest in absolute terms and its",
+    "WIDEST in relative terms — the big blind continues 2.14x as often as the",
+    "small blind and 1.55x as often as the button. Judging a tight range by",
+    "percentage points understates it; a nit adjusting less than a lag is the",
+    "archetype, and widening it to match would trade one defect for a worse one.",
+    "[UNVERIFIED] — per-seat defence targets have no committed source.",
     "1.6.0 (R9-LOOSEFIT rev4, 2026-08-04) — ONE postflop number, `call_looseness`:",
     "0.6 -> 0.45, so the nit folds materially more at facing nodes than it did",
     "and more often than tag wherever the lever reaches (self leg + population",
@@ -139,7 +142,7 @@
       "positions": null,
       "mixes": [
         { "combos": "JJ+, AQs+, AKo", "weights": { "raise": 1.0 } },
-        { "combos": "22-77", "weights": { "limp": 0.3, "fold": 0.7 } }
+        { "combos": "22-77", "weights": { "limp": 0.36, "fold": 0.64 } }
       ]
     },
     {

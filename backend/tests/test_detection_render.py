@@ -197,14 +197,17 @@ def test_cross_source_identical_for_a_whole_bundle():
     )
 
 
-# Raised 8 -> 20 by the de-robotization slice (2026-08-15). Eight hands at seed
+# Raised 8 -> 32 by the de-robotization slice (2026-08-15). Eight hands at seed
 # 905 happened to include a preflop fold-out; once the villains' preflop ranges
 # changed, the same eight drew none and the branch-coverage guard below fired.
-# Nothing about fold-outs actually changed — measured over 1,500 hands, the
-# share ending preflop is 15.7% both before and after this slice — so a run of
-# eight simply is not a reliable way to catch a one-in-six event. Twenty hands
-# restores every branch this file renders.
-REAL_HANDS = 20
+# Nothing about fold-outs meaningfully changed — measured over 3,000 hands at
+# this seed, the share of hands ending preflop is 16.17% before the slice and
+# 15.70% after — so a short run is not a reliable way to catch a roughly
+# one-in-six event. Coverage returns at 28 hands, and 30 is the ceiling:
+# `MAX_LOCAL_HAND_INDEX` caps local hand numbering, so a 32-hand bundle leaks an
+# absolute hand number and the leak check rejects it — which is the blinding
+# rule working, and the reason this is 30 rather than something rounder.
+REAL_HANDS = 30
 
 
 def real_bot_hands(seed: int = 905, n: int = REAL_HANDS) -> list[HandState]:

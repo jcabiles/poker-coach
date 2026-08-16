@@ -60,23 +60,36 @@ def packs() -> dict:
 
 
 def _wide_deterministic_blocks(pack) -> list[str]:
+    """Deterministic mass PER NODE AND ACTION, not per mix.
+
+    Summing matters. Review found that a per-mix rule is trivially evaded: the
+    calling station's 56%-wide `call` block could be written as four separate
+    14% mixes, each under any per-mix threshold, with behaviour identical to
+    the step function this file exists to forbid. What makes a range read as a
+    machine is the total mass answered one way, however it is spelled.
+    """
     out = []
     for node in pack.preflop:
         if (pack.persona.value, node.facing) in EMITTED_LADDERS:
             continue
         seen: set[str] = set()
+        deterministic: dict[str, float] = {}
+        example: dict[str, str] = {}
         for mix in node.mixes:
             width = _width(mix.combos, frozenset(seen))
             seen |= _combos(mix.combos)
             actions = [a for a in mix.weights if a != "fold"]
             if len(actions) != 1 or mix.weights[actions[0]] < 0.99:
                 continue
-            if width > MAX_DETERMINISTIC_WIDTH:
+            deterministic[actions[0]] = deterministic.get(actions[0], 0.0) + width
+            example.setdefault(actions[0], mix.combos[:60])
+        for action, mass in deterministic.items():
+            if mass > MAX_DETERMINISTIC_WIDTH:
                 where = (f"{pack.persona.value} {node.facing} "
                          f"{[p.value for p in node.positions] if node.positions else '*'}")
                 out.append(
-                    f"{where}: {width * 100:.2f}% of the deck always plays "
-                    f"{actions[0]!r} — {mix.combos[:60]}")
+                    f"{where}: {mass * 100:.2f}% of the deck always plays "
+                    f"{action!r} — e.g. {example[action]}")
     return out
 
 
@@ -96,6 +109,32 @@ def test_the_width_rule_can_fail(packs):
     assert violations and "vs_rfi" in violations[0], violations
 
 
+def test_the_width_rule_cannot_be_evaded_by_splitting_the_block(packs):
+    """The evasion review found, pinned as its own case.
+
+    Spelling one 56% deterministic block as six sub-threshold mixes changes
+    nothing about how the persona plays, so it must not change the verdict.
+    """
+    pack = packs["calling_station"].model_copy(deep=True)
+    node = next(n for n in pack.preflop
+                if n.facing == "vs_rfi" and n.positions is not None)
+    core = node.mixes[1]
+    quarters = ["22+, A2s+, K2s+", "Q2s+, J2s+, T2s+",
+                "92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s",
+                "A2o+", "K7o+, Q7o+", "J8o+, T8o+, 98o, 87o"]
+    node.mixes = ([node.mixes[0]]
+                  + [core.model_copy(update={"combos": c, "weights": {"call": 1.0}})
+                     for c in quarters]
+                  + list(node.mixes[2:]))
+    for spelling in quarters:
+        assert _width(spelling, frozenset()) < MAX_DETERMINISTIC_WIDTH, (
+            f"fixture assumption: {spelling[:30]} must be under the per-mix "
+            f"threshold, or this test proves nothing")
+    violations = _wide_deterministic_blocks(pack)
+    assert violations and "vs_rfi" in violations[0], (
+        "sub-threshold mixes summing past the threshold must still fail")
+
+
 # (persona, facing, is the node position-explicit) -> the boundary this slice
 # softened. Listed rather than inferred so a node that quietly loses its ramp
 # is a failure and not just an absence.
@@ -103,12 +142,14 @@ SOFTENED = [
     ("calling_station", "unopened", ["UTG"]),
     ("calling_station", "unopened", None),
     ("calling_station", "vs_limpers", None),
-    ("calling_station", "vs_rfi", ["SB", "BB"]),
+    ("calling_station", "vs_rfi", ["BB"]),
+    ("calling_station", "vs_rfi", ["SB"]),
     ("calling_station", "vs_rfi", None),
     ("passive_fish", "unopened", ["UTG"]),
     ("passive_fish", "unopened", None),
     ("passive_fish", "vs_limpers", None),
-    ("passive_fish", "vs_rfi", ["SB", "BB"]),
+    ("passive_fish", "vs_rfi", ["BB"]),
+    ("passive_fish", "vs_rfi", ["SB"]),
     ("passive_fish", "vs_rfi", None),
     ("maniac", "vs_limpers", ["HJ", "CO", "BTN", "SB"]),
     ("maniac", "vs_limpers", None),
@@ -147,9 +188,16 @@ def test_softened_nodes_end_in_a_graded_edge(packs, persona, facing, positions):
     assert 0.0 < continues[-1] < 1.0, (
         f"{persona} {facing} {positions}: the outermost band plays at "
         f"{continues[-1]} — the boundary is still a step")
-    assert len(set(continues)) >= 3, (
-        f"{persona} {facing} {positions}: only {sorted(set(continues))} — a "
-        f"ramp needs a core, a middle and a fringe, not a step plus a token")
+    # Count only levels STRICTLY between 0 and 1. Counting every distinct level
+    # let the untouched premium tier — always 1.0 — supply one of the three, so
+    # a node that got exactly one softened step passed as a ramp. Review caught
+    # this; the premium tier is pinned separately below and is not evidence of
+    # a graded edge.
+    graded = {c for c in continues if 0.0 < c < 1.0}
+    assert len(graded) >= 2, (
+        f"{persona} {facing} {positions}: continue levels {sorted(set(continues))} "
+        f"contain only {sorted(graded)} strictly between 0 and 1 — that is one "
+        f"step, not a ramp. The premium tier at 1.0 does not count.")
 
 
 # The tier ABOVE each softened block, pinned byte-for-byte. Softening an edge
@@ -159,12 +207,14 @@ PINNED_CORES = {
     ("calling_station", "unopened", "UTG"): ("AA, KK, AKs", {"raise": 0.5, "limp": 0.5}),
     ("calling_station", "unopened", "*"): ("AA, KK, AKs", {"raise": 0.5, "limp": 0.5}),
     ("calling_station", "vs_limpers", "*"): ("AA, KK", {"raise": 1.0}),
-    ("calling_station", "vs_rfi", "SB,BB"): ("AA", {"3bet": 0.4, "call": 0.6}),
+    ("calling_station", "vs_rfi", "BB"): ("AA", {"3bet": 0.4, "call": 0.6}),
+    ("calling_station", "vs_rfi", "SB"): ("AA", {"3bet": 0.4, "call": 0.6}),
     ("calling_station", "vs_rfi", "*"): ("AA", {"3bet": 0.4, "call": 0.6}),
     ("passive_fish", "unopened", "UTG"): ("QQ+, AKs, AKo", {"raise": 1.0}),
     ("passive_fish", "unopened", "*"): ("TT+, AQs+, AKo", {"raise": 1.0}),
     ("passive_fish", "vs_limpers", "*"): ("QQ+, AKs, AKo", {"raise": 1.0}),
-    ("passive_fish", "vs_rfi", "SB,BB"): ("AA, KK", {"3bet": 1.0}),
+    ("passive_fish", "vs_rfi", "BB"): ("AA, KK", {"3bet": 1.0}),
+    ("passive_fish", "vs_rfi", "SB"): ("AA, KK", {"3bet": 1.0}),
     ("passive_fish", "vs_rfi", "*"): ("AA, KK", {"3bet": 1.0}),
 }
 

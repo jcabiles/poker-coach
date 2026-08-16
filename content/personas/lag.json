@@ -1,16 +1,18 @@
 {
   "id": "persona_lag",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "domain": "persona",
   "_doc": [
-    "1.8.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi`, `vs_limpers` and the",
-    "`vs_3bet` OPENER stratum are answered per seat. Fold to a raise ran a flat",
-    "73.5% from every seat and now runs 65.0% in the big blind to 79.1% in the",
-    "small blind. Table-realised frequency held: vs_rfi continue 26.46 -> 26.77,",
-    "vs_limpers 12.58 -> 12.63, vs_3bet opener 18.04 -> 17.93. The `cold` stratum",
-    "is deliberately untouched. Two authoring slips this created were closed at",
-    "source rather than inventoried: the late-seat bands played Q9s while folding",
-    "QJs and 96s while folding 97s, and AQo 3-bet below the weaker tier under it.",
+    "1.9.0 (de-robotization slice 1, 2026-08-15, review rework) — `vs_rfi`,",
+    "`vs_limpers` and the `vs_3bet` OPENER stratum are answered per seat. Facing a",
+    "raise, the fold runs 62.62% in the big blind, 73.81% cutoff/button, 75.58%",
+    "early and 79.06% in the small blind, against a flat 73.54% before. The big",
+    "blind is 1.43x the button by continue rate; the first draft had it at 1.11x.",
+    "Two authoring slips found by the range lint were closed at source rather than",
+    "inventoried: the late-seat bands played Q9s while folding QJs and 96s while",
+    "folding 97s, and AQo 3-bet below the weaker tier beneath it.",
+    "[UNVERIFIED] — per-seat defence targets have no committed source; the shape",
+    "is judgement, the aggregate it is scaled to is the pre-slice measured value.",
     "1.7.0 (R9-DEFENCE-a T1, 2026-08-02) — ONE new postflop number,",
     "`line_sensitivity`: 0.35 (directional fit seed, tied with passive_fish —",
     "a deliberate tie tier, do not break it). It is READ by",
@@ -214,7 +216,7 @@
         { "combos": "AQo", "weights": { "3bet": 0.45, "call": 0.55 } },
         {
           "combos": "TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, JTs, AJo, ATo, KQo, KJo",
-          "weights": { "3bet": 0.35, "call": 0.43, "fold": 0.22 }
+          "weights": { "3bet": 0.35, "call": 0.6, "fold": 0.05 }
         },
         {
           "combos": "77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, 54s, QJo, JTo, T9o, 98o",
@@ -222,11 +224,11 @@
         },
         {
           "combos": "A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",
-          "weights": { "call": 0.78, "fold": 0.22 }
+          "weights": { "call": 0.95, "fold": 0.05 }
         },
         {
           "combos": "A2s, K6s, K5s, K4s, Q6s, Q5s, J6s, T6s, 97s, 96s, 86s, 75s, 64s, 53s, K9o, Q9o, J8o, 97o",
-          "weights": { "call": 0.35, "fold": 0.65 }
+          "weights": { "call": 0.6, "fold": 0.4 }
         }
       ]
     },
@@ -238,15 +240,15 @@
         { "combos": "AQo", "weights": { "3bet": 0.78, "call": 0.22 } },
         {
           "combos": "TT, 99, 88, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, KQs, KJs, KTs, QTs, QJs, JTs, AJo, ATo, KQo, KJo",
-          "weights": { "3bet": 0.75, "call": 0.15, "fold": 0.1 }
+          "weights": { "3bet": 0.72, "call": 0.08, "fold": 0.2 }
         },
         {
           "combos": "77, 66, 55, 44, 33, 22, K9s, K8s, Q9s, Q8s, J9s, J8s, T9s, T8s, 98s, 87s, 76s, 65s, 54s, QJo, JTo, T9o, 98o",
-          "weights": { "call": 0.95, "fold": 0.05 }
+          "weights": { "call": 0.88, "fold": 0.12 }
         },
         {
           "combos": "A9o, A8o, A7o, A6o, K7s, Q7s, J7s, T7s, 43s, KTo, QTo, J9o, T8o, 87o",
-          "weights": { "call": 0.62, "fold": 0.38 }
+          "weights": { "call": 0.5, "fold": 0.5 }
         },
         {
           "combos": "A2s, K6s, K5s, Q6s, J6s, T6s, 97s, 96s, 86s, 75s, 64s, K9o, Q9o",

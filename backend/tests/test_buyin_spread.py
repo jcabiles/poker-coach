@@ -165,12 +165,22 @@ def _hash_manifest(manifest: dict) -> str:
 # RE-PINNED for the de-robotization slice (2026-08-15, slice-authorized). The
 # six persona packs now answer `vs_rfi`, `vs_limpers` and `vs_3bet` per seat,
 # so the bots play differently and every byte of a seeded export changes with
-# them. Re-pinned twice within that slice: once for the seat split and once for
-# the range-edge softening that landed on top of it — two commits, two stream
-# shifts. All four digests moving TOGETHER is the expected signature of a
+# them. Re-pinned three times within that slice: the seat split, the range-edge
+# softening on top of it, and the review rework that split the recreationals'
+# small blind from their big blind. Each is a deliberate behaviour change.
+# All four digests moving TOGETHER is the expected signature of a
 # behaviour change: an export-writer regression would move the table digests
 # while leaving the manifest's own fields alone, and a manifest-only change
-# would leave the tables untouched. Old values, for anyone bisecting:
+# would leave the tables untouched.
+#
+# ⚠️ THESE ARE STREAM *AND IDENTITY* FINGERPRINTS, and a pack `version` bump
+# alone moves them. `config_hash` covers the pack model (version included),
+# `run_id` embeds `config_hash`, and `hand_id` embeds `run_id` — so bumping a
+# version string re-writes an identifier column in all three tables while the
+# cards and actions stay byte-identical. Verified directly: with `hand_id`
+# dropped, a version-only change leaves the decisions digest unchanged. If
+# this test fires and you cannot find a behaviour change, check that first
+# rather than hunting a bug in the engine. Old values, for anyone bisecting:
 #   manifest      24a0b5f398e619036285f7083cda5b96096720d721e47fe054dc28c39536a734
 #   hands         fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32
 #   seat_outcomes 9f9a096fc93b6341625319307b97b524168b43610016191be877efe2be54e233
@@ -178,16 +188,16 @@ def _hash_manifest(manifest: dict) -> str:
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "177db574ae998a9f28ab3428171e3a98c4a706b9319bae2071a238c5dde57551"
+    "581e42b9f6142870e8b3945c7276ec9f1be34be30816a404fdbf185599b1318d"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "1831522fa7b31c4ae7e322fe59e527b67bc06c6876db50006b5fec59b05647aa"
+    "a25b7c339bb89291f05e773cafdd488c85149734b50ef3652869e2978e71ebab"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "ae95e29b29200fed9100883c692834c31119a9c757e6a056936036bcbcc385e5"
+    "2cb05b500cb04575984b00a2cfa8bfa46646351f473be2182621e498212cd9c6"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "a0b9bb77c8876e9a8cd04d1fb9116623323c3b1dfe880b0884cf6df6b924301c"
+    "989f630eb9010959f13e8ad6696bb10e4dbba38be6bb1df8a72e908059af6d69"
 )
 
 
