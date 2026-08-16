@@ -1,8 +1,20 @@
 {
   "id": "persona_calling_station",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "domain": "persona",
   "_doc": [
+    "1.5.0 (de-robotization slice 1, 2026-08-15) — the range boundaries are ramps",
+    "instead of steps. This pack was the roster's clearest machine signature: it",
+    "limped or called blocks 35% to 56% of the deck wide at weight 1.0, and",
+    "folded everything outside them at weight 0. Each of those blocks now plays",
+    "at 0.88-0.90 with an adjacent band of hands just outside it at 0.33-0.49, so",
+    "a marginal hand is sometimes played and sometimes not.",
+    "WIDTH IS HELD BY CONSTRUCTION, not by luck: each fringe band was sized so",
+    "the combo-weighted total it adds equals what shaving the core removes.",
+    "Measured after the edit, combo-weighted continue: unopened 46.74 -> 46.78,",
+    "vs_limpers 56.56 -> 56.53, vs_rfi 56.56 -> 56.30. The station still calls",
+    "far too much — that is the archetype and it is untouched. What changed is",
+    "that it no longer draws the same line in the same place every hand.",
     "1.4.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi` is answered per seat,",
     "as a TWO-band split (blinds against everyone else) rather than the four",
     "bands the regulars get. A recreational player does not reason about",
@@ -36,7 +48,11 @@
         { "combos": "AA, KK, AKs", "weights": { "raise": 0.5, "limp": 0.5 } },
         {
           "combos": "22+, A2s+, K5s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, A5o+, K9o+, Q9o+, J9o+, T9o",
-          "weights": { "limp": 1.0 }
+          "weights": { "limp": 0.88, "fold": 0.12 }
+        },
+        {
+          "combos": "K3s, K4s, Q5s, Q6s, J5s, J6s, T5s, T6s, 95s, 85s, 74s, 63s, 53s, 43s, A4o, A3o, A2o, K8o, Q8o, J8o, T8o, 98o",
+          "weights": { "limp": 0.36, "fold": 0.64 }
         }
       ]
     },
@@ -47,7 +63,11 @@
         { "combos": "AA, KK, AKs", "weights": { "raise": 0.5, "limp": 0.5 } },
         {
           "combos": "22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K7o+, Q8o+, J8o+, T8o+, 98o",
-          "weights": { "limp": 1.0 }
+          "weights": { "limp": 0.88, "fold": 0.12 }
+        },
+        {
+          "combos": "Q3s, Q2s, J5s, J4s, T5s, T4s, 94s, 84s, 73s, 62s, 52s, 42s, 32s, K6o, K5o, Q7o, Q6o, J7o, T7o, 97o, 87o, 76o",
+          "weights": { "limp": 0.47, "fold": 0.53 }
         }
       ]
     },
@@ -58,7 +78,11 @@
         { "combos": "AA, KK", "weights": { "raise": 1.0 } },
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s, A2o+, K7o+, Q7o+, J8o+, T8o+, 98o, 87o",
-          "weights": { "limp": 1.0 }
+          "weights": { "limp": 0.88, "fold": 0.12 }
+        },
+        {
+          "combos": "K6o, K5o, K4o, Q6o, Q5o, J7o, J6o, T7o, T6o, 97o, 96o, 86o, 76o, 65o, 54o",
+          "weights": { "limp": 0.49, "fold": 0.51 }
         }
       ]
     },
@@ -69,9 +93,9 @@
         { "combos": "AA", "weights": { "3bet": 0.4, "call": 0.6 } },
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s, A2o+, K7o+, Q7o+, J8o+, T8o+, 98o, 87o",
-          "weights": { "call": 1.0 }
+          "weights": { "call": 0.9, "fold": 0.1 }
         },
-        { "combos": "*", "weights": { "call": 0.2, "fold": 0.8 } }
+        { "combos": "*", "weights": { "call": 0.33, "fold": 0.67 } }
       ]
     },
     {
@@ -81,7 +105,11 @@
         { "combos": "AA", "weights": { "3bet": 0.4, "call": 0.6 } },
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s, A2o+, K7o+, Q7o+, J8o+, T8o+, 98o, 87o",
-          "weights": { "call": 0.95, "fold": 0.05 }
+          "weights": { "call": 0.88, "fold": 0.12 }
+        },
+        {
+          "combos": "*",
+          "weights": { "call": 0.09, "fold": 0.91 }
         }
       ]
     },

@@ -348,7 +348,14 @@ def test_replay_matches_real_handstate_contexts(packs):
     `sizing.pot_before_current_aggression` respectively)."""
     rng = random.Random(20260712)
     priced_postflop = 0  # non-vacuity: the price fields must not be all-zero
-    for trial in range(6):
+    # Widened 6 -> 14 trials by the de-robotization slice (2026-08-15). Six
+    # trials happened to yield 14 priced postflop contexts at this seed against
+    # a floor of 5; once the villains' preflop ranges changed, the same six
+    # yielded 4 and this guard fired — correctly, because at four contexts the
+    # ESTIM-PRICE assertions barely run at all. The SAMPLE is widened rather
+    # than the floor lowered: lowering it would answer a guard that says "this
+    # test stopped testing much" by agreeing to test less.
+    for trial in range(14):
         personas = assign_lineup(rng)
         seat_packs = {s: packs[personas.get(s, VillainType.TAG)] for s in range(9)}
         dealt = deal_hand(random.Random(rng.randrange(1_000_000_000)))

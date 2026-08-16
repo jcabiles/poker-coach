@@ -3622,12 +3622,17 @@ _GOLDEN_STATS_N200 = {
     # The lesson for whoever re-records next: a swing in this fixture is not
     # evidence of anything until it is reproduced at a sample size where the
     # denominators are not single digits.
-    "calling_station": (0.308411214953271, 0.19117647058823528, 0.6811594202898551),
-    "lag": (2.4716981132075473, None, 0.6446280991735537),
-    "maniac": (3.0161290322580645, 0.1, 0.665),
-    "nit": (None, None, 0.5789473684210527),
-    "passive_fish": (0.75, 0.4878048780487805, 0.5495049504950495),
-    "tag": (2.7, None, 0.5060240963855421),
+    # Re-recorded a second time in the same slice, for range-edge softening
+    # on top of the seat split. The instability warned about above is visible
+    # across just these two commits: the station reads 0.308 then 0.402, and
+    # the fish 0.750 then 0.971, from pack edits that hold every combo-weighted
+    # width to within 0.05pp. Read the n=2000 table, not these numbers.
+    "calling_station": (0.4016393442622951, 0.19298245614035087, 0.6793893129770993),
+    "lag": (2.3773584905660377, None, 0.5076923076923077),
+    "maniac": (3.0, 0.3111111111111111, 0.6030150753768844),
+    "nit": (None, None, 0.6617647058823529),
+    "passive_fish": (0.970873786407767, 0.6590909090909091, 0.4474885844748858),
+    "tag": (2.484848484848485, None, 0.6144578313253012),
 }
 
 
@@ -9489,7 +9494,39 @@ _R9D_S5_NIT_RISE_FLOOR = 0.03
 # maniac} > calling_station` — and says plainly that the fine tier-3/tier-4 edge
 # is NOT asserted, rather than buying it with a bigger N. The λ-exact claim is
 # S-4's, at the node, in odds space, where it is true.
-_R9D_S5_ORDER = (("nit",), ("tag",), ("lag", "passive_fish", "maniac"), ("calling_station",))
+# WEAKENED by the de-robotization slice (2026-08-15) — the tag's own tier is
+# dropped, so the asserted claim is now `nit > {tag, lag, passive_fish,
+# maniac} > calling_station`.
+#
+# The reason is NOT that this slice broke a sound gate. Measuring the rise on
+# the PRE-SLICE packs at three times the pinned sample shows the tag/tier-3
+# boundary already fails there:
+#
+#   pre-slice  N=8000   HOLDS   nit .1563  tag .0867  fish .0443  lag .0369
+#                                 maniac .0316  station .0041
+#   pre-slice  N=24000  BROKEN  nit .1425  lag .0579  tag .0563  fish .0478
+#                                 maniac .0231  station .0062
+#   this slice N=8000   BROKEN  nit .0918  fish .0615  tag .0570  lag .0324
+#                                 maniac .0140  station .0037
+#   this slice N=24000  BROKEN  nit .1102  fish .0515  lag .0500  tag .0429
+#                                 maniac .0249  station .0046
+#
+# The tag's separation from tier 3 was a property of the pinned sample, in the
+# same way this block already records for the tier-3/tier-4 edge. What survives
+# all four measurements is nit on top and the calling station at the bottom,
+# and that is what is asserted.
+#
+# ⚠️ ESCALATED, not buried: this slice also LOWERED the regulars' rise (tag
+# .0867 -> .0570 and nit .1563 -> .0918 at the pinned N). That is a real side
+# effect and it has a plausible mechanism — the regulars now defend the blinds
+# wider, so they reach barrel nodes with weaker holdings that were folding
+# anyway, leaving line-sensitivity less room to move the rate. The MECHANISM is
+# untouched and its λ-exact node-level gate
+# (`test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie`)
+# still passes. Whether the population effect should be re-fitted is an owner
+# call recorded in docs/ai-dlc/ledger/phase3-derobotization.md, not something
+# this slice decided by editing a number.
+_R9D_S5_ORDER = (("nit",), ("tag", "lag", "passive_fish", "maniac"), ("calling_station",))
 
 # ── THE DEMOTED COMPANION ──────────────────────────────────────────────────
 # Showdown frequency is now a DIRECTIONAL population-consequence check, not an

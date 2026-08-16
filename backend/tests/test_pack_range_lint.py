@@ -250,8 +250,8 @@ _WEIGHT_INTERLEAVING = {
     # limp 0.5 -> 1.0 IS the station's limped-aces tell surfacing at scale —
     # deliberate character, frozen not judged (tie-revealed by the co-dominant
     # semantics; invisible to the earlier dict-order max()).
-    ("calling_station", "unopened", "*", "22+", "limp", 0.5, 1.0),
-    ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 1.0),
+    ("calling_station", "unopened", "*", "22+", "limp", 0.5, 0.88),
+    ("calling_station", "unopened", "UTG", "22+", "limp", 0.5, 0.88),
     ("maniac", "vs_4bet", "*", "QQ", "5bet_shove", 0.7, 1.0),
     ("passive_fish", "vs_4bet", "*", "KK", "call", 0.5, 1.0),
     # --- De-robotization slice 1 (2026-08-15) ------------------------------
@@ -271,8 +271,12 @@ _WEIGHT_INTERLEAVING = {
     # One genuinely new inversion was NOT inventoried but FIXED in the pack:
     # lag's BTN/CO AQo 3-bet sat below the weaker tier beneath it (0.70 against
     # 0.75). AQo now 3-bets 0.78. An entry here would have frozen a mistake.
-    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 0.95),
-    ("calling_station", "vs_rfi", "BB/SB", "22+", "call", 0.6, 1.0),
+    # The four station entries moved DOWN in the same slice that added the
+    # rest of this block: edge softening cut its wide blocks from 1.0 to
+    # 0.88-0.90, so the interleaving shrank rather than disappearing. The
+    # shape is unchanged and stays listed; the numbers track it.
+    ("calling_station", "vs_rfi", "*", "22+", "call", 0.6, 0.88),
+    ("calling_station", "vs_rfi", "BB/SB", "22+", "call", 0.6, 0.9),
     ("lag", "vs_rfi", "BB", "77", "call", 0.43, 1.0),
     ("nit", "vs_3bet", "BTN/CO", "QQ", "call", 0.55, 0.65),
     ("nit", "vs_rfi", "*", "88-JJ", "call", 0.65, 0.9),

@@ -335,9 +335,12 @@ _PRE_M3_FIRES = {
     # hands across three seeds the same comparison reads 0.7pp with the
     # preflop component flat. Single-seed counts move far more than the
     # effects anyone wants to read out of them.
-    ("UTG2", 1): 78, ("LJ", 1): 103, ("HJ", 1): 120, ("CO", 1): 114,
-    ("CO", 2): 30, ("SB", 1): 75, ("SB", 2): 32, ("BTN", 1): 86,
-    ("BTN", 2): 39,
+    # Re-recorded a second time in the same slice: range-edge softening
+    # (commit 2) shifts the stream again on top of the seat split (commit 1).
+    # Every _WANT_* shape still fires at this tip: BB1 61, BB2 29, BB3 7.
+    ("UTG2", 1): 86, ("LJ", 1): 123, ("HJ", 1): 113, ("CO", 1): 108,
+    ("CO", 2): 28, ("SB", 1): 78, ("SB", 2): 47, ("BTN", 1): 85,
+    ("BTN", 2): 28,
 }
 
 

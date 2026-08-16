@@ -165,7 +165,9 @@ def _hash_manifest(manifest: dict) -> str:
 # RE-PINNED for the de-robotization slice (2026-08-15, slice-authorized). The
 # six persona packs now answer `vs_rfi`, `vs_limpers` and `vs_3bet` per seat,
 # so the bots play differently and every byte of a seeded export changes with
-# them. All four digests moving TOGETHER is the expected signature of a
+# them. Re-pinned twice within that slice: once for the seat split and once for
+# the range-edge softening that landed on top of it — two commits, two stream
+# shifts. All four digests moving TOGETHER is the expected signature of a
 # behaviour change: an export-writer regression would move the table digests
 # while leaving the manifest's own fields alone, and a manifest-only change
 # would leave the tables untouched. Old values, for anyone bisecting:
@@ -176,16 +178,16 @@ def _hash_manifest(manifest: dict) -> str:
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "39bbfd10777997018be6e9a080294c85693ac5c181aadd846fcd9089a53ded39"
+    "177db574ae998a9f28ab3428171e3a98c4a706b9319bae2071a238c5dde57551"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "7086e2a8eb0018c948e48823addea4e34cd97bf1aa76276bd1ee6e2ce446fb04"
+    "1831522fa7b31c4ae7e322fe59e527b67bc06c6876db50006b5fec59b05647aa"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "e12d348e5d639bfc1dd09415ba6bd5ddc023c8e373f137eb9ac9ca6ea0380edf"
+    "ae95e29b29200fed9100883c692834c31119a9c757e6a056936036bcbcc385e5"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "2d327b84209da2341ecce4fa271e7bb7658f9517f748754fb828a38ba34cd06e"
+    "a0b9bb77c8876e9a8cd04d1fb9116623323c3b1dfe880b0884cf6df6b924301c"
 )
 
 

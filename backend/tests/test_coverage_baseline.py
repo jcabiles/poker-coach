@@ -301,7 +301,9 @@ unmodified; this tip measures 1195/329. The slice is the sole cause.
 Seeded-fixture re-record; population bands stay frozen to W4-b.
 
 RE-RECORDED for the de-robotization slice (2026-08-15, slice-authorized):
-total 1195 -> 1299, graded 329 -> 318, ratio 27.53% -> 24.48%. The six packs
+total 1195 -> 1274, graded 329 -> 314, ratio 27.53% -> 24.65%. (Recorded
+once for the whole slice; the seat split and the edge softening each shift
+the stream, and the figures below are measured at the slice tip.) The six packs
 now answer `vs_rfi`, `vs_limpers` and `vs_3bet` per seat, so villains fold
 less and the hand stream drifts.
 

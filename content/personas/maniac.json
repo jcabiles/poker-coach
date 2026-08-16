@@ -1,7 +1,13 @@
 {
   "id": "persona_maniac",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "_doc": [
+    "1.9.0 (de-robotization slice 1, 2026-08-15) — the two `vs_limpers` isolation",
+    "cores stop being all-or-nothing. They raised 49% and 31% of the deck at",
+    "weight 1.0; they now raise at 0.90 and 0.88, with a further band of junk",
+    "outside the existing 0.5 tier raising 0.36-0.37. Combo-weighted continue is",
+    "held at 45.48 -> 45.50. The maniac still isolates limpers with almost",
+    "anything — the point is that WHICH almost-anything varies.",
     "1.8.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi` and the `vs_3bet`",
     "OPENER stratum are answered per seat; `vs_limpers` was already positional.",
     "The gradient is aggression-shaped rather than tightness-shaped, which is the",
@@ -341,11 +347,15 @@
       "mixes": [
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T4s+, 95s+, 85s+, 74s+, 64s+, 54s, A2o+, K7o+, Q8o+, J8o+, T8o+, 98o",
-          "weights": { "raise": 1.0 }
+          "weights": { "raise": 0.9, "fold": 0.1 }
         },
         {
           "combos": "J2s, J3s, T2s, T3s, 43s, K4o, K5o, K6o, Q6o, Q7o, J7o, T7o, 97o, 87o, 76o",
           "weights": { "raise": 0.5, "limp": 0.2, "fold": 0.3 }
+        },
+        {
+          "combos": "94s, 93s, 92s, 84s, 83s, 82s, 73s, 72s, 63s, 62s, 53s, 52s, 42s, 32s, K3o, K2o, Q5o, Q4o, J6o, T6o, 96o, 86o, 75o, 65o",
+          "weights": { "raise": 0.37, "fold": 0.63 }
         }
       ]
     },
@@ -355,11 +365,15 @@
       "mixes": [
         {
           "combos": "22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 97s+, 87s, 76s, A5o+, KTo+, QTo+, JTo",
-          "weights": { "raise": 1.0 }
+          "weights": { "raise": 0.88, "fold": 0.12 }
         },
         {
           "combos": "K2s, K3s, Q5s, Q6s, J6s, T6s, 65s, 54s, A2o, A3o, A4o, K9o, Q9o, J9o, T9o",
           "weights": { "raise": 0.5, "limp": 0.2, "fold": 0.3 }
+        },
+        {
+          "combos": "Q4s, Q3s, Q2s, J5s, J4s, T5s, T4s, 96s, 86s, 75s, 64s, 53s, 43s, K8o, K7o, Q8o, J8o, T8o, 98o, 87o",
+          "weights": { "raise": 0.36, "fold": 0.64 }
         }
       ]
     },
