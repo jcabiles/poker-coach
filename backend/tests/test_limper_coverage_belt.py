@@ -316,9 +316,28 @@ _PRE_M3_FIRES = {
     # N200 golden's _GOLDEN_STATS_N200 both pass, unmodified, against the
     # control worktree at base commit b0a6a4e with their OLD (base) values;
     # the counts below only hold once this slice's engine change lands.
-    ("UTG2", 1): 95, ("LJ", 1): 111, ("HJ", 1): 103, ("CO", 1): 98,
-    ("CO", 2): 34, ("SB", 1): 63, ("SB", 2): 37, ("BTN", 1): 87,
-    ("BTN", 2): 42,
+    # RE-RECORDED for the de-robotization slice (2026-08-15, slice-authorized):
+    # `vs_rfi`, `vs_limpers` and `vs_3bet` are now answered per seat in all six
+    # packs, so villains continue and isolate at different rates by position
+    # and the shared organic rng stream drifts at this seed. All nine pairs
+    # move (old: UTG2¹ 95, LJ¹ 111, HJ¹ 103, CO¹ 98, CO² 34, SB¹ 63, SB² 37,
+    # BTN¹ 87, BTN² 42). No limper-belt content changed, and every _WANT_*
+    # coverage shape still fires (measured at this tip: BB¹ 53, BB² 30,
+    # BB³ 2 — the >=1 gate is what this belt actually guarantees, and it
+    # holds). ATTRIBUTION: this slice touches only content/personas/*.json
+    # and tests; no engine or limper-belt file is modified.
+    #
+    # ⚠️ These counts are a stream fingerprint, not a coverage measurement.
+    # This is the eleventh re-record in this block, every one of them for the
+    # same reason. Reading a coverage claim off the raw numbers is a mistake
+    # the slice's own coverage work makes concrete: at 400 hands and one seed
+    # the companion harness reported hero grading down 3.05pp, and at 2,000
+    # hands across three seeds the same comparison reads 0.7pp with the
+    # preflop component flat. Single-seed counts move far more than the
+    # effects anyone wants to read out of them.
+    ("UTG2", 1): 78, ("LJ", 1): 103, ("HJ", 1): 120, ("CO", 1): 114,
+    ("CO", 2): 30, ("SB", 1): 75, ("SB", 2): 32, ("BTN", 1): 86,
+    ("BTN", 2): 39,
 }
 
 

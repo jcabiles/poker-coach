@@ -3594,12 +3594,40 @@ _GOLDEN_STATS_N200 = {
     # base commit b0a6a4e with their OLD (base) values; the values below only
     # hold once this slice's engine change lands. Population bands stay
     # frozen to W4-b.
-    "calling_station": (0.3277777777777778, 0.06557377049180328, 0.7077922077922078),
-    "lag": (2.5, None, 0.6016260162601627),
-    "maniac": (2.933333333333333, 0.3333333333333333, 0.664804469273743),
-    "nit": (None, None, 0.6491228070175439),
-    "passive_fish": (0.7703703703703704, 0.5102040816326531, 0.5488372093023256),
-    "tag": (1.9411764705882353, None, 0.5974025974025974),
+    # RE-RECORDED for the de-robotization slice (2026-08-15, slice-authorized
+    # under this test's own rule: "re-record only when a slice intentionally
+    # changes bot play"). The six packs now answer `vs_rfi`, `vs_limpers` and
+    # `vs_3bet` per seat, so different hands reach the flop and every one of
+    # these postflop aggregates moves. Old values:
+    #   calling_station (0.3278, 0.0656, 0.7078)   lag  (2.5,    None,   0.6016)
+    #   maniac          (2.9333, 0.3333, 0.6648)   nit  (None,   None,   0.6491)
+    #   passive_fish    (0.7704, 0.5102, 0.5488)   tag  (1.9412, None,   0.5974)
+    #
+    # ⚠️ AT n=200 THESE ARE MOSTLY NOISE, and this re-record is the clearest
+    # demonstration of it yet: tag's AF reads 1.94 before and 2.70 after, and
+    # nit's flips between a number and None — None meaning that persona made
+    # ZERO postflop calls in the sample, so the ratio has no denominator at
+    # all. Re-measured at n=2000 against the same pre-slice packs, the same
+    # statistics barely move:
+    #   AF    station 0.317->0.312  lag 2.751->2.754  maniac 3.058->3.043
+    #         nit 1.353->1.387      fish 0.838->0.942  tag 2.308->2.330
+    #   WTSD  every persona within 2pp
+    #   FtC   station 0.163->0.149  lag 0.347->0.358  maniac 0.363->0.277
+    #         nit 0.294->0.355      fish 0.493->0.487  tag 0.259->0.320
+    # Fold-to-c-bet is the one that genuinely moves (maniac down ~9pp, tag and
+    # nit up ~6pp): a different preflop range reaches the flop, so a different
+    # hand strength faces the c-bet. That is a real consequence of the slice
+    # and is left for the separation gate to judge, not smoothed away here.
+    #
+    # The lesson for whoever re-records next: a swing in this fixture is not
+    # evidence of anything until it is reproduced at a sample size where the
+    # denominators are not single digits.
+    "calling_station": (0.308411214953271, 0.19117647058823528, 0.6811594202898551),
+    "lag": (2.4716981132075473, None, 0.6446280991735537),
+    "maniac": (3.0161290322580645, 0.1, 0.665),
+    "nit": (None, None, 0.5789473684210527),
+    "passive_fish": (0.75, 0.4878048780487805, 0.5495049504950495),
+    "tag": (2.7, None, 0.5060240963855421),
 }
 
 
@@ -4191,16 +4219,47 @@ def test_node_action_first_in_raise_cross_validates_r10_corpus():
 # (roadmap R10-3BET pass/fail ③; gate-design rule).
 
 
+def _node_for_seat(pack, facing: str, seat: Position, role: str | None = None):
+    """The node `sample_preflop_action` would select for this seat.
+
+    The predicate is copied from the sampler (`personas.py`) — the same choice
+    `test_persona_pack_invariants._check_position_coverage` makes, for the same
+    reason: asking the runtime question directly is safer than reasoning about
+    wildcards and role strata separately.
+    """
+    for node in pack.preflop:
+        if node.facing != facing:
+            continue
+        if node.positions is not None and seat not in node.positions:
+            continue
+        if node.role is not None and node.role != role:
+            continue
+        return node
+    return None
+
+
 def _vs_3bet_effective_policy(pack, role: str = "cold") -> dict[str, dict[str, float]]:
-    """Per-class EFFECTIVE weights at the pack's wildcard vs_3bet node under
-    first-match-wins (`sample_preflop_action`): the first mix whose combos
-    contain the class owns it outright; later mentions are dead tokens.
+    """Per-class EFFECTIVE weights of the pack's vs_3bet response, averaged
+    over the nine seats, under first-match-wins (`sample_preflop_action`): the
+    first mix whose combos contain the class owns it outright; later mentions
+    are dead tokens.
 
     N-3BSTRATA: `role` picks the ARRIVAL STRATUM exactly as the sampler does —
     the first vs_3bet node that is untagged (serves both) or carries this role.
     Default "cold" keeps every pre-N-3BSTRATA caller reading the table it
     always read (untagged packs have one node; maniac/lag's cold node is
     byte-identical to their pre-slice shared node).
+
+    ⚠️ WHY THIS AVERAGES OVER SEATS (de-robotization slice 1, 2026-08-15).
+    Until this slice every response facing had exactly one node, so "the
+    vs_3bet policy" was unambiguous and a first-match `next()` returned it.
+    Position-split nodes break that: `next()` then returns whichever band is
+    authored first, which silently changes WHAT THIS MEASURES rather than what
+    the pack does — a pin can move several points while every seat's behaviour
+    is intact. Averaging over the nine seats measures the population policy,
+    which is what these gates were always about, and reduces exactly to the old
+    value for any position-blind pack. Every pin that reads this helper is
+    therefore comparable across the change for the unsplit packs.
 
     Two deliberate simplifications vs the live sampler (Codex build review
     C-2 — both are no-ops for every consumer in this file): the implicit-fold
@@ -4209,16 +4268,27 @@ def _vs_3bet_effective_policy(pack, role: str = "cold") -> dict[str, dict[str, f
     (`.get(cls, {})` reads them as zero continue, which is the same thing)."""
     from app.domain.content.notation import parse_range
 
-    node = next(
-        n
-        for n in pack.preflop
-        if n.facing == "vs_3bet" and n.role in (None, role)
-    )
     policy: dict[str, dict[str, float]] = {}
-    for mix in node.mixes:
-        for cls in parse_range(mix.combos):
-            policy.setdefault(cls, dict(mix.weights))
-    return policy
+    for seat in Position:
+        node = _node_for_seat(pack, "vs_3bet", seat, role)
+        if node is None:
+            continue
+        seen: set[str] = set()
+        for mix in node.mixes:
+            for cls in parse_range(mix.combos):
+                if cls in seen:
+                    continue
+                seen.add(cls)
+                per_class = policy.setdefault(cls, {})
+                for act, w in mix.weights.items():
+                    per_class[act] = per_class.get(act, 0.0) + w
+    # Divide ONCE at the end. Accumulating `w / 9` nine times does not return
+    # the authored value: 9 x (0.5/9) is 0.5000000000000001, which breaks the
+    # exact-identity pins for position-blind packs that this helper must leave
+    # untouched. Summing first and dividing once is exact for them.
+    seats = len(Position)
+    return {cls: {act: w / seats for act, w in per_class.items()}
+            for cls, per_class in policy.items()}
 
 
 def _combo_count(cls: str) -> int:
@@ -4732,27 +4802,36 @@ def _vs_rfi_threebet_arrival(pack) -> dict[str, float]:
     future slice that rewrites `vs_rfi` moves this arrival distribution and can
     turn the gate red WITHOUT touching `vs_4bet`. That is the design — the
     response is only meaningful against the range it is answered with — and the
-    failure message says to re-derive rather than to re-weight."""
+    failure message says to re-derive rather than to re-weight.
+
+    RE-DERIVED for the de-robotization slice (2026-08-15), which is the "future
+    slice" that comment anticipated. `vs_rfi` is now split by seat, so there is
+    no single node to read and the old single-node assertion fired exactly as
+    designed. The arrival is now the mean 3-bet mass over the nine seats, each
+    seat resolved through the sampler's own node scan. That is a re-derivation,
+    not a re-weighting: for a position-blind pack it returns the previous
+    numbers unchanged, and for a split pack it answers the question the gate
+    actually asks — what range does this persona bring to a 4-bet, at a table.
+    """
     from app.domain.content.notation import parse_range
 
-    nodes = [n for n in pack.preflop if n.facing == "vs_rfi"]
-    assert len(nodes) == 1, (
-        f"arrival derivation assumes ONE un-stratified vs_rfi node; found "
-        f"{len(nodes)} (roles {[n.role for n in nodes]}) — re-derive arrival "
-        f"per stratum before trusting this gate"
-    )
-    node = nodes[0]
-    seen: set[str] = set()
     arrival: dict[str, float] = {}
-    for mix in node.mixes:
-        w = mix.weights.get("3bet", 0.0)
-        for cls in parse_range(mix.combos):
-            if cls in seen:
-                continue
-            seen.add(cls)
-            if w > 0.0:
-                arrival[cls] = _combo_count(cls) * w
-    return arrival
+    for seat in Position:
+        node = _node_for_seat(pack, "vs_rfi", seat)
+        if node is None:
+            continue
+        seen: set[str] = set()
+        for mix in node.mixes:
+            w = mix.weights.get("3bet", 0.0)
+            for cls in parse_range(mix.combos):
+                if cls in seen:
+                    continue
+                seen.add(cls)
+                if w > 0.0:
+                    arrival[cls] = arrival.get(cls, 0.0) + _combo_count(cls) * w
+    # Divided once, for the same exactness reason as `_vs_3bet_effective_policy`.
+    seats = len(Position)
+    return {cls: mass / seats for cls, mass in arrival.items()}
 
 
 def _vs_4bet_arrival_weighted(pack) -> dict[str, float]:
@@ -5416,8 +5495,22 @@ def test_n3bstrata_only_maniac_and_lag_are_stratified():
     }
     assert stratified == {"maniac", "lag"}, f"unexpected stratified packs: {sorted(stratified)}"
     for vt in (VillainType.MANIAC, VillainType.LAG):
-        roles = [n.role for n in packs[vt].preflop if n.facing == "vs_3bet"]
+        # Distinct roles in first-appearance order. This used to be the raw node
+        # list, which was the same thing while each stratum was a single
+        # wildcard node. The de-robotization slice adds a seat-split band inside
+        # the `opener` stratum, so the raw list gained a repeat — a POSITION
+        # split, not a new role. The claim under test is about which strata
+        # exist and in what order, so it is stated that way now.
+        roles = list(dict.fromkeys(
+            n.role for n in packs[vt].preflop if n.facing == "vs_3bet"))
         assert roles == ["opener", "cold"], f"{vt.value} vs_3bet roles are {roles}"
+        # The ordering law this depends on still holds: a role-tagged node may
+        # never follow an untagged one, and explicit-position nodes precede
+        # their wildcard within a stratum (PersonaPack._node_ordering).
+        cold = [n for n in packs[vt].preflop
+                if n.facing == "vs_3bet" and n.role == "cold"]
+        assert len(cold) == 1 and cold[0].positions is None, (
+            f"{vt.value}'s cold stratum must stay one position-blind node")
 
 
 # Fan-in fold (Codex HIGH): the deterministic proxy above weights the opener

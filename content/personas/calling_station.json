@@ -1,7 +1,19 @@
 {
   "id": "persona_calling_station",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "domain": "persona",
+  "_doc": [
+    "1.4.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi` is answered per seat,",
+    "as a TWO-band split (blinds against everyone else) rather than the four",
+    "bands the regulars get. A recreational player does not reason about",
+    "position; what a station does notice is money already in the pot, so it",
+    "continues wider from the blinds (65.3%) than elsewhere (53.8%) and is",
+    "otherwise seat-blind. Its `vs_limpers` and `vs_3bet` nodes are deliberately",
+    "left position-blind: over-limping and calling down are exactly where this",
+    "archetype does not adjust, and fold-to-3-bet is this pack's single",
+    "strongest separating statistic. Table-realised vs_rfi continue held at",
+    "56.56 -> 56.61."
+  ],
   "persona": "calling_station",
   "display_name": "Calling Station",
   "sizing": { "open_bb": 3.5, "threebet_mult": 3.0, "fourbet_mult": 2.2 },
@@ -52,12 +64,24 @@
     },
     {
       "facing": "vs_rfi",
-      "positions": null,
+      "positions": ["SB", "BB"],
       "mixes": [
         { "combos": "AA", "weights": { "3bet": 0.4, "call": 0.6 } },
         {
           "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s, A2o+, K7o+, Q7o+, J8o+, T8o+, 98o, 87o",
           "weights": { "call": 1.0 }
+        },
+        { "combos": "*", "weights": { "call": 0.2, "fold": 0.8 } }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": null,
+      "mixes": [
+        { "combos": "AA", "weights": { "3bet": 0.4, "call": 0.6 } },
+        {
+          "combos": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s, A2o+, K7o+, Q7o+, J8o+, T8o+, 98o, 87o",
+          "weights": { "call": 0.95, "fold": 0.05 }
         }
       ]
     },

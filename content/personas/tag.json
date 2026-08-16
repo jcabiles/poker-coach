@@ -1,8 +1,18 @@
 {
   "id": "persona_tag",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "domain": "persona",
   "_doc": [
+    "1.6.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi`, `vs_limpers` and",
+    "`vs_3bet` are answered PER SEAT instead of identically from all nine. The",
+    "measured defect was a flat 83.06% fold to a raise from every seat; that fold",
+    "now runs 79.8% in the big blind to 87.8% in the small blind, with the button",
+    "and cutoff between them. Each facing's TABLE-REALISED frequency is HELD —",
+    "weighting every seat by how often it actually faces that decision (measured",
+    "over a 6,000-hand export at seed 601), vs_rfi continue moves 16.94 -> 17.05",
+    "and vs_limpers 8.97 -> 8.98. The slice changes WHERE the frequency comes",
+    "from, not how much of it there is, which is both what real positional play",
+    "is and what keeps the separation gate green. Sizing and postflop untouched.",
     "1.5.0 (R9-DEFENCE-a T1, 2026-08-02) — ONE new postflop number,",
     "`line_sensitivity`: 0.5 (directional fit seed, tag tier). It is READ by",
     "`personas_postflop._line_scaled`, which scales the facing-node CALL and",
@@ -164,10 +174,81 @@
     },
     {
       "facing": "vs_limpers",
+      "positions": ["CO", "BTN"],
+      "mixes": [
+        { "combos": "88+, ATs+, KJs+, AJo+", "weights": { "raise": 1.0 } },
+        { "combos": "55, 66, 77, A9s, KQo", "weights": { "raise": 0.75, "fold": 0.25 } },
+        {
+          "combos": "22, 33, 44, A8s, A7s, A6s, A5s, QJs, JTs, T9s, 98s, ATo",
+          "weights": { "raise": 0.3, "fold": 0.7 }
+        }
+      ]
+    },
+    {
+      "facing": "vs_limpers",
       "positions": null,
       "mixes": [
         { "combos": "88+, ATs+, KJs+, AJo+", "weights": { "raise": 1.0 } },
-        { "combos": "55, 66, 77, A9s, KQo", "weights": { "raise": 0.5, "fold": 0.5 } }
+        { "combos": "55, 66, 77, A9s, KQo", "weights": { "raise": 0.2, "fold": 0.8 } }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["BB"],
+      "mixes": [
+        { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
+        {
+          "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
+          "weights": { "3bet": 0.55, "call": 0.35, "fold": 0.1 }
+        },
+        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 0.85, "fold": 0.15 } },
+        {
+          "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
+          "weights": { "call": 0.75, "fold": 0.25 }
+        },
+        {
+          "combos": "A2s, K9s, K8s, K7s, Q9s, Q8s, J9s, J8s, T8s, T7s, 98s, 97s, 76s, 65s, 54s, QTo, JTo, T9o",
+          "weights": { "call": 0.45, "fold": 0.55 }
+        }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["CO", "BTN"],
+      "mixes": [
+        { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
+        {
+          "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
+          "weights": { "3bet": 0.9, "call": 0.1 }
+        },
+        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
+        {
+          "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
+          "weights": { "call": 0.8, "fold": 0.2 }
+        },
+        {
+          "combos": "A2s, K9s, Q9s, J9s, T8s, 98s, 76s, 65s, QTo, JTo",
+          "weights": { "call": 0.35, "fold": 0.65 }
+        }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": ["SB"],
+      "mixes": [
+        { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
+        {
+          "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
+          "weights": { "3bet": 0.85, "fold": 0.15 }
+        },
+        {
+          "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo",
+          "weights": { "3bet": 0.08, "call": 0.42, "fold": 0.5 }
+        },
+        {
+          "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
+          "weights": { "call": 0.35, "fold": 0.65 }
+        }
       ]
     },
     {
@@ -177,13 +258,42 @@
         { "combos": "QQ+, AKs, AKo", "weights": { "3bet": 1.0 } },
         {
           "combos": "JJ, TT, AQs, AJs, ATs, KQs, KJs, QJs, A5s, A4s, A3s, A9o, KQo",
-          "weights": { "3bet": 0.8, "fold": 0.2 }
+          "weights": { "3bet": 0.8, "call": 0.05, "fold": 0.15 }
         },
-        { "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo", "weights": { "call": 1.0 } },
+        {
+          "combos": "99, 88, QTs, JTs, T9s, AQo, AJo, ATo, KJo, QJo",
+          "weights": { "3bet": 0.05, "call": 0.62, "fold": 0.33 }
+        },
         {
           "combos": "22-77, A9s, A8s, A7s, A6s, KTs, 87s, KTo",
-          "weights": { "call": 0.68, "fold": 0.32 }
+          "weights": { "call": 0.62, "fold": 0.38 }
         }
+      ]
+    },
+    {
+      "facing": "vs_3bet",
+      "positions": ["CO", "BTN"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "4bet": 1.0 } },
+        { "combos": "QQ, AKs", "weights": { "4bet": 0.42, "call": 0.58 } },
+        { "combos": "AKo", "weights": { "4bet": 0.28, "call": 0.62, "fold": 0.1 } },
+        { "combos": "JJ, TT", "weights": { "call": 0.7, "fold": 0.3 } },
+        { "combos": "A5s, A4s", "weights": { "4bet": 0.22, "fold": 0.78 } },
+        { "combos": "AQs, AJs, ATs, KQs, 99, 88", "weights": { "call": 0.5, "fold": 0.5 } },
+        { "combos": "22-77, AQo", "weights": { "call": 0.3, "fold": 0.7 } }
+      ]
+    },
+    {
+      "facing": "vs_3bet",
+      "positions": ["SB", "BB"],
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "4bet": 1.0 } },
+        { "combos": "QQ, AKs", "weights": { "4bet": 0.55, "call": 0.45 } },
+        { "combos": "AKo", "weights": { "4bet": 0.4, "call": 0.4, "fold": 0.2 } },
+        { "combos": "JJ, TT", "weights": { "4bet": 0.1, "call": 0.35, "fold": 0.55 } },
+        { "combos": "A5s, A4s", "weights": { "4bet": 0.4, "fold": 0.6 } },
+        { "combos": "AQs, AJs, ATs, KQs, 99, 88", "weights": { "call": 0.22, "fold": 0.78 } },
+        { "combos": "22-77, AQo", "weights": { "call": 0.1, "fold": 0.9 } }
       ]
     },
     {

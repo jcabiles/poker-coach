@@ -1,7 +1,15 @@
 {
   "id": "persona_passive_fish",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "domain": "persona",
+  "_doc": [
+    "1.4.0 (de-robotization slice 1, 2026-08-15) — `vs_rfi` is answered per seat,",
+    "as a TWO-band split (blinds against everyone else), on the same reasoning as",
+    "the calling station: a recreational player responds to money already",
+    "invested, not to position. Continue runs 52.1% from the blinds against 41.0%",
+    "elsewhere, where it was a flat 43.59%. Table-realised frequency held at",
+    "44.05. The `vs_limpers` and `vs_3bet` nodes stay position-blind by design."
+  ],
   "persona": "passive_fish",
   "display_name": "Passive Fish",
   "sizing": { "open_bb": 4.0, "threebet_mult": 3.0, "fourbet_mult": 2.2 },
@@ -52,12 +60,24 @@
     },
     {
       "facing": "vs_rfi",
-      "positions": null,
+      "positions": ["SB", "BB"],
       "mixes": [
         { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
         {
           "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
           "weights": { "call": 1.0 }
+        },
+        { "combos": "*", "weights": { "call": 0.15, "fold": 0.85 } }
+      ]
+    },
+    {
+      "facing": "vs_rfi",
+      "positions": null,
+      "mixes": [
+        { "combos": "AA, KK", "weights": { "3bet": 1.0 } },
+        {
+          "combos": "22-QQ, A2s+, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 54s, 53s, 43s, A2o+, K8o+, Q9o+, J9o+, T9o",
+          "weights": { "call": 0.94, "fold": 0.06 }
         }
       ]
     },

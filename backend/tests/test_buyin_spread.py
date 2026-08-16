@@ -162,19 +162,30 @@ def _hash_manifest(manifest: dict) -> str:
 # S6 T2 dual review). NOT self-referential: unlike the two-runs-of-this-build
 # comparison above, a future edit that silently changes default-path output
 # fails against these hard-coded digests, not against another run of itself.
+# RE-PINNED for the de-robotization slice (2026-08-15, slice-authorized). The
+# six persona packs now answer `vs_rfi`, `vs_limpers` and `vs_3bet` per seat,
+# so the bots play differently and every byte of a seeded export changes with
+# them. All four digests moving TOGETHER is the expected signature of a
+# behaviour change: an export-writer regression would move the table digests
+# while leaving the manifest's own fields alone, and a manifest-only change
+# would leave the tables untouched. Old values, for anyone bisecting:
+#   manifest      24a0b5f398e619036285f7083cda5b96096720d721e47fe054dc28c39536a734
+#   hands         fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32
+#   seat_outcomes 9f9a096fc93b6341625319307b97b524168b43610016191be877efe2be54e233
+#   decisions     fa3f059492a97487bc52499c5ff17df1b743d8aec8e2fab5ee7f3aa9a9660cea
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "24a0b5f398e619036285f7083cda5b96096720d721e47fe054dc28c39536a734"
+    "39bbfd10777997018be6e9a080294c85693ac5c181aadd846fcd9089a53ded39"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32"
+    "7086e2a8eb0018c948e48823addea4e34cd97bf1aa76276bd1ee6e2ce446fb04"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "9f9a096fc93b6341625319307b97b524168b43610016191be877efe2be54e233"
+    "e12d348e5d639bfc1dd09415ba6bd5ddc023c8e373f137eb9ac9ca6ea0380edf"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "fa3f059492a97487bc52499c5ff17df1b743d8aec8e2fab5ee7f3aa9a9660cea"
+    "2d327b84209da2341ecce4fa271e7bb7658f9517f748754fb828a38ba34cd06e"
 )
 
 
