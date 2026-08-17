@@ -41,6 +41,11 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Backups the probe setup/teardown scripts write before editing settings.
+# A shared pattern rather than a personal one: anyone running those scripts
+# generates them.
+.claude/settings.json.bak.*
+
 # ---- Secrets ----
 .env
 .env.*

@@ -6,7 +6,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 Local NLHE (No-Limit Hold'em) training web app. Monorepo:
 - `backend/` — FastAPI + pure domain core (`app/domain/`, no web/DB imports, enforced by `tests/test_domain_purity.py`) + SQLite/Alembic.
-- `frontend/` — React + Vite + strict TypeScript; API types generated from `openapi.json`.
+- `frontend/` — React + Vite + strict TypeScript; API types hand-maintained in `src/api/types.ts`.
 - `content/` — strategy content packs (versioned JSON) + JSON schema. Strategy lives in data, not code.
 - `docs/` — research, roadmap, specs, tickets.
 
@@ -18,14 +18,28 @@ Turning the grader into a teacher. Read before touching anything:
 - Spec (9 "Now" slices, each with pass/fail): `docs/ai-dlc/roadmap/professional-teacher-rework.md`
 - PRD (goal, non-goals, constraints): `docs/ai-dlc/prd/professional-teacher-rework.md`
 - Current-state contract maps: `docs/ai-dlc/contracts/{feedback-evaluation,persistence-datamodel,frontend-ia-tokens}.md`
-- **181-hand review (2026-07-25) — read before any grader or persona work:** `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`. Measured the live app end-to-end: personas score **3–4/10** realism, and **42.5% of graded decisions (105/247) return "No baseline yet"** — postflop only **4/66 = 6.1%** are graded. Two owner-flagged NEXT items came out of it: **`T-cover`** (the "No baseline yet" cause is `grade_map_postflop.py`'s *gates*, NOT the turn/river graders — ⚠️ that module's own docstring claiming "ONLY the HU single-raised-pot continuation line" is **STALE**: HEAD ships 19 postflop mappers incl. nine `map_mw_*` multiway + two limped-**flop**-only; they exist and still reject ~everything, and the reason distribution is unmeasured until `T-REJECT` lands) and **`T-agentcoach`** (LLM-agent session coaching — narrate-only, session-level first; it is also now the designated **test of the 2g–2k engine bet**). Both in `professional-teacher-rework.md` NEXT.
-- ⛔ **Order of work (owner, 2026-07-25): FIX THE BOTS FIRST.** The persona-realism remediation set — filed as **R8** in `docs/ai-dlc/roadmap/persona-realism.md` (`W-ARR` + the `N-*` NEXT items) — outranks the whole teacher block above and goes through `/roadmap-ai-dlc` first. `T-agentcoach` and `T-cover` are **blocked behind it**: the coach would otherwise be trained against a 3–4/10 roster, and the mapper would be widened against a bot spot-distribution that persona-realism is actively changing.
+- **181-hand review (2026-07-25) — read before any grader or persona work:** `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`. It measured the live app end-to-end and found personas unrealistic and most postflop decisions ungraded. Two NEXT items came out of it, both in `professional-teacher-rework.md`: **`T-cover`** (cause of "No baseline yet" is `grade_map_postflop.py`'s *gates*, not the turn/river graders — ⚠️ trust that module's docstring at your peril, it is stale) and **`T-agentcoach`** (LLM session coaching — narrate-only, session-level first; the designated test of the 2g–2k engine bet).
+<!-- Detail moved out of context 2026-08-01 (it is all in SYNTHESIS.md and costs tokens every session): personas score 3-4/10 realism; 42.5% of graded decisions (105/247) return "No baseline yet"; postflop only 4/66 = 6.1% graded. The stale grade_map_postflop.py docstring claims "ONLY the HU single-raised-pot continuation line" — HEAD actually ships 19 postflop mappers incl. nine map_mw_* multiway + two limped-flop-only; they exist and still reject ~everything, and the reason distribution is unmeasured until T-REJECT lands. -->
+
+- ⛔ **Order of work (owner, superseded 2026-08-05): the governing initiative is now `docs/ai-dlc/roadmap/bot-realism-flywheel.md`** (+ PRD `docs/ai-dlc/prd/bot-realism-flywheel.md`). The persona-realism roadmap is **PAUSED** (see its top banner) — do NOT resume its NOW lane or build any persona-fix/pack-value change until the flywheel's phase-3 ceiling verdict. `T-agentcoach` and `T-cover` remain **blocked behind that gate**. Orientation for a fresh session: `docs/ai-dlc/START-HERE.md`. Evidence base: `docs/ai-dlc/research/persona-realism-artifacts/remeasure-2026-08-05/SYNTHESIS.md` (roster 4.8/10; the seven per-persona reports contain findings later corrected by Sol reviews — SYNTHESIS §1's adjudicated column is authoritative, never cite a report number without checking its banner).
+
+## Session boot checklist + misalignment tripwires (owner-mandated, 2026-08-05)
+
+Before picking up ANY work: (1) read `docs/ai-dlc/profile.md` `active:` and open that roadmap; (2) read its pass/fail state and resume from the first unchecked slice — never from memory of what seemed next; (3) if the work spans poker-analytics, read that repo's `docs/FLYWHEEL-STATUS.md` first (its per-directory memory knows nothing about this repo's decisions).
+
+**Tripwires — STOP and tell the owner (do not proceed, do not silently reconcile) when:**
+- a ticket/spec contradicts the active roadmap or PRD, or cites a paused/superseded doc as authority;
+- poker-coach and poker-analytics artifacts disagree about interface, ownership, or priorities;
+- research findings undercut a planned slice's premise;
+- the work in front of you doesn't serve the north-star outcome in the active roadmap;
+- you find yourself about to re-derive a decision an existing doc already records differently.
 
 Global no-gos: no auth/accounts/hosting/billing · no solver tables (heuristic + interim EV only, label EVs *approximate*) · no hand-history imports · no live-session logger · no browsable lessons library (point-of-need concept cards only).
 
-~~turn/river engine deferred~~ — **REMOVED 2026-07-25, this no-go was stale by ~15 days and actively misled two analyses.** Superseded 2026-07-09/10 and recorded in `professional-teacher-rework.md:3-5` + `simulate-table.md:7-9`: turn/river graders shipped as slices **S5–S8**, `backend/app/domain/providers/{turn,river}.py` exist and are dispatched by street in `composite.py:49-50`. Turn and river ARE graded; they are simply not *reached* — see `T-cover`. Only **full-hand (2k)** remains deferred.
+**Turn and river ARE graded** — `backend/app/domain/providers/{turn,river}.py` shipped as slices S5–S8 and are dispatched by street in `composite.py:49-50`. They are simply not *reached*; see `T-cover`. Only **full-hand (2k)** remains deferred.
+<!-- History (kept out of context 2026-08-01): a "turn/river engine deferred" no-go used to sit here. It was removed 2026-07-25 after being stale ~15 days and misleading two analyses; superseded 2026-07-09/10 per professional-teacher-rework.md:3-5 + simulate-table.md:7-9. Stated positively above so the retracted claim is no longer re-injected every session. -->
 
-Invariants: domain core `backend/app/domain/` has no web/DB imports (test-enforced) · results freq+EV, never boolean · grading stays behind the one async `StrategyProvider` · strategy lives in versioned `content/` data · CSS values come from design tokens only · AA contrast + visible focus in both themes · every schema change ships an Alembic migration · `spot_signature()` is frozen (changing it orphans SRS history) · FE types are hand-maintained in `frontend/src/api/types.ts` (edit it manually to match API changes; `schema.d.ts` is unwired).
+Invariants: domain core `backend/app/domain/` has no web/DB imports (test-enforced) · results freq+EV, never boolean · grading stays behind the one async `StrategyProvider` (keep it swappable — heuristic today, solver later) · strategy lives in versioned `content/` data · CSS values come from design tokens only · AA contrast + visible focus in both themes · every schema change ships an Alembic migration · `spot_signature()` is frozen (changing it orphans SRS history) · FE types are hand-maintained in `frontend/src/api/types.ts` (edit it manually to match API changes; there is no generated types file).
 
 Do the simplest thing that meets the ticket's acceptance criteria — no extra features, abstractions, or future-proofing. Touch only files your ticket names.
 
@@ -34,11 +48,6 @@ Do the simplest thing that meets the ticket's acceptance criteria — no extra f
 - Backend tests + boot probe: `./scripts/verify.sh`
 - Backend lint: `cd backend && ruff check .`
 - Frontend typecheck/build: `cd frontend && npm run typecheck && npm run build`
-
-## Conventions
-- Grading flows through one async `StrategyProvider` interface — keep it swappable (heuristic today, solver later).
-- Results are always frequency + EV, never boolean.
-- Don't put web/DB imports in `app/domain/`.
 
 ## Security
 
