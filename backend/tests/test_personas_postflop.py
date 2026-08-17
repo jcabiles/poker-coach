@@ -3449,7 +3449,6 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # population n). Exact tripwire re-record; population bands stay frozen to
 # W4-b.
 _GOLDEN_STATS_N200 = {
-
     # RE-RECORDED for W5-b3 (2026-07-31, slice-authorized): the nit nine-seat
     # unopened ladder replaces the flat 13.6/29.1 pack, displacing the shared
     # rng stream from the first nit first-in decision onward. nit's own AF
@@ -7605,9 +7604,17 @@ def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
 # re-weighting a pack's bet sizes moves every bluff-cell probability with it.
 # Over each pack's FLAT block, which is the distribution these particular pins
 # are measured on: maniac -13.1%, nit -6.3%, lag -3.8%, tag +0.4%, station
-# +7.1%, fish +10.0%. Those are flat-block figures and NOT persona-wide: four
-# packs carry `sizing_by_node`, where the sign can reverse (nit `cbet_dry`
-# +3.2%, lag `cbet_mono` +2.3%, tag `river_value` -3.9%).
+# +7.1%, fish +10.0%.
+#
+# Those are flat-block figures and NOT persona-wide. Four packs carry
+# `sizing_by_node`, and there the sign can reverse: measured against `ed4d108`
+# across the whole slice, nit `cbet_dry` +3.2% and lag `cbet_mono` +2.3% rise
+# while tag `river_value` falls -7.5%. The slice's own two review rounds each
+# moved these again — the river figure was recorded as -3.9% while the same
+# commit was halving it — so the numbers here are stated once, against
+# `ed4d108`, at the branch tip, rather than per-commit. The tip's own last round
+# moved three cells and only three: tag `cbet_wet` -3.5%, nit `cbet_wet` -2.8%,
+# lag `cbet_wet` -5.9%, all from the third-pot size added there.
 # These are bluff cells by construction, so they are the cells most exposed to
 # that coupling — the twelve-of-twelve move is the expected signature, and a
 # PARTIAL move would have been the thing to investigate.
@@ -9431,19 +9438,22 @@ def test_r9d_p6_price_tail_vectors_needed_no_line_edit():
 #    only where a seat faces a sustained barrel holding an in-scope bucket, and
 #    `nit` reaches that node rarest of the six.
 #
-#    RAISED 8000 -> 24000 by the de-robotization slice (T5, 2026-08-16), because
-#    8000 was not enough to measure what the ordering gate below asserts. At
-#    N=8000 the `nit` arm reaches 55 in-scope nodes and the ordering turns over
-#    on sample noise — which is what happened when T5's sizing re-weight moved
-#    the arriving population slightly (the ⚠️ block at `_R9D_S5_ORDER` has the
-#    evidence). At 24000 `nit` reaches 131, the ordering is stable, and it
-#    reproduces at 48000 with a WIDER margin. The cost is ~74s of suite time.
+#    RAISED 8000 -> 24000 by the de-robotization slice (T5, 2026-08-16). The
+#    reason is sample floor and nothing more: at N=8000 the `nit` arm reaches
+#    only 55 in-scope nodes, and the THREE-TIER ordering this gate asserts turns
+#    over on that few. At 24000 `nit` reaches 131 and it holds. The cost is ~74s
+#    of suite time.
 #
-#    This is not "raise N until the answer appears". The distinction that makes
-#    it legitimate: the ordering being asserted is λ's own prediction, fixed in
-#    the packs before any of this was sampled, and the nit/tag margin GROWS with
-#    N (+0.0122 at 24000, +0.0195 at 48000) — the signature of an effect
-#    emerging from noise rather than of noise being mined for one.
+#    ⚠️ AN EARLIER VERSION OF THIS BLOCK ARGUED MORE THAN THAT, AND THE ARGUMENT
+#    WAS WRONG. It said the ordering "is stable" at 24000, that it "reproduces
+#    at 48000 with a WIDER margin", and that a margin growing with N is "the
+#    signature of an effect emerging from noise rather than of noise being mined
+#    for one". Review broke it: the 48000 seed schedule is a PREFIX of the 24000
+#    one, so the second reading is an extension of the first sample and not a
+#    replication of it, and a two-point read on one seed pair cannot establish a
+#    trend at all. The ⚠️ block at `_R9D_S5_ORDER` has the independent seed-pair
+#    evidence and the withdrawal that followed. Nothing about the raise to 24000
+#    depends on the broken argument; the sample floor stands on its own.
 
 _R9D_S5_N = 24000
 
@@ -9808,13 +9818,17 @@ def test_r9d_s5_fold_rate_at_barrel_nodes_rises():
 def test_r9d_s5_fold_rate_rise_follows_the_defensible_ladder():
     """S-5(c) — the ordering, and ONLY the part of it organic play supports.
 
-    Asserted: `nit > tag > {lag, passive_fish, maniac} > calling_station`,
-    strictly between those groups.
+    Asserted: `nit > {tag, lag, passive_fish, maniac} > calling_station`,
+    strictly between those groups. Read `_R9D_S5_ORDER` itself rather than this
+    line if the two ever disagree — an earlier version of this docstring went on
+    claiming the tag's own tier after the constant had dropped it, and the T5
+    review found it still saying so.
 
     ⚠️ DELIBERATELY NOT ASSERTED, and the reason is in the `_R9D_S5_ORDER` block
-    above: the fine tier-3 / tier-4 edge (`{lag, passive_fish}` above `maniac`)
-    does NOT hold at every sample size — at N=4000 maniac outruns lag outright,
-    at this N the margin is 0.002, and only at N=16000 does the λ order return.
+    above: neither the tag's own tier nor the fine tier-3 / tier-4 edge
+    (`{lag, passive_fish}` above `maniac`) holds at every sample size. On three
+    independent seed pairs at this N the four-tier form fails one of them, and
+    the tag/lag boundary flips with the deal stream rather than with the packs.
     Nor are the braced tie's members equal here; they carry equal λ, not equal
     spot mixes. This is the same caveat spec §7 S-4 records for its own reason —
     probability-space ordering differs from the λ ordering because base continue

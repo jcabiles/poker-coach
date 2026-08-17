@@ -197,19 +197,28 @@ def _hash_manifest(manifest: dict) -> str:
 #   hands         a25b7c339bb89291f05e773cafdd488c85149734b50ef3652869e2978e71ebab
 #   seat_outcomes 2cb05b500cb04575984b00a2cfa8bfa46646351f473be2182621e498212cd9c6
 #   decisions     989f630eb9010959f13e8ad6696bb10e4dbba38be6bb1df8a72e908059af6d69
+# RE-RECORDED AGAIN by T5's SECOND review round (2026-08-17,
+# slice-authorized): the tag and lag gain a third-pot bet on wet flops, lag
+# loses the wet-flop overbet the first review round gave it, and those two pack
+# versions bump with the values. Recorded once, at the end of the round, with
+# pack content frozen. Values immediately before it:
+#   manifest      85e07788582e358dd26575b939dbfe6bcef513aaed21351298e2eefe3d69e3b5
+#   hands         2e2a1f8a7962281ad843f200b7a5bdfd09ed418939e315faae5646c018de62f9
+#   seat_outcomes b7e09fb6825fb7bfcd3e067c26b2ec40b8d3c65633b4ea3ac177e8ef09ec8f1f
+#   decisions     ca6a5e2191041e046acc0a7c6c713059cf83e6cb27a745c1213d0f7187b8418e
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "85e07788582e358dd26575b939dbfe6bcef513aaed21351298e2eefe3d69e3b5"
+    "72fc9c7f2948d72858de499fffd5887a128875b6c8b59de3547399bbd54083fa"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "2e2a1f8a7962281ad843f200b7a5bdfd09ed418939e315faae5646c018de62f9"
+    "b2d04e9210ba7041bd291f1013de870de6f465c4b4e8936467d9653798568a91"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "b7e09fb6825fb7bfcd3e067c26b2ec40b8d3c65633b4ea3ac177e8ef09ec8f1f"
+    "e4277183be543a7add97fe5b7e3ddf4c77bac9a10d98b9817a85b77ba66f108b"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "ca6a5e2191041e046acc0a7c6c713059cf83e6cb27a745c1213d0f7187b8418e"
+    "79b25a603987dbba08d547f3960993e85296eb751e783da30748f709f2109e79"
 )
 
 

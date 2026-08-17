@@ -339,17 +339,33 @@ persona-realism-start snapshot (349/1233 = 28.3%): 339/1294 = 26.20%, -2.10pp
 -- inside the adjudicated mapper-track dip that T-cover owns, and a recovery
 from T3/T4's -2.62pp. Graded ratchet moves UP 331 -> 339.
 
-Two things about this entry that the T5 review forced, and that the next mover
-should copy rather than rediscover:
+T5's SECOND review round (2026-08-17) changed the packs again -- the tag and lag
+gain a third-pot bet on wet flops, lag loses a wet-flop overbet -- and this
+fixture's counts did NOT move at this seed, which is itself worth knowing: 400
+hands at one seed cannot see a change confined to a node that carries about 5%
+of postflop aggression.
+
+Three things about this entry that the two T5 review rounds forced, and that the
+next mover should copy rather than rediscover:
 
 (1) THIS FIXTURE IS ONE SEED AT 400 HANDS AND IT DISAGREED IN SIGN WITH THE
-    REAL MEASUREMENT. It reads +0.52pp here. Measured properly with
-    `measure_split` below at 2,000 hands across THREE seeds, T5 read -0.34pp;
-    across SIX seeds it reads +0.02pp (preflop 0.569755 -> 0.572821, postflop
-    0.032769 -> 0.033921, overall 0.250770 -> 0.251009). Three seeds was not
-    enough to fix the SIGN. Six seeds move both components the same way, which
-    is what a real change looks like as against a compositional shuffle.
-(2) The chain entry itself was MISSING from the first T5 commit -- the sixth
+    REAL MEASUREMENT. Measured properly with `measure_split` below at 2,000
+    hands across SIX seeds (20260718-20260723), the slice as a whole reads
+    preflop 0.569755 -> 0.571013, postflop 0.032769 -> 0.032944, overall
+    0.250770 -> 0.251215. Coverage did not measurably change: five readings
+    across the slice gave +0.52pp, -0.34pp, +0.02pp, -0.12pp and +0.04pp, and
+    the per-seed overall ratios at the tip span 0.203 to 0.279 -- a spread
+    nearly two hundred times the last difference claimed.
+(2) DO NOT USE "BOTH COMPONENTS MOVED THE SAME WAY" AS EVIDENCE. An earlier
+    version of this docstring did, to prefer a six-seed reading over a
+    three-seed one. This slice produced the counterexample at the pack values
+    the second review round first tried: preflop rose to 0.570682 and postflop
+    to 0.033492 while the overall ratio FELL to 0.249577. Postflop decisions
+    grade at about 3% and preflop ones at about 57%, so moving decisions toward
+    the postflop streets lowers the overall ratio while improving both halves
+    of it -- it is a ratio over a different denominator, not an average of the
+    two, so the components agreeing proves nothing.
+(3) The chain entry itself was MISSING from the first T5 commit -- the sixth
     occurrence of the lost-record pattern this file already logs. It was caught
     by review rather than by anything automated. If you are re-recording the
     JSON, you are also editing this docstring.
@@ -438,13 +454,23 @@ def measure_split(seed: int = SEED, hands: int = HANDS) -> dict:
     (about 0.57 against about 0.03), so a change that merely moves decisions
     between streets moves the overall ratio without either component changing.
 
-    Reproduce T5's reading, from backend/, with PYTHONPATH=. set:
+    Reproduce T5's reading, from backend/, with PYTHONPATH=. set. All SIX
+    seeds, named in full — an earlier version of this example ran three of
+    them, which regenerated the reading the docstring above declares
+    superseded:
 
         from tests.test_coverage_baseline import measure_split
         tot = {"preflop": 0, "postflop": 0}; gra = dict(tot)
-        for s in (20260718, 20260719, 20260720):
+        for s in (20260718, 20260719, 20260720, 20260721, 20260722, 20260723):
             r = measure_split(s, 2000)
             for k in tot: tot[k] += r["total"][k]; gra[k] += r["graded"][k]
+        for k in tot: print(k, gra[k] / tot[k])
+
+    That gives the AFTER arm only. This helper reads whatever packs are on
+    disk, so the BEFORE arm needs a checkout of the base commit — there is no
+    pack-set parameter and adding one would mean threading a content directory
+    through `load_persona_packs` for a test-only convenience. Worth knowing
+    before you quote a delta from it.
     """
     rng = random.Random(seed)
     packs = load_persona_packs()
