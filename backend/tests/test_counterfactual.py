@@ -35,6 +35,7 @@ from tools.counterfactual import (  # noqa: E402
     CounterfactualConfigError,
     _apply_overrides,
     _authored_resolutions,
+    _collapse_shadowing_size_mixes,
     baseline_config_hash,
     baseline_pack_hash,
     canonical_bytes,
@@ -504,8 +505,29 @@ def test_canonicalization_materializes_call_looseness_on_maniac(packs):
 
 
 def test_presence_preservation(packs):
-    """Every non-overridden field keeps its VALUE and its presence/absence
-    state; only the overridden paths plus the canonical `call_looseness` move."""
+    """Every non-overridden field keeps its presence/absence state, and its
+    value too — with one named exception.
+
+    THE EXCEPTION (T2b, 2026-08-17). Overriding a preflop sizing SCALAR also
+    collapses whatever size mix shadows it onto the swept value. Without that
+    the override changes nothing at all: `table/sizing._draw_size` reads the
+    scalar only when no mix is authored, and since T2b every pack authors one,
+    so axes 1 and 2 swept a number the engine never consulted. Measured before
+    the fix, a tag swept from open 3.0 to 5.0 produced a byte-identical size
+    histogram over 300 seeded decisions.
+
+    The collapse is the narrowest repair available. The mix stays PRESENT, so
+    the presence/absence half of §c.5 is untouched, and only its value moves —
+    for a field that is definitionally the same lever as the swept scalar.
+    Deleting the mix would have moved presence as well.
+
+    FILED FOR THE OWNER: §c.5's "keeps its value" clause and the §a.2 axis
+    declaration cannot both hold literally once a lever has both a scalar and a
+    distribution form. The clause was written when the scalar was the only
+    form. This test now encodes the reading that keeps the declared axis alive;
+    the other reading keeps the clause intact and retires axes 1 and 2. That is
+    a protocol choice, not a coding one.
+    """
     overrides = {"tag": {"postflop.bluff_freq": 0.30}, "nit": {"sizing.open_bb": 2.5}}
     result = validate_config(_cfg(packs, overrides=overrides), packs)
 
@@ -523,7 +545,17 @@ def test_presence_preservation(packs):
             for key in keys[:-1]:
                 container = container[key]
             container[keys[-1]] = value
+            _collapse_shadowing_size_mixes(expected, path, value)
         assert _document(result.packs[name]) == expected, name
+
+    # And the collapse actually happened where it was due, rather than the loop
+    # above passing because nothing shadowed anything.
+    nit_sizing = _document(result.packs["nit"])["sizing"]
+    assert nit_sizing["open_bb"] == 2.5
+    assert set(nit_sizing["open_bb_mix_by_position"]) == {
+        "UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"}
+    assert all(mix == {"2.5": 1.0}
+               for mix in nit_sizing["open_bb_mix_by_position"].values())
 
     # absent optional fields stay ABSENT, not defaulted into the document
     assert "position_sensitivity" not in _document(result.packs["maniac"])["postflop"]
@@ -845,3 +877,91 @@ def test_config_hash_stable_across_two_independent_processes(tmp_path, packs):
     assert outputs[0] == outputs[1]
     in_process = validate_config(json.loads(path.read_text()), packs)
     assert outputs[0] == [baseline_config_hash(packs), in_process.config_hash]
+
+
+# ---------------------------------------------------------------------------
+# Axis liveness — a declared axis that changes nothing is worse than no axis
+# ---------------------------------------------------------------------------
+
+
+def test_every_preflop_sizing_axis_still_changes_realised_play(packs):
+    """A swept axis must move the bots. Axes 1 and 2 stopped doing so.
+
+    De-robotization T2b gave every pack a preflop size mix, and
+    `table/sizing._draw_size` reads the scalar ONLY when no mix is authored. So
+    overriding `sizing.open_bb` or `sizing.threebet_mult` became inert:
+    measured before the fix, a tag swept from 3.0 to 5.0 produced a
+    byte-identical size histogram over 300 seeded decisions. A sweep would have
+    reported a clean null result for two of its twelve declared axes and no
+    test would have said anything — the config still validated, the hashes
+    still differed, and the play did not.
+
+    `_apply_overrides` now drops whatever shadows an overridden scalar. This is
+    the check that keeps that true.
+    """
+    import random
+    from collections import Counter
+
+    from app.domain.archetypes import VillainType
+    from app.domain.spot import ActionType, Card, LegalAction, Position
+    from app.domain.table.play import _preflop_decision
+
+    facing_by_axis = {
+        "sizing.open_bb": ("unopened", 1.0),
+        "sizing.threebet_mult": ("vs_rfi", 3.0),
+        "sizing.fourbet_mult": ("vs_3bet", 10.0),
+    }
+    legal = [
+        LegalAction(action=ActionType.FOLD),
+        LegalAction(action=ActionType.CALL, min_bb=1.0),
+        LegalAction(action=ActionType.RAISE, min_bb=2.0, max_bb=300.0),
+    ]
+
+    def histogram(pack, facing, current_bet):
+        counts: Counter = Counter()
+        for seed in range(300):
+            d = _preflop_decision(pack, Position.CO, facing,
+                                  (Card("As"), Card("Ks")), legal,
+                                  random.Random(seed), current_bet, 0,
+                                  is_opener=False)
+            if d.action is ActionType.RAISE:
+                counts[d.size_bb] += 1
+        return counts
+
+    for axis in SCALAR_AXES:
+        if axis.path not in facing_by_axis:
+            continue
+        facing, current_bet = facing_by_axis[axis.path]
+        for name in ("tag", "maniac"):
+            persona = VillainType(name)
+            before = histogram(packs[persona], facing, current_bet)
+            assert before, f"axis {axis.number}: {name} never raised at {facing}"
+            # A value inside the declared bounds and far from every baseline.
+            swept = axis.lo if packs[persona].sizing.open_bb > axis.lo else axis.hi
+            merged = _apply_overrides(packs, {name: {axis.path: swept}})
+            after = histogram(merged[persona], facing, current_bet)
+            assert after != before, (
+                f"axis {axis.number} ({axis.path}) is a DEAD LEVER for {name}: "
+                f"sweeping it to {swept} left the size histogram identical "
+                f"({dict(before)}). A mix is shadowing the scalar."
+            )
+
+
+def test_every_size_mix_field_is_registered_as_shadowing_its_scalar(packs):
+    """The generalisation of the axis-liveness fix.
+
+    `_clear_shadowing_size_mixes` knows which mix fields hide which scalar. A
+    future mix field added to `PersonaSizing` and not registered there would
+    silently kill its axis the same way — which is precisely how axes 1 and 2
+    died, one slice at a time. Enumerating the model's own fields makes the
+    omission fail here rather than in a sweep result.
+    """
+    from app.domain.content.models import PersonaSizing
+    from tools.counterfactual import _SIZE_MIX_SHADOWS
+
+    mix_fields = {f for f in PersonaSizing.model_fields if "_mix" in f}
+    registered = {f for fields in _SIZE_MIX_SHADOWS.values() for f in fields}
+    assert mix_fields == registered, (
+        f"unregistered size-mix fields {sorted(mix_fields - registered)} / "
+        f"stale entries {sorted(registered - mix_fields)}"
+    )

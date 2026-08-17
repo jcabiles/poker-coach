@@ -3103,6 +3103,47 @@ def _persona_stats_ext(packs, persona: str, n: int) -> ExtStats:
     return stats
 
 
+_OPEN_FIELDS = ("open_bb", "open_bb_mix", "open_bb_mix_by_position")
+
+
+def _snapshot_open(sizing) -> dict:
+    """Deep enough copy of every field carrying a persona's open size."""
+    return {
+        "open_bb": sizing.open_bb,
+        "open_bb_mix": dict(sizing.open_bb_mix) if sizing.open_bb_mix else None,
+        "open_bb_mix_by_position": (
+            {seat: dict(mix) for seat, mix in sizing.open_bb_mix_by_position.items()}
+            if sizing.open_bb_mix_by_position else None
+        ),
+    }
+
+
+def _restore_open(sizing, snap: dict) -> None:
+    for field in _OPEN_FIELDS:
+        setattr(sizing, field, snap[field])
+
+
+def _shift_open(sizing, delta: float) -> None:
+    """Move EVERY form in which this persona's open is authored.
+
+    Shifting only `open_bb` stopped being a live input at T2b: the three
+    regulars author `open_bb_mix_by_position`, the three recreationals author
+    `open_bb_mix`, and with an rng in play `preflop_raise_to` reads the mix and
+    never the scalar. A mutation that is no longer an input turns an instrument
+    gate green for the wrong reason — which is the very failure this gate
+    exists to catch — so it moves all three forms together.
+    """
+    sizing.open_bb += delta
+    if sizing.open_bb_mix is not None:
+        sizing.open_bb_mix = {
+            str(float(k) + delta): w for k, w in sizing.open_bb_mix.items()}
+    if sizing.open_bb_mix_by_position is not None:
+        sizing.open_bb_mix_by_position = {
+            seat: {str(float(k) + delta): w for k, w in mix.items()}
+            for seat, mix in sizing.open_bb_mix_by_position.items()
+        }
+
+
 def test_stats_caches_are_pack_content_keyed():
     """🔴 INSTRUMENT GATE (cache defect, waves 4 and 5): both stats caches must
     key on the persona-pack CONTENT, so a same-process before/after sweep —
@@ -3113,8 +3154,9 @@ def test_stats_caches_are_pack_content_keyed():
     silently measured nothing; the standing workaround was "measure in separate
     processes". Both legs below fail there on the identity assertion alone.
 
-    The mutation is a real measurement input (tag's preflop open size), and the
-    test restores it in a `finally` — the packs dict is loaded locally here, so
+    The mutation is a real measurement input (tag's preflop open size, in
+    whichever form the pack authors it — see `_shift_open`), and the test
+    restores it in a `finally` — the packs dict is loaded locally here, so
     nothing leaks to other tests even if the restore were skipped."""
     packs = load_persona_packs()
     n = 150
@@ -3125,9 +3167,9 @@ def test_stats_caches_are_pack_content_keyed():
     assert _persona_stats(packs, "tag", n) is base
     assert _persona_stats_ext(packs, "tag", n) is base_ext
 
-    original_open = packs[VillainType.TAG].sizing.open_bb
+    original_open = _snapshot_open(packs[VillainType.TAG].sizing)
     try:
-        packs[VillainType.TAG].sizing.open_bb = original_open + 5.0
+        _shift_open(packs[VillainType.TAG].sizing, 5.0)
         mutated = _persona_stats(packs, "tag", n)
         mutated_ext = _persona_stats_ext(packs, "tag", n)
         # (a) cache MISS proven: a fresh measurement ran, not the memo.
@@ -3147,7 +3189,7 @@ def test_stats_caches_are_pack_content_keyed():
             f"pfr={mutated_ext.pfr}"
         )
     finally:
-        packs[VillainType.TAG].sizing.open_bb = original_open
+        _restore_open(packs[VillainType.TAG].sizing, original_open)
     # (c) restored content -> the ORIGINAL memo is hit again (the fingerprint is
     # content-derived, so it returns to its earlier value; nothing was evicted).
     assert _persona_stats(packs, "tag", n) is base
@@ -3158,9 +3200,9 @@ def test_stats_caches_are_pack_content_keyed():
     # MEASURED persona would pass every leg above and still serve stale readings
     # for the six-of-nine seats it ignored. Mutating a persona that is in the
     # lineup but is NOT the one being measured kills that mutant.
-    original_maniac_open = packs[VillainType.MANIAC].sizing.open_bb
+    original_maniac_open = _snapshot_open(packs[VillainType.MANIAC].sizing)
     try:
-        packs[VillainType.MANIAC].sizing.open_bb = original_maniac_open + 5.0
+        _shift_open(packs[VillainType.MANIAC].sizing, 5.0)
         filler_read = _persona_stats(packs, "tag", n)
         assert filler_read is not base, (
             "editing a FILLER pack did not miss the cache — the fingerprint "
@@ -3180,7 +3222,7 @@ def test_stats_caches_are_pack_content_keyed():
             "editing a FILLER pack did not miss the ext cache — same defect"
         )
     finally:
-        packs[VillainType.MANIAC].sizing.open_bb = original_maniac_open
+        _restore_open(packs[VillainType.MANIAC].sizing, original_maniac_open)
     assert _persona_stats(packs, "tag", n) is base
 
 
@@ -3645,12 +3687,39 @@ _GOLDEN_STATS_N200 = {
     # `test_persona_postflop_bands` gates AF at population n and passes
     # unchanged. The nit row moving None -> 1.0 is the usual single-digit
     # denominator, not a signal.
-    "calling_station": (0.39603960396039606, 0.23214285714285715, 0.671280276816609),
-    "lag": (2.1785714285714284, None, 0.6239316239316239),
-    "maniac": (2.536231884057971, 0.36538461538461536, 0.5051546391752577),
-    "nit": (1.0, None, 0.75),
-    "passive_fish": (0.9914529914529915, 0.5853658536585366, 0.4778761061946903),
-    "tag": (2.135135135135135, None, 0.5584415584415584),
+    # RE-RECORDED for T2b (2026-08-17, slice-authorized): PREFLOP raise sizes
+    # are now drawn from a mix, keyed by seat for the three regulars. All six
+    # rows move, in both directions (AF: station 0.396 -> 0.322, lag 2.179 ->
+    # 2.226, maniac 2.536 -> 3.239, nit 1.0 -> 0.933, tag 2.135 -> 1.840, fish
+    # 0.991 -> 0.788).
+    # UNLIKE T5, no direct coupling explains a sign here. T5's move had one —
+    # a pack's own size mix scales its bluff rate through the F2 joint law —
+    # and preflop has no equivalent: `_preflop_facing` keys on the raise COUNT
+    # and never the size, so nothing reads an open size to set a frequency.
+    # What preflop sizing does change is the POT, and through it the stack-to-
+    # pot ratio that `personas_postflop` :1110 and :1123 use for the commitment
+    # ramp (`stack_bb / pot_bb <= pf.spr_commit`). Smaller opens mean smaller
+    # pots, higher SPR and less commitment, so hands go further: measured with
+    # the rng stream held aligned, hero postflop decisions rose 3.0% while
+    # seats per flop FELL 1.7%. (An earlier draft of this note said "more
+    # callers per pot mean more multiway flops". That contradicted the sentence
+    # above it and is false in both halves — nothing reads a size to set a
+    # frequency, and the measured seats-per-flop change is negative.) Which
+    # hands reach which street therefore shifts, which is ordinary stream
+    # displacement with a mechanism, not a per-persona effect with a direction.
+    # The claim that aggression stayed in range is NOT made from these n=200
+    # numbers: `test_persona_postflop_bands` gates AF at population n and
+    # passes unchanged, and it is not a formality here: the lag's WTSD leg went
+    # RED at an earlier draft of these values and the 3-bet mixes were narrowed
+    # until it was not (see the ledger — the seat ladder was NOT the cause).
+    # One FtC cell crosses the n>=30 floor (lag, None -> 0.323) and the tag's
+    # and the nit's stay None — the usual single-digit denominator.
+    "calling_station": (0.3215686274509804, 0.31746031746031744, 0.6377358490566037),
+    "lag": (2.225806451612903, 0.3225806451612903, 0.6048387096774194),
+    "maniac": (3.2388059701492535, 0.35555555555555557, 0.6267281105990783),
+    "nit": (0.9333333333333333, None, 0.6181818181818182),
+    "passive_fish": (0.7876106194690266, 0.40476190476190477, 0.551219512195122),
+    "tag": (1.84, None, 0.6629213483146067),
 }
 
 

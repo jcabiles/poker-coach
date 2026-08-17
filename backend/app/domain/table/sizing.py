@@ -206,6 +206,29 @@ def _draw_size(scalar: float, mix: dict[str, float] | None, rng) -> float:
     return float(rng.choices(keys, weights=[mix[k] for k in keys], k=1)[0])
 
 
+def _open_mix(sizing, position) -> dict[str, float] | None:
+    """The open mix in force for this seat: the seat's own entry when the
+    persona authored a seat table, otherwise the flat mix.
+
+    `position=None` means the caller does not know the seat. No caller in
+    `app/` is in that state — `play._preflop_decision` is the only one and it
+    always has the seat — so this is the compatibility path for the older
+    tests, which pass `rng=None` too and were already taking the scalar.
+
+    Indexed directly rather than through `.get(..., fallback)`. The validator
+    requires all nine seats, so a miss is a broken model and should say so
+    rather than quietly returning the fixed scalar; a fallback here is how the
+    big blind's isolation raise stayed at one size through a whole review round.
+    Both attributes are likewise read directly rather than through
+    `getattr(..., None)`, for the reason
+    `test_a_stand_in_sizing_object_must_declare_its_opt_out` records.
+    """
+    by_seat = sizing.open_bb_mix_by_position
+    if by_seat is None or position is None:
+        return sizing.open_bb_mix
+    return by_seat[position.value]
+
+
 def preflop_raise_to(
     sizing,
     node: str,
@@ -215,6 +238,7 @@ def preflop_raise_to(
     min_bb: float | None,
     max_bb: float | None,
     rng=None,
+    position=None,
 ) -> float:
     """Persona preflop lever → a legal raise-TO in bb, clamped to
     `[min_bb, max_bb]`. `node` ∈ {open, iso, 3bet, 4bet, 5bet}. `last_raise_to`
@@ -224,6 +248,14 @@ def preflop_raise_to(
     per decision instead of being the persona's one fixed number — the
     de-robotization change. `rng=None` (the default) reproduces the previous
     behaviour exactly, so only the live bot loop opts in.
+
+    `position` is the acting seat, and only the open (and the iso built on it)
+    uses it: a persona may author its open as a per-seat table, which is how a
+    regular opens 3.0 from UTG and 2.5 from the button. Note that the iso means
+    the BIG BLIND reads that table too, even though it can never open. The
+    3-bet and 4-bet multipliers stay seat-blind — they are multiples of the
+    raise faced, and the size a regular chooses there tracks the opponent and
+    the stack rather than its own chair.
 
     The clamp below is the ENGINE's legal-raise bracket, which reaches the full
     stack. It is not, and never was, a grading bound, and neither is anything
@@ -235,7 +267,7 @@ def preflop_raise_to(
     authored values gradeable is the authoring ticket's job, checked by
     `tests/test_persona_pack_invariants.py::test_authored_preflop_sizes_stay_gradeable`.
     """
-    mix_open = sizing.open_bb_mix
+    mix_open = _open_mix(sizing, position)
     mix_3bet = sizing.threebet_mult_mix
     mix_4bet = sizing.fourbet_mult_mix
     if node == "open":

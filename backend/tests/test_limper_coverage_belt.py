@@ -364,9 +364,22 @@ _PRE_M3_FIRES = {
     # export digests read. No limper-belt content changed; every _WANT_* shape
     # still fires (verified: BB¹ 49, BB² 21, BB³ 3) — stream displacement, not
     # a coverage regression.
-    ("UTG2", 1): 100, ("LJ", 1): 107, ("HJ", 1): 126, ("CO", 1): 93,
-    ("CO", 2): 32, ("SB", 1): 68, ("SB", 2): 36, ("BTN", 1): 86,
-    ("BTN", 2): 30,
+    # RE-RECORDED for T2b (2026-08-17, slice-authorized): PREFLOP raise sizes
+    # are now drawn from a mix, keyed by seat for the three regulars. All nine
+    # pairs move (old: UTG2¹ 100, LJ¹ 107, HJ¹ 126, CO¹ 93, CO² 32, SB¹ 68,
+    # SB² 36, BTN¹ 86, BTN² 30).
+    # Displacement, not an arrival change. An earlier version of this note said
+    # the opposite — "opens are smaller, so calling one is cheaper and more
+    # seats come along" — which cannot happen: `sample_preflop_action` takes no
+    # size argument and `_preflop_facing` keys on the raise COUNT, so no bot's
+    # calling frequency reads a bb amount. Measured with the rng stream held
+    # aligned, seats per flop FELL 1.7%. What preflop sizing does reach is the
+    # pot, and through it the stack-to-pot ratio the postflop commitment ramp
+    # uses; hands go further rather than wider. The belt exists to prove every
+    # shape is still REACHED, and every one still is.
+    ("UTG2", 1): 85, ("LJ", 1): 121, ("HJ", 1): 117, ("CO", 1): 102,
+    ("CO", 2): 23, ("SB", 1): 65, ("SB", 2): 34, ("BTN", 1): 103,
+    ("BTN", 2): 39,
 }
 
 

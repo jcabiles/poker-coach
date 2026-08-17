@@ -369,6 +369,58 @@ next mover should copy rather than rediscover:
     occurrence of the lost-record pattern this file already logs. It was caught
     by review rather than by anything automated. If you are re-recording the
     JSON, you are also editing this docstring.
+
+RE-RECORDED for T2b (2026-08-17, slice-authorized): preflop raise sizes are now
+drawn from a mix, keyed by seat for the three regulars. Read the paired
+measurement below rather than this line; point (1) above is exactly about that.
+
+(4) THIS SLICE'S BEFORE/AFTER ARMS MUST BE PAIRED, AND T2B IS THE FIRST CHANGE
+    FOR WHICH THAT MATTERS. `measure_split` deals from the same `Random` it
+    hands the bots, and T2b adds one `rng.choices` call per preflop raise, so a
+    two-checkout comparison re-randomises every later deal — the arms are not
+    playing the same hands at all. The fix is a control that consumes the
+    IDENTICAL rng: degenerate one-key mixes at the pre-T2b scalars, which draw
+    once and always return the old size. Paired, six seeds x 2,000 hands:
+
+        preflop   0.57397 -> 0.57448   (+0.05pp)
+        postflop  0.03515 -> 0.03458   (-0.06pp)
+        overall   0.25387 -> 0.25125   (-0.26pp)
+
+    Both components are flat to within a tenth of a point. The overall ratio
+    moves only because the street MIX moved, which is point (2) above: hero
+    postflop decisions rose 1.5% (21,624 -> 21,952) against a flat preflop
+    count, and postflop grades at about 3% against preflop's 57%.
+
+WHAT MOVED, MEASURED RATHER THAN ASSUMED. The extra postflop decisions are not
+extra players: seats per flop FELL slightly (2.0241 -> 2.0185). Hands go
+FURTHER instead.
+
+AN EARLIER VERSION OF THIS ENTRY GAVE THE WRONG MECHANISM, and it is worth
+naming because it was superficially plausible: "a cheaper open is called by
+more seats, so more pots go multiway". That cannot happen. `sample_preflop_action`
+takes no size argument and `play._preflop_facing` keys on the raise COUNT, so no
+bot's calling frequency reads a bb amount -- villain preflop defence is
+size-blind by construction. The measured seats-per-flop change is in the
+opposite direction anyway. The route that IS open to preflop sizing is the pot:
+smaller opens mean smaller pots, and `personas_postflop` (~1110, ~1123) uses
+`stack_bb / pot_bb <= pf.spr_commit` for its commitment ramp, so a higher SPR
+commits less often and leaves more streets to play.
+
+That is a genuine tension with spec 7.1, which reads the ratio and forbids
+reducing it. The ratio cannot tell "grading broke" apart from "hands went
+further", and this ticket produced the second. SPEC 7.1 IS THEREFORE NOT MET
+AND IS NOT CLAIMED TO BE; it is filed for the owner. Choosing a different
+acceptance metric is a spec decision, and shrinking the change until the ratio
+held would be fitting values to a gate -- the defect both T5 review rounds
+caught. What the values WERE shrunk for is a different reason, recorded in the
+ledger: the 3-bet mixes were narrowed because they pushed the lag's showdown
+rate out of a frozen band, and that reduction happens to shrink this delta too.
+
+At this one seed the fixture reads 339/1294 -> 335/1227. Cumulative against the
+immutable `coverage_baseline.persona-realism-start.json` (349/1233 = 28.30%),
+which every prior entry states and the first draft of this one omitted:
+335/1227 = 27.30%, -1.00pp, inside the adjudicated `T-cover` mapper dip and a
+recovery on T5's -2.10pp.
 """
 
 from __future__ import annotations

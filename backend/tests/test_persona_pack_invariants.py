@@ -104,7 +104,36 @@ def _check_preflop_sizes(pack: PersonaPack) -> list[str]:
                 violations.append(
                     f"{pack.persona}: {label} {key} exceeds the grading cap "
                     f"{cap} — hero would see 'no baseline yet'")
+    # The seat table is the open mix in another shape and gets the same cap.
+    # Reading only the flat field would let a per-seat 9bb open through the one
+    # check that exists to stop it.
+    for seat, mix in (pack.sizing.open_bb_mix_by_position or {}).items():
+        for key in mix:
+            if float(key) > gmp._OVERSIZE_OPEN_CAP + 1e-9:
+                violations.append(
+                    f"{pack.persona}: open bb {key} at {seat} exceeds the "
+                    f"grading cap {gmp._OVERSIZE_OPEN_CAP} — hero would see "
+                    f"'no baseline yet'")
     return violations
+
+
+_BLIND_SEATS = ("SB", "BB")
+
+
+def _authored_opens(pack: PersonaPack, *, blinds: bool = True) -> list[float]:
+    """Every open size the pack can produce, from whichever form it authored.
+
+    `blinds=False` drops the two blind seats, which matters because both spots
+    that cap the opener's size — `_map_vs_3bet` and `_map_vs_4bet` — reject a
+    blind opener outright, before any size is looked at.
+    """
+    seat_table = pack.sizing.open_bb_mix_by_position or {}
+    keys = set(pack.sizing.open_bb_mix or {})
+    for seat, mix in seat_table.items():
+        if not blinds and seat in _BLIND_SEATS:
+            continue
+        keys |= set(mix)
+    return sorted(float(k) for k in keys) or [pack.sizing.open_bb]
 
 
 def test_authored_preflop_sizes_stay_gradeable(packs):
@@ -116,9 +145,77 @@ def test_preflop_size_check_catches_an_ungradeable_value(packs):
     """Negative case. `PersonaSizing` itself happily accepts a 9bb open —
     which is exactly why this check has to exist."""
     pack = packs["tag"].model_copy(deep=True)
+    pack.sizing.open_bb_mix_by_position = None
     pack.sizing.open_bb_mix = {"3.0": 0.5, "9.0": 0.5}
     violations = _check_preflop_sizes(pack)
     assert violations and "9.0" in violations[0], violations
+
+
+def test_the_seat_table_is_checked_too(packs):
+    """The same negative case, hidden one level down. A per-seat mix is the
+    form the three regulars actually ship, so a check that only reads the flat
+    field would be checking nobody."""
+    pack = packs["tag"].model_copy(deep=True)
+    assert pack.sizing.open_bb_mix_by_position, "tag is expected to ship a seat table"
+    pack.sizing.open_bb_mix_by_position["BTN"] = {"2.5": 0.5, "9.0": 0.5}
+    violations = _check_preflop_sizes(pack)
+    assert violations and "BTN" in violations[0], violations
+
+
+def test_a_regulars_open_never_exceeds_the_hero_3bet_lines_cap(packs):
+    """Tighter than the outer envelope above, and for a different node.
+
+    `_check_preflop_sizes` uses `_OVERSIZE_OPEN_CAP` (4.5), which is the band
+    for hero merely FACING an open. Two other spots are stricter: when hero
+    3-bets and this seat 4-bets, and when hero opens and this seat 3-bets,
+    `_map_vs_4bet` and `_map_vs_3bet` both require the opener's own open to be
+    at most `_STD_OPEN_CAP` (3.0). An open above that returns 'no baseline yet'
+    for the whole hand.
+
+    The three recreationals already open above 3.0 as their shipped identity
+    (3.5 / 4.0 / 4.5) and are excluded — this is a guard against a REGULAR
+    quietly acquiring a big-open rung to buy size variety, which would buy it
+    by deleting hero's feedback. Spec 7.1 forbids that trade.
+
+    The BLIND seats are excluded too, and that is a fact about the graders
+    rather than a convenience: both `_map_vs_3bet` and `_map_vs_4bet` return
+    None for a blind opener before any size is examined
+    (`opener_pos in _BLIND_POSITIONS`), so no size a blind seat chooses can
+    cost hero a spot at those nodes. It is also why the regulars can carry the
+    +0.5bb small-blind bump RES-B 4.1 asks for.
+    """
+    from app.domain.table import grade_map_preflop as gmp
+
+    offenders = []
+    for name, pack in packs.items():
+        if pack.sizing.open_bb > gmp._STD_OPEN_CAP + 1e-9:
+            continue  # recreational: already outside, by design
+        too_big = [s for s in _authored_opens(pack, blinds=False)
+                   if s > gmp._STD_OPEN_CAP + 1e-9]
+        if too_big:
+            offenders.append(f"{name}: {too_big} above {gmp._STD_OPEN_CAP}")
+    assert not offenders, "\n".join(offenders)
+
+
+def test_no_authored_seat_mix_plays_as_one_size(packs):
+    """The design rule the values were chosen to satisfy, stated where it can
+    fail: no seat may put more than 0.90 of its mass on a single size.
+
+    This is the AUTHORED side of
+    `test_preflop_size_values.py::test_every_persona_mixes_its_open_at_every_seat`,
+    which measures the same property in production's sampler. Two checks
+    because they fail for different reasons: this one catches a value written
+    too heavy, that one catches a value that never reaches the engine.
+    """
+    ceiling = 0.90
+    offenders = []
+    for name, pack in packs.items():
+        table = pack.sizing.open_bb_mix_by_position
+        mixes = table.items() if table else [("flat", pack.sizing.open_bb_mix or {})]
+        for seat, mix in mixes:
+            if mix and max(mix.values()) > ceiling + 1e-9:
+                offenders.append(f"{name}@{seat}: {max(mix.values())} > {ceiling}")
+    assert not offenders, "\n".join(offenders)
 
 
 # --- 2. no preflop mix is shadowed dead -------------------------------------

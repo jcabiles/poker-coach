@@ -118,13 +118,14 @@ describes packs that no longer exist. Re-deriving it against a changed roster
 would change what the diagnostic *is*, so it is deliberately left alone. Nothing
 in the finale depends on it.
 
-**T2b, T3, T4 and T5 are unblocked.** T3 and T4 SHIPPED as PR-2 (2026-08-15)
-and T5 as PR-3 (2026-08-16); see their sections below. **T2b is the only ticket
-left**, and it still needs the value rework the theory review asked for
-(recorded below) plus mechanism work the ticket does not mention: the
-seat-conditional design in item 1 requires threading `position` into
-`preflop_raise_to` and keying the mix by seat, and neither exists — T2a's mixes
-are flat `{size: weight}` dicts with no seat dimension.
+**T2b, T3, T4 and T5 are unblocked, and all four have now SHIPPED.** T3 and T4
+as PR-2 (2026-08-15), T5 as PR-3 (2026-08-16), **T2b as PR-4 (2026-08-17)** —
+see their sections below and the build records in
+`docs/ai-dlc/ledger/phase3-derobotization.md`. T2b did need the mechanism work
+this paragraph warned about (threading `position` into `preflop_raise_to` and
+keying the open mix by seat) plus most of the value rework the theory review
+asked for; the one item that did NOT survive contact is the 2.8 three-bet rung
+in item 3, which the ledger shows creates no hero coverage at all.
 
 ### Original blocker write-up, kept for the record
 
@@ -191,7 +192,56 @@ there fails here. 22 tests.
 `content/schema/persona.schema.json`,
 `backend/tests/test_preflop_size_mix.py`.
 
-## T2b — Preflop size values (BLOCKED, and the drafted values need rework)
+## T2b — Preflop size values ✅ SHIPPED (PR-4, 2026-08-17)
+
+Build record, measured effect and adjudication:
+`docs/ai-dlc/ledger/phase3-derobotization.md` §"T2b build record". Two things
+in the text below did not survive contact with the code and are corrected
+there rather than edited away here: the "BLOCKED" status (the protocol pin was
+cleared by T-control in PR #184) and item 3's 2.8 three-bet rung, which creates
+no hero coverage because the app never offers hero the open size that would
+need rescuing.
+
+**Do:** Author the preflop size values on all six packs, with the open keyed by
+seat for the three regulars.
+
+**Acceptance (met, with one exception stated below):** every persona mixes its
+open at every seat and its 3-bet multiplier, measured in production's own
+sampler; no open size or 3-bet multiplier is producible by exactly one pack;
+the regulars' mean open is strictly lower from the hijack round than from every
+early seat; the recreationals stay seat-blind; every authored rung is on the
+0.5bb grid and inside the grading bound that governs it; the five-seed gate
+passes; a non-gating realised-size report ships with the ticket.
+
+⚠️ **Spec §7.1's coverage clause is NOT met.** Measured paired over six seeds,
+both component ratios are flat (preflop +0.05pp, postflop −0.06pp) and the
+pooled ratio falls 0.26pp because the street MIX moved — hero takes 1.5% more
+postflop decisions, and postflop grades at about 3% against preflop's 57%. The
+metric cannot distinguish that from a grading regression. Filed for the owner
+in the ledger rather than resolved, and not shrunk-to-fit.
+
+**Done-condition:** `./scripts/verify.sh && python -m tools.derobo_gate --check
+--all-seeds`
+
+**Owns:** `backend/app/domain/table/sizing.py`,
+`backend/app/domain/table/play.py`,
+`backend/app/domain/content/models.py` (`PersonaSizing`),
+`content/schema/persona.schema.json`, the `sizing` block of the six packs,
+`backend/tools/preflop_size_report.py`,
+`backend/tests/test_preflop_size_values.py`.
+
+**Also edited, each a forced re-pin or a mechanically required update** — named
+here because the original Owns block understated the ticket, which a reviewer
+correctly flagged as scope drift against §11 item 13:
+`backend/tools/counterfactual.py` (an override on a sizing scalar had to start
+collapsing the mix that now shadows it, or two declared sweep axes stay dead),
+`backend/tools/reject_counts.py` and
+`backend/app/domain/table/grade_map_postflop.py` (comments that enumerated the
+old fixed open sizes), and the pinned fixtures in
+`backend/tests/{test_buyin_spread,test_limper_coverage_belt,test_coverage_baseline,test_personas_postflop,test_bet_sizing,test_preflop_size_mix,test_persona_pack_invariants,test_counterfactual}.py`
+plus `backend/tests/data/coverage_baseline.json`.
+
+### Original write-up, kept for the record
 
 Blocked by the protocol pin above. Separately, the theory review passed the
 T2a mechanism but returned NEEDS-WORK on the drafted numbers — fortunate

@@ -106,7 +106,8 @@ def test_a_stand_in_sizing_object_must_declare_its_opt_out():
                          min_bb=2.0, max_bb=200.0, rng=random.Random(1))
 
     class DeclaredSizing(BareSizing):
-        open_bb_mix = threebet_mult_mix = fourbet_mult_mix = None
+        open_bb_mix = open_bb_mix_by_position = None
+        threebet_mult_mix = fourbet_mult_mix = None
 
     got = preflop_raise_to(DeclaredSizing(), "open", last_raise_to=3.0,
                            limpers=0, min_bb=2.0, max_bb=200.0,
@@ -114,13 +115,24 @@ def test_a_stand_in_sizing_object_must_declare_its_opt_out():
     assert got == pytest.approx(2.5)
 
 
-def test_shipped_packs_author_no_mix_yet():
-    """T2a ships the mechanism only. If this starts failing, T2b has landed
-    and the pack-value assertions belong with it."""
+def test_every_shipped_pack_authors_an_open_and_a_3bet_mix():
+    """T2b landed. Every persona now mixes both levers it can mix, in one of
+    the two open forms.
+
+    This replaces T2a's `test_shipped_packs_author_no_mix_yet`, which asserted
+    the opposite while the mechanism shipped without values. The check is worth
+    keeping in the inverted form: the failure it guards is a pack losing its
+    mix in a later edit and quietly reverting to one fixed number, which
+    nothing else reports because neither statistical gate can see bet size.
+
+    `fourbet_mult_mix` is deliberately absent everywhere — see
+    `test_no_pack_authors_a_4bet_mix` in `test_preflop_size_values.py`.
+    """
     for name, pack in load_persona_packs().items():
         s = pack.sizing
-        assert (s.open_bb_mix, s.threebet_mult_mix, s.fourbet_mult_mix) == (
-            None, None, None), f"{name} authored a mix"
+        opens = s.open_bb_mix or s.open_bb_mix_by_position
+        assert opens, f"{name} authored no open mix in either form"
+        assert s.threebet_mult_mix, f"{name} authored no 3-bet mix"
 
 
 # --- with a mix, sizes vary as authored -------------------------------------
@@ -178,6 +190,108 @@ def test_the_engine_clamp_is_not_a_grading_bound():
     assert set(_draw_many(sizing, "open", random.Random(1), n=20)) == {9.0}
 
 
+# --- the open, keyed by seat (T2b) ------------------------------------------
+
+_SEAT_TABLE = {
+    "UTG": {"3.0": 1.0}, "UTG1": {"3.0": 1.0}, "UTG2": {"3.0": 1.0},
+    "LJ": {"3.0": 1.0}, "HJ": {"2.5": 1.0}, "CO": {"2.5": 1.0},
+    "BTN": {"2.5": 1.0}, "SB": {"3.0": 1.0}, "BB": {"3.5": 1.0},
+}
+
+
+def _seat_sizing(**overrides) -> PersonaSizing:
+    return _sizing(open_bb_mix_by_position=_SEAT_TABLE, **overrides)
+
+
+@pytest.mark.parametrize("position,expected", [
+    (Position.UTG, 3.0), (Position.LJ, 3.0), (Position.SB, 3.0),
+    (Position.HJ, 2.5), (Position.CO, 2.5), (Position.BTN, 2.5),
+])
+def test_the_seat_selects_its_own_open(position, expected):
+    """Each seat draws from its own entry. Degenerate one-value mixes are used
+    here so the assertion is about SELECTION, not about the sampler."""
+    got = preflop_raise_to(_seat_sizing(), "open", last_raise_to=1.0, limpers=0,
+                           min_bb=2.0, max_bb=200.0, rng=random.Random(1),
+                           position=position)
+    assert got == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("position,expected", [
+    (Position.BTN, 4.5),   # 2.5 + 2 limpers
+    (Position.BB, 5.5),    # 3.5 + 2 limpers — the seat that cannot OPEN at all
+])
+def test_the_iso_uses_the_seats_open_too(position, expected):
+    """The iso is the open plus a bb per limper, so it inherits the seat.
+
+    The big-blind case is the one that matters. A big blind never opens, so an
+    earlier version of this field excluded it from the table and an earlier
+    version of this test covered only the button — and every big-blind
+    isolation raise fell back to the fixed scalar, at share 1.000, for the three
+    packs that ship a seat table.
+    """
+    got = preflop_raise_to(_seat_sizing(), "iso", last_raise_to=1.0, limpers=2,
+                           min_bb=2.0, max_bb=200.0, rng=random.Random(1),
+                           position=position)
+    assert got == pytest.approx(expected)
+
+
+def test_the_3bet_multiplier_ignores_the_seat():
+    """Only the open is seat-keyed. The 3-bet is a multiple of the raise faced,
+    and nothing in this function should make it vary by chair."""
+    sizing = _seat_sizing(threebet_mult_mix={"3.0": 1.0})
+    sizes = {
+        preflop_raise_to(sizing, "3bet", last_raise_to=4.0, limpers=0,
+                         min_bb=2.0, max_bb=200.0, rng=random.Random(1),
+                         position=p)
+        for p in (Position.UTG, Position.BTN, Position.SB)
+    }
+    assert sizes == {12.0}
+
+
+def test_without_a_position_the_seat_table_falls_back_to_the_scalar():
+    """The range estimator and the older tests pass no seat. They also pass no
+    rng, so they were already on the scalar; this pins that a seat table does
+    not change what they see."""
+    got = preflop_raise_to(_seat_sizing(), "open", last_raise_to=1.0, limpers=0,
+                           min_bb=2.0, max_bb=200.0, rng=random.Random(1))
+    assert got == pytest.approx(3.0)  # the `open_bb` scalar, not a seat entry
+
+
+def test_the_live_bot_loop_actually_passes_the_seat():
+    """The thread that makes the whole field work, pinned end to end.
+
+    Without it every seat would silently fall back to the scalar and the seat
+    tables the three regulars ship would be dead JSON — the exact failure mode
+    T2a's `extra="forbid"` and direct-attribute reads were added to prevent,
+    one level up.
+    """
+    from app.domain.table.play import _preflop_decision
+
+    pack = load_persona_packs()["tag"]
+    assert pack.sizing.open_bb_mix_by_position, "tag must ship a seat table"
+    legal = [
+        LegalAction(action=ActionType.FOLD),
+        LegalAction(action=ActionType.CALL, min_bb=1.0),
+        LegalAction(action=ActionType.RAISE, min_bb=2.0, max_bb=100.0),
+    ]
+    seen: dict[Position, Counter] = {}
+    for position in (Position.UTG, Position.BTN):
+        counts: Counter = Counter()
+        for seed in range(400):
+            d = _preflop_decision(pack, position, "unopened",
+                                  (Card("As"), Card("Ks")), legal,
+                                  random.Random(seed), 1.0, 0, is_opener=True)
+            if d.action is ActionType.RAISE:
+                counts[d.size_bb] += 1
+        seen[position] = counts
+    assert all(seen.values()), seen
+    # Both seats offer the same two sizes, so comparing the SETS would pass on
+    # a broken thread. The weights are what the seat changes: UTG is 0.90 on
+    # 3.0, the button 0.88 on 2.5, so the modal size flips.
+    assert seen[Position.UTG].most_common(1)[0][0] == pytest.approx(3.0), seen
+    assert seen[Position.BTN].most_common(1)[0][0] == pytest.approx(2.5), seen
+
+
 # --- schema validation ------------------------------------------------------
 
 @pytest.mark.parametrize("bad", [
@@ -211,6 +325,56 @@ def test_a_well_formed_mix_is_accepted():
     assert _sizing(open_bb_mix={"2.5": 0.25, "3.0": 0.75}).open_bb_mix
 
 
+def test_a_seat_table_missing_a_seat_is_rejected():
+    """Completeness is required rather than defaulted. A missing seat would
+    fall back to the scalar and go on playing one fixed size from that chair,
+    which is the defect the table exists to remove and which nothing else
+    would report."""
+    short = {k: v for k, v in _SEAT_TABLE.items() if k != "CO"}
+    with pytest.raises(ValidationError) as exc:
+        _sizing(open_bb_mix_by_position=short)
+    assert "CO" in str(exc.value)
+
+
+def test_a_seat_table_missing_the_big_blind_is_rejected():
+    """The regression test for the review finding that produced the BB entry.
+
+    An earlier validator REJECTED a BB key, on the true premise that a big
+    blind cannot open. The premise is right and the conclusion was wrong: the
+    same table feeds the isolation raise, which a big blind makes routinely, so
+    excluding the seat sent all of those back to the fixed scalar with nothing
+    reporting it.
+    """
+    short = {k: v for k, v in _SEAT_TABLE.items() if k != "BB"}
+    with pytest.raises(ValidationError) as exc:
+        _sizing(open_bb_mix_by_position=short)
+    assert "BB" in str(exc.value)
+
+
+def test_a_seat_table_naming_something_that_is_not_a_seat_is_rejected():
+    with pytest.raises(ValidationError) as exc:
+        _sizing(open_bb_mix_by_position={**_SEAT_TABLE, "UNDER_THE_GUN": {"3.0": 1.0}})
+    assert "UNDER_THE_GUN" in str(exc.value)
+
+
+def test_a_malformed_inner_mix_names_its_seat():
+    """The inner mixes get the same shape rules as a flat one. The seat has to
+    be in the message: eight tables of four rungs is enough that 'weights sum
+    to 0.9' alone sends an author reading all of them."""
+    bad = {**_SEAT_TABLE, "BTN": {"2.5": 0.5, "3.0": 0.2}}
+    with pytest.raises(ValidationError) as exc:
+        _sizing(open_bb_mix_by_position=bad)
+    assert "BTN" in str(exc.value)
+
+
+def test_authoring_both_open_forms_is_rejected():
+    """Not a precedence question: either resolution order silently discards
+    half of what the author wrote."""
+    with pytest.raises(ValidationError) as exc:
+        _sizing(open_bb_mix={"3.0": 1.0}, open_bb_mix_by_position=_SEAT_TABLE)
+    assert "open_bb_mix_by_position" in str(exc.value)
+
+
 # --- the size draw never precedes the action draw ---------------------------
 
 class _RecordingRng(random.Random):
@@ -230,8 +394,16 @@ _ACTION_NAMES = {"raise", "fold", "call", "limp", "3bet", "4bet", "5bet_shove"}
 
 def _mixed_pack():
     """A real pack with sizing mixes authored on every lever, so the size draw
-    is actually reachable. Shipped packs author none (T2b)."""
+    is actually reachable.
+
+    The seat table is cleared first. Without that the object would carry both
+    open forms — which the model refuses at load, and which `model_copy` does
+    not re-validate — and the flat mix authored below would be dead, because
+    `_open_mix` takes the seat table when there is one. The test would then
+    silently exercise the shipped tag rather than this fixture.
+    """
     pack = load_persona_packs()["tag"].model_copy(deep=True)
+    pack.sizing.open_bb_mix_by_position = None
     pack.sizing.open_bb_mix = {"2.5": 0.5, "3.5": 0.5}
     pack.sizing.threebet_mult_mix = {"3.0": 0.5, "3.5": 0.5}
     pack.sizing.fourbet_mult_mix = {"2.1": 0.5, "2.4": 0.5}

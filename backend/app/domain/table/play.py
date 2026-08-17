@@ -143,6 +143,10 @@ def _preflop_decision(
         # size per decision instead of using one fixed number. This draw is
         # always AFTER the action draw above, which the range estimator's
         # capture and the pinned merit tests both depend on.
+        # `position` is threaded for the same reason: a persona may author its
+        # open as a per-seat table, and without the seat every one of its opens
+        # would fall back to the single fixed number the table exists to
+        # replace — a silent no-op with nothing reporting it.
         size = preflop_raise_to(
             pack.sizing,
             preflop_node(facing),
@@ -151,6 +155,7 @@ def _preflop_decision(
             min_bb=la.min_bb,
             max_bb=la.max_bb,
             rng=rng,
+            position=position,
         )
         return Decision(action=act_action, size_bb=size)
     return Decision(action=act_action)

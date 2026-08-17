@@ -206,19 +206,32 @@ def _hash_manifest(manifest: dict) -> str:
 #   hands         2e2a1f8a7962281ad843f200b7a5bdfd09ed418939e315faae5646c018de62f9
 #   seat_outcomes b7e09fb6825fb7bfcd3e067c26b2ec40b8d3c65633b4ea3ac177e8ef09ec8f1f
 #   decisions     ca6a5e2191041e046acc0a7c6c713059cf83e6cb27a745c1213d0f7187b8418e
+# RE-RECORDED for T2b (2026-08-17, slice-authorized): PREFLOP raise sizes are
+# now drawn from a mix — keyed by seat for the three regulars, flat for the
+# three recreationals — so the bots raise different amounts before the flop and
+# every byte of a seeded export changes with them. Two causes are folded into
+# this one re-pin and both are deliberate: the behaviour change itself, and the
+# six `version` bumps that carry it (see the ⚠️ note above — a version bump
+# alone moves all four digests, because `version` is inside the model that
+# `config_hash` covers). Recorded once, at the end of the ticket, with pack
+# content frozen. Values immediately before it:
+#   manifest      72fc9c7f2948d72858de499fffd5887a128875b6c8b59de3547399bbd54083fa
+#   hands         b2d04e9210ba7041bd291f1013de870de6f465c4b4e8936467d9653798568a91
+#   seat_outcomes e4277183be543a7add97fe5b7e3ddf4c77bac9a10d98b9817a85b77ba66f108b
+#   decisions     79b25a603987dbba08d547f3960993e85296eb751e783da30748f709f2109e79
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "72fc9c7f2948d72858de499fffd5887a128875b6c8b59de3547399bbd54083fa"
+    "998cd03659012e083d7e848b06e907f476c005a74816305842f1db45ecc92482"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "b2d04e9210ba7041bd291f1013de870de6f465c4b4e8936467d9653798568a91"
+    "ab611396d45659c1a240c7b4f5f87702259c39778870f40905106dc4b5e6498b"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "e4277183be543a7add97fe5b7e3ddf4c77bac9a10d98b9817a85b77ba66f108b"
+    "ae2056e0efd18e31cba73c2c8c00d6e4ea2af5b64ed53e03630ffd35926e0846"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "79b25a603987dbba08d547f3960993e85296eb751e783da30748f709f2109e79"
+    "084bcf40a6e99dce5aad994bff51b4e0ca236ef6a03080461f61486ab8b218eb"
 )
 
 

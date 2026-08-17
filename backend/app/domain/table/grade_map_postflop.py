@@ -218,16 +218,22 @@ def _hu_srp_preflop(state: HandState) -> GateResult:
     open_to = raises[0].amount_bb
     # Engine history stores the raise INCREMENT; a non-blind opener's increment
     # equals the raise-TO size. Same [min-raise 2.0 .. `_OVERSIZE_OPEN_CAP`]
-    # band as grade_map_preflop._map_vs_open (R2): bot personas open a FIXED
-    # open_bb from EVERY seat (tag/lag/nit 3.0), so an exact per-seat canonical
-    # gate (2.5 for HJ/CO/BTN) would silently zero those seats' turn/river
-    # coverage.
+    # band as grade_map_preflop._map_vs_open (R2): a tolerant band rather than an
+    # exact per-seat canonical gate (2.5 for HJ/CO/BTN), which would silently
+    # zero turn/river coverage at every seat where a bot's open did not match
+    # the canonical to the decimal.
     # T-REJECT stale-comment fix: this used to read "[2.0 .. standard 3.0] ...
     # oversized persona opens (station 3.5 / fish 4.0 / maniac 4.5) still
     # return None". `_OVERSIZE_OPEN_CAP` is **4.5**, so EVERY persona open is
     # in band and this gate rejects none of them — measured as
     # `OPEN_SIZE_OFF_BAND == 0` over the 181-hand corpus. The comment, not the
     # code, was wrong; the band is unchanged.
+    # T2b: the justification above used to say the personas open a FIXED
+    # `open_bb` from every seat, and to enumerate the four sizes. Neither is
+    # true any more — the three regulars draw the open from a per-seat mix and
+    # the other three from a flat one, spanning 2.5 to 4.5. Still all in band,
+    # so the code and the conclusion are unchanged; only the reason is, and it
+    # is now the tolerance itself rather than a roster fact that keeps moving.
     if not (2.0 - _EPS <= open_to <= _OVERSIZE_OPEN_CAP + _EPS):
         return gate_fail(RejectReason.OPEN_SIZE_OFF_BAND)
     return GateResult((opener, bb, open_to), None)
