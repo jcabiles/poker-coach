@@ -340,9 +340,19 @@ _PRE_M3_FIRES = {
     # Every _WANT_* shape still fires at this tip: BB1 61, BB2 29, BB3 7.
     # Re-recorded a third time in the same slice, for the review rework.
     # Every _WANT_* shape still fires: BB1 49, BB2 28, BB3 3.
-    ("UTG2", 1): 101, ("LJ", 1): 118, ("HJ", 1): 115, ("CO", 1): 98,
-    ("CO", 2): 37, ("SB", 1): 68, ("SB", 2): 36, ("BTN", 1): 77,
-    ("BTN", 2): 34,
+    # RE-RECORDED for T5 (2026-08-16, slice-authorized): postflop bet sizes are
+    # re-weighted across all six packs. No limper-belt content changed and no
+    # preflop content changed — the bots bet different amounts, so hands end
+    # differently and the shared organic stream drifts at this seed, moving all
+    # nine pairs (old: UTG2¹ 101, LJ¹ 118, HJ¹ 115, CO¹ 98, CO² 37, SB¹ 68,
+    # SB² 36, BTN¹ 77, BTN² 34). Every _WANT_* coverage shape still fires
+    # (verified: BB¹ 50, BB² 27, BB³ 5) — stream displacement, not a coverage
+    # regression. Recorded once, at the end of the ticket, with pack content
+    # frozen; the three separate re-records above are what that discipline is
+    # meant to avoid repeating.
+    ("UTG2", 1): 108, ("LJ", 1): 111, ("HJ", 1): 125, ("CO", 1): 92,
+    ("CO", 2): 28, ("SB", 1): 77, ("SB", 2): 38, ("BTN", 1): 96,
+    ("BTN", 2): 27,
 }
 
 

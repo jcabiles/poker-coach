@@ -3627,12 +3627,27 @@ _GOLDEN_STATS_N200 = {
     # across just these two commits: the station reads 0.308 then 0.402, and
     # the fish 0.750 then 0.971, from pack edits that hold every combo-weighted
     # width to within 0.05pp. Read the n=2000 table, not these numbers.
-    "calling_station": (0.39067055393586003, 0.15384615384615385, 0.6831683168316832),
-    "lag": (2.423076923076923, None, 0.5714285714285714),
-    "maniac": (3.106060606060606, 0.40384615384615385, 0.5539906103286385),
-    "nit": (None, None, 0.4772727272727273),
-    "passive_fish": (0.8731343283582089, 0.46153846153846156, 0.4585152838427948),
-    "tag": (2.6486486486486487, None, 0.4945054945054945),
+    # RE-RECORDED for T5 (2026-08-16, slice-authorized): postflop bet sizes are
+    # re-weighted across all six packs. All six rows move, and one movement is a
+    # REAL effect rather than displacement, so it is named rather than left for
+    # someone to discover: every AF falls (maniac 3.106 -> 2.536, tag 2.649 ->
+    # 2.135, lag 2.423 -> 2.179). A persona's own size distribution scales its
+    # bluff rate — `personas_postflop` ~:910 multiplies `bluff_mass` by
+    # E_s[_bluff_size_factor(s)], the F2 joint law's "bigger bets carry
+    # proportionally more bluffs" — so betting smaller genuinely means bluffing
+    # less. Computed from the authored mixes: maniac -13.1%, nit -6.3%, lag
+    # -3.8%, tag +0.4%, station +7.1%, fish +10.0%.
+    # That is the engine behaving as designed, not a defect to compensate, and
+    # the claim that it stayed in range is NOT made from these n=200 numbers:
+    # `test_persona_postflop_bands` gates AF at population n and passes
+    # unchanged. The nit row moving None -> 1.0 is the usual single-digit
+    # denominator, not a signal.
+    "calling_station": (0.39603960396039606, 0.23214285714285715, 0.671280276816609),
+    "lag": (2.1785714285714284, None, 0.6239316239316239),
+    "maniac": (2.536231884057971, 0.36538461538461536, 0.5051546391752577),
+    "nit": (1.0, None, 0.75),
+    "passive_fish": (0.9914529914529915, 0.5853658536585366, 0.4778761061946903),
+    "tag": (2.135135135135135, None, 0.5584415584415584),
 }
 
 
@@ -5691,12 +5706,46 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     0.4722, CI [0.447, 0.498] — still comfortably inside [0.43, 0.53], so
     (unlike N-LAGLADDER) no `vs_3bet` opener re-tune was required. The
     authored-COMPONENT sibling pin moves the same direction and is re-pinned:
-    0.6170 -> 0.6012 (see test_n3bstrata_opener_fold_to_3bet_targets)."""
+    0.6170 -> 0.6012 (see test_n3bstrata_opener_fold_to_3bet_targets).
+
+    ⚠️ T5 (2026-08-16) RE-POWERED 12000 -> 36000, AND ESCALATED WHAT THAT
+    EXPOSED. lag's organic blend now sits ON its band floor with no usable
+    margin, and this gate's verdict at n=12000 had become a coin flip on which
+    hands the shared stream happened to deal:
+
+        packs        n=12000   n=36000
+        pre-T5       0.4367    0.4318      (0.43 floor: clears by 0.0018)
+        T5           0.4295    0.4342      (fails at 12000, passes at 36000)
+
+    T5 changes no preflop node, so it cannot move this statistic's true value —
+    and at the settling n it moves it +0.0024, INSIDE noise and in the OPPOSITE
+    direction from the n=12000 failure. What moved it is T3/T4: the history
+    above records 0.4914 and 0.4722 for this blend, and the seat-split opening
+    ranges changed which hands arrive at the vs_3bet node, dragging it to
+    ~0.433. Nobody re-read it at a settling n at the time.
+
+    Re-powering makes the gate measure the pack instead of one draw of the
+    stream. It does NOT make the reading comfortable, and this note exists so
+    nobody reads green as comfortable: 0.4342 against a 0.43 floor is 0.4pp of
+    margin against a Wilson half-width of 0.0144, and the CI straddles the floor
+    at every n tried. **A re-tune of lag's `vs_3bet` opener node is probably
+    owed, and it is NOT this ticket's to make** — that is a preflop edit,
+    outside T5's scope. It is filed in
+    docs/ai-dlc/ledger/phase3-derobotization.md for the owner, and the next
+    slice that touches lag's preflop must re-read this.
+
+    The band was deliberately NOT widened. Moving a dossier floor to accommodate
+    a diff is the band-laundering the theory contract's §11 item 7 exists to
+    catch — and the pack's own authored policy is still on target, since the
+    sibling `test_n3bstrata_opener_fold_to_3bet_targets` passes unchanged. That
+    is what localises the drift to the arriving mix rather than to the policy.
+
+    Cost of the re-power: this test goes from ~50s to ~150s."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     for persona, lo, hi in (("maniac", 0.25, 0.35), ("lag", 0.43, 0.53)):
-        folds, n, at = _production_opener_fold_counts(packs, persona, 12000, (4000,))
+        folds, n, at = _production_opener_fold_counts(packs, persona, 36000, (4000,))
         rate = folds / n
         wlo, whi = _wilson95(folds, n)
         f4, n4 = at[4000]
@@ -7544,96 +7593,37 @@ def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
 # lag alone spans 0.104 -> 0.651 and maniac reaches 0.773 (ledger B-9). Pinning
 # the mild member and describing it as the maximum would have handed the theory
 # reviewer the weakest number in the class as the headline.
+# RE-RECORDED for the de-robotization slice's T5 (2026-08-16,
+# slice-authorized). All twelve rows move — six personas x both cells — and the
+# cause is the F2 joint law rather than anything in the N-LOGIT mechanism these
+# pins guard. `personas_postflop` ~:910 scales `bluff_mass` by
+# E_s[_bluff_size_factor(s)] over the persona's own authored sizing, so
+# re-weighting a pack's bet sizes moves every bluff-cell probability with it:
+# maniac -13.1%, nit -6.3%, lag -3.8%, tag +0.4%, station +7.1%, fish +10.0%.
+# These are bluff cells by construction, so they are the cells most exposed to
+# that coupling — the twelve-of-twelve move is the expected signature, and a
+# PARTIAL move would have been the thing to investigate.
+# The coupling this gate exists to watch — `call_looseness` reaching the
+# bluff-raise rate on a hard-zeroed call cell — is untouched: the sweep still
+# spans the same shape, and `test_nlogit_g1`/`g3` pass unchanged.
 _NLOGIT_BLUFF_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
 # AIR, half-pot faced price — the mild member.
 _NLOGIT_BLUFF_PINS = {
-    "lag": [
-        0.00632707830738665,
-        0.012574596160184052,
-        0.02483687860206759,
-        0.04846991578981119,
-        0.09245838160897324,
-    ],
-    "tag": [
-        0.0038414637314893936,
-        0.007653526717674855,
-        0.0151907903158051,
-        0.029926966360834605,
-        0.05811473500218986,
-    ],
-    "nit": [
-        0.0007713033771600229,
-        0.001541417853524008,
-        0.0030780910824986796,
-        0.006137291024224993,
-        0.012199708884614285,
-    ],
-    "maniac": [
-        0.011501900750328245,
-        0.02274222271217914,
-        0.044473029874272194,
-        0.08515879032247602,
-        0.15695175873232234,
-    ],
-    "calling_station": [
-        0.0007768892732132065,
-        0.0015525723696065783,
-        0.003100331250576883,
-        0.006181497810317068,
-        0.012287043289445158,
-    ],
-    "passive_fish": [
-        0.0014300037870682053,
-        0.0028559235925834387,
-        0.0056955810408987045,
-        0.011326650227504741,
-        0.02239958815474058,
-    ],
+    "lag": [0.006086052923715886, 0.012098473895010543, 0.023907701092464193, 0.046698937935432526, 0.08923088816263465],  # noqa: E501
+    "tag": [0.0038569107491173, 0.007684184285266557, 0.015251175725689927, 0.030044142947755884, 0.05833564154207269],  # noqa: E501
+    "nit": [0.0007224894563152039, 0.0014439356843228871, 0.002883707480511515, 0.005750831245939953, 0.011435896580499432],  # noqa: E501
+    "maniac": [0.01000583536813726, 0.019813420908583623, 0.03885695265891133, 0.07480712827585852, 0.1392010274361683],  # noqa: E501
+    "calling_station": [0.0008321924048908285, 0.0016630008730857482, 0.0033204797853893303, 0.0066189813769167395, 0.013150917078600846],  # noqa: E501
+    "passive_fish": [0.0015733919400161421, 0.0031418405334601223, 0.0062640005760089225, 0.01245001425554976, 0.024593834915799185],  # noqa: E501
 }
 # ACE_HIGH, an eighth-pot faced price — the LARGEST member of the class.
 _NLOGIT_BLUFF_PINS_ACE_HIGH = {
-    "nit": [
-        0.013536493779643619,
-        0.026711408741018922,
-        0.05203294424043299,
-        0.09891884950047973,
-        0.1800293980678262,
-    ],
-    "tag": [
-        0.06415590151832302,
-        0.12057613255122913,
-        0.21520382069304297,
-        0.35418555641194427,
-        0.523097524906994,
-    ],
-    "lag": [
-        0.10420685164292329,
-        0.1887451639842234,
-        0.31755361822313727,
-        0.4820352110624423,
-        0.6505043975532546,
-    ],
-    "maniac": [
-        0.17531219717470822,
-        0.2983244751413881,
-        0.45955303293331273,
-        0.6297174855095653,
-        0.7727934333510216,
-    ],
-    "calling_station": [
-        0.004958847880376452,
-        0.009868758090613319,
-        0.019544634907356577,
-        0.03833992988278056,
-        0.07384851295684795,
-    ],
-    "passive_fish": [
-        0.037460110066186665,
-        0.07221503690160545,
-        0.1347025259229459,
-        0.23742350588914288,
-        0.38373847718133286,
-    ],
+    "nit": [0.012690061839999685, 0.025062084280638778, 0.04889866607099545, 0.09323811279913614, 0.17057237889449078],  # noqa: E501
+    "tag": [0.06439820175506222, 0.12100396571297749, 0.21588499133634537, 0.35510758480384264, 0.5241024237278488],  # noqa: E501
+    "lag": [0.10061471506267866, 0.18283367228458103, 0.309145193561234, 0.4722855724203888, 0.6415678877352128],  # noqa: E501
+    "maniac": [0.15586887969278476, 0.2696999329789253, 0.4248246786091653, 0.5963185295524998, 0.7471172181653085],  # noqa: E501
+    "calling_station": [0.005310263118787907, 0.010564426353937352, 0.020907971977706042, 0.040959562569000324, 0.07869578039691683],  # noqa: E501
+    "passive_fish": [0.04106769806656815, 0.07889534588929718, 0.14625208309572676, 0.25518310544873896, 0.406606979238314],  # noqa: E501
 }
 
 
@@ -9426,14 +9416,28 @@ def test_r9d_p6_price_tail_vectors_needed_no_line_edit():
 #    literal here, rather than deleting it, is the point: it is the evidence the
 #    retirement rests on.
 #
-# ── COST. Two arms x `_R9D_S5_N` hands ~= 34s on this maker's box, plus ~3s for
-#    the no-op discriminator. The shared nine-seat lineup is what keeps that
+# ── COST. Two arms x `_R9D_S5_N` hands ~= 110s on this maker's box, plus ~3s
+#    for the no-op discriminator. The shared nine-seat lineup is what keeps that
 #    affordable: it reads ALL SIX personas out of ONE pair of arms instead of six
-#    pairs. N is set by the DECISIVE gate's thinnest sample — `nit` reaches only
-#    41 in-scope barrel nodes even at N=8000 (14 at N=4000), and a literal
-#    effect-size floor asserted over 14 observations would not be worth the ink.
+#    pairs. N is set by the DECISIVE gate's thinnest sample — the mechanism fires
+#    only where a seat faces a sustained barrel holding an in-scope bucket, and
+#    `nit` reaches that node rarest of the six.
+#
+#    RAISED 8000 -> 24000 by the de-robotization slice (T5, 2026-08-16), because
+#    8000 was not enough to measure what the ordering gate below asserts. At
+#    N=8000 the `nit` arm reaches 55 in-scope nodes and the ordering turns over
+#    on sample noise — which is what happened when T5's sizing re-weight moved
+#    the arriving population slightly (the ⚠️ block at `_R9D_S5_ORDER` has the
+#    evidence). At 24000 `nit` reaches 131, the ordering is stable, and it
+#    reproduces at 48000 with a WIDER margin. The cost is ~74s of suite time.
+#
+#    This is not "raise N until the answer appears". The distinction that makes
+#    it legitimate: the ordering being asserted is λ's own prediction, fixed in
+#    the packs before any of this was sampled, and the nit/tag margin GROWS with
+#    N (+0.0122 at 24000, +0.0195 at 48000) — the signature of an effect
+#    emerging from noise rather than of noise being mined for one.
 
-_R9D_S5_N = 8000
+_R9D_S5_N = 24000
 
 # Two DEDICATED rngs (ledger R-4). Neither ever acts as an action/sizing rng —
 # that is the whole point: the deal sequence must not be able to move when play
@@ -9458,10 +9462,17 @@ _R9D_S5_SCOPE = _R9D_SCOPE_BUCKETS
 
 # OCCURRENCE FLOORS (spec §7 S-5: "state the occurrence floor ... below which the
 # comparison is not reported"), stated over IN-SCOPE barrel nodes because that is
-# the population the decisive gate averages over. Measured at this N: 2,538
-# table-wide, minimum 41 (`nit`). Deliberately a hard FAILURE rather than a
-# silent skip — a run that stops reaching barrel nodes means the derivation or
-# the sim broke, and a skip is exactly how that would hide.
+# the population the decisive gate averages over. Measured at this N: 8,484
+# table-wide, minimum 131 (`nit`) — it was 2,538 and 41 at the old N=8000.
+# Deliberately a hard FAILURE rather than a silent skip — a run that stops
+# reaching barrel nodes means the derivation or the sim broke, and a skip is
+# exactly how that would hide.
+#
+# The per-persona floor stays at 20 rather than rising with N. It is asking
+# "did the derivation break", not "is this enough to gate an ordering on" —
+# 8000 hands cleared it with 41 nodes and still could not carry the ordering,
+# which is the whole lesson of the `_R9D_S5_N` block above. A floor that
+# answered both questions would have hidden that.
 _R9D_S5_NODE_FLOOR = 1000  # table-wide, in-scope
 _R9D_S5_PERSONA_NODE_FLOOR = 20  # per persona, in-scope
 
@@ -9481,9 +9492,11 @@ _R9D_S5_PERSONA_NODE_FLOOR = 20  # per persona, in-scope
 #   * 0.03 sits far above any no-op (which reads exactly 0.000000 — see
 #     `test_r9d_s5_gate_is_red_under_a_no_op_mechanism`) and well below both the
 #     reference-node effect and the measured population value: `nit` reads
-#     +0.1463 here, ~4.9x the floor. An earlier, coarser diagnostic over ALL
+#     +0.1017 here, ~3.4x the floor. An earlier, coarser diagnostic over ALL
 #     barrel nodes (in-scope and out) read +0.054, ~1.8x the floor; both
-#     readings clear it comfortably.
+#     readings clear it comfortably. (It read +0.1463, ~4.9x, at the old
+#     N=8000 on the pre-T5 packs — the floor's headroom shrank but the floor
+#     was never near binding.)
 #
 # What this floor is NOT: it is not the slice's unfitted effect-size gate. That
 # remains **S-1's literal 0.05 at the named reference node** (`_R9D_MIN_
@@ -9528,49 +9541,46 @@ _R9D_S5_NIT_RISE_FLOOR = 0.03
 # maniac} > calling_station` — and says plainly that the fine tier-3/tier-4 edge
 # is NOT asserted, rather than buying it with a bigger N. The λ-exact claim is
 # S-4's, at the node, in odds space, where it is true.
-# WEAKENED by the de-robotization slice (2026-08-15) — the tag's own tier is
-# dropped, so the asserted claim is now `nit > {tag, lag, passive_fish,
-# maniac} > calling_station`.
 #
-# The reason is NOT that this slice broke a sound gate. Measuring the rise on
-# the PRE-SLICE packs at three times the pinned sample shows the tag/tier-3
-# boundary already fails there:
+# ── ⚠️ WEAKENED 2026-08-15, RESTORED 2026-08-16. Read this before trusting a
+#    number quoted anywhere else about this gate. ─────────────────────────────
 #
-#   pre-slice  N=8000   HOLDS   nit .1563  tag .0867  fish .0443  lag .0369
-#                                 maniac .0316  station .0041
-#   pre-slice  N=24000  BROKEN  nit .1425  lag .0579  tag .0563  fish .0478
-#                                 maniac .0231  station .0062
-#   this slice N=8000   BROKEN  nit .0918  fish .0615  tag .0570  lag .0324
-#                                 maniac .0140  station .0037
-#   this slice N=24000  BROKEN  nit .1102  fish .0515  lag .0500  tag .0429
-#                                 maniac .0249  station .0046
+# The T3/T4 slice dropped the tag's own tier, leaving `nit > {tag, lag,
+# passive_fish, maniac} > calling_station`, on the strength of a table showing
+# the tag falling below the fish at N=24000 and the regulars' rise collapsing
+# about 40%. That escalation was recorded as an owner call on whether
+# `line_sensitivity` had fallen out of fit.
 #
-# The tag's separation from tier 3 was a property of the pinned sample, in the
-# same way this block already records for the tier-3/tier-4 edge. What survives
-# all four measurements is nit on top and the calling station at the bottom,
-# and that is what is asserted.
+# It does not reproduce. Re-measured at the shipped tip (2026-08-16), the tag
+# sits ABOVE the fish and the four-tier order is intact:
 #
-# ⚠️ ESCALATED, not buried: this slice also LOWERED the regulars' rise (tag
-# .0867 -> .0570 and nit .1563 -> .0918 at the pinned N). That is a real side
-# effect and it has a plausible mechanism — the regulars now defend the blinds
-# wider, so they reach barrel nodes with weaker holdings that were folding
-# anyway, leaving line-sensitivity less room to move the rate. The MECHANISM is
-# untouched and its λ-exact node-level gate
-# (`test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie`)
-# still passes.
+#   packs        N       nit     tag     fish    lag     maniac  station
+#   T3/T4 tip    24000   .0921   .0464   .0417   .0561   .0231   .0055
+#   T5           24000   .1017   .0895   .0445   .0386   .0288   .0050
+#   T5           48000   .0983   .0788   .0492   .0418   .0265   .0057
 #
-# ⚠️ NAMED so the widened tier cannot absorb it: a NEW inversion appeared
-# that this weakening would otherwise hide. At N=24,000 the tag now reads
-# .0429 against the passive_fish's .0515, where the tag sat ABOVE the fish at
-# every pre-slice sample. A fish reacting to a persistent hostile line more
-# than a tag is backwards for both archetypes, and backwards against λ too
-# (fish 0.35 < tag 0.50). Theory review calls `line_sensitivity` OUT OF FIT
-# rather than an open question — its closed-loop statistic moved about 40%,
-# which by the theory contract's §2 makes it an un-refit constant. That
-# re-fit is an owner call recorded in
-# docs/ai-dlc/ledger/phase3-derobotization.md, not something this slice
-# decided by editing a number.
-_R9D_S5_ORDER = (("nit",), ("tag", "lag", "passive_fish", "maniac"), ("calling_station",))
+# The numbers the weakening rested on were taken mid-review, before the
+# recreationals' any-two cold-call fix landed — and that fix changed exactly
+# which hands those two packs bring to a barrel node. So the tier was dropped
+# to accommodate a measurement of packs that were never shipped.
+#
+# What WAS real, and is the reason the restoration needed more than a revert:
+# the ordering genuinely does turn over at N=8000, because `nit` reaches only
+# 55 in-scope nodes there. The fix is the sample size, not the claim — see the
+# `_R9D_S5_N` block. The nit/tag margin is +0.0122 at 24000 and +0.0195 at
+# 48000, growing with N.
+#
+# The magnitude question the escalation also raised — the regulars' rise is
+# lower than it was pre-slice — is NOT closed by this, and is deliberately not
+# gated here. It is recorded in docs/ai-dlc/ledger/phase3-derobotization.md
+# with the owner's 2026-08-16 ruling: no re-fit. The short reason is that a
+# re-fit needs a target, no sourced population figure for fold-to-barrel exists
+# in this repo, and the softmax law (theory contract §2) predicts this effect
+# to shrink when a persona arrives at the node with more marginal holdings —
+# which is what T3/T4 made the regulars do. Tuning λ upward to cancel that
+# would break the node-level claim, which is green, in order to move an
+# average.
+_R9D_S5_ORDER = (("nit",), ("tag",), ("lag", "passive_fish", "maniac"), ("calling_station",))
 
 # ── THE DEMOTED COMPANION ──────────────────────────────────────────────────
 # Showdown frequency is now a DIRECTIONAL population-consequence check, not an
@@ -9845,8 +9855,8 @@ def test_r9d_s5_paired_population_showdown_frequency_falls():
 
     The claim is only that the population moves the way the mechanism predicts:
     bots that fold to barrels more often ride fewer hands to showdown. Measured
-    at this N: nit -0.0154, tag -0.0079, lag -0.0053, passive_fish -0.0037,
-    maniac -0.0036, calling_station -0.0023.
+    at this N: nit -0.0079, tag -0.0096, lag -0.0050, passive_fish -0.0054,
+    maniac -0.0041, calling_station -0.0021.
 
     Spec §7 S-5's original literal — a fall of >= `_R9D_S5_SPEC_FALL` (0.01) for
     nit/tag/lag/passive_fish — was measured FALSE at four sample sizes and has
@@ -9887,7 +9897,7 @@ def test_r9d_s5_calling_station_stays_line_blind():
 
     Spec §5 — the station's near-zero lever is THE ARCHETYPE, not a leak: a
     line-blind call-down is its defining trait, so authoring it at 0.10 must
-    leave the population read essentially where it was. Measured -0.0022 …
+    leave the population read essentially where it was. Measured -0.0021 …
     -0.0030 across N in {2000, 4000, 8000, 24000}.
 
     A two-sided bound, so it is not satisfied by "the station is excluded": were

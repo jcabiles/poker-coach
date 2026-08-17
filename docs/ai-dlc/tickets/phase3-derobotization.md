@@ -118,9 +118,13 @@ describes packs that no longer exist. Re-deriving it against a changed roster
 would change what the diagnostic *is*, so it is deliberately left alone. Nothing
 in the finale depends on it.
 
-**T2b, T3, T4 and T5 are unblocked.** T3 and T4 SHIPPED as PR-2 (2026-08-15);
-see their sections below. T2b still needs the value rework the theory review
-asked for (recorded below), and T5 is ready to start.
+**T2b, T3, T4 and T5 are unblocked.** T3 and T4 SHIPPED as PR-2 (2026-08-15)
+and T5 as PR-3 (2026-08-16); see their sections below. **T2b is the only ticket
+left**, and it still needs the value rework the theory review asked for
+(recorded below) plus mechanism work the ticket does not mention: the
+seat-conditional design in item 1 requires threading `position` into
+`preflop_raise_to` and keying the mix by seat, and neither exists — T2a's mixes
+are flat `{size: weight}` dicts with no seat dimension.
 
 ### Original blocker write-up, kept for the record
 
@@ -385,7 +389,34 @@ after T3 because both edit that block.
 
 ---
 
-## T5 — Postflop sizing ecology
+## T5 — Postflop sizing ecology ✅ (shipped as PR-3)
+
+**Shipped WIDER than the two moves drafted below, on an owner ruling.** The
+ticket named two: give 0.5 real presence, give the maniac a small size. The
+evidence behind it named a third with more teeth — the six size bands were
+disjoint, so "an observant hero can read the bettor's archetype off the bet size
+alone with almost no error". The bands now overlap across SMALL, MEDIUM and
+LARGE. Table-wide MEDIUM went 21.1% → 34.0% (from least-used to level with
+LARGE); the maniac's 82.5% large-or-overbet fell to 51.8%.
+
+**No pack that lacked an overbet gained one, deliberately.** The engine draws
+size independently of hand strength on purpose (theory contract F14) and
+`_bluff_size_factor` favours the larger size on a bluff cell, so a nit or fish
+given a 1.5 would overbet-BLUFF more than it overbet for value — a worse tell
+than the one it removes. "Only the maniac and lag ever overbet" survives this
+slice. Owner-approved exclusion, recorded rather than silently dropped.
+
+Positive tests live in `backend/tests/test_persona_size_ecology.py`, measuring
+the best accuracy an observer could reach naming the persona from one bet size
+(worst node 0.392 → 0.328 against a chance floor of 0.167).
+
+**Found during the build and not in this ticket: a persona's own size
+distribution scales its bluff rate** (`personas_postflop` ~:910, the F2 joint
+law). So this was an aggression change as well as a sizing change — maniac
+−13.1% bluff mass, fish +10.0%. Not compensated; it is the engine working. Full
+account in the ledger.
+
+### Original ticket text
 
 **Do:** Re-weight each pack's existing on-grid pot-fraction distributions so the
 0.5 fraction has real presence table-wide and the maniac has a small size at
