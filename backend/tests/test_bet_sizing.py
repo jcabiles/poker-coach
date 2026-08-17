@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from app.domain.personas import load_persona_packs
 from app.domain.personas_postflop import sample_postflop_decision
 from app.domain.spot import ActionType, LegalAction, Position
@@ -60,6 +58,7 @@ def test_preflop_raise_to_nodes_and_two_sided_clamp():
         # the mixes directly, so a stand-in states its opt-out instead of
         # relying on a getattr default that would also swallow a real typo.
         open_bb_mix = None
+        open_bb_mix_by_position = None
         threebet_mult_mix = None
         fourbet_mult_mix = None
 
@@ -100,24 +99,45 @@ def test_pot_fraction_to_bb_bet_vs_raise():
 AA = ("As", "Ac")  # always in every persona's opening range
 
 
-def test_bot_open_size_is_persona_open_bb_not_min_raise():
+def test_bot_open_size_is_a_persona_lever_not_min_raise():
+    """The open comes from the pack, never from the engine's min-raise.
+
+    Since T2b the lever is a distribution rather than one number — the three
+    regulars key it by seat, the three recreationals keep a flat mix — so this
+    asserts membership of the pack's own authored set instead of equality with
+    `open_bb`. Equality was the right assertion while every persona had exactly
+    one open size, and asserting it now would forbid the mix.
+    """
     packs = load_persona_packs()
     legal = [
         LegalAction(action=ActionType.FOLD),
         LegalAction(action=ActionType.CALL, min_bb=1.0),
         LegalAction(action=ActionType.RAISE, min_bb=2.0, max_bb=100.0),
     ]
-    sizes = {}
+    means = {}
     for pack in packs.values():
-        d = play._preflop_decision(
-            pack, Position.CO, "unopened", AA, legal, random.Random(1), 1.0, 0
-        )
-        assert d.action is ActionType.RAISE
-        assert d.size_bb == pytest.approx(pack.sizing.open_bb)  # lever, NOT min_bb (2.0)
-        assert d.size_bb != 2.0
-        sizes[pack.persona] = d.size_bb
+        s = pack.sizing
+        table = s.open_bb_mix_by_position
+        authored = {float(k) for k in (table["CO"] if table else s.open_bb_mix)}
+        drawn = []
+        for seed in range(200):
+            d = play._preflop_decision(
+                pack, Position.CO, "unopened", AA, legal, random.Random(seed), 1.0, 0
+            )
+            if d.action is not ActionType.RAISE:
+                # The two passive packs limp aces some of the time. That is a
+                # range question, not a sizing one; only the raises are this
+                # test's business.
+                continue
+            assert d.size_bb in authored, (
+                f"{pack.persona} opened {d.size_bb}, which it did not author: "
+                f"{sorted(authored)}")
+            assert d.size_bb != 2.0  # the min-raise, which is what this guards
+            drawn.append(d.size_bb)
+        assert len(drawn) > 20, f"{pack.persona} raised only {len(drawn)}/200 times"
+        means[pack.persona] = sum(drawn) / len(drawn)
     # personas differ where the packs differ (maniac oversizes vs nit textbook)
-    assert sizes["maniac"] > sizes["nit"]
+    assert means["maniac"] > means["nit"]
 
 
 # ------------------------------------------ bot postflop node-aware size

@@ -369,6 +369,43 @@ next mover should copy rather than rediscover:
     occurrence of the lost-record pattern this file already logs. It was caught
     by review rather than by anything automated. If you are re-recording the
     JSON, you are also editing this docstring.
+
+RE-RECORDED for T2b (2026-08-17, slice-authorized): preflop raise sizes are now
+drawn from a mix, keyed by seat for the three regulars. At this one seed the
+fixture reads 339/1294 -> 336/1288, so the graded COUNT falls by three. Read
+the six-seed measurement below instead; point (1) above is exactly about not
+reading this line.
+
+The six-seed reading, `measure_split` at 2,000 hands across 20260718-20260723,
+before -> after:
+
+    preflop   0.571013 -> 0.573595   (+0.26pp)
+    postflop  0.032944 -> 0.031588   (-0.14pp)
+    overall   0.251215 -> 0.247432   (-0.38pp)
+
+The overall drop is not distinguishable from zero. The six per-seed deltas are
+-0.375, +0.846, -0.244, -0.215, -1.147 and -1.101 pp: mean -0.373pp, standard
+error 0.298pp, so about 1.25 standard errors from no change. This is the sixth
+reading in this slice to come out that way.
+
+ONE THING IN IT IS NOT NOISE, and it is the reason the overall ratio leans
+down. The postflop DENOMINATOR rose at every one of the six seeds -- 3717,
+3572, 3645, 3718, 3576, 3415 becoming 3767, 3654, 3749, 3731, 3803, 3615, about
++3.1% -- while the postflop graded count stayed flat (713 -> 705). Hero simply
+faces more postflop decisions. The mechanism is direct: the regulars now open
+2.5bb from the hijack round instead of 3.0bb, a cheaper open is called by more
+seats, and more seats seeing a flop means more multiway pots, which this
+repo's mappers largely do not cover. The overall ratio then falls for the
+reason point (2) above describes -- decisions moved toward the street that
+grades at 3%.
+
+That is a genuine tension with spec 7.1, which reads the ratio and forbids
+reducing it. The ratio cannot tell "grading broke" apart from "more poker
+happened", and this ticket produced the second: the graded count over the six
+seeds went UP, 9148 -> 9177. FILED FOR THE OWNER rather than resolved here --
+choosing a different acceptance metric is a spec decision, and quietly shrinking
+the change until the ratio held would be fitting values to a gate, which is the
+defect both T5 review rounds caught.
 """
 
 from __future__ import annotations

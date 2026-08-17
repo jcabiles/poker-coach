@@ -1125,3 +1125,247 @@ now says coverage did not measurably change, which is what the evidence supports
 
 These join the three already filed above (estimator parity widened, `bluff_freq`
 un-refit, the tell statistic one-sided).
+
+## T2b build record — preflop size values
+
+**Bottom line: every persona opened one size, share 1.000, from all eight
+opening seats; all six now mix, and the three regulars mix differently by seat.
+The load-bearing precondition in the ticket turned out to be a phantom — the
+2.8 three-bet rung it wanted to bank creates no hero coverage, because the app
+never offers hero the open size that would need rescuing — so the effort went
+into the open instead. The five-seed gate passes with room. Hero coverage shows
+no change the six-seed measurement can distinguish from zero, but one component
+of it moved consistently and against us, and that is filed rather than papered
+over.**
+
+⚠️ **Every number here is measured at the branch tip**, over 4,000 hands at seed
+601 through the committed `backend/tools/preflop_size_report.py`, unless it says
+otherwise. The pack `_doc` entries state only their own values and point here.
+
+### The ticket's own precondition is wrong, and the rung was dropped
+
+Ticket item 3 banks what it calls a mirror-image win: at the vs-3-bet spot the
+cap is 3.5 × the CANONICAL open for hero's seat, so a hero who opens 3.0bb from
+a 2.5-canonical seat faces a cap of 8.75 that every shipped multiplier exceeds,
+and a 2.8 rung would create coverage that does not exist today. The arithmetic
+is right. The conclusion does not follow, because the app never offers hero a
+3.0bb open from those seats.
+
+Hero's preflop raise sizes are server-offered, not free-form:
+`sim_session._hero_preflop_size_bb` reads the content entry's `sizing_bb`, and
+`_preflop_two_sizes` synthesises a second option at +1.0bb for an open. The RFI
+entries carry exactly the canonical size — 3.0 at UTG/UTG+1/UTG+2/LJ/SB, 2.5 at
+HJ/CO/BTN — so hero's two options at any seat are `canonical` and
+`canonical + 1`. Over every seat that has vs-3-bet content:
+
+| hero seat | canonical | hero opens | open band [2.0, 3.0] | 3-bet cap | gradeable multipliers |
+|---|---|---|---|---|---|
+| UTG, UTG+1, UTG+2, LJ | 3.0 | 3.0 | pass | 10.5 | all six (3.0–3.5) |
+| UTG, UTG+1, UTG+2, LJ | 3.0 | 4.0 | FAIL | 10.5 | none, at any multiplier |
+| HJ, CO, BTN | 2.5 | 2.5 | pass | 8.75 | all six |
+| HJ, CO, BTN | 2.5 | 3.5 | FAIL | 8.75 | none, at any multiplier |
+
+No cell a 2.8 rung rescues exists. Whenever hero's open passes the band it IS
+the canonical, and then every multiplier at or under 3.5 is inside the cap;
+whenever it fails the band the hand is refused before the multiplier is read.
+So the only live constraint on a 3-bet multiplier is "at or under 3.5", which
+`test_every_3bet_mix_stays_at_or_under_the_grading_cap` now pins.
+
+This is the third time in this slice that a value was authored, or nearly
+authored, against a node no one can reach. The pattern is worth naming: the
+grader's constants are readable and the paths that consume them are not, so
+arithmetic against a constant looks like evidence and is not.
+
+### What was built
+
+The ticket is not a pack-data ticket, as its own text warns. `preflop_raise_to`
+had no `position` parameter, so a seat-conditional open needed engine work
+first:
+
+- `PersonaSizing.open_bb_mix_by_position` — one mix per opening seat. The
+  validator requires ALL eight and refuses a BB entry. Completeness is required
+  rather than defaulted because a missing seat would fall back to the scalar and
+  go on playing one fixed size from that chair, which is the exact defect the
+  field exists to remove and which nothing else would report. Authoring both
+  open forms is refused too: either precedence order silently discards half of
+  what the author wrote.
+- `preflop_raise_to(..., position=...)`, resolving the open mix through
+  `_open_mix`. Only the open and the iso built on it are seat-keyed; the 3-bet
+  and 4-bet multiples of the raise faced stay seat-blind.
+- `play._preflop_decision` threads the seat it already had.
+- `content/schema/persona.schema.json` regenerated.
+
+### The values, and the constraint that bounded them
+
+Two grading bounds decided the shape more than taste did.
+
+**Opens stay at or under 3.0 for the three regulars.** `_map_vs_3bet` and
+`_map_vs_4bet` both require the opener's own open to be inside
+`_STD_OPEN_CAP` = 3.0, so a bigger rung would buy size variety by deleting
+hero's feedback on the whole hand. The three recreationals already open above
+it as their shipped identity (3.5 / 4.0 / 4.5) and are grandfathered;
+`test_a_regulars_open_never_exceeds_the_hero_3bet_lines_cap` holds the line for
+the other three.
+
+**3-bet rungs stay at or under 3.5**, per the table above.
+
+Regulars get a seat table, recreationals a flat mix. That split is the theory
+review's, and the measurement backs it: opens come overwhelmingly from EARLY
+seats, because a pot is unopened far more often when an early seat acts. Per-seat
+open counts over 4,000 hands, before the change:
+
+| persona | UTG | UTG+1 | UTG+2 | LJ | HJ | CO | BTN | SB | share at 3.0-canonical seats |
+|---|---|---|---|---|---|---|---|---|---|
+| lag | 229 | 147 | 112 | 91 | 75 | 46 | 29 | 12 | 79.8% |
+| maniac | 300 | 242 | 180 | 101 | 79 | 54 | 37 | 7 | 83.0% |
+| tag | 70 | 75 | 53 | 35 | 34 | 14 | 5 | 4 | 81.7% |
+| nit | 31 | 24 | 22 | 16 | 5 | 6 | 4 | 1 | 86.2% |
+| passive_fish | 15 | 9 | 6 | 9 | 1 | 3 | 1 | 0 | 88.6% |
+| calling_station | 2 | 3 | 2 | 0 | 1 | 2 | 0 | 0 | 70.0% |
+
+A persona-global mix emitting 2.5bb at 20–35% would therefore have put most of
+that mass under the gun, which no competent full-ring regular does. The seat
+table reaches the same aggregate by conditioning on the thing a human conditions
+on.
+
+### Measured effect, 4,000 hands, seed 601
+
+| persona | opens | open mean before → after | modal share before → after | rungs |
+|---|---|---|---|---|
+| calling_station | 10 → 25 | 3.500 → 3.480 | 1.000 → 0.480 | 1 → 3 |
+| lag | 741 → 724 | 3.000 → 2.832 | 1.000 → 0.678 | 1 → 3 |
+| maniac | 1000 → 1042 | 4.500 → 4.348 | 1.000 → 0.697 | 1 → 2 |
+| nit | 109 → 115 | 3.000 → 2.917 | 1.000 → 0.713 | 1 → 3 |
+| passive_fish | 44 → 40 | 4.000 → 3.925 | 1.000 → 0.425 | 1 → 4 |
+| tag | 290 → 267 | 3.000 → 2.873 | 1.000 → 0.745 | 1 → 2 |
+
+The 3-bet MULTIPLIER was a constant for every persona and is not any more:
+
+| persona | n after | mean before → after | modal share before → after | rungs |
+|---|---|---|---|---|
+| calling_station | 7 | 3.000 → 2.943 | 1.000 → 0.714 | 1 → 2 |
+| lag | 248 | 3.500 → 3.305 | 1.000 → 0.444 | 1 → 3 |
+| maniac | 708 | 3.300 → 3.377 | 1.000 → 0.617 | 1 → 2 |
+| nit | 32 | 3.500 → 3.453 | 1.000 → 0.844 | 1 → 2 |
+| passive_fish | 18 | 3.000 → 3.083 | 1.000 → 0.833 | 1 → 2 |
+| tag | 108 | 3.500 → 3.352 | 1.000 → 0.704 | 1 → 2 |
+
+The absolute 3-bet SIZE already varied before this change, because the open it
+answered did. A detector reading the ratio saw a constant, which is why the
+multiplier is the number in the table.
+
+**How to read a per-seat histogram.** There are 48 cells and most carry few
+opens, so near-1.000 readings appear from sampling alone. In the after run
+tag@UTG+2 reads 0.982 at n=57 against an authored 0.90 — roughly a one-in-eighty
+excursion, and about one such cell is expected across 48. The claim that no cell
+plays as one number is made instead by
+`test_every_persona_mixes_its_open_at_every_seat`, which draws 600 times per
+cell against a 0.95 ceiling.
+
+### The two gates
+
+**Five-seed gate PASS**, seeds 601–605: minimum pairwise separation 1.694,
+1.864, 1.807, 1.756, 1.778 against the required 1.254429; labels 6/6 at every
+seed; determinism clear at every seat.
+
+Per-persona determinism shares at seed 604, the seed that went red during T5:
+nit 16/91 = 0.176, station 15/114 = 0.132, lag 0.040, maniac 0.035, tag 0.033,
+fish 0.022, against a 0.20 ceiling. The nit's number sits exactly where the T5
+record left it (0.148–0.178), which is expected — rule 4 groups on action type
+and cannot see a bet size — and it remains the constraint any later edit that
+changes how often the nit ACTS is measured against first.
+
+### Hero coverage — no detectable change, and one thing that is not noise
+
+Six seeds, 2,000 hands each, through the committed `measure_split`:
+
+    preflop   0.571013 → 0.573595   (+0.26pp)
+    postflop  0.032944 → 0.031588   (−0.14pp)
+    overall   0.251215 → 0.247432   (−0.38pp)
+
+The overall move is not distinguishable from zero: the six per-seed deltas are
+−0.375, +0.846, −0.244, −0.215, −1.147 and −1.101 pp, mean −0.373pp with a
+standard error of 0.298pp, about 1.25 standard errors from no change. That is
+the sixth reading in this slice to land there.
+
+**The postflop denominator rose at every one of the six seeds** — 3717, 3572,
+3645, 3718, 3576, 3415 becoming 3767, 3654, 3749, 3731, 3803, 3615, about +3.1%
+— while the postflop graded count stayed flat, 713 → 705. Hero faces more
+postflop decisions. The mechanism is direct: the regulars now open 2.5bb from
+the hijack round instead of 3.0bb, a cheaper open is called by more seats, and
+more seats seeing a flop means more multiway pots, which this repo's mappers
+largely do not cover.
+
+That is a genuine tension with spec §7.1, which reads the ratio and forbids
+reducing it. The ratio cannot tell "grading broke" apart from "more poker
+happened", and this ticket produced the second: over the same six seeds the
+graded COUNT rose, 9148 → 9177. Filed below rather than resolved — and
+deliberately not mitigated, because shrinking the change until the ratio held
+would be fitting values to a gate, the defect both T5 review rounds caught.
+
+### There is no F2 analogue preflop, but there is an SPR one
+
+T5's lesson was that a pack's own size mix scales its bluff rate, so a sizing
+edit is also an aggression edit. Preflop has no equivalent inside the decision
+logic: `play._preflop_facing` keys on the raise COUNT and never the size, so
+nothing reads an open size to set a frequency. Verified by reading every
+consumer of the three sizing scalars.
+
+What preflop sizing does change is the POT, and through it the stack-to-pot
+ratio that `personas_postflop` uses for the commitment ramp
+(`stack_bb / pot_bb <= pf.spr_commit`, lines ~1110 and ~1123). Smaller opens
+mean smaller pots, higher SPR and less commitment; more callers per pot mean
+more multiway flops. Both reshape which hands reach which street. That is why
+all six rows of `_GOLDEN_STATS_N200` moved, in both directions, with no
+per-persona sign to explain — ordinary stream displacement, but with a named
+mechanism rather than a shrug. Aggression staying in range is asserted by
+`test_persona_postflop_bands` at population n, which passes unchanged, not by
+those n=200 numbers.
+
+### Deliberately not done, with the volumes that decided it
+
+**No 4-bet mix on any pack.** Four-bets per 4,000 hands: maniac 184, lag 57,
+tag 27, fish 2, nit 0, station 0. The maniac's multiplier is 3.0 against a 2.4
+grading cap, so its four-bets are already ungradeable for hero and any rung
+would be a reduction — a change to the persona rather than to its sizing, and
+excluded by T2's original text. The tag's and the lag's sit exactly ON the 2.4
+cap, so a mix could only lower the mean, changing how those packs deny odds in
+exchange for variety at a node almost nobody reaches. Recorded in
+`test_no_pack_authors_a_4bet_mix` so a later slice that wants it has to say what
+changed.
+
+**The size-blind preflop defence gap is still open** (ticket item 4). Response
+keys on the raise count, never the size, so fold-to-open is flat across open
+sizes by construction — a tell created by this fix. Engine work is out of scope
+by the ruling. The mitigation is the narrow spread the regulars ship, which is a
+second reason for the low-entropy design; escalate only if a measurement shows
+it is detectable.
+
+**The maniac's open mean falls 4.5 → 4.35, authored not accidental.** At a lever
+already on the grading cap, one-sided variance and a preserved mean are
+arithmetically incompatible, so a real maniac's upward variance — 5×, 6×, jam —
+cannot be expressed at all. This persona gets the least realism per unit of risk
+of the six.
+
+**The station's and fish's mixes are nearly unobservable.** 10 and 44 opens per
+4,000 hands. They are authored for completeness and the pack `_doc` entries say
+so, rather than letting the width read as a measured effect. Their new 3.0 rungs
+do buy a sliver of hero coverage that does not exist today — a 3.0 open is inside
+`_STD_OPEN_CAP` where a 3.5 or 4.0 is not — but at that volume it is a fraction
+of a hand per thousand.
+
+#### Filed for the owner — one new item
+
+7. **Spec §7.1's coverage criterion cannot distinguish a grading regression from
+   more poker being played.** It reads the graded/total ratio and forbids
+   reducing it. This ticket left the graded count higher (9148 → 9177 over six
+   seeds) and the ratio lower (−0.38pp, inside noise), because it moved
+   decisions toward the postflop streets, which grade at about 3% against
+   preflop's 57%. Any future change that makes pots more multiway will look like
+   a coverage regression by this measure. Choosing a better one — graded count
+   per hand, or the two street ratios separately with no pooled figure — is a
+   spec decision.
+
+This joins the six already filed above (the dead `raise` sizing block, the
+overbet residual, the ecology gate's equal node weighting, estimator parity
+widened, `bluff_freq` un-refit, the tell statistic one-sided).

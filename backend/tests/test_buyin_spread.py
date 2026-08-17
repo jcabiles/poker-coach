@@ -206,19 +206,32 @@ def _hash_manifest(manifest: dict) -> str:
 #   hands         2e2a1f8a7962281ad843f200b7a5bdfd09ed418939e315faae5646c018de62f9
 #   seat_outcomes b7e09fb6825fb7bfcd3e067c26b2ec40b8d3c65633b4ea3ac177e8ef09ec8f1f
 #   decisions     ca6a5e2191041e046acc0a7c6c713059cf83e6cb27a745c1213d0f7187b8418e
+# RE-RECORDED for T2b (2026-08-17, slice-authorized): PREFLOP raise sizes are
+# now drawn from a mix — keyed by seat for the three regulars, flat for the
+# three recreationals — so the bots raise different amounts before the flop and
+# every byte of a seeded export changes with them. Two causes are folded into
+# this one re-pin and both are deliberate: the behaviour change itself, and the
+# six `version` bumps that carry it (see the ⚠️ note above — a version bump
+# alone moves all four digests, because `version` is inside the model that
+# `config_hash` covers). Recorded once, at the end of the ticket, with pack
+# content frozen. Values immediately before it:
+#   manifest      72fc9c7f2948d72858de499fffd5887a128875b6c8b59de3547399bbd54083fa
+#   hands         b2d04e9210ba7041bd291f1013de870de6f465c4b4e8936467d9653798568a91
+#   seat_outcomes e4277183be543a7add97fe5b7e3ddf4c77bac9a10d98b9817a85b77ba66f108b
+#   decisions     79b25a603987dbba08d547f3960993e85296eb751e783da30748f709f2109e79
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "72fc9c7f2948d72858de499fffd5887a128875b6c8b59de3547399bbd54083fa"
+    "955a4ee66a748ac57d820703454372e1cde7b7f7a7104a21a3312a986be3ee10"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "b2d04e9210ba7041bd291f1013de870de6f465c4b4e8936467d9653798568a91"
+    "16375b87a6d5ace83f9f5d79830c065b1a9bab8d2583780a0091e8ac4b53383f"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "e4277183be543a7add97fe5b7e3ddf4c77bac9a10d98b9817a85b77ba66f108b"
+    "c9ec32d974759b487eead45c9572781458b5fc10ef1d3962e50eb7a1f8ef05a5"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "79b25a603987dbba08d547f3960993e85296eb751e783da30748f709f2109e79"
+    "8331f1408698a2cd09695965cc97b7004c5c61c3d254e40f73838d00c8288493"
 )
 
 

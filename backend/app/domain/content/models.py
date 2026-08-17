@@ -154,6 +154,16 @@ class PersonaSizing(BaseModel):
     Every mix is optional and defaults to None, in which case the scalar is
     used and behaviour is byte-identical to before.
 
+    The open has a second, seat-keyed form. A persona-global open mix trades one
+    machine signature for another: it emits the same size distribution from UTG
+    and from the button, which no competent player does, so its variation is
+    correlated with nothing a human conditions on.
+    `open_bb_mix_by_position` holds one mix per seat instead, so a regular can
+    open 3.0 from early position and 2.5 from late — the ladder this repo
+    already models in `scenarios._OPEN_SIZE` — and still mix within each seat.
+    Personas who genuinely do not adjust to position keep the flat
+    `open_bb_mix`: being seat-blind IS the recreational archetype.
+
     This model forbids unknown fields. Without that, a misspelled `open_bb_mxi`
     would load without complaint, leave `open_bb_mix` at None, and silently
     turn the whole feature into a no-op that nothing reports.
@@ -166,6 +176,7 @@ class PersonaSizing(BaseModel):
     fourbet_mult: float
 
     open_bb_mix: dict[str, float] | None = None
+    open_bb_mix_by_position: dict[str, dict[str, float]] | None = None
     threebet_mult_mix: dict[str, float] | None = None
     fourbet_mult_mix: dict[str, float] | None = None
 
@@ -193,6 +204,59 @@ class PersonaSizing(BaseModel):
             if not math.isfinite(weight):
                 raise ValueError(f"sizing weight for {key!r} is not finite")
         return v
+
+    @field_validator("open_bb_mix_by_position")
+    @classmethod
+    def _open_mix_by_position_valid(
+        cls, v: dict[str, dict[str, float]] | None
+    ) -> dict[str, dict[str, float]] | None:
+        """Every inner mix obeys the same rules as a flat one, and the table
+        must name every seat that can open.
+
+        Completeness is required rather than defaulted. A seat left out would
+        fall back to the scalar, which is exactly the shape of silent no-op
+        this slice keeps producing: the pack would load, the persona would go
+        on playing one fixed size from the forgotten seat, and no test would
+        say so. Naming all eight makes a forgotten seat a load error.
+
+        BB is excluded because a big blind cannot open — it acts last preflop,
+        and an unopened pot reaching it is a check. A BB key here would be a
+        misunderstanding worth reporting, not a harmless extra.
+        """
+        if v is None:
+            return None
+        openable = {p.value for p in Position if p is not Position.BB}
+        unknown = sorted(set(v) - openable)
+        if unknown:
+            raise ValueError(
+                f"open_bb_mix_by_position has non-opening seats {unknown}; "
+                f"expected only {sorted(openable)}")
+        missing = sorted(openable - set(v))
+        if missing:
+            raise ValueError(
+                f"open_bb_mix_by_position is missing seats {missing} — every "
+                f"opening seat must be named, or the omitted ones silently "
+                f"keep the fixed scalar")
+        for seat, mix in v.items():
+            try:
+                cls._size_mix_valid(mix)
+            except ValueError as exc:
+                raise ValueError(f"open_bb_mix_by_position[{seat!r}]: {exc}") from None
+        return v
+
+    @model_validator(mode="after")
+    def _one_open_mix_only(self) -> PersonaSizing:
+        """Authoring both open mixes is an error, not a precedence question.
+
+        Either resolution order silently discards half of what the author
+        wrote. Refusing the pack says so at load time instead.
+        """
+        if self.open_bb_mix is not None and self.open_bb_mix_by_position is not None:
+            raise ValueError(
+                "open_bb_mix and open_bb_mix_by_position are both set — a "
+                "persona has one open policy; use the seat table if the "
+                "persona adjusts to position, the flat mix if it does not")
+        return self
 
 
 def _validate_bucket_dist(v: dict[str, float], noun: str = "pot fraction") -> dict[str, float]:
