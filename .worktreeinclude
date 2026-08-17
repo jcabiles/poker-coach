@@ -1,0 +1,15 @@
+# Gitignored files copied into each new worktree Claude Code creates.
+# Format is .gitignore syntax. Only files that match a pattern AND are
+# gitignored are copied, so nothing tracked is ever duplicated.
+#
+# Why this file exists: a gitignored file normally lives only in the worktree
+# where it was created, so machine-local context silently disappears the moment
+# work moves to a worktree — which is where most work in this repo happens.
+#
+# LIMIT, worth knowing before relying on it: this is honoured for worktrees
+# CLAUDE CODE creates (`--worktree`, subagent worktrees, desktop parallel
+# sessions). A worktree made by hand with `git worktree add` does not get the
+# copy; carry the files over yourself, or create the worktree through Claude.
+
+CLAUDE.local.md
+local/

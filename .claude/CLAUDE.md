@@ -52,10 +52,15 @@ Restart Claude Code after editing `.claude/settings.json` to reload it.
 ### Credentials on disk — never end a session with "you should rotate those"
 
 A session that concludes a credential must be deleted or rotated **hands the
-owner runnable commands, in the right order, in that same reply.** Saying "the
-keys at X are still unrotated" and stopping is not a handoff; it is a to-do item
-the owner has to design themselves, and it is why the S6 probe keys sat
-unrotated across four sessions.
+owner runnable commands, in the right order, in that same reply.** Reporting
+"those keys should be rotated" and stopping is not a handoff; it is a to-do item
+the owner then has to design themselves, which is why that report has been made
+more than once without the cleanup ever happening.
+
+Current status of any specific credential belongs in `CLAUDE.local.md`, not
+here. This file is committed to a PUBLIC repository, so a live "these keys are
+still valid at this path" note here is a signpost for anyone reading. The rule
+is durable and public; the status is neither.
 
 Claude cannot revoke a key — that needs a browser login at the provider. What
 Claude CAN do is remove every excuse not to:
@@ -83,6 +88,26 @@ time, in a TRACKED location.** `setup_probe_access.sh` shipped with a one-line
 comment saying to clean up later, no way to do it, and inside a gitignored
 directory — so nothing about it survived to another machine. Setup and teardown
 are one deliverable, and the teardown belongs in `scripts/`.
+
+### Where machine-local things go
+
+This repository is **public**. Three tiers, and putting something in the wrong
+one is how private material gets published:
+
+- **Committed** (`.gitignore`, `CLAUDE.md`, `scripts/`) — durable rules,
+  conventions and tooling. Entries in `.gitignore` must benefit *other* users
+  of the repo. A personal file path here publishes that file's title.
+- **`.git/info/exclude`** — personal ignore patterns. Never committed, and
+  shared across linked worktrees, so it is the right home for "ignore my
+  private notes" without telling the world they exist.
+- **`local/` and `CLAUDE.local.md`** — machine-local *content*: scratch notes,
+  run logs, current status of anything sensitive. Both are gitignored, and
+  `.worktreeinclude` carries them into worktrees Claude Code creates.
+
+⚠️ `.gitignore` is a **publication** control, not a **secrecy** control. A
+gitignored file is one `git add -f` from public and is plaintext on disk either
+way. Real secrets live in the provider's console and a mode-600 file you
+delete — never in `local/`, and never in the repo at all.
 
 ## Git & PR authorization
 

@@ -41,15 +41,22 @@ Thumbs.db
 .idea/
 .vscode/
 
-# ---- Local helper notes (not part of the project) ----
-RUN-THESE-COMMANDS.md
-
 # ---- Secrets ----
 .env
 .env.*
 !.env.example
 
-# Local, uncommitted persona-realism research + bot-review artifacts (never push)
-docs/ai-dlc/research/persona-realism-artifacts/
-docs/ai-dlc/research/persona-realism-FULL-BUILDOUT.md
-docs/ai-dlc/research/persona-realism-audit-2026-07-24.md
+# ---- Machine-local working files ----
+# One directory, so the next local file needs no new entry here. Anything that
+# is yours rather than the project's — scratch notes, run logs, private
+# research — goes in `local/` and stays out of this file.
+#
+# Per-file personal paths do NOT belong in .gitignore. This file is public and
+# shared, so an entry here publishes the TITLE of a private document to anyone
+# who clones the repo. Four such paths were moved to `.git/info/exclude` on
+# 2026-08-17 (RUN-THESE-COMMANDS.md and three persona-realism research files).
+# `.git/info/exclude` is never committed and is shared across linked worktrees.
+# Git's own guidance: .gitignore carries only patterns that benefit OTHER users
+# of the repository.
+local/
+CLAUDE.local.md
