@@ -350,9 +350,23 @@ _PRE_M3_FIRES = {
     # regression. Recorded once, at the end of the ticket, with pack content
     # frozen; the three separate re-records above are what that discipline is
     # meant to avoid repeating.
-    ("UTG2", 1): 96, ("LJ", 1): 96, ("HJ", 1): 120, ("CO", 1): 105,
-    ("CO", 2): 36, ("SB", 1): 82, ("SB", 2): 42, ("BTN", 1): 86,
-    ("BTN", 2): 38,
+    # RE-RECORDED for T5's SECOND review round (2026-08-17,
+    # slice-authorized): the tag and lag gain a third-pot bet on wet flops and
+    # lag loses the wet-flop overbet the first round gave it, so those packs
+    # bet different amounts, hands end differently and the shared organic
+    # stream drifts at this seed. All nine pairs move (old: UTG2¹ 96, LJ¹ 96,
+    # HJ¹ 120, CO¹ 105, CO² 36, SB¹ 82, SB² 42, BTN¹ 86, BTN² 38).
+    # ATTRIBUTION IS BY CONSTRUCTION rather than by a revert experiment, which
+    # is stronger here because it is exhaustive: the round's whole content diff
+    # is two `cbet_wet` blocks, two `version` strings and six `_doc` entries.
+    # Neither of the last two can reach this belt — `_doc` is not a model field
+    # at all, and a version string only enters `config_hash`, which only the
+    # export digests read. No limper-belt content changed; every _WANT_* shape
+    # still fires (verified: BB¹ 49, BB² 21, BB³ 3) — stream displacement, not
+    # a coverage regression.
+    ("UTG2", 1): 100, ("LJ", 1): 107, ("HJ", 1): 126, ("CO", 1): 93,
+    ("CO", 2): 32, ("SB", 1): 68, ("SB", 2): 36, ("BTN", 1): 86,
+    ("BTN", 2): 30,
 }
 
 
