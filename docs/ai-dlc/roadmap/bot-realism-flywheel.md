@@ -1,6 +1,9 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-13 (rev 4)
-status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review
-and uncommitted; the rulings it records were made 2026-08-09 through 2026-08-13.
+# Bot-Realism Flywheel Roadmap — updated 2026-08-17 (rev 4)
+status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
+the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
+uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
+passing.)* The 2026-08-17 edit adds the improvement-phase block to the NOW lane and changes
+nothing else.
 
 ## Bottom line
 
@@ -68,6 +71,9 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > lines, calldown as the scope valve; engine/stack work excluded; 2–3 weeks appetite;
 > one finale detection run at the end under the new rule-breaker control, plus the
 > preregistered owner blind play-test as product acceptance.
+> **Slice-by-slice state for that phase is the improvement-phase block at the END of this
+> lane (added 2026-08-17): slice 1 de-robotization is CLOSED, slices 2 and 3 are unstarted
+> and unspec'd. Resume there, not from this banner.**
 > *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
 > NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
@@ -142,6 +148,77 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > that in mind, and do not let "the score improved" stand in for "fewer bots were spotted".
 
 S6, the only planned measurement of it, is built but deferred — it now sits in NEXT.
+
+### Improvement phase (ruling A) — three slices in order, one closed
+
+> **Why this block exists (added 2026-08-17).** Ruling A defines three improvement slices and
+> the NOW lane had entries for none of them: the order lived in
+> `../specs/phase3-decision-matrix.md` §4 and in the STATE banner at the top of this lane, but
+> not as slices a fresh session could resume from — which is what the boot checklist in
+> `.claude/CLAUDE.md` tells that session to do. The order is **(1) de-robotization →
+> (2) invest-then-fold → (3) calldown**, calldown being the declared scope valve, cut first if
+> the appetite runs out. Engine/stack work is cut from this phase entirely. Appetite: 2–3 weeks
+> part-time, running since the ruling on 2026-08-15. Exactly ONE finale detection run at the
+> end; a second requires a recorded amendment written before it fires. The
+> ⚠️ warning above applies to everything here — **none of the numbers below is a detection
+> number.** They come from the two statistical gates and from purpose-built tell statistics,
+> which measure whether a specific mechanical signature is gone, not whether anyone was fooled.
+
+- [x] **Slice 1 — De-robotization of deterministic tells — CLOSED 2026-08-17** — problem: the
+      roster's tells were mechanical rather than stylistic — every persona opened one fixed
+      size from every seat, postflop bet size named the bettor's archetype class, and range
+      edges were hard cutoffs (adjudicated defect list, remeasure SYNTHESIS §B/§C) · outcome-link:
+      the north star **by assumption, not by measurement** — no detection number exists for this
+      roster either before or after, so the link is the ruling's premise rather than a result ·
+      riskiest assumption: **tested-HELD** — that removing size and range determinism would not
+      collapse the archetype-separation floor. It did not; at seed 601, the one seed where the
+      unchanged roster was also measured, the shipped roster separates slightly better
+      · appetite: 8 tickets over 7 PRs (#182, #183,
+      #184, #186, #187, #188, #189), 2026-08-15 to 2026-08-17 · no-gos held: no paid detection
+      judging (the finale is owner-only and single-shot), no band re-anchoring to make a gate
+      pass, no engine/stack work.
+      **OUTCOME — what is verified.** Five-seed gate PASS at the shipped tip, seeds 601–605:
+      minimum pairwise separation 1.745–1.995 against a required 1.254429, archetype labels 6/6
+      at every seed, determinism guard clear everywhere (worst persona share 0.141 against a
+      0.20 ceiling). At seed 601, where the unchanged roster measured 1.792042, the shipped
+      roster measures 1.847.
+      **What actually changed, measured in live play rather than asserted from the pack JSON.**
+      Preflop: before this slice every persona opened **one** size from **every** seat at a
+      modal share of 1.000; shipped shares are 0.405–0.839 across three or four sizes. Worst-case
+      identifiability from a single observed open size is now 0.986, against **three** cells that
+      were certainties at 1.000 before (3.5bb ⇒ station, 4.0bb ⇒ fish, 4.5bb ⇒ maniac). Postflop:
+      the class read — "small means recreational, large means regular, overbet means maniac" —
+      falls from 0.557 to 0.441 against a chance floor of 0.333, and P(maniac | a 1.5× pot bet)
+      from 0.885 to 0.768.
+      **THE HONEST LIMIT — spec §7.1's coverage clause is NOT met, and is not claimed to be.**
+      The clause forbids the hero's graded-decision ratio from falling. Paired over six seeds ×
+      2,000 hands it fell: overall 0.25387 → 0.25125 (−0.26pp). **Both component ratios are
+      flat** — preflop 0.57397 → 0.57448, postflop 0.03515 → 0.03458 — and the pooled figure
+      moved only because the street mix did: hero postflop decisions rose 1.5% against a flat
+      preflop count, and postflop grades at ~3% where preflop grades at ~57%. Hands go further,
+      which is the metric failing to distinguish a grading regression from a deeper hand. Filed
+      for the owner rather than fixed here, because shrinking the change until the ratio held
+      would be fitting values to a gate.
+      **Nine items are filed for the owner and none is resolved** — six from the postflop
+      sizing work and three from the preflop sizing work, listed in the ledger under
+      "Filed for the owner". Two of them bear on this phase's remaining slices: §7.1's coverage
+      metric needs replacing before it gates anything else, and the lag's frozen showdown band
+      has ~0.8 standard errors of headroom left, so the next change that lowers pot sizes trips
+      it and will need a band decision rather than a value one.
+      **The durable lesson, worth more than the status.** Three reviewers reviewed the last
+      ticket and **each found something the other two missed** — a whole feature cell that
+      silently kept a fixed size (the big blind's isolation raises, 300 of 300 draws at one
+      size, hidden behind a validator that made the fix unauthorable and a report that never
+      printed that node), and two declared sweep axes killed dead in a tool the ticket did not
+      own. Neither was reachable from the ticket's own acceptance criteria.
+      **Tickets and full build record:** `../tickets/phase3-derobotization.md` ·
+      `../ledger/phase3-derobotization.md`.
+- [ ] **Slice 2 — Invest-then-fold lines** — problem: bots put money in and then abandon the
+      pot for no reason a human would recognise (remeasure SYNTHESIS §B) · **not yet spec'd —
+      needs `/ai-org:spec` before any build.**
+- [ ] **Slice 3 — Calldown** — **this is the declared scope valve.** If the 2–3 week appetite
+      runs out, this slice is cut, and cutting it is the planned outcome rather than a failure ·
+      **not yet spec'd.**
 
 **Scope valves (appetite is a cap — cut scope, not quality):** S5 confirmatory study deferred
 unless the pilot is ambiguous · S2b commercial lane is the first research cut · S6 pilot may
