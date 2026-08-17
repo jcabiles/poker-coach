@@ -800,6 +800,49 @@ def canonicalize(
 # --------------------------------------------------------------------------
 
 
+# A preflop sizing scalar is only read when the pack authors no mix for that
+# lever (`table/sizing._draw_size`). Once T2b gave every pack a mix, overriding
+# the scalar changed nothing at all — axes 1 and 2 swept a value the engine
+# never consulted, and produced byte-identical play. Setting the scalar
+# therefore has to remove whatever shadows it.
+_SIZE_MIX_SHADOWS: dict[str, tuple[str, ...]] = {
+    "sizing.open_bb": ("open_bb_mix", "open_bb_mix_by_position"),
+    "sizing.threebet_mult": ("threebet_mult_mix",),
+    "sizing.fourbet_mult": ("fourbet_mult_mix",),
+}
+
+
+def _collapse_shadowing_size_mixes(document: dict, path: str, value: float) -> None:
+    """Collapse onto the overridden scalar every size mix that would shadow it.
+
+    Restores the axis's pre-T2b meaning — "this persona opens X bb" — by making
+    the mix a single rung at the swept value. Collapsing rather than rescaling
+    is deliberate: a swept point should differ from the baseline in the ONE
+    declared quantity, and shifting a distribution would move its spread as
+    well as its centre, so the sweep could not attribute what it measured.
+
+    Collapsing rather than DELETING is also deliberate, and it is the narrower
+    of the two against §c.5. Deleting the mix would change a field's
+    presence/absence state, which §c.5 promises it will not; a collapsed mix is
+    still present, still validates, and behaves identically to the scalar. Only
+    the field's VALUE moves, and only for a field that is definitionally the
+    same lever as the one being swept.
+
+    The consequence is real and is recorded in the ticket ledger: a config that
+    sweeps axis 1 or 2 gets a persona playing one fixed size at that lever, not
+    the shipped distribution. That is what those axes have always meant; what
+    changed at T2b is that the baseline is no longer a fixed size either.
+    """
+    sizing = document.get("sizing", {})
+    for key in _SIZE_MIX_SHADOWS.get(path, ()):
+        if key not in sizing:
+            continue
+        if key.endswith("_by_position"):
+            sizing[key] = {seat: {str(value): 1.0} for seat in sizing[key]}
+        else:
+            sizing[key] = {str(value): 1.0}
+
+
 def _apply_overrides(
     packs: Mapping[VillainType, PersonaPack], overrides: Mapping[str, Mapping[str, float]]
 ) -> dict[VillainType, PersonaPack]:
@@ -831,6 +874,7 @@ def _apply_overrides(
             for key in keys[:-1]:
                 container = container[key]
             container[keys[-1]] = float(value)
+            _collapse_shadowing_size_mixes(document, path, float(value))
         try:
             merged[name] = PersonaPack.model_validate_json(json.dumps(document))
         except ValidationError as exc:

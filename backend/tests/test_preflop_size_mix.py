@@ -195,7 +195,7 @@ def test_the_engine_clamp_is_not_a_grading_bound():
 _SEAT_TABLE = {
     "UTG": {"3.0": 1.0}, "UTG1": {"3.0": 1.0}, "UTG2": {"3.0": 1.0},
     "LJ": {"3.0": 1.0}, "HJ": {"2.5": 1.0}, "CO": {"2.5": 1.0},
-    "BTN": {"2.5": 1.0}, "SB": {"3.0": 1.0},
+    "BTN": {"2.5": 1.0}, "SB": {"3.0": 1.0}, "BB": {"3.5": 1.0},
 }
 
 
@@ -216,13 +216,23 @@ def test_the_seat_selects_its_own_open(position, expected):
     assert got == pytest.approx(expected)
 
 
-def test_the_iso_uses_the_seats_open_too():
-    """The iso is the open plus a bb per limper, so it inherits the seat. A
-    button iso over two limpers must be 2.5+2, not 3.0+2."""
+@pytest.mark.parametrize("position,expected", [
+    (Position.BTN, 4.5),   # 2.5 + 2 limpers
+    (Position.BB, 5.5),    # 3.5 + 2 limpers — the seat that cannot OPEN at all
+])
+def test_the_iso_uses_the_seats_open_too(position, expected):
+    """The iso is the open plus a bb per limper, so it inherits the seat.
+
+    The big-blind case is the one that matters. A big blind never opens, so an
+    earlier version of this field excluded it from the table and an earlier
+    version of this test covered only the button — and every big-blind
+    isolation raise fell back to the fixed scalar, at share 1.000, for the three
+    packs that ship a seat table.
+    """
     got = preflop_raise_to(_seat_sizing(), "iso", last_raise_to=1.0, limpers=2,
                            min_bb=2.0, max_bb=200.0, rng=random.Random(1),
-                           position=Position.BTN)
-    assert got == pytest.approx(4.5)
+                           position=position)
+    assert got == pytest.approx(expected)
 
 
 def test_the_3bet_multiplier_ignores_the_seat():
@@ -326,13 +336,25 @@ def test_a_seat_table_missing_a_seat_is_rejected():
     assert "CO" in str(exc.value)
 
 
-def test_a_seat_table_naming_the_big_blind_is_rejected():
-    """A big blind cannot open — it acts last preflop, so an unopened pot
-    reaching it is a check. A BB entry is a misunderstanding worth reporting,
-    not a harmless extra."""
+def test_a_seat_table_missing_the_big_blind_is_rejected():
+    """The regression test for the review finding that produced the BB entry.
+
+    An earlier validator REJECTED a BB key, on the true premise that a big
+    blind cannot open. The premise is right and the conclusion was wrong: the
+    same table feeds the isolation raise, which a big blind makes routinely, so
+    excluding the seat sent all of those back to the fixed scalar with nothing
+    reporting it.
+    """
+    short = {k: v for k, v in _SEAT_TABLE.items() if k != "BB"}
     with pytest.raises(ValidationError) as exc:
-        _sizing(open_bb_mix_by_position={**_SEAT_TABLE, "BB": {"3.0": 1.0}})
+        _sizing(open_bb_mix_by_position=short)
     assert "BB" in str(exc.value)
+
+
+def test_a_seat_table_naming_something_that_is_not_a_seat_is_rejected():
+    with pytest.raises(ValidationError) as exc:
+        _sizing(open_bb_mix_by_position={**_SEAT_TABLE, "UNDER_THE_GUN": {"3.0": 1.0}})
+    assert "UNDER_THE_GUN" in str(exc.value)
 
 
 def test_a_malformed_inner_mix_names_its_seat():
@@ -372,8 +394,16 @@ _ACTION_NAMES = {"raise", "fold", "call", "limp", "3bet", "4bet", "5bet_shove"}
 
 def _mixed_pack():
     """A real pack with sizing mixes authored on every lever, so the size draw
-    is actually reachable. Shipped packs author none (T2b)."""
+    is actually reachable.
+
+    The seat table is cleared first. Without that the object would carry both
+    open forms — which the model refuses at load, and which `model_copy` does
+    not re-validate — and the flat mix authored below would be dead, because
+    `_open_mix` takes the seat table when there is one. The test would then
+    silently exercise the shipped tag rather than this fixture.
+    """
     pack = load_persona_packs()["tag"].model_copy(deep=True)
+    pack.sizing.open_bb_mix_by_position = None
     pack.sizing.open_bb_mix = {"2.5": 0.5, "3.5": 0.5}
     pack.sizing.threebet_mult_mix = {"3.0": 0.5, "3.5": 0.5}
     pack.sizing.fourbet_mult_mix = {"2.1": 0.5, "2.4": 0.5}

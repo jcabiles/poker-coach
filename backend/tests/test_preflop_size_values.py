@@ -44,6 +44,12 @@ RECREATIONALS = ("calling_station", "passive_fish", "maniac")
 EARLY = (Position.UTG, Position.UTG1, Position.UTG2, Position.LJ)
 LATE = (Position.HJ, Position.CO, Position.BTN)
 
+# The 0.5bb grid the rest of the roster already uses — content/preflop/rfi.json
+# opens at 2.5 and 3.0, and the persona scalars are 3.0/3.5/4.0/4.5. Values off
+# it (2.2, 2.8) are not amounts a live $2/$3 player picks, and a rung only one
+# pack can produce is a fingerprint rather than a differentiator.
+GRID_STEP = 0.5
+
 _LEGAL_OPEN = [
     LegalAction(action=ActionType.CHECK),
     LegalAction(action=ActionType.RAISE, min_bb=2.0, max_bb=100.0),
@@ -84,6 +90,15 @@ def test_every_persona_mixes_its_open_at_every_seat(packs, position):
     A modal share is asserted rather than merely 'two distinct values', because
     a second size drawn one time in five hundred removes the tell from a set
     and leaves it in the data.
+
+    A REVIEWER OBJECTION WORTH RECORDING, not adopted: one rote regular who
+    always opens 3bb is the most common player type in a low-stakes full-ring
+    game, so requiring every pack to mix arguably forbids a realistic player.
+    The assertion stays per-pack anyway, because with six seats at the table a
+    persona that never varies is identifiable by that alone — "the seat that
+    always opens 3.0" is the tell in a different coat. Scoping the check to the
+    roster instead would let any single pack revert silently, which is the
+    failure this ticket is about.
     """
     for name, pack in packs.items():
         counts = _open_sizes(pack, position)
@@ -95,7 +110,97 @@ def test_every_persona_mixes_its_open_at_every_seat(packs, position):
             f"paper that plays as one number: {counts}")
 
 
+# --- 1b. no size belongs to one persona, and none is off the grid -----------
+
+def _authored_open_sizes(pack, *, blinds: bool = True) -> set[float]:
+    """Every open size the pack can draw. `blinds=False` drops SB and BB, whose
+    sizes no grader path caps (both capped nodes reject a blind opener first)."""
+    keys = set(pack.sizing.open_bb_mix or {})
+    for seat, mix in (pack.sizing.open_bb_mix_by_position or {}).items():
+        if not blinds and seat in ("SB", "BB"):
+            continue
+        keys |= set(mix)
+    return {float(k) for k in keys}
+
+
+def test_no_open_size_is_producible_by_exactly_one_persona(packs):
+    """The tell this ticket exists to remove, in its subtlest form.
+
+    A first draft differentiated the three regulars by giving each a private
+    off-size rung — 2.2 for the lag, 2.8 for the nit. Measured over 4,000
+    hands that produced P(lag | a 2.2bb open) = P(nit | a 2.8bb open) = 1.000:
+    one observation naming the seat with certainty, where before the change the
+    three regulars had been perfectly anonymous to each other by size.
+
+    Personas are separated by how OFTEN they take a shared size, never by
+    owning one. The same rule is applied to the 3-bet multiplier below.
+    """
+    owners: dict[float, list[str]] = {}
+    for name, pack in packs.items():
+        for size in _authored_open_sizes(pack):
+            owners.setdefault(size, []).append(name)
+    sole = {s: o[0] for s, o in owners.items() if len(o) == 1}
+    assert not sole, f"open sizes only one pack can produce: {sole}"
+
+
+def test_no_3bet_multiplier_is_producible_by_exactly_one_persona(packs):
+    owners: dict[float, list[str]] = {}
+    for name, pack in packs.items():
+        for key in pack.sizing.threebet_mult_mix or {}:
+            owners.setdefault(float(key), []).append(name)
+    sole = {s: o[0] for s, o in owners.items() if len(o) == 1}
+    assert not sole, f"3-bet multipliers only one pack can produce: {sole}"
+
+
+def test_every_authored_open_sits_on_the_half_bb_grid(packs):
+    """2.2bb and 2.8bb are $6.60 and $8.40 at this table's stakes anchor. Nobody
+    picks those. The schema docstring states the rule — sizes stay at values a
+    person would actually choose — and a first draft of these values broke it.
+    """
+    off = {}
+    for name, pack in packs.items():
+        bad = sorted(s for s in _authored_open_sizes(pack)
+                     if abs(round(s / GRID_STEP) * GRID_STEP - s) > 1e-9)
+        if bad:
+            off[name] = bad
+    assert not off, f"open sizes off the {GRID_STEP}bb grid: {off}"
+
+
 # --- 2. the regulars move with the seat, the recreationals do not -----------
+
+def test_the_big_blind_isolates_at_more_than_one_size(packs):
+    """The seat that cannot open still raises, and it reads the same table.
+
+    `preflop_raise_to`'s iso branch is the open plus a bb per limper, so the
+    big blind draws from `open_bb_mix_by_position` even though an unopened pot
+    never reaches it. An earlier version of the field excluded the seat, and
+    all three packs with a seat table isolated at exactly one size — 300 of 300
+    draws — while every other check in this file passed.
+
+    Driven through production's `_preflop_decision` at `facing="vs_limpers"`,
+    which is the path `bot_decision` takes.
+
+    Scoped to the three regulars. The recreationals author a flat mix, which
+    applies at every seat including this one, so they were never at risk — and
+    the station raises so rarely that 600 draws do not produce a sample worth
+    judging.
+    """
+    legal = [
+        LegalAction(action=ActionType.CHECK),
+        LegalAction(action=ActionType.RAISE, min_bb=2.0, max_bb=100.0),
+    ]
+    for name in REGULARS:
+        pack = packs[name]
+        counts: Counter = Counter()
+        for seed in range(600):
+            d = _preflop_decision(pack, Position.BB, "vs_limpers", _HAND, legal,
+                                  random.Random(seed), 1.0, 1, is_opener=False)
+            if d.action is ActionType.RAISE:
+                counts[d.size_bb] += 1
+        assert sum(counts.values()) > 50, f"{name}: too few BB isos to judge"
+        assert len(counts) >= 2, (
+            f"{name} isolates from the big blind at one size: {counts}")
+
 
 @pytest.mark.parametrize("name", REGULARS)
 def test_a_regular_opens_smaller_from_late_position(packs, name):
@@ -114,6 +219,31 @@ def test_a_regular_opens_smaller_from_late_position(packs, name):
     late = {p: mean(p) for p in LATE}
     assert min(early.values()) > max(late.values()), (
         f"{name}: early opens {early} do not all exceed late opens {late}")
+
+
+@pytest.mark.parametrize("seats", [EARLY, LATE])
+def test_the_three_regulars_are_ordered_by_how_cheaply_they_open(packs, seats):
+    """The differentiation that is SAFE to have: level, not alphabet.
+
+    A LAG's edge is opening a wide range cheaply, so it should take the small
+    size most often; a nit opens few hands and wants folds, so least often; the
+    tag sits between. A first draft asserted exactly this in the lag's pack
+    documentation and authored the reverse — lag 0.80 against tag 0.88 at the
+    small size — which is why the ordering is now a test rather than a
+    sentence.
+    """
+    def p_small(name):
+        table = packs[name].sizing.open_bb_mix_by_position
+        small = min(float(k) for k in table[seats[0].value])
+        return sum(
+            sum(w for k, w in table[s.value].items() if float(k) <= small + 1e-9)
+            for s in seats
+        ) / len(seats)
+
+    lag, tag, nit = p_small("lag"), p_small("tag"), p_small("nit")
+    assert lag > tag > nit, (
+        f"expected lag > tag > nit at the small size; got lag={lag:.3f} "
+        f"tag={tag:.3f} nit={nit:.3f}")
 
 
 @pytest.mark.parametrize("name", RECREATIONALS)
@@ -154,12 +284,24 @@ def test_no_pack_authors_a_4bet_mix(packs):
 
 
 def test_every_3bet_mix_stays_at_or_under_the_grading_cap(packs):
-    """3.5x is `grade_map_preflop._THREEBET_MULT_CAP`, and hero's own open is
-    offered at the canonical size for its seat, so a multiplier at or under 3.5
-    is gradeable at every seat and one above it is gradeable at none.
+    """3.5x is `grade_map_preflop._THREEBET_MULT_CAP`, applied to the CANONICAL
+    open for hero's seat rather than to the open hero actually made.
+
+    Hero is offered two open sizes at an RFI node, the canonical and canonical
+    plus 1.0bb (`sim_session._preflop_two_sizes`). On the canonical leg any
+    multiplier at or under 3.5 is inside the cap and one above it is outside;
+    on the bigger leg `_map_vs_3bet` refuses the spot on hero's own open before
+    the multiplier is looked at, and it refuses a blind hero opener outright.
+    So this bound is what makes the villain's 3-bet gradeable wherever the spot
+    is gradeable at all — not at literally every seat.
 
     The cap is imported rather than written as 3.5, so a drift in the grader
     fails here instead of silently making a shipped rung ungradeable.
+
+    FILED FOR THE OWNER, not settled here: `RES-B-bet-sizing.md` §4 sources the
+    maniac at a 5.5x 3-bet, and this cap makes that unreachable. Keeping the
+    test hard protects hero's feedback; the cost is that a grading constant now
+    bounds a persona's identity. See the ledger.
     """
     from app.domain.table.grade_map_preflop import _THREEBET_MULT_CAP
 
@@ -170,6 +312,64 @@ def test_every_3bet_mix_stays_at_or_under_the_grading_cap(packs):
         assert worst <= _THREEBET_MULT_CAP + 1e-9, (
             f"{name}: 3-bet rung {worst} exceeds the {_THREEBET_MULT_CAP} cap")
         assert len(mix) >= 2, f"{name}: 3-bet mix {mix} is one value"
+
+
+def test_which_authored_opens_hero_cannot_grade_as_an_opener(packs):
+    """The grandfathered exceptions, pinned so a new one is visible.
+
+    `test_authored_preflop_sizes_stay_gradeable` in the invariants file checks
+    the OUTER envelope — `_OVERSIZE_OPEN_CAP` 4.5, the band for hero merely
+    facing an open — and its name reads more universal than it is. The stricter
+    node is hero's vs-4-bet spot, where `_map_vs_4bet` refuses the whole hand
+    unless the villain's own open was at most `_STD_OPEN_CAP` 3.0.
+
+    Three packs open above that as their shipped identity and always have. This
+    pins exactly which sizes are affected, so that adding a rung above 3.0 to a
+    fourth pack fails here instead of quietly removing a hero spot.
+
+    Blind seats are excluded: `_map_vs_4bet` rejects a blind opener before it
+    looks at any size, so the regulars' 3.5bb blind opens cost nothing here.
+    """
+    from app.domain.table.grade_map_preflop import _STD_OPEN_CAP
+
+    refused = {
+        name: sorted(s for s in _authored_open_sizes(pack, blinds=False)
+                     if s > _STD_OPEN_CAP + 1e-9)
+        for name, pack in packs.items()
+    }
+    assert {k: v for k, v in refused.items() if v} == {
+        "calling_station": [3.5, 4.0],
+        "passive_fish": [3.5, 4.0, 4.5],
+        "maniac": [4.0, 4.5],
+    }, refused
+
+
+def test_the_reports_node_derivation_matches_the_domain():
+    """`preflop_size_report._node_for` re-derives the preflop node from a row
+    stream instead of a `HandState`. Two copies of one rule drift, so they are
+    compared here over every action prefix rather than trusted.
+    """
+    from itertools import product
+
+    from tools.preflop_size_report import _node_for
+
+    def domain_answer(actions):
+        """`play._preflop_facing`, transcribed from the state it reads."""
+        raises = [a for a in actions if a == "raise"]
+        if not raises:
+            return "vs_limpers" if "call" in actions else "unopened"
+        n = len(raises)
+        return {1: "vs_rfi", 2: "vs_3bet"}.get(n, "vs_4bet")
+
+    for length in range(0, 6):
+        for prefix in product(("fold", "call", "raise"), repeat=length):
+            n_raises = sum(1 for a in prefix if a == "raise")
+            limped = any(
+                a == "call"
+                for i, a in enumerate(prefix)
+                if "raise" not in prefix[:i]
+            )
+            assert _node_for(n_raises, limped) == domain_answer(prefix), prefix
 
 
 # --- 4. what full hands actually saw ----------------------------------------

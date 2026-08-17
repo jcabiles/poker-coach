@@ -37,9 +37,14 @@ that was never reached and a zero that was reached-and-never-fired mean
 opposite things, and suppressing all-zero rows made them indistinguishable —
 it hid that `BET_FRACTION_OFF_GRID` and `STACK_TOO_SHALLOW` are structurally
 censored on this corpus (82% of rows cannot reach a sizing check at all) and
-that `OPEN_SIZE_OFF_BAND` is a tautological zero, since every persona's
-`open_bb` (3.0/3.5/4.0/4.5) is inside the `[2.0, _OVERSIZE_OPEN_CAP=4.5]` band.
+that `OPEN_SIZE_OFF_BAND` is a tautological zero, since every open a persona
+can make is inside the `[2.0, _OVERSIZE_OPEN_CAP=4.5]` band.
 Theory-reviewer HIGH.
+
+(T2b, 2026-08-17: that sentence used to enumerate four fixed sizes,
+3.0/3.5/4.0/4.5. The personas now draw the open from a distribution spanning
+2.5 to 4.5, so the enumeration is gone and the claim rests on the band alone.
+Still tautological, for the same reason.)
 """
 
 from __future__ import annotations
@@ -454,9 +459,13 @@ def main(argv: list[str] | None = None) -> int:
         elif evals == 0:
             note = "CENSORED — stage never reached, cell carries NO information"
         elif reason is RejectReason.OPEN_SIZE_OFF_BAND:
-            # Not a finding: `_OVERSIZE_OPEN_CAP` is 4.5 and every persona's
-            # open_bb is 3.0/3.5/4.0/4.5, so this cell CANNOT fire on any bot
-            # line. Reported so nobody reads the zero as coverage evidence.
+            # Not a finding: `_OVERSIZE_OPEN_CAP` is 4.5 and every open a
+            # persona can draw is inside [2.0, 4.5] — since T2b that is a
+            # distribution rather than one fixed size per pack, and the
+            # invariant is enforced by
+            # `test_persona_pack_invariants::test_authored_preflop_sizes_stay_gradeable`
+            # — so this cell CANNOT fire on any bot line. Reported so nobody
+            # reads the zero as coverage evidence.
             note = f"reached {evals}x — TAUTOLOGICAL zero, no bot open is off-band"
         else:
             note = f"reached {evals}x, never fired"

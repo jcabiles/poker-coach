@@ -205,12 +205,20 @@ need rescuing.
 **Do:** Author the preflop size values on all six packs, with the open keyed by
 seat for the three regulars.
 
-**Acceptance (met):** every persona mixes its open at every seat and its 3-bet
-multiplier, measured in production's own sampler; the regulars' mean open is
-strictly lower from the hijack round than from every early seat; the
-recreationals stay seat-blind; every authored rung is inside the grading bound
-that governs it; the five-seed gate passes; a non-gating realised-size report
-ships with the ticket.
+**Acceptance (met, with one exception stated below):** every persona mixes its
+open at every seat and its 3-bet multiplier, measured in production's own
+sampler; no open size or 3-bet multiplier is producible by exactly one pack;
+the regulars' mean open is strictly lower from the hijack round than from every
+early seat; the recreationals stay seat-blind; every authored rung is on the
+0.5bb grid and inside the grading bound that governs it; the five-seed gate
+passes; a non-gating realised-size report ships with the ticket.
+
+⚠️ **Spec §7.1's coverage clause is NOT met.** Measured paired over six seeds,
+both component ratios are flat (preflop +0.05pp, postflop −0.06pp) and the
+pooled ratio falls 0.26pp because the street MIX moved — hero takes 1.5% more
+postflop decisions, and postflop grades at about 3% against preflop's 57%. The
+metric cannot distinguish that from a grading regression. Filed for the owner
+in the ledger rather than resolved, and not shrunk-to-fit.
 
 **Done-condition:** `./scripts/verify.sh && python -m tools.derobo_gate --check
 --all-seeds`
@@ -221,6 +229,17 @@ ships with the ticket.
 `content/schema/persona.schema.json`, the `sizing` block of the six packs,
 `backend/tools/preflop_size_report.py`,
 `backend/tests/test_preflop_size_values.py`.
+
+**Also edited, each a forced re-pin or a mechanically required update** — named
+here because the original Owns block understated the ticket, which a reviewer
+correctly flagged as scope drift against §11 item 13:
+`backend/tools/counterfactual.py` (an override on a sizing scalar had to start
+collapsing the mix that now shadows it, or two declared sweep axes stay dead),
+`backend/tools/reject_counts.py` and
+`backend/app/domain/table/grade_map_postflop.py` (comments that enumerated the
+old fixed open sizes), and the pinned fixtures in
+`backend/tests/{test_buyin_spread,test_limper_coverage_belt,test_coverage_baseline,test_personas_postflop,test_bet_sizing,test_preflop_size_mix,test_persona_pack_invariants,test_counterfactual}.py`
+plus `backend/tests/data/coverage_baseline.json`.
 
 ### Original write-up, kept for the record
 

@@ -371,41 +371,56 @@ next mover should copy rather than rediscover:
     JSON, you are also editing this docstring.
 
 RE-RECORDED for T2b (2026-08-17, slice-authorized): preflop raise sizes are now
-drawn from a mix, keyed by seat for the three regulars. At this one seed the
-fixture reads 339/1294 -> 336/1288, so the graded COUNT falls by three. Read
-the six-seed measurement below instead; point (1) above is exactly about not
-reading this line.
+drawn from a mix, keyed by seat for the three regulars. Read the paired
+measurement below rather than this line; point (1) above is exactly about that.
 
-The six-seed reading, `measure_split` at 2,000 hands across 20260718-20260723,
-before -> after:
+(4) THIS SLICE'S BEFORE/AFTER ARMS MUST BE PAIRED, AND T2B IS THE FIRST CHANGE
+    FOR WHICH THAT MATTERS. `measure_split` deals from the same `Random` it
+    hands the bots, and T2b adds one `rng.choices` call per preflop raise, so a
+    two-checkout comparison re-randomises every later deal — the arms are not
+    playing the same hands at all. The fix is a control that consumes the
+    IDENTICAL rng: degenerate one-key mixes at the pre-T2b scalars, which draw
+    once and always return the old size. Paired, six seeds x 2,000 hands:
 
-    preflop   0.571013 -> 0.573595   (+0.26pp)
-    postflop  0.032944 -> 0.031588   (-0.14pp)
-    overall   0.251215 -> 0.247432   (-0.38pp)
+        preflop   0.57397 -> 0.57448   (+0.05pp)
+        postflop  0.03515 -> 0.03458   (-0.06pp)
+        overall   0.25387 -> 0.25125   (-0.26pp)
 
-The overall drop is not distinguishable from zero. The six per-seed deltas are
--0.375, +0.846, -0.244, -0.215, -1.147 and -1.101 pp: mean -0.373pp, standard
-error 0.298pp, so about 1.25 standard errors from no change. This is the sixth
-reading in this slice to come out that way.
+    Both components are flat to within a tenth of a point. The overall ratio
+    moves only because the street MIX moved, which is point (2) above: hero
+    postflop decisions rose 1.5% (21,624 -> 21,952) against a flat preflop
+    count, and postflop grades at about 3% against preflop's 57%.
 
-ONE THING IN IT IS NOT NOISE, and it is the reason the overall ratio leans
-down. The postflop DENOMINATOR rose at every one of the six seeds -- 3717,
-3572, 3645, 3718, 3576, 3415 becoming 3767, 3654, 3749, 3731, 3803, 3615, about
-+3.1% -- while the postflop graded count stayed flat (713 -> 705). Hero simply
-faces more postflop decisions. The mechanism is direct: the regulars now open
-2.5bb from the hijack round instead of 3.0bb, a cheaper open is called by more
-seats, and more seats seeing a flop means more multiway pots, which this
-repo's mappers largely do not cover. The overall ratio then falls for the
-reason point (2) above describes -- decisions moved toward the street that
-grades at 3%.
+WHAT MOVED, MEASURED RATHER THAN ASSUMED. The extra postflop decisions are not
+extra players: seats per flop FELL slightly (2.0241 -> 2.0185). Hands go
+FURTHER instead.
+
+AN EARLIER VERSION OF THIS ENTRY GAVE THE WRONG MECHANISM, and it is worth
+naming because it was superficially plausible: "a cheaper open is called by
+more seats, so more pots go multiway". That cannot happen. `sample_preflop_action`
+takes no size argument and `play._preflop_facing` keys on the raise COUNT, so no
+bot's calling frequency reads a bb amount -- villain preflop defence is
+size-blind by construction. The measured seats-per-flop change is in the
+opposite direction anyway. The route that IS open to preflop sizing is the pot:
+smaller opens mean smaller pots, and `personas_postflop` (~1110, ~1123) uses
+`stack_bb / pot_bb <= pf.spr_commit` for its commitment ramp, so a higher SPR
+commits less often and leaves more streets to play.
 
 That is a genuine tension with spec 7.1, which reads the ratio and forbids
-reducing it. The ratio cannot tell "grading broke" apart from "more poker
-happened", and this ticket produced the second: the graded count over the six
-seeds went UP, 9148 -> 9177. FILED FOR THE OWNER rather than resolved here --
-choosing a different acceptance metric is a spec decision, and quietly shrinking
-the change until the ratio held would be fitting values to a gate, which is the
-defect both T5 review rounds caught.
+reducing it. The ratio cannot tell "grading broke" apart from "hands went
+further", and this ticket produced the second. SPEC 7.1 IS THEREFORE NOT MET
+AND IS NOT CLAIMED TO BE; it is filed for the owner. Choosing a different
+acceptance metric is a spec decision, and shrinking the change until the ratio
+held would be fitting values to a gate -- the defect both T5 review rounds
+caught. What the values WERE shrunk for is a different reason, recorded in the
+ledger: the 3-bet mixes were narrowed because they pushed the lag's showdown
+rate out of a frozen band, and that reduction happens to shrink this delta too.
+
+At this one seed the fixture reads 339/1294 -> 335/1227. Cumulative against the
+immutable `coverage_baseline.persona-realism-start.json` (349/1233 = 28.30%),
+which every prior entry states and the first draft of this one omitted:
+335/1227 = 27.30%, -1.00pp, inside the adjudicated `T-cover` mapper dip and a
+recovery on T5's -2.10pp.
 """
 
 from __future__ import annotations

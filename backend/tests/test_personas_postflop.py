@@ -3689,9 +3689,9 @@ _GOLDEN_STATS_N200 = {
     # denominator, not a signal.
     # RE-RECORDED for T2b (2026-08-17, slice-authorized): PREFLOP raise sizes
     # are now drawn from a mix, keyed by seat for the three regulars. All six
-    # rows move, in both directions (AF: station 0.396 -> 0.448, lag 2.179 ->
-    # 2.344, maniac 2.536 -> 2.843, nit 1.0 -> 1.2, tag 2.135 -> 1.935, fish
-    # 0.991 -> 0.685).
+    # rows move, in both directions (AF: station 0.396 -> 0.322, lag 2.179 ->
+    # 2.226, maniac 2.536 -> 3.239, nit 1.0 -> 0.933, tag 2.135 -> 1.840, fish
+    # 0.991 -> 0.788).
     # UNLIKE T5, no direct coupling explains a sign here. T5's move had one —
     # a pack's own size mix scales its bluff rate through the F2 joint law —
     # and preflop has no equivalent: `_preflop_facing` keys on the raise COUNT
@@ -3699,21 +3699,27 @@ _GOLDEN_STATS_N200 = {
     # What preflop sizing does change is the POT, and through it the stack-to-
     # pot ratio that `personas_postflop` :1110 and :1123 use for the commitment
     # ramp (`stack_bb / pot_bb <= pf.spr_commit`). Smaller opens mean smaller
-    # pots, higher SPR and less commitment; more callers per pot mean more
-    # multiway flops. Both reshape which hands reach which street, which is
-    # ordinary stream displacement with a mechanism, not a per-persona effect
-    # with a direction.
+    # pots, higher SPR and less commitment, so hands go further: measured with
+    # the rng stream held aligned, hero postflop decisions rose 3.0% while
+    # seats per flop FELL 1.7%. (An earlier draft of this note said "more
+    # callers per pot mean more multiway flops". That contradicted the sentence
+    # above it and is false in both halves — nothing reads a size to set a
+    # frequency, and the measured seats-per-flop change is negative.) Which
+    # hands reach which street therefore shifts, which is ordinary stream
+    # displacement with a mechanism, not a per-persona effect with a direction.
     # The claim that aggression stayed in range is NOT made from these n=200
     # numbers: `test_persona_postflop_bands` gates AF at population n and
-    # passes unchanged. One FtC cell crosses the n>=30 floor (lag, None ->
-    # 0.294) and the tag's and the nit's stay None — the usual single-digit
-    # denominator, not a signal.
-    "calling_station": (0.44841269841269843, 0.19672131147540983, 0.6179775280898876),
-    "lag": (2.34375, 0.29411764705882354, 0.5984251968503937),
-    "maniac": (2.842857142857143, 0.2777777777777778, 0.6572769953051644),
-    "nit": (1.2, None, 0.5882352941176471),
-    "passive_fish": (0.6853146853146853, 0.4864864864864865, 0.5119617224880383),
-    "tag": (1.934782608695652, None, 0.6627906976744186),
+    # passes unchanged, and it is not a formality here: the lag's WTSD leg went
+    # RED at an earlier draft of these values and the 3-bet mixes were narrowed
+    # until it was not (see the ledger — the seat ladder was NOT the cause).
+    # One FtC cell crosses the n>=30 floor (lag, None -> 0.323) and the tag's
+    # and the nit's stay None — the usual single-digit denominator.
+    "calling_station": (0.3215686274509804, 0.31746031746031744, 0.6377358490566037),
+    "lag": (2.225806451612903, 0.3225806451612903, 0.6048387096774194),
+    "maniac": (3.2388059701492535, 0.35555555555555557, 0.6267281105990783),
+    "nit": (0.9333333333333333, None, 0.6181818181818182),
+    "passive_fish": (0.7876106194690266, 0.40476190476190477, 0.551219512195122),
+    "tag": (1.84, None, 0.6629213483146067),
 }
 
 

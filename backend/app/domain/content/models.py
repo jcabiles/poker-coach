@@ -164,6 +164,12 @@ class PersonaSizing(BaseModel):
     Personas who genuinely do not adjust to position keep the flat
     `open_bb_mix`: being seat-blind IS the recreational archetype.
 
+    The seat table governs the ISOLATION raise as well as the open, because
+    `preflop_raise_to`'s iso branch is the open plus a bb per limper. That is
+    why it must name all NINE seats and not the eight that can open: a big blind
+    cannot open, but it raises over limpers routinely, and a table that stopped
+    at the small blind sent every one of those raises back to the fixed scalar.
+
     This model forbids unknown fields. Without that, a misspelled `open_bb_mxi`
     would load without complaint, leave `open_bb_mix` at None, and silently
     turn the whole feature into a no-op that nothing reports.
@@ -211,32 +217,37 @@ class PersonaSizing(BaseModel):
         cls, v: dict[str, dict[str, float]] | None
     ) -> dict[str, dict[str, float]] | None:
         """Every inner mix obeys the same rules as a flat one, and the table
-        must name every seat that can open.
+        must name every seat at the table.
 
         Completeness is required rather than defaulted. A seat left out would
         fall back to the scalar, which is exactly the shape of silent no-op
         this slice keeps producing: the pack would load, the persona would go
         on playing one fixed size from the forgotten seat, and no test would
-        say so. Naming all eight makes a forgotten seat a load error.
+        say so.
 
-        BB is excluded because a big blind cannot open — it acts last preflop,
-        and an unopened pot reaching it is a check. A BB key here would be a
-        misunderstanding worth reporting, not a harmless extra.
+        ALL NINE seats, including the big blind. An earlier version of this
+        validator required only the eight that can open, on the true premise
+        that a big blind never opens an unopened pot. It is the wrong premise
+        for this field: the table also feeds the ISOLATION raise, which a big
+        blind makes routinely, and excluding the seat sent every big-blind
+        isolation straight back to the fixed scalar — measured at share 1.000
+        for all three packs that ship a table.
         """
         if v is None:
             return None
-        openable = {p.value for p in Position if p is not Position.BB}
-        unknown = sorted(set(v) - openable)
+        every_seat = {p.value for p in Position}
+        unknown = sorted(set(v) - every_seat)
         if unknown:
             raise ValueError(
-                f"open_bb_mix_by_position has non-opening seats {unknown}; "
-                f"expected only {sorted(openable)}")
-        missing = sorted(openable - set(v))
+                f"open_bb_mix_by_position has unknown seats {unknown}; "
+                f"expected {sorted(every_seat)}")
+        missing = sorted(every_seat - set(v))
         if missing:
             raise ValueError(
                 f"open_bb_mix_by_position is missing seats {missing} — every "
-                f"opening seat must be named, or the omitted ones silently "
-                f"keep the fixed scalar")
+                f"seat must be named, or the omitted ones silently keep the "
+                f"fixed scalar (the big blind included: it cannot open, but it "
+                f"isolates limpers from the same table)")
         for seat, mix in v.items():
             try:
                 cls._size_mix_valid(mix)

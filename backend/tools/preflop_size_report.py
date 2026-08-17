@@ -53,17 +53,21 @@ LEVER_BY_NODE = {
     "vs_4bet": None,  # a 5-bet is a forced jam, not a lever
 }
 
-# Seat order for the per-position table. BB is absent deliberately: an unopened
-# pot never reaches the BB as a raiser (it is last to act and checks), so a BB
-# row would always be empty and reads as a hole rather than as a fact.
-POSITIONS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB")
+# Seat order for the per-position tables. The big blind is included even though
+# it can never open, because it DOES isolate limpers off the same seat table.
+# An earlier version of this file left it out on the "a BB cannot open" premise
+# and, in doing so, hid the one cell where three packs were still playing a
+# single fixed size.
+POSITIONS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB")
 
 
 def _node_for(n_raises_before: int, anyone_limped: bool) -> str:
     """`play._preflop_facing`, re-derived from the exported row stream.
 
-    Kept as a separate function so the parity test can compare it against the
-    domain's own version rather than trusting that they agree.
+    Kept as a separate function so
+    `tests/test_preflop_size_values.py::test_the_reports_node_derivation_matches_the_domain`
+    can compare it against the domain's own version over every action prefix,
+    rather than trusting that the two agree.
     """
     if n_raises_before == 0:
         return "vs_limpers" if anyone_limped else "unopened"
@@ -87,6 +91,13 @@ def collect(hands: int, seed: int) -> dict:
     # persona -> node -> multiplier -> count, for the nodes whose lever is a
     # multiple of the raise faced rather than an absolute bb figure.
     by_mult: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    # persona -> position -> IMPLIED open -> count, for isolation raises. The
+    # raise-TO is useless here: the iso is the open plus a bb per limper, so a
+    # varying limper count spreads a completely fixed open across several
+    # sizes. Subtracting the limpers back out is what makes a fixed cell
+    # visible, and its absence is how three packs shipped a share-1.000 big
+    # blind through a review round.
+    iso_by_seat: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
     for i in range(hands):
         hand_seed = rng.randrange(1_000_000_000)
@@ -94,21 +105,24 @@ def collect(hands: int, seed: int) -> dict:
         persona_by_row_seat = {r["seat"]: r["persona"] for r in res["seats"]}
         last_raise_to = 1.0  # the big blind, before anyone raises
         n_raises = 0
-        limped = False
+        limpers = 0
         for row in res["decisions"]:
             if row["street"] != "preflop":
                 continue
-            if row["action"] == "call":
-                limped = limped or n_raises == 0
+            if row["action"] == "call" and n_raises == 0:
+                limpers += 1
             if row["action"] != "raise":
                 continue
-            node = _node_for(n_raises, limped)
+            node = _node_for(n_raises, limpers > 0)
             n_raises += 1
             persona = persona_by_row_seat[row["seat"]]
             size = round(float(row["raise_to_bb"]), 2)
             by_node[persona][node][size] += 1
             if node == "unopened":
                 by_seat[persona][row["position"]][size] += 1
+            elif node == "vs_limpers":
+                implied = round(size - limpers, 2)
+                iso_by_seat[persona][row["position"]][implied] += 1
             if LEVER_BY_NODE.get(node) in ("threebet_mult", "fourbet_mult"):
                 by_mult[persona][node][round(size / last_raise_to, 2)] += 1
             last_raise_to = size
@@ -118,6 +132,7 @@ def collect(hands: int, seed: int) -> dict:
         "seed": seed,
         "by_node": _plain(by_node),
         "by_seat": _plain(by_seat),
+        "iso_by_seat": _plain(iso_by_seat),
         "by_mult": _plain(by_mult),
         "scalars": {
             name: {
@@ -184,22 +199,27 @@ def render(data: dict) -> str:
                     f"  {'':<11} realised x{_fmt_hist(mult)}"
                     f"  | mean={mean:.3f} shipped={shipped} delta={mean - shipped:+.3f}"
                 )
-        out.append("  open by seat:")
-        seats = data["by_seat"].get(persona, {})
-        # Anything the data has that POSITIONS does not name is printed too.
-        # The first draft of this report spelled two seats "UTG+1"/"UTG+2"
-        # against an enum that says "UTG1"/"UTG2", and silently dropped a third
-        # of every persona's opens behind a row reading "(none)".
-        unnamed = [p for p in sorted(seats) if p not in POSITIONS]
-        for pos in tuple(POSITIONS) + tuple(unnamed):
-            hist = seats.get(pos)
-            if not hist:
-                out.append(f"    {pos:<6} (none)")
-                continue
-            n = sum(hist.values())
-            out.append(f"    {pos:<6} n={n:<5} {_fmt_hist(hist)}  mean={_mean(hist):.3f}")
+        _seat_table(out, "open by seat", data["by_seat"].get(persona, {}))
+        _seat_table(out, "iso by seat (implied open, limpers subtracted)",
+                    data["iso_by_seat"].get(persona, {}))
         out.append("")
     return "\n".join(out)
+
+
+def _seat_table(out: list[str], title: str, seats: dict) -> None:
+    out.append(f"  {title}:")
+    # Anything the data has that POSITIONS does not name is printed too. The
+    # first draft of this report spelled two seats "UTG+1"/"UTG+2" against an
+    # enum that says "UTG1"/"UTG2", and silently dropped a third of every
+    # persona's opens behind a row reading "(none)".
+    unnamed = [p for p in sorted(seats) if p not in POSITIONS]
+    for pos in tuple(POSITIONS) + tuple(unnamed):
+        hist = seats.get(pos)
+        if not hist:
+            out.append(f"    {pos:<6} (none)")
+            continue
+        n = sum(hist.values())
+        out.append(f"    {pos:<6} n={n:<5} {_fmt_hist(hist)}  mean={_mean(hist):.3f}")
 
 
 def main() -> None:
