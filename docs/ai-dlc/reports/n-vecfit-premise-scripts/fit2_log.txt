@@ -1,0 +1,12 @@
+[scalar->tag_TRUE2] tol=(0.02344,0.08522) target=(0.38034312300087236, 3.130374479889043) start_err=(-3.52,-11.22) tol
+[vector->tag_TRUE2] tol=(0.02344,0.08522) target=(0.38034312300087236, 3.130374479889043) start_err=(-3.52,-11.22) tol
+{"mode": "vector", "target": "tag_TRUE2", "tag": "vector step 1", "call": 1, "fresh": true, "cl": 0.27063, "agg": 5.3413, "ftc": 0.3857764876632801, "af": 3.5825076870515886, "e_ftc": 0.23182382820250438, "e_af": 5.305603441790461, "secs": 121.7}
+{"mode": "scalar", "target": "tag_TRUE2", "tag": "scalar r1 cl", "call": 1, "fresh": true, "cl": 0.33587, "agg": 2.4, "ftc": 0.39, "af": 2.4882154882154883, "e_ftc": 0.4120272305497036, "e_af": -7.535480478820578, "secs": 122.6}
+{"mode": "scalar", "target": "tag_TRUE2", "tag": "scalar r1 agg", "call": 2, "fresh": true, "cl": 0.33587, "agg": 5.3413, "ftc": 0.3533507397737163, "af": 3.316143147366776, "e_ftc": -1.1516763554124232, "e_af": 2.1799214610493123, "secs": 122.7}
+{"mode": "vector", "target": "tag_TRUE2", "tag": "vector step 2", "call": 2, "fresh": true, "cl": 0.32511, "agg": 3.19351, "ftc": 0.37749857224443173, "af": 2.772812725958062, "e_ftc": -0.1213676399150754, "e_af": -4.195845034728513, "secs": 123.8}
+{"mode": "scalar", "target": "tag_TRUE2", "tag": "scalar r1 agg", "call": 3, "fresh": true, "cl": 0.33587, "agg": 4.46365, "ftc": 0.3740546829552065, "af": 3.1320524550167734, "e_ftc": -0.26830708693168775, "e_af": 0.019690371049709464, "secs": 123.2}
+{"mode": "scalar", "target": "tag_TRUE2", "x": [0.3358701331175053, 4.463648224952105], "y": [0.3740546829552065, 3.1320524550167734], "calls": 3, "ok": true}
+{"mode": "vector", "target": "tag_TRUE2", "tag": "vector step 3", "call": 3, "fresh": true, "cl": 0.28366, "agg": 4.82344, "ftc": 0.3838150289017341, "af": 3.3545366483693897, "e_ftc": 0.14813482383491597, "e_af": 2.6304539320885847, "secs": 123.2}
+{"mode": "vector", "target": "tag_TRUE2", "tag": "vector step 4", "call": 4, "fresh": true, "cl": 0.3121, "agg": 3.74897, "ftc": 0.3780837636259323, "af": 2.9306872037914693, "e_ftc": -0.09639944530277728, "e_af": -2.3432507999001353, "secs": 106.9}
+{"mode": "vector", "target": "tag_TRUE2", "tag": "vector step 5", "call": 5, "fresh": true, "cl": 0.28806, "agg": 4.70764, "ftc": 0.3864748201438849, "af": 3.2973578863090474, "e_ftc": 0.2616193819837624, "e_af": 1.959483890563617, "secs": 105.9}
+{"mode": "vector", "target": "tag_TRUE2", "x": [0.28805798787040177, 4.707643476696208], "y": [0.3864748201438849, 3.2973578863090474], "calls": 5, "ok": false}
