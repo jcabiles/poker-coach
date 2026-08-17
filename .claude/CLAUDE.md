@@ -49,6 +49,41 @@ Do the simplest thing that meets the ticket's acceptance criteria — no extra f
 
 Restart Claude Code after editing `.claude/settings.json` to reload it.
 
+### Credentials on disk — never end a session with "you should rotate those"
+
+A session that concludes a credential must be deleted or rotated **hands the
+owner runnable commands, in the right order, in that same reply.** Saying "the
+keys at X are still unrotated" and stopping is not a handoff; it is a to-do item
+the owner has to design themselves, and it is why the S6 probe keys sat
+unrotated across four sessions.
+
+Claude cannot revoke a key — that needs a browser login at the provider. What
+Claude CAN do is remove every excuse not to:
+
+1. **Name the keys without printing them.** First 12 and last 4 characters plus
+   the length is enough to find a key in a console, and safe to put on screen.
+2. **Give the console URLs** — Anthropic `https://console.anthropic.com/settings/keys`,
+   OpenAI `https://platform.openai.com/api-keys`.
+3. **Point at the teardown script, or write one.** For the S6 probe keys it is
+   **`./scripts/teardown_probe_access.sh`** — the mirror of
+   `setup_probe_access.sh` (which lives with the gitignored research artifacts
+   under `detection-s6/`). It shows fingerprints, opens both consoles, waits for
+   confirmation, deletes `~/.config/s6-probe-keys.sh`, and removes
+   `api.anthropic.com` from the sandbox allowlist. One command, and it aborts
+   without touching anything if the owner does not confirm.
+4. **State the order and why.** Revoke first, delete second. Deleting the file
+   does not make a disclosed key safe, and on APFS overwriting it does not
+   reliably destroy the old blocks. Revocation at the provider is the only thing
+   that ends the exposure; deletion is tidying up afterwards.
+5. **Say plainly that rotation is the owner's to do**, rather than implying it
+   has been handled.
+
+**Any script that writes a credential to disk ships its teardown at the same
+time, in a TRACKED location.** `setup_probe_access.sh` shipped with a one-line
+comment saying to clean up later, no way to do it, and inside a gitignored
+directory — so nothing about it survived to another machine. Setup and teardown
+are one deliverable, and the teardown belongs in `scripts/`.
+
 ## Git & PR authorization
 
 Before creating a new branch, run `git fetch origin` and make sure the base branch (usually `main`) is up to date with `origin` — fast-forward the local base to `origin/main` first. Never branch from a stale base.
