@@ -187,8 +187,8 @@ HEAD_VECTORS: dict[tuple[str, str, float, bool], tuple[float, float, float]] = {
 
 # The plateau the mechanism exists to break, at pre-slice HEAD: identical at
 # every price above 1.10x pot, forever.
-HEAD_AIR_PLATEAU_CALL = 0.4040969839291483  # 0.4010
-HEAD_ACE_HIGH_PLATEAU_CALL = 0.6988701332618138  # 0.6961 — the larger defect
+HEAD_AIR_PLATEAU_CALL = 0.4040969839291483  # 0.4041
+HEAD_ACE_HIGH_PLATEAU_CALL = 0.6988701332618138  # 0.6989 — the larger defect
 # Maniac AIR raise share at f = 2.33 at HEAD. R10-2's specialist adjudication
 # REFUTED the maniac's defect claim (0/15), so its tail resistance is collateral
 # to be protected, not a target.

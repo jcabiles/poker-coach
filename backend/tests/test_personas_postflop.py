@@ -3449,6 +3449,7 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
 # population n). Exact tripwire re-record; population bands stay frozen to
 # W4-b.
 _GOLDEN_STATS_N200 = {
+
     # RE-RECORDED for W5-b3 (2026-07-31, slice-authorized): the nit nine-seat
     # unopened ladder replaces the flat 13.6/29.1 pack, displacing the shared
     # rng stream from the first nit first-in decision onward. nit's own AF
@@ -3630,8 +3631,11 @@ _GOLDEN_STATS_N200 = {
     # RE-RECORDED for T5 (2026-08-16, slice-authorized): postflop bet sizes are
     # re-weighted across all six packs. All six rows move, and one movement is a
     # REAL effect rather than displacement, so it is named rather than left for
-    # someone to discover: every AF falls (maniac 3.106 -> 2.536, tag 2.649 ->
-    # 2.135, lag 2.423 -> 2.179). A persona's own size distribution scales its
+    # someone to discover: the three packs that now bet SMALLER lose aggression
+    # (maniac 3.106 -> 2.536, tag 2.649 -> 2.135, lag 2.423 -> 2.179) and the two
+    # that bet LARGER gain it (station 0.391 -> 0.396, fish 0.873 -> 0.991). An
+    # earlier draft of this note said "every AF falls", which is false in both
+    # directions that matter. A persona's own size distribution scales its
     # bluff rate — `personas_postflop` ~:910 multiplies `bluff_mass` by
     # E_s[_bluff_size_factor(s)], the F2 joint law's "bigger bets carry
     # proportionally more bluffs" — so betting smaller genuinely means bluffing
@@ -7598,8 +7602,12 @@ def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
 # cause is the F2 joint law rather than anything in the N-LOGIT mechanism these
 # pins guard. `personas_postflop` ~:910 scales `bluff_mass` by
 # E_s[_bluff_size_factor(s)] over the persona's own authored sizing, so
-# re-weighting a pack's bet sizes moves every bluff-cell probability with it:
-# maniac -13.1%, nit -6.3%, lag -3.8%, tag +0.4%, station +7.1%, fish +10.0%.
+# re-weighting a pack's bet sizes moves every bluff-cell probability with it.
+# Over each pack's FLAT block, which is the distribution these particular pins
+# are measured on: maniac -13.1%, nit -6.3%, lag -3.8%, tag +0.4%, station
+# +7.1%, fish +10.0%. Those are flat-block figures and NOT persona-wide: four
+# packs carry `sizing_by_node`, where the sign can reverse (nit `cbet_dry`
+# +3.2%, lag `cbet_mono` +2.3%, tag `river_value` -3.9%).
 # These are bluff cells by construction, so they are the cells most exposed to
 # that coupling — the twelve-of-twelve move is the expected signature, and a
 # PARTIAL move would have been the thing to investigate.
@@ -9542,45 +9550,57 @@ _R9D_S5_NIT_RISE_FLOOR = 0.03
 # is NOT asserted, rather than buying it with a bigger N. The λ-exact claim is
 # S-4's, at the node, in odds space, where it is true.
 #
-# ── ⚠️ WEAKENED 2026-08-15, RESTORED 2026-08-16. Read this before trusting a
-#    number quoted anywhere else about this gate. ─────────────────────────────
+# ── ⚠️ WEAKENED 2026-08-15. A T5 attempt to RESTORE the tag's own tier was
+#    made on 2026-08-16 and WITHDRAWN the same day after review. Read this
+#    before trusting any number quoted elsewhere about this gate. ───────────
 #
 # The T3/T4 slice dropped the tag's own tier, leaving `nit > {tag, lag,
-# passive_fish, maniac} > calling_station`, on the strength of a table showing
-# the tag falling below the fish at N=24000 and the regulars' rise collapsing
-# about 40%. That escalation was recorded as an owner call on whether
-# `line_sensitivity` had fallen out of fit.
+# passive_fish, maniac} > calling_station`, citing a table where the tag fell
+# below the fish at N=24000. T5 re-measured, found that specific inversion
+# absent at the shipped tip, and restored the four-tier order. Two independent
+# reviewers then broke the restoration, and they were right.
 #
-# It does not reproduce. Re-measured at the shipped tip (2026-08-16), the tag
-# sits ABOVE the fish and the four-tier order is intact:
+# What the re-measurement established, and what it did NOT:
 #
-#   packs        N       nit     tag     fish    lag     maniac  station
-#   T3/T4 tip    24000   .0921   .0464   .0417   .0561   .0231   .0055
-#   T5           24000   .1017   .0895   .0445   .0386   .0288   .0050
-#   T5           48000   .0983   .0788   .0492   .0418   .0265   .0057
+#   * The SPECIFIC claim in the T3/T4 escalation — a new fish-above-tag
+#     inversion — does not reproduce. At the shipped tip the tag sits above the
+#     fish. That much stands.
+#   * It does not follow that the four-tier order holds. It does not. At the
+#     T3/T4 tip at N=24000 the tag reads .0464 against lag's .0561, so the
+#     four-tier order fails there too — for a different reason than the one
+#     that was escalated.
+#   * The evidence offered for restoring it was weaker than it looked. "The
+#     margin grows with N (+0.0122 at 24000, +0.0195 at 48000)" is a two-point
+#     read on ONE seed pair, and the 48000 sample CONTAINS the 24000 one: the
+#     seed schedule is a prefix, so that is an extension, not a replication.
 #
-# The numbers the weakening rested on were taken mid-review, before the
-# recreationals' any-two cold-call fix landed — and that fix changed exactly
-# which hands those two packs bring to a barrel node. So the tier was dropped
-# to accommodate a measurement of packs that were never shipped.
+# Measured properly, on genuinely independent (deal, action) seed pairs at
+# N=24000 on the T5 packs:
 #
-# What WAS real, and is the reason the restoration needed more than a revert:
-# the ordering genuinely does turn over at N=8000, because `nit` reaches only
-# 55 in-scope nodes there. The fix is the sample size, not the claim — see the
-# `_R9D_S5_N` block. The nit/tag margin is +0.0122 at 24000 and +0.0195 at
-# 48000, growing with N.
+#   seed pair              four-tier   three-tier   ordering
+#   20260802 / 20260803    PASS        PASS         nit tag fish lag maniac stn
+#   31415926 / 27182818    FAIL        PASS         nit lag tag fish maniac stn
+#   99887766 / 11223344    PASS        PASS         nit tag fish lag maniac stn
 #
-# The magnitude question the escalation also raised — the regulars' rise is
-# lower than it was pre-slice — is NOT closed by this, and is deliberately not
-# gated here. It is recorded in docs/ai-dlc/ledger/phase3-derobotization.md
-# with the owner's 2026-08-16 ruling: no re-fit. The short reason is that a
-# re-fit needs a target, no sourced population figure for fold-to-barrel exists
-# in this repo, and the softmax law (theory contract §2) predicts this effect
-# to shrink when a persona arrives at the node with more marginal holdings —
-# which is what T3/T4 made the regulars do. Tuning λ upward to cancel that
-# would break the node-level claim, which is green, in order to move an
-# average.
-_R9D_S5_ORDER = (("nit",), ("tag",), ("lag", "passive_fish", "maniac"), ("calling_station",))
+# Seed-to-seed spread swamps any N trend. The tag/tier-3 boundary is not a
+# property of the roster, it is a property of which hands the shared stream
+# deals — exactly what this block already records for the tier-3/tier-4 edge.
+# The three-tier form is what the data supports, so it stays.
+#
+# The sample size DOES stay raised, and that is a separate finding: at N=8000
+# even the three-tier order turns over, because `nit` reaches only 55 in-scope
+# nodes there. See the `_R9D_S5_N` block.
+#
+# The magnitude question the T3/T4 escalation also raised — the regulars' rise
+# is lower than it was pre-slice — is closed separately by the owner's
+# 2026-08-16 ruling: no re-fit of `line_sensitivity`. A re-fit needs a target,
+# no sourced population figure for fold-to-barrel exists in this repo, and the
+# softmax law (theory contract §2) predicts this effect to shrink when a
+# persona arrives with more marginal holdings — which is what T3/T4 made the
+# regulars do. Tuning λ upward to cancel that would break the node-level claim,
+# which is green, in order to move an average. Full account in
+# docs/ai-dlc/ledger/phase3-derobotization.md.
+_R9D_S5_ORDER = (("nit",), ("tag", "lag", "passive_fish", "maniac"), ("calling_station",))
 
 # ── THE DEMOTED COMPANION ──────────────────────────────────────────────────
 # Showdown frequency is now a DIRECTIONAL population-consequence check, not an

@@ -346,13 +346,13 @@ _PRE_M3_FIRES = {
     # differently and the shared organic stream drifts at this seed, moving all
     # nine pairs (old: UTG2¹ 101, LJ¹ 118, HJ¹ 115, CO¹ 98, CO² 37, SB¹ 68,
     # SB² 36, BTN¹ 77, BTN² 34). Every _WANT_* coverage shape still fires
-    # (verified: BB¹ 50, BB² 27, BB³ 5) — stream displacement, not a coverage
+    # (verified: BB¹ 46, BB² 23, BB³ 2) — stream displacement, not a coverage
     # regression. Recorded once, at the end of the ticket, with pack content
     # frozen; the three separate re-records above are what that discipline is
     # meant to avoid repeating.
-    ("UTG2", 1): 108, ("LJ", 1): 111, ("HJ", 1): 125, ("CO", 1): 92,
-    ("CO", 2): 28, ("SB", 1): 77, ("SB", 2): 38, ("BTN", 1): 96,
-    ("BTN", 2): 27,
+    ("UTG2", 1): 96, ("LJ", 1): 96, ("HJ", 1): 120, ("CO", 1): 105,
+    ("CO", 2): 36, ("SB", 1): 82, ("SB", 2): 42, ("BTN", 1): 86,
+    ("BTN", 2): 38,
 }
 
 
