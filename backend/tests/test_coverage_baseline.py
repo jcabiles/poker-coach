@@ -330,6 +330,29 @@ denominator is why; preflop coverage is flat within noise. This fixture is
 kept because it is a reliable STREAM tripwire, which is a different and
 useful thing. Anyone using it to accept or reject a bot change should
 re-measure at a larger n across several seeds first.
+
+RE-RECORDED for the de-robotization slice's T5 (2026-08-16, slice-authorized):
+postflop bet sizes re-weighted across all six packs. The bots bet different
+amounts, so hands end differently and the stream displaces:
+1289/331 -> 1294/339 (25.68% -> 26.20%). CUMULATIVE vs the immutable
+persona-realism-start snapshot (349/1233 = 28.3%): 339/1294 = 26.20%, -2.10pp
+-- inside the adjudicated mapper-track dip that T-cover owns, and a recovery
+from T3/T4's -2.62pp. Graded ratchet moves UP 331 -> 339.
+
+Two things about this entry that the T5 review forced, and that the next mover
+should copy rather than rediscover:
+
+(1) THIS FIXTURE IS ONE SEED AT 400 HANDS AND IT DISAGREED IN SIGN WITH THE
+    REAL MEASUREMENT. It reads +0.52pp here. Measured properly with
+    `measure_split` below at 2,000 hands across THREE seeds, T5 read -0.34pp;
+    across SIX seeds it reads +0.02pp (preflop 0.569755 -> 0.572821, postflop
+    0.032769 -> 0.033921, overall 0.250770 -> 0.251009). Three seeds was not
+    enough to fix the SIGN. Six seeds move both components the same way, which
+    is what a real change looks like as against a compositional shuffle.
+(2) The chain entry itself was MISSING from the first T5 commit -- the sixth
+    occurrence of the lost-record pattern this file already logs. It was caught
+    by review rather than by anything automated. If you are re-recording the
+    JSON, you are also editing this docstring.
 """
 
 from __future__ import annotations
@@ -403,6 +426,46 @@ def _measure() -> dict:
                 graded += 1
             state = apply(state, _hero_decision(state, hero_rng))
     return {"seed": SEED, "hands": HANDS, "total": total, "graded": graded}
+
+
+def measure_split(seed: int = SEED, hands: int = HANDS) -> dict:
+    """The same sweep as `_measure`, at an arbitrary seed and hand count, split
+    by street. Committed so a reviewer can reproduce a coverage claim instead of
+    taking one on trust — review of T5 found that the slice's headline coverage
+    number came from a bespoke uncommitted script.
+
+    The split matters: preflop and postflop are graded at very different rates
+    (about 0.57 against about 0.03), so a change that merely moves decisions
+    between streets moves the overall ratio without either component changing.
+
+    Reproduce T5's reading, from backend/, with PYTHONPATH=. set:
+
+        from tests.test_coverage_baseline import measure_split
+        tot = {"preflop": 0, "postflop": 0}; gra = dict(tot)
+        for s in (20260718, 20260719, 20260720):
+            r = measure_split(s, 2000)
+            for k in tot: tot[k] += r["total"][k]; gra[k] += r["graded"][k]
+    """
+    rng = random.Random(seed)
+    packs = load_persona_packs()
+    lineup_types = assign_lineup(rng)
+    lineup = {s: packs[t.value] for s, t in lineup_types.items() if s != HERO_SEAT}
+    hero_rng = random.Random(seed + 1)
+    total = {"preflop": 0, "postflop": 0}
+    graded = {"preflop": 0, "postflop": 0}
+    for hand_no in range(hands):
+        dealt = deal_hand(rng)
+        state = start_hand(dealt, button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
+        for _ in range(60):
+            state, _ev = advance_to_hero(state, lineup, HERO_SEAT, rng)
+            if state.hand_over or state.to_act_seat != HERO_SEAT:
+                break
+            key = "preflop" if state.street is Street.PREFLOP else "postflop"
+            total[key] += 1
+            if map_decision_point(state, HERO_SEAT) is not None:
+                graded[key] += 1
+            state = apply(state, _hero_decision(state, hero_rng))
+    return {"seed": seed, "hands": hands, "total": total, "graded": graded}
 
 
 def _record() -> None:

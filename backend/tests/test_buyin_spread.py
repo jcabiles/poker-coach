@@ -185,19 +185,31 @@ def _hash_manifest(manifest: dict) -> str:
 #   hands         fbb0eef5565032ae54b18c9beda824054e0778f215edd3604f09d4b77ebf7f32
 #   seat_outcomes 9f9a096fc93b6341625319307b97b524168b43610016191be877efe2be54e233
 #   decisions     fa3f059492a97487bc52499c5ff17df1b743d8aec8e2fab5ee7f3aa9a9660cea
+# RE-PINNED for the de-robotization slice's T5 (2026-08-16, slice-authorized):
+# postflop bet sizes are re-weighted across all six packs, so the bots bet
+# different amounts and every byte of a seeded export changes with them. Two
+# distinct causes are folded into this one re-pin, and both are deliberate:
+# the behaviour change itself, and the six `version` bumps that carry it (see
+# the ⚠️ note above — a version bump alone would move all four digests).
+# Recorded once, at the end of the ticket, with pack content frozen.
+# Pre-T5 values, kept so the move is inspectable:
+#   manifest      581e42b9f6142870e8b3945c7276ec9f1be34be30816a404fdbf185599b1318d
+#   hands         a25b7c339bb89291f05e773cafdd488c85149734b50ef3652869e2978e71ebab
+#   seat_outcomes 2cb05b500cb04575984b00a2cfa8bfa46646351f473be2182621e498212cd9c6
+#   decisions     989f630eb9010959f13e8ad6696bb10e4dbba38be6bb1df8a72e908059af6d69
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "581e42b9f6142870e8b3945c7276ec9f1be34be30816a404fdbf185599b1318d"
+    "85e07788582e358dd26575b939dbfe6bcef513aaed21351298e2eefe3d69e3b5"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "a25b7c339bb89291f05e773cafdd488c85149734b50ef3652869e2978e71ebab"
+    "2e2a1f8a7962281ad843f200b7a5bdfd09ed418939e315faae5646c018de62f9"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "2cb05b500cb04575984b00a2cfa8bfa46646351f473be2182621e498212cd9c6"
+    "b7e09fb6825fb7bfcd3e067c26b2ec40b8d3c65633b4ea3ac177e8ef09ec8f1f"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "989f630eb9010959f13e8ad6696bb10e4dbba38be6bb1df8a72e908059af6d69"
+    "ca6a5e2191041e046acc0a7c6c713059cf83e6cb27a745c1213d0f7187b8418e"
 )
 
 

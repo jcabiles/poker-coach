@@ -139,36 +139,56 @@ SUB_ANCHOR_GRID = (0.30, 0.55, 0.90, 1.10, 1.11, 1.45, 1.50)
 # `1.50` rows are the alpha-ceiling leg: the passive fish has only 0.0078 of
 # headroom against the RES-D fold-ceiling at a faced 1.5x (`personas_postflop.py:
 # 344-346`), so those cells must stay byte-identical.
+#
+# RE-RECORDED for the de-robotization slice's T5 (2026-08-16, slice-authorized),
+# and the reason is worth stating because "a bet-SIZE ticket moved a FACING-node
+# vector" reads like a bug. It is not. A persona's own size distribution scales
+# its bluff rate: `personas_postflop` ~:910 multiplies `bluff_mass` by
+# E_s[_bluff_size_factor(s)] over that persona's authored sizing, which is the
+# F2 joint law ("bigger bets carry proportionally more bluffs"). A raise is a
+# legal action at these facing nodes, so the bluff cell fires and the vector
+# shifts.
+#
+# Exactly the two packs whose sizing moved toward LARGER are the two that moved
+# here — the station (+7.1% bluff mass) and the fish (+10.0%). No other
+# persona's rows are in this fixture to move, but the direction and the sign
+# both match the coupling, which is what distinguishes this from a stray engine
+# change.
+#
+# What did NOT change is the thing this file exists to demonstrate: the plateau
+# below is still EXACTLY flat across all five tail prices — asserted at
+# re-record time rather than assumed. The defect's level moved; the defect
+# did not.
 HEAD_VECTORS: dict[tuple[str, str, float, bool], tuple[float, float, float]] = {
-    ("calling_station", "AIR", 0.30, True): (0.3290105334491064, 0.6550898890357549, 0.015899577515138635),  # noqa: E501
-    ("calling_station", "AIR", 0.55, True): (0.44471425344477067, 0.5421278518183872, 0.013157894736842106),  # noqa: E501
-    ("calling_station", "AIR", 0.90, True): (0.5127910031135857, 0.4756642296460467, 0.011544767240367591),  # noqa: E501
-    ("calling_station", "AIR", 1.10, True): (0.5127910031135857, 0.4756642296460467, 0.011544767240367591),  # noqa: E501
-    ("calling_station", "AIR", 1.11, True): (0.5858058269163913, 0.40437954455432157, 0.009814628529287179),  # noqa: E501
-    ("calling_station", "AIR", 1.45, True): (0.5858058269163913, 0.40437954455432157, 0.009814628529287179),  # noqa: E501
-    ("calling_station", "AIR", 1.50, True): (0.5858058269163913, 0.40437954455432157, 0.009814628529287179),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 0.30, True): (0.12650570462395377, 0.8658524911924163, 0.007641804183630036),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 0.55, True): (0.19129748276804417, 0.8016275468375186, 0.007074970394437189),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 0.90, True): (0.23714877369004136, 0.7561773879992081, 0.0066738383107505855),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.10, True): (0.23714877369004136, 0.7561773879992081, 0.0066738383107505855),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.11, True): (0.29465184942002465, 0.6991773805170785, 0.006170770062896942),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.45, True): (0.29465184942002465, 0.6991773805170785, 0.006170770062896942),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.50, True): (0.29465184942002465, 0.6991773805170785, 0.006170770062896942),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.11, False): (0.18743109849018394, 0.808643610649787, 0.003925290860029173),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.45, False): (0.18743109849018394, 0.808643610649787, 0.003925290860029173),  # noqa: E501
-    ("calling_station", "ACE_HIGH", 1.50, False): (0.18743109849018394, 0.808643610649787, 0.003925290860029173),  # noqa: E501
-    ("passive_fish", "AIR", 1.11, False): (0.9396425749984934, 0.031360971340989, 0.028996453660517608),  # noqa: E501
-    ("passive_fish", "AIR", 1.45, False): (0.9396425749984934, 0.031360971340989, 0.028996453660517608),  # noqa: E501
-    ("passive_fish", "AIR", 1.50, False): (0.9396425749984934, 0.031360971340989, 0.028996453660517608),  # noqa: E501
-    ("passive_fish", "ACE_HIGH", 1.11, False): (0.8018151848611588, 0.16725577165099798, 0.030929043487843276),  # noqa: E501
-    ("passive_fish", "ACE_HIGH", 1.45, False): (0.8018151848611588, 0.16725577165099798, 0.030929043487843276),  # noqa: E501
-    ("passive_fish", "ACE_HIGH", 1.50, False): (0.8018151848611588, 0.16725577165099798, 0.030929043487843276),  # noqa: E501
+    ("calling_station", "AIR", 0.3, True): (0.32863826529923007, 0.654348669298996, 0.017013065401773896),  # noqa: E501
+    ("calling_station", "AIR", 0.55, True): (0.4442977556616227, 0.5416201211875021, 0.014082123150875054),  # noqa: E501
+    ("calling_station", "AIR", 0.9, True): (0.512369577736908, 0.47527331604589856, 0.01235710621719336),  # noqa: E501
+    ("calling_station", "AIR", 1.1, True): (0.512369577736908, 0.47527331604589856, 0.01235710621719336),  # noqa: E501
+    ("calling_station", "AIR", 1.11, True): (0.5853964944886938, 0.4040969839291483, 0.010506521582157854),  # noqa: E501
+    ("calling_station", "AIR", 1.45, True): (0.5853964944886938, 0.4040969839291483, 0.010506521582157854),  # noqa: E501
+    ("calling_station", "AIR", 1.5, True): (0.5853964944886938, 0.4040969839291483, 0.010506521582157854),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 0.3, True): (0.1264368676453414, 0.8653813450919708, 0.008181787262687723),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 0.55, True): (0.1912011071454585, 0.8012236870857309, 0.007575205768810545),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 0.9, True): (0.23703606892350199, 0.7558180152955222, 0.007145915780975845),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.1, True): (0.23703606892350199, 0.7558180152955222, 0.007145915780975845),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.11, True): (0.2945223672964382, 0.6988701332618138, 0.006607499441748056),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.45, True): (0.2945223672964382, 0.6988701332618138, 0.006607499441748056),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.5, True): (0.2945223672964382, 0.6988701332618138, 0.006607499441748056),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.11, False): (0.18737869692917716, 0.8084175319049173, 0.004203771165905569),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.45, False): (0.18737869692917716, 0.8084175319049173, 0.004203771165905569),  # noqa: E501
+    ("calling_station", "ACE_HIGH", 1.5, False): (0.18737869692917716, 0.8084175319049173, 0.004203771165905569),  # noqa: E501
+    ("passive_fish", "AIR", 1.11, False): (0.9369141963528489, 0.031269910541074135, 0.03181589310607702),  # noqa: E501
+    ("passive_fish", "AIR", 1.45, False): (0.9369141963528489, 0.031269910541074135, 0.03181589310607702),  # noqa: E501
+    ("passive_fish", "AIR", 1.5, False): (0.9369141963528489, 0.031269910541074135, 0.03181589310607702),  # noqa: E501
+    ("passive_fish", "ACE_HIGH", 1.11, False): (0.7993323159140884, 0.1667378540940706, 0.03392982999184103),  # noqa: E501
+    ("passive_fish", "ACE_HIGH", 1.45, False): (0.7993323159140884, 0.1667378540940706, 0.03392982999184103),  # noqa: E501
+    ("passive_fish", "ACE_HIGH", 1.5, False): (0.7993323159140884, 0.1667378540940706, 0.03392982999184103),  # noqa: E501
 }
 
 # The plateau the mechanism exists to break, at pre-slice HEAD: identical at
 # every price above 1.10x pot, forever.
-HEAD_AIR_PLATEAU_CALL = 0.40437954455432157  # 0.4044
-HEAD_ACE_HIGH_PLATEAU_CALL = 0.6991773805170785  # 0.6992 — the larger defect
+HEAD_AIR_PLATEAU_CALL = 0.4040969839291483  # 0.4041
+HEAD_ACE_HIGH_PLATEAU_CALL = 0.6988701332618138  # 0.6989 — the larger defect
 # Maniac AIR raise share at f = 2.33 at HEAD. R10-2's specialist adjudication
 # REFUTED the maniac's defect claim (0/15), so its tail resistance is collateral
 # to be protected, not a target.

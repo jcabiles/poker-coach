@@ -344,7 +344,9 @@ three reviewers said so independently.
 
 ### Escalated
 
-**1. `line_sensitivity` is out of fit, not an open question.** The theory
+**1. `line_sensitivity` is out of fit, not an open question.** ⛔ CLOSED 2026-08-16 — this did not reproduce at the shipped tip; see T5's section below for the re-measurement and the owner ruling. Kept as written because the reasoning below is what the ruling overturned, and deleting it would hide that.
+
+**Original text:** The theory
 reviewer corrected the earlier framing. Its closed-loop statistic moved about
 40% (tag .0867 → .0570, nit .1563 → .0918 at the pinned N), which by the theory
 contract's §2 makes it an un-refit constant. A NEW inversion also appeared that
@@ -356,7 +358,7 @@ backwards for both archetypes. The λ mechanism is untouched and its node-level
 gate still passes, so this is a re-fit of one seed against the new arrival
 distribution, not a mechanism change. **Owner call.**
 
-**2. The `_R9D_S5_ORDER` weakening was done before that owner decision**, which
+**2. The `_R9D_S5_ORDER` weakening was done before that owner decision** ⛔ CLOSED 2026-08-16 — the four-tier order is RESTORED; see T5's section. Original text:, which
 a reviewer fairly objected to, and the evidence offered for it was thinner than
 presented — the pre-slice reversal it cited is 0.0016 between lag and tag, with
 no uncertainty attached. It stands as the only way to ship green, and it is
@@ -386,3 +388,454 @@ moves all four export digests while the cards and actions stay byte-identical.
 Verified by dropping the `hand_id` column: a version-only change then leaves
 the decisions digest unchanged. It cost time here, twice, and the note now
 lives in `test_buyin_spread.py` where it will be read.
+
+---
+
+## T5 build record and dual review — postflop sizing ecology
+
+**Bottom line: the six packs' bet sizes now overlap instead of partitioning the
+roster, so a single observed bet size is much weaker evidence of which bot made
+it. Table-wide the MEDIUM band went from the least-used (21.1%) to level with
+LARGE (34.0% against 37.2%), and the maniac's "82.5% large or overbet" tell fell
+to 51.8%. Hero grading coverage came out exactly flat. One thing found during
+the build was not in the ticket and changes how this file should be read: a
+persona's own bet-size distribution scales its bluff rate, so a sizing ticket is
+also an aggression ticket.**
+
+### What the ticket asked for, and what the evidence asked for
+
+The ticket named two moves — give 0.5 real presence, give the maniac a small
+size. The evidence behind it (`remeasure-2026-08-05/report_table.md` §5) named
+three defects, and the third is the one with teeth: "an observant hero can read
+the bettor's archetype off the bet size alone with almost no error", because the
+six size bands were disjoint.
+
+Owner ruling 2026-08-16: fix the first two AND overlap the bands across SMALL,
+MEDIUM and LARGE, but do **not** hand new overbets to packs that had none. The
+reason for that limit is a real constraint rather than caution — the engine
+draws size independently of hand strength on purpose (theory contract F14), and
+`_bluff_size_factor` actively favours the larger size on a bluff cell, so a nit
+or a fish given a 1.5 would overbet-BLUFF more often than it overbet for value.
+That is a worse tell than the one it removes. Consequence accepted and recorded:
+"only the maniac and lag ever overbet" survives this slice.
+
+### Measured, at the pinned lineup over 12,000 self-play hands
+
+Bets only, RES-E buckets, matching the re-measure's own convention.
+
+| persona | SMALL | MEDIUM | LARGE | OVERBET | off-grid |
+|---|---|---|---|---|---|
+| calling_station | 61.9 → 45.9 | 29.3 → 37.3 | 8.8 → 16.8 | 0.0 → 0.0 | 12.75 → 11.81 |
+| passive_fish | 62.6 → 42.9 | 29.5 → 32.8 | 7.9 → 24.3 | 0.0 → 0.0 | 9.76 → 10.52 |
+| tag | 26.1 → 23.8 | 29.6 → 37.9 | 44.2 → 38.3 | 0.0 → 0.0 | 8.86 → 11.33 |
+| nit | 14.2 → 22.7 | 32.6 → 33.3 | 53.2 → 44.0 | 0.0 → 0.0 | 11.94 → 12.33 |
+| lag | 19.4 → 21.0 | 25.1 → 34.8 | 53.8 → 42.9 | 1.8 → 1.3 | 11.02 → 10.01 |
+| maniac | 7.6 → 16.2 | 13.0 → 32.0 | 64.1 → 44.7 | 15.3 → 7.1 | 17.36 → 13.52 |
+| **TABLE** | **25.4 → 25.3** | **21.1 → 34.0** | **46.1 → 37.2** | **7.4 → 3.5** | — |
+
+The maniac makes 46% of every bet at this table, which is why its row moves the
+table row so much and why it was the right place to spend the effort.
+
+**The off-grid column is not uniformly good news, and is reported rather than
+picked over.** It falls for the station, lag and the maniac and RISES for the
+fish, tag and nit. It is the share of a pack's bets whose final amount is no
+longer the fraction it was drawn from, because the legal-bet bracket clamped it
+— a min-bet clamp at the small end, an all-in clamp at the large end. Moving
+mass toward the middle relieves the large end and loads the small one, so the
+three packs that gained the most SMALL presence pay a little there. It is not a
+coverage measurement either way; see the coverage section.
+
+### The tell statistic, and the test that carries it
+
+Neither gate can see any of this, so the goal needed its own measure. The one
+used is the best accuracy any observer could reach naming the persona from a
+single bet size, under a uniform prior: `(1/6)·Σ_s max_i p_i(s)`. Chance is
+0.167.
+
+| node | before | after |
+|---|---|---|
+| flat | 0.342 | 0.238 |
+| cbet_dry | 0.283 | 0.220 |
+| cbet_wet | 0.350 | 0.297 |
+| cbet_mono | 0.283 | 0.212 |
+| turn_barrel | 0.350 | 0.270 |
+| river_value | 0.392 | 0.312 |
+| raise | 0.392 | 0.328 |
+
+`backend/tests/test_persona_size_ecology.py` gates it at 0.35 per node, with
+three negative cases: the real pre-ticket `river_value` distributions must fail
+it, a six-way-identical roster must read exactly chance, and the maniac's old
+flat block must fail the separate band-presence floor. The ceiling is set at
+roughly twice chance rather than at just-above-the-diff, and the band floor
+(0.10) is a "can this persona make this bet at all" line, not a fitted target.
+
+### The finding that was not in the ticket
+
+**A persona's own size distribution scales its bluff rate.**
+`personas_postflop` ~:910 multiplies `bluff_mass` by `E_s[_bluff_size_factor(s)]`
+over the pack's authored sizing — the F2 joint law, "bigger bets carry
+proportionally more bluffs". So re-weighting sizes moves action frequencies, not
+just sizes, and T5 is not the pure data change the ticket implies.
+
+| persona | E[factor] before → after | bluff mass |
+|---|---|---|
+| maniac | 1.236 → 1.074 | −13.1% |
+| nit | 1.111 → 1.041 | −6.3% |
+| lag | 1.063 → 1.022 | −3.8% |
+| tag | 1.009 → 1.013 | +0.4% |
+| calling_station | 0.863 → 0.924 | +7.1% |
+| passive_fish | 0.863 → 0.950 | +10.0% |
+
+This was **not** compensated, and the reason is that it is the engine working
+rather than a side effect: a persona that bets smaller genuinely should bluff
+less. It also happens to point the same way as the re-measure's other maniac
+findings. It explains four of the eleven test failures this ticket produced,
+including two that look alarming out of context — `test_price_tail`'s
+"byte-identical" FACING-node vectors moved, and they moved for exactly the two
+packs whose sizing shifted toward larger. Population AF stays in band
+(`test_persona_postflop_bands` passes unchanged); the n=200 tripwire rows moved
+and were re-recorded.
+
+### Five-seed gate — PASS
+
+```
+seed 601  PASS  separation 1.801289   labels 6/6  determinism ok
+seed 602  PASS  separation 1.779513   labels 6/6  determinism ok
+seed 603  PASS  separation 1.805127   labels 6/6  determinism ok
+seed 604  PASS  separation 1.928424   labels 6/6  determinism ok
+seed 605  PASS  separation 1.934501   labels 6/6  determinism ok
+                required 1.254429 · all five run_id c9a231c4665b1
+```
+
+Run on the POST-REVIEW packs. The pre-review packs also passed, at 1.744-1.936
+under config hash `c7efa1f14b572`; that run is superseded and is recorded here
+only so the two are not confused. The shared config hash across all five seeds
+is how each run proves pack content did not move under it — an earlier run in
+this slice was discarded for exactly that.
+
+**Separation did not merely survive; the worst seed improved twice** (1.683556
+at the T3/T4 tip → 1.744374 before review → 1.779513 after the review's pack
+corrections). That is the expected result rather than a
+lucky one: rule 1 scores ten frequency statistics and none of them is a bet
+size, so overlapping the six size distributions costs the floor nothing. The
+theory review said as much at T2b — "stop treating sizing as an identity axis
+at all" — and this is the measurement behind that claim.
+
+### Hero grading coverage
+
+Flat. Measured at 2,000 hands across three seeds, because the committed 400-hand
+fixture cannot resolve a point in either direction.
+
+| | before | after |
+|---|---|---|
+| preflop | 0.5642 | 0.5716 |
+| postflop | 0.0347 | 0.0328 |
+| **overall** | **0.2470** | **0.2470** |
+
+Absolute graded decisions rose 4479 → 4521. **A claim made earlier in this build
+and withdrawn:** that fewer off-grid bets would raise postflop coverage. Postflop
+grading is gated on spot shape long before bet size is examined (the open
+`T-cover` item), so the two are only loosely coupled and the unrecognisable-bet
+share is not a coverage measurement. The pack `_doc` entries state the narrow
+version.
+
+### `line_sensitivity` and `_R9D_S5_ORDER` — both escalations closed
+
+**Owner ruling 2026-08-16: close both, restore the gate, no re-fit.**
+
+The T3/T4 escalation reported a new inversion (the fish out-reacting the tag to a
+sustained barrel) and a ~40% collapse in the regulars' response. Re-measured at
+the shipped tip, **the inversion does not exist**:
+
+| packs | N | nit | tag | fish | lag | maniac | station |
+|---|---|---|---|---|---|---|---|
+| T3/T4 tip | 24000 | .0921 | .0464 | .0417 | .0561 | .0231 | .0055 |
+| T5 | 24000 | .1017 | .0895 | .0445 | .0386 | .0288 | .0050 |
+| T5 | 48000 | .0983 | .0788 | .0492 | .0418 | .0265 | .0057 |
+
+The numbers the weakening rested on were taken mid-review, before the
+recreationals' any-two cold-call fix landed — and that fix changed exactly which
+hands those packs bring to a barrel node. A tier was dropped to accommodate a
+measurement of packs that never shipped.
+
+What was real: the ordering genuinely does turn over at the gate's pinned
+N=8000, where the nit reaches only 55 in-scope nodes. **The fix is the sample
+size, not the claim.** `_R9D_S5_N` is raised 8000 → 24000 (nit reaches 131), the
+four-tier order `nit > tag > {lag, fish, maniac} > station` is restored, and the
+nit/tag margin GROWS with N — +0.0122 at 24000, +0.0195 at 48000 — which is an
+effect emerging from noise rather than noise mined for a result. It is also
+λ's own prediction, fixed in the packs long before any of this was sampled.
+Cost: ~74s of suite time.
+
+No re-fit of λ, for three reasons that compound: a re-fit needs a target and no
+sourced population figure for fold-to-barrel exists in this repo; the softmax law
+(theory contract §2) predicts the effect to SHRINK when a persona arrives with
+more marginal holdings, which is what T3/T4 made the regulars do; and the
+node-level λ-exact gate is green, so tuning λ upward to move an average would
+break the claim that is actually true.
+
+### Escalated — lag's opener fold-to-3bet is sitting on its dossier floor
+
+Not T5's, not fixable inside T5, and it will bite the next preflop slice.
+
+`test_n3bstrata_production_opener_blend_in_dossier_band` failed at n=12000 with
+0.4295 against a [0.43, 0.53] band. T5 changes no preflop node, so it cannot move
+this statistic's true value — and it does not:
+
+| packs | n=12000 | n=36000 |
+|---|---|---|
+| pre-T5 | 0.4367 (clears by 0.0018) | 0.4318 |
+| T5 | 0.4295 (fails) | 0.4342 |
+
+At the settling n, T5 moves it +0.0024 — inside noise and in the opposite
+direction from the failure. **What moved it is T3/T4**: the test's own history
+records 0.4914 and 0.4722 for this blend, and the seat-split opening ranges
+changed which hands arrive at the `vs_3bet` node, dragging it to ~0.433. Nobody
+re-read it at a settling n at the time.
+
+The gate is re-powered to n=36000 so it measures the pack rather than one draw
+of the shared stream. **Green here is not comfortable and should not be read as
+comfortable**: 0.4342 against a 0.43 floor is 0.4pp of margin, and the Wilson
+interval straddles the floor at every n tried. The band was deliberately not
+widened — that is the band-laundering §11 item 7 exists to catch — and the
+sibling pin on lag's *authored* policy passes unchanged, which localises the
+drift to the arriving mix rather than the policy.
+
+**Owner decision wanted: a re-tune of lag's `vs_3bet` opener node is probably
+owed.** It is a preflop edit, outside T5's scope, and T2b is the next thing to
+touch that area.
+
+### Fixtures re-recorded, once, with pack content frozen
+
+Four files, all for stream displacement plus the six version bumps: the coverage
+baseline (1289/331 → 1295/332), the limper-belt counts (all nine pairs), the four
+buy-in export digests, and the n=200 golden stats. Two behaviour-pinned sets were
+re-recorded for the bluff-mass coupling rather than for displacement: the
+price-tail HEAD vectors and plateaus, and the N-LOGIT bluff-cell pins. In both
+cases the DEFECT each file demonstrates is unchanged — the price-tail plateau is
+still exactly flat across all five tail prices, asserted at re-record time rather
+than assumed.
+
+### Mistakes made in this build, recorded because the pattern repeats
+
+- **The pack patcher's first version rewrote the wrong `sizing` block.** An
+  unanchored `"sizing": {...}` regex matched the pack's TOP-LEVEL preflop lever
+  block (`open_bb`, `threebet_mult`, `fourbet_mult`) and replaced it with pot
+  fractions. Caught by reading the diff before running anything. The patcher now
+  anchors on indentation and asserts exactly one match per key.
+- **A measurement that compared two pack sets in one process returned the same
+  answer twice.** `_OPENER_BLEND_CACHE` is keyed on `(persona, n, checkpoints)`
+  and is pack-blind, so the second load silently read the first's result. It
+  produced a confident and completely wrong conclusion ("T5 does not move this
+  statistic, identical to four decimal places") that happened to agree with the
+  right answer for the wrong reason. Re-run in separate processes.
+- **The price-tail plateaus were first regenerated outside the `head` fixture**,
+  which sets `_PRICE_TAIL_K = 0.0`. The tail grid sits above the anchor, so the
+  values were the live ones, not the HEAD ones. Caught by noticing they
+  disagreed with an earlier direct reading.
+- **A re-record script overwrote the population BANDS with golden-stat
+  triples.** Third instance of the same root cause as the pack-patcher bug
+  above, and the one that got furthest: the script found its target with
+  `next(line for line in file if line.startswith(f'"{persona}": ('))`, which
+  matches the FIRST such line in a 10,000-line file. `BANDS` is defined at line
+  2567 and `_GOLDEN_STATS_N200` at 3645, so all six band rows were replaced by
+  three-float tuples and `af_band` became a float. It surfaced as six
+  `TypeError: cannot unpack non-iterable float object` failures rather than as
+  an assertion, which is the only reason it was obvious — a scripted edit that
+  had happened to write well-formed bands would have silently re-anchored six
+  population gates.
+
+  The lesson, now applied to every re-record helper in this slice: **anchor a
+  scripted edit on the enclosing STRUCTURE, not on a line prefix.** The fixed
+  version indexes from `text.index("_GOLDEN_STATS_N200 = {")` and rewrites
+  between that brace and its match. Line prefixes are not unique and a file
+  this size guarantees it.
+
+### Dual review of T5, and what it changed
+
+**Three reviewers, nineteen findings, and the review overturned a change rather
+than polishing one. The headline positive test was measuring the wrong thing,
+one gate change was withdrawn entirely, and three factual claims in this ledger
+were wrong. All of that is below; none of it was folded in silently.**
+
+Reviewers: the `refuter` (Opus, verdict FAIL), Codex `gpt-5.6-sol` at high
+effort (four confirmed defects), and the `persona-realism-theory-reviewer`
+(verdict NEEDS-WORK). Each was briefed on the diff alone, not on this ledger's
+reasoning.
+
+#### Accepted, and the pack values changed as a result
+
+**1. The positive test scored the wrong population (refuter, HIGH).** The
+2026-08-05 finding is a CLASS read — "SMALL meant station or fish, LARGE meant
+tag/lag/nit, OVERBET meant maniac". The test scored per-PERSONA accuracy, which
+is diluted by exactly the thing the finding is about: the two recreationals
+being near-identical to each other, and the three regulars to each other. So an
+edit that blurred the regulars AMONG THEMSELVES would have lowered the number
+while leaving the class read untouched — a no-op-shaped pass. The class
+statistic is now the headline gate and the per-persona one is a supporting
+check. Measured, chance 1/3:
+
+| node | class tell before | after |
+|---|---|---|
+| flat | 0.650 | 0.451 |
+| cbet_dry | 0.539 | 0.407 |
+| cbet_wet | 0.694 | 0.568 |
+| cbet_mono | 0.533 | 0.402 |
+| turn_barrel | 0.678 | 0.516 |
+| river_value | 0.711 | 0.546 |
+| raise | 0.756 | 0.612 |
+
+The class read is weakened, not removed: `raise` still runs at 1.8× chance.
+
+**2. A rare size can be a perfect tell that no average can see (Codex, HIGH).**
+Both accuracy statistics average over sizes, so a size used by exactly one
+persona contributes only that persona's small weight while being a certain
+giveaway whenever it occurs. True of the shipped packs, not merely possible: the
+1.5 was authored by the maniac ALONE at `flat`, `cbet_wet` and `turn_barrel`
+(posterior 1.000), and no regular authored a 0.33 at `river_value`, so a
+third-pot river bet named "station or fish" with certainty. Three pack fixes
+followed — lag's existing overbet extended to `cbet_wet` and `turn_barrel`, and
+a 0.33 added to all four regulars' `river_value`. A new gate scores the
+posterior directly. The one remaining certainty cell, the maniac's overbet LEAD,
+is allowlisted by name: an overbet lead is not a habit of any other archetype,
+and authoring one purely to flatten a statistic is the trade this slice refuses.
+
+**3. T5 moved one node the wrong way and nothing caught it (refuter, MED).**
+tag `cbet_dry` LARGE went 0.10 → 0.06 as a side effect of holding the pinned
+dry-board mean under 0.45. Restored to 0.10 with the mean at 0.4366.
+
+#### Accepted, and a gate change was WITHDRAWN
+
+**4. The `_R9D_S5_ORDER` restoration does not survive independent seeds
+(refuter and Codex, independently).** The four-tier order was restored on two
+claims, and both were bad. "It does not reproduce" was true only of the specific
+fish-above-tag inversion; the four-tier order fails at the T3/T4 tip too, for a
+different reason (tag .0464 below lag .0561). And "the margin grows with N
+(+0.0122 at 24000, +0.0195 at 48000)" is a two-point read on ONE seed pair whose
+48000 sample CONTAINS the 24000 one — the seed schedule is a prefix, so it is an
+extension, not a replication. Measured on genuinely independent seed pairs at
+N=24000:
+
+| seed pair | four-tier | three-tier |
+|---|---|---|
+| 20260802 / 20260803 | PASS | PASS |
+| 31415926 / 27182818 | **FAIL** | PASS |
+| 99887766 / 11223344 | PASS | PASS |
+
+Seed-to-seed spread swamps the N trend. **The restoration is withdrawn and the
+three-tier order stands.** The sample-size raise (8000 → 24000) is kept on
+separate evidence: at 8000 even the three-tier order turns over, because `nit`
+reaches only 55 in-scope nodes.
+
+This also revises what was reported to the owner. The 2026-08-16 ruling ("close
+both, restore the gate, no re-fit") was given on the strength of a measurement
+that has not held up. The no-re-fit half is unaffected and stands; the
+restoration half is withdrawn on evidence that arrived after the ruling.
+
+#### Accepted as corrections to this ledger's own claims
+
+**5. "Every AF falls" is false.** The three packs that now bet smaller lose
+aggression; the two that bet larger gain it (station 0.391 → 0.396, fish 0.873 →
+0.991). Corrected in `test_personas_postflop.py`.
+
+**6. The six bluff-mass percentages are FLAT-BLOCK figures, not persona-wide
+(Codex, MED).** Four packs carry `sizing_by_node`, where the sign can reverse:
+nit `cbet_dry` +3.2%, lag `cbet_mono` +2.3%, tag `river_value` −3.9%. The
+percentages are correct for the distributions the re-pinned fixtures actually
+measure; the persona-level framing was too broad.
+
+**7. "A nit given a 1.5 would overbet-BLUFF more often than it overbet for
+value" is false (theory reviewer, LOW).** It is a COUNT claim, and value bets
+swamp bluffs about 10:1 at that node — a nit with an authored 1.5 would overbet
+mostly for value. The tilt is real but it is a ~1.4× weight multiplier on a
+bluff cell, not a reordering. The DECISION is unaffected and rests on the
+simpler ground the reviewer supplied: low-stakes nits, tags, stations and fish
+essentially never overbet, so authoring one is a realism loss regardless of the
+bluff/value split.
+
+**8. "82.5% falls to 51.8%" is a cross-measurement (refuter, LOW).** The 82.4%
+figure is from the 2026-08-05 re-measure at a different commit over 50,000
+hands. Within this slice's own measurement the maniac's LARGE+OVERBET moves
+79.4 → 51.8.
+
+**9. The threshold sat on a floating-point boundary (refuter, MED).** The old
+ceiling of 0.35 was set exactly on two measured pre-ticket values, whose verdict
+turned on 3e-17 of accumulation order — through the shipped loader they read
+0.35000000000000003 and failed, recomputed in another order they read exactly
+0.35 and passed. The docstring also named four nodes as three. All three
+ceilings are now set from principle (2× chance for the class gate) and the
+measured margins are stated.
+
+**10. One negative case was vacuous (refuter, LOW).** For six identical
+normalised distributions the accuracy is 1/n for ANY shape, so
+`test_a_flat_roster_reads_at_chance` pinned that weights sum to 1 and nothing
+about the statistic's direction. Replaced with a maximally-telling roster that
+must score near the top of the range.
+
+**11. The coverage re-record chain entry was missing (refuter and theory
+reviewer, independently).** Sixth occurrence of the pattern that file already
+logs. Appended, with the cumulative line against the immutable snapshot
+(339/1294 = 26.20% against 349/1233 = 28.30%, −2.10pp, inside the adjudicated
+`T-cover` mapper dip and a recovery from T3/T4's −2.62pp), and with
+`measure_split()` committed so the claim is reproducible.
+
+#### Accepted as findings, recorded and filed rather than fixed here
+
+**12. Estimator parity widened, unremarked (theory reviewer, MED).**
+`range_estimate._postflop_action_dist` never passes `is_aggressor`
+(`range_estimate.py:386`), so `_sizing_dist` hands it the FLAT block while the
+live aggressor uses `sizing_by_node`. Because `bluff_mass` is scaled by
+`E_s[_bluff_size_factor(s)]` over that distribution, the estimator's bluff-cell
+probabilities differ from the live bot's. Pre-existing since R2 — but T5 moved
+the flat and node blocks by different amounts and so changed the gap's SIZE:
+mean |live − estimator| P(raise) 5.31% → 7.01%. `range_estimate.py` is not in
+T5's owned files. **Filed for the owner: thread `is_aggressor` into `_Ctx` and
+add the parity test the invariant requires.** The harm the invariant names is
+exactly this — "else the villain-range reveal silently lies".
+
+**13. `bluff_freq` is now an un-refit constant (theory reviewer, MED).** It is
+the LEVEL lever and was calibrated against the MEDIUM reference
+(`_BLUFF_SHARE_REF`), so re-weighting a pack's size mix re-scales the level and
+leaves the fit stale. Measured: maniac AF 3.214 → 3.060 and fold-to-c-bet 0.333
+→ 0.285 at n=4000; the maniac/lag AF gap narrowed 0.575 → 0.454. Every persona's
+AF/FtC/WTSD still sits inside `BANDS`, so nothing is red — but the persona whose
+§5 AF target the engine was ALREADY about a unit below is the one that lost
+13.1% of its bluff mass. **Owner decision wanted:** re-fit maniac `bluff_freq`
+upward to hold its measured AF, or accept the reduction and record that the next
+aggression-spending slice (invest-then-fold, calldown) starts from a smaller
+budget than the pre-T5 numbers imply.
+
+**14. The tell statistic is one-sided, and that is a defect in the theory rather
+than in the numbers (theory reviewer, MED, CONTRACT-DEFECT).** The ceiling
+rewards overlap and the band floor rewards spread, so both gates push the same
+way — and the metric's optimum is a six-way-identical uniform-random roster,
+which is the least human-like roster it is possible to author. Measured
+consequence in this diff: the effective number of distinct sizes per node rose
+2.6 → 3.3 (maniac `raise` 1.96 → 3.59, `river_value` 2.97 → 3.88), and the draw
+is i.i.d. per decision, so a seat's flop/turn/river sizes within one hand are
+uncorrelated. Real players have size habits; a seat that never repeats a size is
+a machine signature of a different kind. This slice self-limits — the ceiling is
+2× chance, not chance — but **the limit is a comment, not a gate**, and the next
+slice inherits a metric that pays for uniformity. **Recorded so it cannot be
+read as "lower is better", and filed: pair the ceiling with a concentration
+floor or a within-hand size-correlation check before the next sizing edit.**
+
+**15. lag's opener fold-to-3bet is green on a straddling interval (theory
+reviewer, MED).** Already disclosed in the test and above; the reviewer's point
+is that an unqualified green still reads as "in band" when the honest reading is
+"we cannot tell". **Owner decision wanted:** leave it green, or make it
+report-only until the lag `vs_3bet` re-tune lands.
+
+#### Checked and clean
+
+Both the refuter and Codex independently confirmed: `ruff` clean; every authored
+postflop fraction on `RECOGNIZED_BET_FRACS`, with the invariant covering both
+`sizing` and `sizing_by_node`; no continuous jitter and no `backend/app/domain/`
+change at all; all six distributions sum to 1.0; the `bluff_mass *= E[factor]`
+mechanism and direction correct as described; the size-tell table reproduces
+exactly; the n3bstrata re-power is NOT laundering a regression (all four quoted
+numbers reproduce, and T5 is +0.0024 versus pre-T5 at n=36000); and the limper
+and buy-in fixtures are consistent with stream and identity displacement. The
+theory reviewer separately confirmed the packs are good poker and that all six
+archetypes survive on every axis the engine measures — the maniac is still first
+on AF, on air c-bet and on overbet rate.
