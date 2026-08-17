@@ -4,9 +4,10 @@
   "domain": "persona",
   "_doc": [
     "1.7.0 (de-robotization slice 1, T5, 2026-08-16) — postflop bet sizes are",
-    "re-weighted so this seat is no longer identifiable by size alone. Measured",
-    "over 12,000 self-play hands at the pinned lineup, its bets by RES-E bucket:",
-    "SMALL 62.6 -> 42.9, MEDIUM 29.5 -> 32.8, LARGE 7.9 -> 24.3.",
+    "re-weighted so this seat is no longer identifiable by size alone. The",
+    "realised bucket table for the whole roster is in the ticket ledger",
+    "(`docs/ai-dlc/ledger/phase3-derobotization.md`) rather than here — see the",
+    "tag's 1.8.0 entry for why.",
     "It no longer shares a byte-identical sizing block with the calling station,",
     "which was itself a tell: two personas that bet the same amounts are one",
     "persona as far as a size read is concerned. This pack now spreads wider,",
