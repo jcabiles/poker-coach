@@ -147,7 +147,7 @@ showdown frequency up.
 
 ## 3. Scope
 
-### In scope — two tickets, both proposed by review
+### In scope — three tickets
 
 1. **Extend the naked-ace float damp to multiway bets.** The damp already exists
    and already has a reviewed constant; it simply never fires against an
@@ -164,6 +164,10 @@ showdown frequency up.
    actually making an eighth-pot one. The frequency and the size disagree; the
    theory contract's own bluff-share identity says they must not. This is the
    24.0 + 16.4 percent channel, and it is a bug fix rather than a new lever.
+3. **Remove ACE_HIGH from the river call zero, per §6's ruling.** Restores a
+   mixed strategy to 659 of the 985 deterministic folds. Ships last, measured on
+   top of ticket 1, because ticket 1 reduces how often ace-high reaches the
+   river at all and the two effects must not be attributed to each other.
 
 ### Withdrawn from the first draft
 
@@ -184,8 +188,8 @@ without taking a position on it.
   no-op. It stays out for the reasons that do hold — off the river it converts
   folds into calls and pushes showdown up, its blast radius is every small-bet
   decision in the game, and per §1.7 this measurement is no evidence for it.
-- **The river call hard-zero at `:1010`** — see §6, which puts it to the owner
-  rather than burying it here. It is the largest finding in this diagnosis.
+- **The river call hard-zero at `:1010`** — no longer out of scope. Ruled on
+  2026-08-18 and ticketed as T3; see §6.
 - **The all-in cascade and stack persistence.** Cut by ruling A. It is 94 percent
   of the surface.
 - **The calling personas' bulk calldown.** Their 851 events are slice 3's, except
@@ -234,7 +238,7 @@ that the next change lowering pot sizes trips it. Both tickets lower pot sizes.
 If the band breaches, report and stop — whether the band is right is the owner's
 call, not a value to fit around.
 
-## 6. The decision this spec puts to the owner
+## 6. The owner's ruling on the river call hard-zero
 
 **The river call hard-zero is the biggest thing here and this spec deliberately
 does not resolve it.** Two facts make it a decision rather than a ticket.
@@ -257,14 +261,28 @@ Showdown frequency is the binding term slice 3 must reduce, so this trades the
 initiative's north star against its inner-loop metric, and that trade is the
 owner's to make.
 
-Three options, no recommendation, because the trade is a judgement about which
-metric the project is actually steering by:
+**RULED 2026-08-18 (owner): remove ACE_HIGH from the river call zero, keep
+AIR.** It ships as ticket T3.
 
-- Leave it. Slice 2 is the two tickets above.
-- Remove ACE_HIGH from the cell, keep AIR. Restores mixing on 659 of 985 events
-  and is defensible poker; costs up to 3.66 points of showdown.
-- Replace the hard zero with a small non-zero call merit for both. Breaks the
-  determinism everywhere at the highest showdown cost.
+The two rejected options and why. Leaving it alone costs nothing but ends the
+improvement phase without touching the diagnosis's largest finding, which would
+be the prime suspect if the finale flags the roster. Giving both hands a small
+non-zero call merit breaks the determinism everywhere but makes bots call river
+bets with total garbage — the roadmap's Goodhart guard names that failure
+explicitly ("a bot that gets harder to detect by going bland fails the
+initiative").
+
+**The ruling's deciding reason, recorded because it should govern later calls
+too: this change is justified by poker theory independently of the realism
+goal.** Ace-high is a river bluff-catcher; calling with it sometimes is correct
+play, not merely less predictable play. A change defensible only as "makes
+detection harder" is exactly what the Goodhart guard exists to catch, and this
+one is not in that class. It also aligns the code with an intent its own
+comments already state, rather than inventing a new principle.
+
+The spec author initially declined to recommend, treating the trade as a pure
+metric-against-metric judgement. That framing was wrong: the poker argument
+breaks the tie, and it should have been surfaced as such the first time.
 
 Separately, the roadmap's slice 2 entry still names a mechanism this measurement
 refutes, and its slice 3 entry does not know that 851 of these events are its
@@ -288,13 +306,19 @@ own. This spec does not edit the roadmap.
 ### Slice
 
 1. Five-seed gate set passes, with the LAG–TAG pair reported explicitly.
-2. Events fall materially and the aggressive-investment shares of the maniac and
+2. The determinism guard IMPROVES, not merely passes. T3's whole purpose is to
+   turn 659 forced folds into mixed decisions, and a guard reading that does not
+   move is evidence the change did not reach the node it was aimed at.
+3. Events fall materially and the aggressive-investment shares of the maniac and
    the LAG (0.74 and 0.54) fall with them.
-3. Pool went-to-showdown does not rise.
-4. The hero's graded-decision coverage ratio is reported. Slice 1 left it failing
+4. Pool went-to-showdown rises by no more than T3's measured cost and by nothing
+   at all from T1 or T2. The +3.66 point figure in §6 is an upper bound; the
+   realised figure is reported, and if it exceeds the bound something other than
+   T3 moved.
+5. The hero's graded-decision coverage ratio is reported. Slice 1 left it failing
    at −0.26pp and its replacement is an unresolved owner item; this slice must
    not quietly make it worse.
-5. The owner plays a blind session and says whether the table feels different.
+6. The owner plays a blind session and says whether the table feels different.
    Under the 2026-08-17 ruling that is the primary acceptance evidence.
 
 ## 8. Verify-by
@@ -311,8 +335,9 @@ cd backend && ruff check .
 - **The slice's ceiling is low and that should be said plainly.** Ticket 1's
   measured effect is a 6.7 percent reduction. Ninety-four percent of the events
   are all-in refusals in pots inflated by an environment ruling A put out of
-  reach, and the largest single lever is the §6 decision this spec does not take.
-  Nobody should expect this statistic near zero at the end of the slice.
+  reach. T3 is the largest single lever and it targets the determinism rather
+  than the count — it may barely move this statistic while fixing the thing that
+  actually matters. Nobody should expect the number near zero at slice end.
 - **Ticket 1 pushes the binding separation pair together.** See §5.
 - **Ticket 2 changes bluff frequency wherever stacks are short,** which is far
   more hands than the 2,015 counted here. It is judged on the whole diagnosis

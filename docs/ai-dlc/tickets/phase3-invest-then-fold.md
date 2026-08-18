@@ -1,11 +1,11 @@
 # Tickets — invest-then-fold (phase-3 ruling A, improvement slice 2)
 
-**Bottom line: two tickets, two pull requests, both independent of each other.
-T1 stops naked ace-high floating multiway bets and already has its answer — a
-measured 2,015 → 1,879 events with showdown frequency flat. T2 makes a bot's
-bluff frequency reflect the bet it can actually make rather than the one its
-pack authored. Neither ticket touches the river call hard-zero; that is the
-owner's decision in spec §6 and it is larger than both of these.**
+**Bottom line: three tickets, three pull requests. T1 stops naked ace-high
+floating multiway bets and already has its answer — a measured 2,015 → 1,879
+events with showdown frequency flat. T2 makes a bot's bluff frequency reflect
+the bet it can actually make rather than the one its pack authored. T3 is the
+important one: it restores a mixed strategy to 659 river decisions the engine
+currently makes with probability 1.000, on the owner's ruling of 2026-08-18.**
 
 Spec: `../specs/phase3-invest-then-fold.md`.
 Evidence: `../research/slice2-invest-then-fold/measurements.txt`.
@@ -15,14 +15,16 @@ Gate runner, built by slice 1 and reused unchanged:
 ## Dependency order
 
 ```
-T1 (ace-high multiway float damp)   [PR-1]
+T1 (ace-high multiway float damp)      [PR-1] ──> T3 (river call zero: air only) [PR-3]
 T2 (bluff frequency on effective size) [PR-2]
 ```
 
-Independent. Both branch from `main`; whichever lands second is test-merged
-against the first and any real conflict is reported rather than resolved
-quietly. There is no T0 — the gate runner and the five-seed set already exist
-and are not modified.
+T2 is independent and branches from `main`. **T3 branches from T1 and must be
+measured on top of it**, because T1 reduces how often ace-high reaches the river
+at all — measuring T3 against the unchanged roster would credit it with T1's
+work. Whichever of T1 and T2 lands second is test-merged against the first, and
+any real conflict is reported rather than resolved quietly. There is no T0: the
+gate runner and the five-seed set already exist and are not modified.
 
 ---
 
@@ -154,18 +156,75 @@ path), `backend/tests/`.
 
 ---
 
+## T3 — Ace-high may call the river again
+
+**Do:** Narrow the river call zero at `personas_postflop.py:1010` so it applies
+to AIR only, leaving ACE_HIGH free to call.
+
+The rule reads `if bluff_cell and street is Street.RIVER: call_merit = 0.0`, and
+`bluff_cell` at `:893` bundles ACE_HIGH with AIR. Every comment around the rule
+describes it as "air never bluff-CALLS the river". Ace-high is not air — it beats
+a busted draw and it beats a bluff, which is the definition of a river
+bluff-catcher, and real players call with it. **659 of the 985 blocked decisions
+are ace-high.**
+
+The consequence today is not merely over-folding, it is determinism. When the
+faced bet is at least the seat's remaining stack the engine offers no raise
+(`table/engine.py:204-206`), so a zeroed call leaves fold as the only weighted
+candidate and the bot folds 1000 times out of 1000. That is the machine tell this
+whole initiative exists to remove, and it fires 950 times per 50,000 hands.
+
+- Change the predicate at the call-zero only. Use the made-hand bucket and draw
+  directly rather than `bluff_cell`, so the change is visibly scoped to the call.
+- **Leave `bluff_cell` itself alone.** It also drives the bluff bet and bluff
+  raise mass; ace-high must keep its ability to bluff-raise the river. This
+  ticket unblocks one action, not a hand class.
+
+**Do not:**
+- Touch AIR. "Air never calls the river" survives this ticket intact; it is the
+  half of the rule that was always right.
+- Touch `_CALL_BASE[ACE_HIGH]`, the flop/turn float damp (T1's territory), or
+  any persona pack.
+- Reach for a revert if the showdown cost overshoots. The next move in that case
+  is a river-specific damp on ace-high's call term, keeping the mixing while
+  lowering its weight — the point of the ticket is that the decision is *mixed*,
+  not that ace-high calls often.
+
+**Acceptance:**
+1. **The determinism improves and is reported as a number.** Re-run the
+   diagnosis script: the count of river air/ace-high folds facing a bet at least
+   the stack should fall from 950 toward roughly 300 — the AIR-only residual.
+   This is the ticket's real acceptance criterion; the event count is secondary.
+2. Pool went-to-showdown rises by no more than the **3.66 point upper bound** in
+   spec §6, measured on top of T1 rather than against the unchanged roster.
+   Exceeding the bound means something other than this change moved.
+3. `python -m tools.derobo_gate --check` passes at seed 601, with the LAG–TAG
+   pair reported explicitly and the determinism rule's measured value reported
+   whether or not it passes.
+4. A behavioural test: ace-high with no draw, on the river, facing a bet, returns
+   a genuinely mixed call/fold distribution rather than fold at 1.0. Air in the
+   same spot still never calls. Seen to fail before the change.
+5. Full diagnosis output attached before and after; `./scripts/verify.sh` green;
+   `ruff check .` clean.
+
+**Done-condition:** as T1.
+
+**Owns:** `backend/app/domain/personas_postflop.py` (the river call-zero
+predicate), `backend/tests/`.
+
+---
+
 ## Slice close-out
 
 Owed before the slice is marked complete:
 
-- The five-seed gate set, `--all-seeds`, at the final tip, with LAG–TAG reported.
+- The five-seed gate set, `--all-seeds`, at the final tip, with LAG–TAG and the
+  determinism rule's measured value both reported.
 - A ledger at `../ledger/phase3-invest-then-fold.md` recording what each reviewer
   found and how it was adjudicated. Both tickets came from review and the first
   draft's own proposal was withdrawn; that belongs on the record.
-- The owner decision in spec §6 on the river call hard-zero, which is the largest
-  finding in this diagnosis and is not ticketed here.
 - The out-of-scope findings written up as filed items: the all-in cascade at
-  30.9 percent of hands, the 950 deterministic forced folds, the bottom-bucket
+  30.9 percent of hands, the residual AIR-only deterministic folds, the bottom-bucket
   price saturation, the maniac's preflop 4-bet catch-all, and the 851 events
   belonging to the calling personas that are slice 3's to fix.
 - The owner's blind play session. Under the 2026-08-17 ruling it is the primary

@@ -74,10 +74,34 @@ The pattern matches the 2026-08-17 audit's: the errors were not in the
 measurements, which held up under two independent checks, but in the causal
 stories built on top of them.
 
+## Owner ruling, 2026-08-18 — the river call hard-zero
+
+**Ruled: remove ACE_HIGH from the river call zero, keep AIR. Ticketed as T3.**
+
+The spec first presented this as three options with no recommendation, on the
+grounds that it traded the north-star metric (detection) against the inner-loop
+one (showdown frequency). **That framing was wrong and the author corrected it
+when asked to lay the options out in full.** The trade is not symmetric, because
+one option is justified by poker theory independently of the realism goal:
+ace-high is a river bluff-catcher and calling with it sometimes is simply correct
+play. A change defensible *only* as "makes detection harder" is what the
+roadmap's Goodhart guard exists to catch; this one is not in that class, and that
+is what breaks the tie.
+
+Recorded as a general principle for later calls in this phase: **when a realism
+change is also independently correct poker, it is categorically safer than one
+that is only realism-motivated, and that difference should be surfaced in the
+options rather than left for the owner to notice.**
+
+The rejected options, for the record. Leaving it alone costs nothing but ends the
+improvement phase without touching the diagnosis's largest finding. Giving both
+air and ace-high a small non-zero call merit breaks the determinism everywhere at
+up to +6.1 showdown points, and makes bots call river bets with total garbage —
+the named Goodhart failure.
+
 ## Still open at the time of writing
 
-- **Spec §6** — the river call hard-zero. Three options, no recommendation,
-  because the trade is between the north-star metric and the inner-loop one.
-- The roadmap's slice 2 entry still names a refuted mechanism, and its slice 3
-  entry does not know 851 of these events are its own. Not edited here.
-- Neither ticket is implemented. This slice is spec and tickets only.
+- The roadmap's slice 2 entry still names a refuted mechanism, its slice 3 entry
+  does not know 851 of these events are its own, and neither knows about T3. Not
+  edited here — the roadmap edit is the owner's to ratify.
+- No ticket is implemented. This slice is spec and tickets only.
