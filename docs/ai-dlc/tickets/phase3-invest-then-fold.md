@@ -8,6 +8,10 @@ important one: it restores a mixed strategy to 659 river decisions the engine
 currently makes with probability 1.000, on the owner's ruling of 2026-08-18.**
 
 Spec: `../specs/phase3-invest-then-fold.md`.
+Contract map: `../contracts/phase3-invest-then-fold.md` — read it before T1 or
+T2. It found that T1 removes a safety property the code asserts only in a
+comment, and that T2's tripwire test fails in a way that looks like a routine
+re-record.
 Evidence: `../research/slice2-invest-then-fold/measurements.txt`.
 Gate runner, built by slice 1 and reused unchanged:
 `backend/tools/derobo_gate.py`.
@@ -78,14 +82,25 @@ change and the difference must be explained before the pull request opens.
 4. A behavioural test: naked ace-high on the flop, facing a bet, three opponents
    live, calls less than the same hand heads-up. Seen to fail before the change.
 5. Heads-up facing-a-bet behaviour is byte-identical on an existing seeded test.
-6. Full diagnosis output attached before and after; `./scripts/verify.sh` green;
+6. **Re-establish the α-ceiling property at more than one opponent, and rewrite
+   the comment that currently asserts it.** `personas_postflop.py:253-258` argues
+   this damp is safe *because* it is gated on facing a raise and therefore never
+   touches the facing-a-bet curve the α-ceiling contract measures. **T1 removes
+   exactly that property**, and the existing guard —
+   `test_personas_postflop.py:6700`, whose helper at `:6557` hardcodes
+   `opponents=1` — will keep passing while the claim stops being true. Measure
+   the facing-a-bet fold rate for naked ace-high at two and three opponents
+   against the bucket's α ceiling, add a test that drives more than one opponent,
+   and replace the stale comment with what is actually true afterwards. A comment
+   left standing as a false claim is worse than no comment.
+7. Full diagnosis output attached before and after; `./scripts/verify.sh` green;
    `ruff check .` clean.
 
 **Done-condition:**
 `cd backend && PYTHONPATH=. python -m tools.derobo_gate --check && cd .. && ./scripts/verify.sh`
 
-**Owns:** `backend/app/domain/personas_postflop.py` (the ace-high float predicate),
-`backend/tests/`.
+**Owns:** `backend/app/domain/personas_postflop.py` (the ace-high float predicate
+and the comment block at `:253-258`), `backend/tests/`.
 
 ---
 
@@ -132,13 +147,27 @@ abandoned in this statistic, and air raising alone is 9.1 percent.
    directional seed. `_PRICE_TAIL_K`'s precedent does not transfer: that constant
    lands on a merit that normalization dilutes, whereas here `P(bet)` *is*
    `bluff_bet_mass`, so the change is visible undiluted and must be quantified.
-4. The two-stage sizing law stays coherent. Stage one scales `bluff_mass` by the
-   expected factor over the sizing distribution and stage two tilts the size
-   draw; changing the input to one and not the other breaks the joint law. Check
-   `test_personas_postflop.py` around the sizing-law tests before assuming
-   otherwise.
-5. Gate passes at seed 601, LAG–TAG reported explicitly.
-6. Full diagnosis output attached before and after; `./scripts/verify.sh` green;
+4. **Both halves of the two-stage law move together.** Stage one
+   (`personas_postflop.py:899-914`) scales `bluff_mass` — which feeds the
+   action-level raise merit and the villain range — by the expected factor over
+   the *authored* keys; stage two (`:1370-1383`) tilts the size draw. Moving
+   stage two to the effective size without stage one makes them stop being a
+   joint law, by the module's own comment. Note that `size_bucket`'s docstring at
+   `:65-67` already forbids computing the bucket from authored keys, so stage one
+   is on the wrong side of a documented rule either way.
+5. **Justify any movement in `HEAD_VECTORS`; do not re-record it.**
+   `test_price_tail.py:301` asserts exact equality against full-precision floats
+   that encode stage one's present authored-key computation — and its own
+   docstring says bet-size tickets are expected to move them. **A genuine
+   stage-1/stage-2 mismatch will therefore look exactly like a routine
+   re-record.** Any vector change must be derived from the joint law and shown to
+   follow from it. This is the single most likely way this ticket ships broken.
+6. **No estimator test can catch a fault here, so do not rely on one.**
+   `_CaptureRng.choices()` returns the first option and is never called again, so
+   the sizing draw never runs under estimation. The frozen vectors and the live
+   suite are the only protection.
+7. Gate passes at seed 601, LAG–TAG reported explicitly.
+8. Full diagnosis output attached before and after; `./scripts/verify.sh` green;
    `ruff check .` clean.
 
 **Note on a perverse channel, measured and bounded.** Where the river bluff cell
