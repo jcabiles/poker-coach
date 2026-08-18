@@ -2,8 +2,8 @@
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
-passing.)* The 2026-08-17 edit adds the improvement-phase block to the NOW lane and changes
-nothing else.
+passing.)* Two edits on 2026-08-17: the improvement-phase block was added to the NOW lane,
+and the same day's audit and owner ruling were recorded against it.
 
 ## Bottom line
 
@@ -213,12 +213,72 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       own. Neither was reachable from the ticket's own acceptance criteria.
       **Tickets and full build record:** `../tickets/phase3-derobotization.md` ·
       `../ledger/phase3-derobotization.md`.
+> ⚠️ **AUDIT 2026-08-17 — ruled by owner the same day. Read this before touching any slice
+> below.** Full record: `local/audit-2026-08-17-stage1.md` (machine-local). Two independent
+> reviews plus a third adversarial review of the resulting plan. **The audit's own headline
+> finding was retracted under review; what follows is what survived.**
+>
+> **RETRACTED, recorded because it was acted on for several hours.** The audit first claimed
+> frequency tells are worth about 1.3:1 to a judge at 30 hands while bet-size structure is
+> worth up to 16:1, and concluded that frequency work should stop. That comparison was
+> unsound — it set the weakest frequency case (a hypothetical six-point error on the
+> best-behaved persona) against the maximum cell of the structural table. Using the roster's
+> REALIZED errors (station VPIP 63 against a 38 target, maniac PFR 37 against 14) the two
+> channels are the same order, roughly 3:1 to 13:1. **Neither channel dominates, and no slice
+> should be cut on the strength of that claim.**
+>
+> **What survives, and it is the important one: the bots' bet-size grid IS the grader's
+> grid.** `sizing.py:58` pins `RECOGNIZED_BET_FRACS = (0.33, 0.5, 0.75, 1.0, 1.5)`, and
+> `grade_map_reject.py` carries an explicit `BET_FRACTION_OFF_GRID` rejection for any bet off
+> it. Varying bet sizes to look human therefore makes those hands ungradeable, against a
+> coverage clause already failing at −0.26pp. **Realism and the teaching function are in
+> direct architectural conflict on bet sizing, and no slice on this roadmap addresses it.**
+> Escalated to the owner as a standing item; do not attempt size jitter until it is resolved.
+>
+> **Also surviving:** de-robotization changed PREFLOP OPENS ONLY. Postflop fractions, the
+> isolation ladder and 4-bet sizing are untouched and remain single exact values. And the
+> project's only real judge observation cuts against ranking tells by detectability at all —
+> the judge explicitly noticed a control bot's "always 3x opens" and called it human anyway.
+>
+> **OWNER RULING 2026-08-17: stop building measurement apparatus. Ship improvements and
+> accept the owner's own table judgement as the verdict.** The initiative has delivered five
+> milestones of machinery and neither of the two measurements that were its point; a proposed
+> measurement slice was rejected as the same failure mode repeating. The blind play-test is
+> now the primary acceptance evidence, not a supplement to a detection number.
+
 - [ ] **Slice 2 — Invest-then-fold lines** — problem: bots put money in and then abandon the
-      pot for no reason a human would recognise (remeasure SYNTHESIS §B) · **not yet spec'd —
-      needs `/ai-org:spec` before any build.**
-- [ ] **Slice 3 — Calldown** — **this is the declared scope valve.** If the 2–3 week appetite
-      runs out, this slice is cut, and cutting it is the planned outcome rather than a failure ·
-      **not yet spec'd.**
+      pot for no reason a human would recognise (remeasure SYNTHESIS §B), measured at maniac
+      7.0 per 1,000 hands, station 5.6, fish 2.6, tag 1.2, nit 0.4 · **the mechanism named in
+      ruling A is wrong and must be re-derived during spec, not assumed.** Ruling A calls the
+      fix commitment-aware pricing, which presumes the bots call price-blind. They do not:
+      under linear normalisation, scaling the FOLD merit by the price term is distributionally
+      identical to scaling every other candidate by its inverse, so the fold-or-continue split
+      is already price-responsive (`personas_postflop.py:966`, `:1358`; reached independently
+      by two reviewers). Only the call-versus-raise mix is genuinely price-invariant. One
+      hypothesis worth testing first and explicitly NOT yet evidence: the river polarisation
+      rule zeroes air's call merit, so a busted semi-bluff must fold or raise regardless of
+      price · **diagnosis belongs in the spec phase — `/ai-org:spec` may run, and its first
+      job is to find the node.**
+- [ ] **Slice 3 — Calldown** — **KEPT. An earlier draft of this audit recommended cutting it
+      and that recommendation was withdrawn under review.** Two reasons it is worth more than
+      it looks. Went-to-showdown is the single binding term in the S5 pool distance — target
+      27.0 against a sigma of 2.73, roster near 45 — so calldown is the largest available
+      move on the ceiling number. And showdowns are what make every OTHER tell visible to a
+      judge, so it moves the north star twice. It remains the declared scope valve if the
+      appetite runs out, but it is no longer the first thing to cut · **not yet spec'd.**
+- [ ] **Draw-floor bug — bots cannot fold a strong draw at any dial setting** *(NEW
+      2026-08-17)* — `personas_postflop.py:1006-1007` floors the 0.55 strong-draw call bonus
+      at `max(looseness, 1.0)`, so it does not shrink when `call_looseness` tightens. Five of
+      six personas run below 1.0 (tag 0.60, lag 0.55, nit 0.45, fish 0.42, maniac 0.55 via
+      fallback), so the floor is live for all of them and a large share of their calling
+      weight is untunable · **do NOT simply delete the floor.** It was added deliberately as
+      N-DRAWLOOSE so that nits would stop folding big draws, which is a defensible realism
+      judgement; deleting it regresses that fix. Making it price-conditional was reviewed and
+      found not implementable as first described — `_draw_equity` returns 0.0 on the river
+      while STRONG is reachable there, the rule-of-4 heuristic is calibrated for the all-in
+      node and self-declares uncalibrated, and the same predicate recurs at `:1128` and
+      `:1351` · **the design question is open; ticket this before building** ·
+      `../tickets/phase3-derobotization.md` records the related owner-filed items.
 
 **Scope valves (appetite is a cap — cut scope, not quality):** S5 confirmatory study deferred
 unless the pilot is ambiguous · S2b commercial lane is the first research cut · S6 pilot may
