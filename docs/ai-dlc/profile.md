@@ -3,6 +3,17 @@
 stack:        mixed — Python/FastAPI backend + React/Vite/strict-TS frontend
 artifact_dir: docs/ai-dlc
 
+# The governing initiative. A fresh session reads this first, opens that roadmap,
+# and resumes from its first unchecked slice — never from memory of what seemed
+# next. This field was missing entirely until 2026-08-18, which is why the boot
+# checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
+active:       bot-realism-flywheel
+              # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
+              # current slice: improvement slice 2, invest-then-fold —
+              #   spec/tickets/ledger under docs/ai-dlc/{specs,tickets,ledger}/
+              #   phase3-invest-then-fold.md; spec'd, reviewed, NOT implemented.
+              # paused: persona-realism (see its top banner)
+
 verify:
   test:  ./scripts/verify.sh          # backend pytest + boot probe → "BACKEND VERIFY OK"
   lint:  cd backend && ruff check .

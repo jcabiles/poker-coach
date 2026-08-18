@@ -99,6 +99,38 @@ air and ace-high a small non-zero call merit breaks the determinism everywhere a
 up to +6.1 showdown points, and makes bots call river bets with total garbage —
 the named Goodhart failure.
 
+## Contract scan, 2026-08-18 — two ticket amendments
+
+A read-only scout mapped the callers, tests and downstream consumers of the three
+touch points after the tickets were written. Full map:
+`../contracts/phase3-invest-then-fold.md`. Two findings changed the tickets.
+
+**T1 removes a safety property that only a comment asserts.**
+`personas_postflop.py:253-258` argues the naked-ace damp is safe *because* it is
+gated on facing a raise, so it never touches the facing-a-bet curve the α-ceiling
+contract measures. T1 extends it to facing-a-bet multiway — precisely the case
+the comment excludes. The guarding test hardcodes one opponent and will keep
+passing while the claim stops being true. T1 gained an acceptance criterion:
+re-measure the property at two and three opponents, and rewrite the comment.
+
+**T2's tripwire fails in a way that looks like routine maintenance.**
+`test_price_tail.py:301` asserts exact equality against frozen vectors encoding
+stage one of the two-stage bluff-size law, and its own docstring says bet-size
+tickets are expected to move them. A genuine stage-1/stage-2 mismatch therefore
+presents as an expected re-record. T2 gained two criteria: move both stages
+together, and justify any vector movement from the joint law rather than
+re-recording it.
+
+Also confirmed, and worth recording because each was checked rather than assumed:
+SRS history cannot be orphaned, the grader is uncoupled, the bet-size grid is not
+engaged, and estimator parity for T1 and T3 is structural rather than merely
+tested. Against that, no estimator test can ever catch a T2 fault, because the
+sizing draw never executes under estimation.
+
+**Process note.** The scout was briefed to write the map itself and had no write
+tool, so it returned the content and the session persisted it. The brief was
+wrong, not the agent.
+
 ## Still open at the time of writing
 
 - The roadmap's slice 2 entry still names a refuted mechanism, its slice 3 entry
