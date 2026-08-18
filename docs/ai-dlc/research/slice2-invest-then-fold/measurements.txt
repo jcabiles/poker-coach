@@ -1,0 +1,101 @@
+=== invest-then-fold on scratch/sim50k (50000 hands) ===
+
+persona             folds  fold>=25bb  events  conditional  per 1k hands
+maniac              69184        2928     788        26.9%         7.88
+calling_station     70710        1943     648        33.4%         6.48
+passive_fish        41508         655     176        26.9%         3.52
+lag                 85343        1121     294        26.2%         2.94
+tag                 45136         294      82        27.9%         1.64
+nit                 47796          92      27        29.3%         0.54
+
+total events: 2015
+
+--- is the fold a refusal to call an all-in? ---
+call would be all-in (to_call >= remaining stack): 1894 (94.0%)
+call would be >=90% of the remaining stack: 15 (0.7%)
+pot before the fold (bb): min 117  p25 202  median 258  p75 297  max 586
+seats already all-in in that hand:
+  0:    56 (  2.8%)
+  1:   836 ( 41.5%)
+  2:   755 ( 37.5%)
+  3:   301 ( 14.9%)
+  4:    59 (  2.9%)
+  5:     8 (  0.4%)
+hands with at least one all-in seat: 15473/50000 (30.9%)
+
+--- which decision node ---
+  street river      1152 ( 57.2%)
+  street turn        480 ( 23.8%)
+  street flop        371 ( 18.4%)
+  street preflop      12 (  0.6%)
+  top nodes (street, made hand, draw):
+    river    ace_high       draw=none       659 ( 32.7%)
+    river    air            draw=none       326 ( 16.2%)
+    flop     air            draw=none       170 (  8.4%)
+    river    middle_pair    draw=none       151 (  7.5%)
+    turn     ace_high       draw=none       143 (  7.1%)
+    turn     air            draw=none       125 (  6.2%)
+    turn     middle_pair    draw=none       106 (  5.3%)
+    flop     ace_high       draw=none        86 (  4.3%)
+    flop     middle_pair    draw=none        59 (  2.9%)
+    turn     air            draw=weak        43 (  2.1%)
+  river + (air or ace-high) + no draw — the cell where call merit is hard-zeroed: 985 (48.9%)
+
+--- the price being refused ---
+  f <= 0.10             704 ( 34.9%)
+  0.10 < f <= 0.25     1311 ( 65.1%)
+  0.25 < f <= 0.40        0 (  0.0%)
+  f > 0.40                0 (  0.0%)
+  RES-E size bucket of the faced bet:
+    SMALL      2015 (100.0%)
+    MEDIUM        0 (  0.0%)
+    LARGE         0 (  0.0%)
+    OVERBET       0 (  0.0%)
+
+--- how did the money get in? ---
+share of the investment that went in as a bet or raise: p25 0.00  median 0.25  p75 0.91  mean 0.42
+never bet or raised at all this hand: 807 (40.0%)
+per-persona mean aggressive share:
+  maniac            n=  788  0.74
+  calling_station   n=  648  0.04
+  passive_fish      n=  176  0.21
+  lag               n=  294  0.54
+  tag               n=   82  0.41
+  nit               n=   27  0.26
+street of the seat's single largest commitment:
+  turn        1176 ( 58.4%)
+  flop         742 ( 36.8%)
+  river         73 (  3.6%)
+  preflop       24 (  1.2%)
+hand class and action at that largest commitment — top 8:
+  ace_high|none via call                457 ( 22.7%)
+  air|none via raise                    184 (  9.1%)
+  ace_high|weak via call                151 (  7.5%)
+  middle_pair|none via call             144 (  7.1%)
+  air|none via call                     140 (  6.9%)
+  air|none via bet                       90 (  4.5%)
+  ace_high|none via raise                89 (  4.4%)
+  air|strong via call                    85 (  4.2%)
+
+--- how many of the events are not decisions at all? ---
+river air/ace-high with no draw, facing a bet at least as big as the stack: 950 (47.1%)
+  `table/engine.py` offers no RAISE without headroom above the current bet, and
+  `personas_postflop.py:1010` sets call_merit to 0.0 for that cell, so FOLD is the
+  only candidate with any weight: P(fold) = 1.000 exactly, not a mixed strategy.
+
+--- collision with slice 3 (calldown) ---
+persona            saw flop    WTSD  river hard-zero folds  WTSD if they called
+maniac                34539   57.7%                   1241                61.3%
+calling_station       40161   66.4%                   4094                76.6%
+passive_fish          16149   45.6%                    758                50.3%
+lag                   18296   54.3%                    761                58.4%
+tag                    6068   57.0%                    270                61.4%
+nit                    2874   58.9%                    122                63.2%
+POOL                 118087   58.5%                   7246                64.6%
+
+split of the 7246 river hard-zero folds, because the cell bundles two hands:
+  air         2923  upper-bound WTSD if all called 60.94%  (+2.48pp)
+  ace-high    4323  upper-bound WTSD if all called 62.12%  (+3.66pp)
+  These are UPPER BOUNDS. They assume every fold becomes a call, which the merit
+  law would not do, and they ignore the bettor's own seat-hand.
+WTSD here is the analytics definition — seat-hands reaching showdown over seat-hands seeing the flop (poker-analytics scorer/stats.py). The pool target is 27.0 with sigma 2.73.
