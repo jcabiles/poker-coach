@@ -421,6 +421,43 @@ immutable `coverage_baseline.persona-realism-start.json` (349/1233 = 28.30%),
 which every prior entry states and the first draft of this one omitted:
 335/1227 = 27.30%, -1.00pp, inside the adjudicated `T-cover` mapper dip and a
 recovery on T5's -2.10pp.
+
+RE-RECORDED for T1 (improvement slice 2, 2026-08-18, slice-authorized): the
+graded RATIO IMPROVED and only the `total` equality leg moved. Graded decisions
+went 335 -> 341 against a total of 1,227 -> 1,236, i.e. 27.30% -> 27.59%, so
+the invariant every prior entry in this chain names as the real one -- the
+ratio, not the raw total -- held and gained 0.29pp. Cumulative against the
+immutable `coverage_baseline.persona-realism-start.json` (349/1233 = 28.30%):
+341/1236 = 27.59%, -0.71pp, a further recovery on T2b.
+
+WHY A BOT CHANGE MOVES A LEG WHOSE STATED PURPOSE IS CATCHING A BROKEN HARNESS.
+The `total` assertion exists to prove this file stayed engine-only -- that the
+hero script never started reading mapper or display output, which would let the
+measurement feed itself. It cannot distinguish that failure from an authorised
+change in how the BOTS play, because the villain seats run real persona packs
+and the hero plays until the hand ends: change what a bot does with naked
+ace-high on a multiway flop and some hands end sooner, others go further, and
+the number of hero decision points in 400 hands moves. Every one of the eight
+entries above this one moved it for the same reason. The leg is still worth
+keeping and is not being softened -- it just needs a re-record, with a written
+mechanism, on any slice that intentionally changes bot play.
+
+T1's mechanism, and it is the one the ticket intends: naked ace-high stops
+calling flop and turn bets with more than one opponent live
+(`personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP`, predicate widened from
+`facing_raise` to `facing_raise or opponents > 1`).
+
+NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW, which is slice
+1's actual rule and is what would otherwise shift every seeded test in the
+repository. THE NUMBER OF DRAWS IS NOT INVARIANT, THOUGH, and an earlier version
+of this entry wrongly said it was. The damp only reweights an existing merit,
+but reweighting changes which action is drawn, and the sizing draw downstream of
+the action draw is conditional on that action -- flip a CALL to a RAISE and a
+draw that did not happen now happens. So stream displacement is EXPECTED here
+rather than ruled out, and point (4)'s pairing caveat applies in principle,
+which is why the movement below is re-recorded rather than explained away.
+
+Spec 7.1 is met at this tip rather than merely not made worse: the ratio rose.
 """
 
 from __future__ import annotations

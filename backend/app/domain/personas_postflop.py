@@ -248,14 +248,61 @@ _CHECK_BASE = {
 # 0.408 vs α+0.05 = 0.383 at ½-pot, 0.658 vs 0.650 at 1.5×), while the only
 # α-clean value (0.30) moves the roster's ace-high fold by only +0.03 — cosmetic
 # under the softmax law. Do NOT re-attempt a flat cut here — the global cut stays
-# REFUTED.
+# REFUTED, and the fish arithmetic above is the reason: it is why nobody may cut
+# this global base, and it is unaffected by anything below.
+#
+# WHAT "REFUTED" NOW SCOPES TO, because T1 collided with it. Refuted is the FLAT
+# GLOBAL cut: lowering `_CALL_BASE[ACE_HIGH]` itself, at every opponent count
+# INCLUDING heads-up, on every node. That is still forbidden and the numbers
+# above still forbid it. What is no longer true is the implication a reader
+# would draw from them, that an effective base of 0.22 is unreachable anywhere:
+# T1 (improvement slice 2, 2026-08-18) ships exactly 0.22 effective
+# (0.40 × 0.55) on multiway flop and turn nodes FACING A BET — the same kind of
+# node the 0.408-vs-0.383 figure above was computed on, differing only in that
+# the figure was computed heads-up over the fish's arrival range.
+# The two have not been reconciled by measurement and this comment does not
+# claim they have. What is measured is narrower and is on the record:
+# `docs/ai-dlc/research/slice2-invest-then-fold/alpha-multiway-t1.md`
+# reports the naked-ace-high facing-a-bet fold rate at one, two and three
+# opponents, and finds it already above α at 15 of 24
+# cells at ONE opponent on the untouched engine — i.e. before T1 — which is why
+# the α curve is not the instrument that settles this. Whether the W3R-3
+# refutation should now be re-derived multiway is an OPEN QUESTION referred to
+# the owner, not a question this comment answers.
 #
 # W3R-6 LANDED the scoped form instead: `_ACE_HIGH_FLOAT_RAISE_DAMP` multiplies
-# this base ONLY when the hand is naked ace-high FACING A RAISE on the flop/turn
-# (see the call-merit branch below). That is safe for a structural reason, not a
-# lucky measurement: the α-ceiling contract is measured over a facing-a-BET curve
-# (the W3R-0 arrival harness), so a facing-a-RAISE gate is off the measurement
-# node by construction, and every facing-a-BET decision stays byte-identical.
+# this base for naked ace-high on the flop/turn (see the call-merit branch
+# below). T1 (improvement slice 2, 2026-08-18) widened its predicate from
+# `facing_raise` to `facing_raise or opponents > 1`.
+#
+# W3R-6's SAFETY ARGUMENT DIED WITH THAT WIDENING AND IS NOT REPLACED IN KIND.
+# It used to read: the α-ceiling contract is measured over a facing-a-BET curve,
+# so a facing-a-RAISE gate is off the measurement node by construction and every
+# facing-a-BET decision stays byte-identical. The second clause is now FALSE at
+# more than one opponent — that is exactly what T1 buys. What is true instead:
+#
+#  - HEADS-UP facing a bet is still byte-identical, and that is now a TESTED
+#    property rather than a structural one
+#    (`test_ace_high_multiway_damp_gate_lock`).
+#  - The α = f/(1+f) fold ceiling is asserted over the one-pair no-draw
+#    BLUFF-CATCHER range (`_CATCHER_BUCKETS`,
+#    `test_fold_to_bet_respects_alpha_ceiling`), which EXCLUDES ace-high — the
+#    stated reason being that ace-high loses to part of a balanced bettor's
+#    bluff half, so it is not a catcher. Measured on a 1,250-spot naked
+#    ace-high range, the fold rate exceeds α at 15 of 24 persona-and-size cells
+#    ALREADY at ONE opponent on the untouched engine (nit 0.2920 vs α 0.2481
+#    facing ⅓-pot, pre-T1), so α as currently written does not discriminate a
+#    good tip from a bad one on this bucket. WHETHER α SHOULD BE ASSERTED OVER
+#    ACE-HIGH AT ALL IS AN OPEN QUESTION referred to the owner; this comment
+#    reports the measurement and does not settle the contract. Full table:
+#    `docs/ai-dlc/research/slice2-invest-then-fold/alpha-multiway-t1.md`.
+#  - What protects the CATCHER range is now the BUCKET gate alone, and that is
+#    tested at one, two and three opponents by
+#    `test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents`. Widen
+#    the bucket gate and that test is what fails. Note the scope honestly: that
+#    test guards the catcher range, which is NARROWER than what W3R-6's prose
+#    asserted — the old claim covered every facing-a-bet decision for every
+#    bucket, and no test replaces it in that width.
 _FOLD_BASE = {
     StrengthBucket.MONSTER: 0.0,
     StrengthBucket.TWO_PAIR_PLUS: 0.05,
@@ -357,13 +404,27 @@ _BUSTED_RIVER_BLUFF = {BustedDraw.STRAIGHT: 0.30, BustedDraw.FLUSH: 0.15}
 # is the value whose cut matches the "rare but alive" shape argument. With the
 # narrowed gate every candidate leaves the α curve and the frozen bands untouched.
 _ONE_PAIR_RAISE_DAMP = 0.35
-# W3R-6 (#5, re-routed from W3R-3): naked ace-high stops FLOATING A RAISE on the
+# W3R-6 (#5, re-routed from W3R-3): naked ace-high stops FLOATING on the
 # flop/turn. Multiplies the `_CALL_BASE[ACE_HIGH]` term only, gated on
-# `facing_raise` + draw NONE + flop/turn. The FOLD merit is never boosted — the
-# fold share rises through normalization. Node-scoped ON PURPOSE: the α
-# fold-ceiling contract is measured over a facing-a-BET curve, so a facing-a-RAISE
-# damp is off that measurement node by construction (the structural reason the
-# GLOBAL cut refuted in W3R-3 is safe here). FIT SEED, range [0.35, 0.65].
+# draw NONE + flop/turn + (facing a raise OR more than one opponent live). The
+# FOLD merit is never boosted — the fold share rises through normalization.
+# FIT SEED, range [0.35, 0.65].
+#
+# T1 (improvement slice 2, 2026-08-18) ADDED the `opponents > 1` half. W3R-6's
+# gate was `facing_raise` alone and was justified as node-scoped — off the
+# facing-a-BET α measurement node by construction. That justification is GONE;
+# see the block above `_FOLD_BASE` for what replaces it. The value 0.55 is
+# unchanged and was not re-fitted: T1 changed WHERE the damp fires, never how
+# hard. Measured effect of the widening, 50,000 hands at seed 20260817 on the
+# ratified lineup: invest-then-fold events 1,147 → 1,084, pool went-to-showdown
+# 54.5% → 54.1%.
+#
+# The pre-existing multiway effect on this bucket is on the OTHER side of the
+# decision and predates T1: `_MW_CATCH_TIGHTEN` (see `_MW_CATCH_BUCKETS`) already
+# multiplies ACE_HIGH's FOLD merit by 1.15 ** (opponents - 1). So naked ace-high
+# was never byte-identical across opponent counts; what T1 newly adds is a
+# multiway effect on the CALL side. Any test asserting only "calls less multiway
+# than heads-up" is therefore vacuous — it passed before T1.
 #
 # FITTED at 0.55 — effective in-node base 0.40 × 0.55 = 0.22, exactly the W3R-3
 # magnitude that was directionally right and failed only on scope. Measured on
@@ -972,15 +1033,19 @@ def sample_postflop_decision(
         # River polarization (see _RIVER_RAISE_FLOOR): air never bluff-CALLS
         # the river — it folds or bluff-raises. Flooring happens BEFORE the
         # SPR-commit block so a floored 0 survives the commit boost.
-        # W3R-6 (#5): naked ace-high stops floating a RAISE pre-river. Damps the
+        # W3R-6 (#5) + T1: naked ace-high stops floating pre-river, both when
+        # facing a RAISE and when more than one opponent is live. Damps the
         # CALL_BASE term only (the draw bonus is untouched — naked hands only),
-        # gated on facing a raise + flop/turn; the fold share rises purely
-        # through normalization. See _ACE_HIGH_FLOAT_RAISE_DAMP.
+        # gated on flop/turn; the fold share rises purely through normalization.
+        # The `opponents > 1` half is T1's, and it puts this damp on a
+        # facing-a-BET node for the first time — see _ACE_HIGH_FLOAT_RAISE_DAMP
+        # for why the old "off the α node by construction" argument no longer
+        # applies and what is tested in its place.
         call_base = _CALL_BASE[bucket]
         if (
             bucket is StrengthBucket.ACE_HIGH
             and draw is DrawCategory.NONE
-            and facing_raise
+            and (facing_raise or opponents > 1)
             and street in (Street.FLOP, Street.TURN)
         ):
             call_base *= _ACE_HIGH_FLOAT_RAISE_DAMP

@@ -11,11 +11,13 @@ import time
 
 import pytest
 
+from app.domain import personas_postflop
 from app.domain.action import Decision
 from app.domain.archetypes import VillainType
 from app.domain.content.notation import parse_range
 from app.domain.personas import load_persona_packs
 from app.domain.personas_postflop import (
+    DrawCategory,
     StrengthBucket,
     _price_exponent,
     _price_factor,
@@ -1192,3 +1194,69 @@ def test_nlogit_g7_estimator_dist_keys_are_exactly_the_nodes_legal_set(packs):
                     assert sum(dist.values()) == pytest.approx(1.0), (vt, kinds, dist)
                     checked += 1
     assert checked > 200, checked
+
+
+def test_estimator_multiway_flop_bet_parity_with_live_sampler(packs):
+    """T1 estimator parity at MORE THAN ONE OPPONENT — the case neither existing
+    parity test reaches.
+
+    `test_estimator_river_dist_equals_live_polarized_policy` and
+    `test_estimator_facing_raise_parity_with_live_sampler` both replay heads-up
+    nodes, so when T1 (improvement slice 2, 2026-08-18) widened
+    `_ACE_HIGH_FLOAT_RAISE_DAMP`'s predicate from `facing_raise` to
+    `facing_raise or opponents > 1`, the new branch shipped with no parity pin at
+    all. Parity holds structurally — `_postflop_action_dist` passes the real
+    `ctx.opponents` and `_CaptureRng` short-circuits only the action draw, which
+    is downstream of the predicate — so this is a missing regression test rather
+    than a repair. It is worth having anyway: the whole point of T1's ticket is
+    that a claim nobody tests stops being true quietly.
+
+    Three-handed flop, seat 1 facing a BET with two opponents live, holding naked
+    ace-high. The second leg is what makes the first non-vacuous: with the damp
+    neutralised to 1.0 the recovered distribution differs, so the equality above
+    is genuinely reporting the new branch and not passing because the branch
+    never fired.
+    """
+    tag = packs[VillainType.TAG]
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0)]
+    moves += [(1, _CALL), (2, _CALL)]                      # three-handed to the flop
+    moves += [(1, _CHECK), (2, _CHECK), (3, _bet(4.0))]    # seat 1 now faces a BET
+    moves += [(1, _CALL)]
+    state = _script(state, moves)
+    hist = _project(state)
+    ctx = _replay_contexts(hist, seat=1, n=len(hist.actions))[-1]
+    assert ctx.street is Street.FLOP
+    assert ctx.facing_raise is False, "this node must be a bare BET, not a raise"
+    assert ctx.opponents > 1, (
+        f"the point of this test is opponents > 1; got {ctx.opponents}"
+    )
+
+    hole = ("Ah", "5c")  # naked ace-high, no draw, on Kh7d2c
+    assert strength_bucket(hole, list(ctx.board)) == (
+        StrengthBucket.ACE_HIGH, DrawCategory.NONE
+    )
+
+    estimator = _postflop_action_dist(tag, hole, ctx)
+    legal = _live_legal(ctx)
+    live = _CaptureFirstChoices()
+    sample_postflop_decision(
+        tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+        live,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=False,
+        latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
+    )
+    assert estimator == live.dist
+
+    saved = personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP
+    try:
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = 1.0
+        undamped = _postflop_action_dist(tag, hole, ctx)
+    finally:
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = saved
+    assert estimator != undamped, (
+        "the multiway damp is not reaching the estimator — this parity test is "
+        "vacuous as written"
+    )

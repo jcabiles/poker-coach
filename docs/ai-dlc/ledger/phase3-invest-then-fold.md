@@ -188,4 +188,99 @@ roadmap and is filed separately.
   self-contradiction over whether calldown is cut first, and an audit banner that
   says de-robotization touched preflop only four lines below slice 1's measured
   postflop change.
-- No ticket is implemented. This slice is spec and tickets only.
+- T2 and T3 are not implemented. T3 additionally gained a hazard from T1's
+  build round; see below.
+
+## Build round — T1, 2026-08-19
+
+**T1 shipped. It hit its pre-committed number exactly, and three independent
+reviewers between them found four stale claims the implementation left standing
+— the same failure class the ticket was written to prevent.**
+
+The behavioural change is one predicate. Everything else in the pull request is
+the safety work that predicate forces, and most of the review time went there
+rather than to the change itself.
+
+### What was measured
+
+Events 1,147 → 1,084 at seed 20260817 on the ratified lineup, matching the
+pre-committed acceptance figure to the digit, with every secondary number in the
+ticket's table also matching. Two reviewers reproduced the full 50,000-hand
+export independently rather than reading the author's output.
+
+**One number the ticket's table does not carry: the nit rose**, 0.22 → 0.30
+events per thousand hands, 11 → 15. It is the smallest sample in the table and
+the only persona that moved the wrong way. Recorded because a table listing only
+the three personas that fall would imply the roster moved uniformly.
+
+### The gate, and a prediction that was wrong
+
+**LAG–TAG moved 1.8469 → 1.9852 — apart, not together.** Spec §5 and ticket
+acceptance criterion 3 both predicted this change would push the binding
+separation pair together, and it did the opposite. The prediction was wrong in
+the harmless direction, and the criterion that came from it — report the pair
+explicitly rather than the PASS line — did its job anyway.
+
+The second-closest pair moved the other way: nit–TAG 2.7293 → 2.5083, still well
+above the 1.254429 floor. The determinism guard passes at 0.1556 against a 0.20
+ceiling, label preservation is 6/6, and the LAG's frozen showdown band did not
+breach.
+
+### How the review was run
+
+Three reviewers, all briefed to derive their own verdict from the code and the
+data rather than to react to the author's conclusions — the asymmetry the
+2026-08-17 audit recommended, now applied to all three rather than to two.
+
+- **Codex Sol, high effort.** Verdict request-changes. Found three of the four
+  stale claims.
+- **The persona-realism theory reviewer, Opus.** Verdict GO. Found the fourth
+  and sharpest, and refuted a realism worry by measurement.
+- **The refuter, Sonnet at high effort.** Verdict pass. Re-ran the export and
+  the gate arithmetic independently and confirmed the headline.
+
+### Findings and adjudication
+
+| # | Finding | Source | Adjudication |
+|---|---|---|---|
+| 1 | `personas_postflop.py:243-251` still says a 0.22 effective ace-high call base "stays REFUTED", quoting the fish arithmetic that refuted it. **T1 now ships exactly 0.22** (0.40 × 0.55) on every multiway flop/turn facing-a-bet node. | Theory | **Accepted; the sharpest finding of the round.** The refutation and the shipped behaviour had collided. The block is now scoped: a flat global cut stays refuted at every opponent count, and T1's multiway reach to 0.22 on that exact node is stated rather than left for a reader to discover. The fish arithmetic is kept — it is still the reason nobody may cut the global base. |
+| 2 | Two comments in the test file are now false: `:6563` says both damps are gated on `facing_raise`, and `test_ace_high_facing_a_bet_is_byte_identical`'s docstring says nothing on that node moved. | Sol | **Accepted and verified independently.** Both rewritten. The legs beneath them remain correct only because the helper hardcodes one opponent, which is now stated as load-bearing rather than left incidental. |
+| 3 | The implementation's own comment decrees that no α bound may be asserted on the ace-high bucket. That rules on a contract. | Sol | **Accepted on governance, not on the measurement.** The measurement is sound and is kept: naked ace-high already exceeded α at 15 of 24 cells at one opponent on the untouched engine, because it is not a bluff-catcher and `_CATCHER_BUCKETS` excludes it deliberately. But whether α should be asserted over the bucket at all is the owner's to rule, so the comment now reports and refers rather than decides. See the open item below. |
+| 4 | Both re-record provenance notes claim the same number of rng draws is taken before and after. False: a CALL flipping to RAISE fires the already-existing conditional sizing draw. | Sol | **Accepted. The error was the orchestrator's**, introduced in the re-record authorization and copied into two files by the worker. Slice 1's actual rule — no new draw, and none before the action draw — is satisfied and is what the notes now say. |
+| 5 | The α measurement covered `street=None` and FLOP but not TURN, although the predicate fires on both. | Sol | **Accepted.** Half the damp's surface was unmeasured. TURN added and the table regenerated. |
+| 6 | No estimator parity test drives more than one opponent, so T1's new branch has no pin. | Theory | **Accepted as a missing test, not a live defect.** The reviewer verified parity holds structurally — the estimator replays the real `opponents` into the same sampler, and the capture RNG short-circuits downstream of the predicate. A multiway parity test was added anyway, because the whole lesson of this ticket is that an untested claim rots. |
+| 7 | Two of the three new tests pass against the old predicate, so they are vacuous as evidence that T1 happened. | Sol | **Accepted with a correction to the framing.** They are negative scope guards and are supposed to hold on both tips; that is what a guard is. Only the claim that one of them "replaces" the deleted structural argument was too strong, since it guards a narrower property, and that wording is fixed. `test_naked_ace_high_multiway_bet_calls_less_than_heads_up` is the non-vacuous one and fails all twelve cases without the change. |
+| 8 | The roster-compression worry: a calling station at looseness 4.0 and a nit at 0.45 receive the same flat 0.55 multiplier, which should push archetypes together. | Theory, raised and then answered by itself | **Refuted by measurement, and worth recording as a refutation rather than a non-finding.** P(call) spread across the roster *widened*, 0.508 → 0.547, and the max/min ratio went 2.41 → 3.32. The gate's minimum pairwise distance moved the same way. |
+| 9 | Ticket criterion 3 and spec §5 say T1 "damps the LAG's 294 events and barely touches TAG's 82". | All three reviewers, independently | **Accepted; not fixed here.** The committed evidence file says LAG 124 and TAG 185, and the measurement says T1 removes more TAG (185 → 168) than LAG (124 → 114). The figures look like default-lineup survivors that the 2026-08-18 re-measure missed. Correcting a merged ticket is the owner's call. |
+
+### What the author got wrong, for the record
+
+Four stale claims survived a build whose entire sixth acceptance criterion was
+"a comment left standing as a false claim is worse than no comment". Three were
+in files the author had just edited. The instrument that caught them was three
+reviewers reading the module for contradictions, not the test suite, which was
+green throughout.
+
+The orchestrator contributed two errors of its own: the rng-count claim in
+finding 4, and an initial worker brief that forbade the slice re-record outright
+and blocked the build until it was lifted.
+
+### Open items from this round
+
+- **Whether α should be asserted over the ACE_HIGH bucket at all.** The
+  measurement says naked ace-high folds above α = f/(1+f) at most cells and did
+  so before this slice, because it is not a bluff-catcher. The code now reports
+  that and refers the question rather than settling it. Owner's.
+- **T3 will strand T1's street gate.** The FLOP/TURN boundary is coherent today
+  only because the river call merit is hard-zeroed for the whole bluff cell. T3
+  removes that zero for ace-high and is explicitly told not to touch this damp —
+  which would leave multiway river ace-high calling at full undamped weight, on
+  the street where T1's own thesis is strongest. Not a T1 defect and not fixed
+  here; it is input T3 must have before it is built.
+- **Ticket criterion 3 and spec §5's 294/82 figures**, per finding 9.
+- **The two standing price fixtures are blind to street-gated levers.**
+  `fold_by_size` and `catcher_fold_by_size` both omit `street`, so they measure
+  at `street=None`, outside any street gate. A first version of T1's α
+  measurement copied them and produced before-and-after tables that were
+  byte-identical — it measured nothing at all. Any future ticket touching a
+  street-gated lever is invisible to both.
