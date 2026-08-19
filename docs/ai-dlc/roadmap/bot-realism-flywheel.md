@@ -72,8 +72,9 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > one finale detection run at the end under the new rule-breaker control, plus the
 > preregistered owner blind play-test as product acceptance.
 > **Slice-by-slice state for that phase is the improvement-phase block at the END of this
-> lane (added 2026-08-17): slice 1 de-robotization is CLOSED, slices 2 and 3 are unstarted
-> and unspec'd. Resume there, not from this banner.**
+> lane (added 2026-08-17, updated 2026-08-18): slice 1 de-robotization is CLOSED, slice 2 is
+> SPEC'D and reviewed with three tickets but not built, slice 3 is unspec'd. Resume there,
+> not from this banner.**
 > *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
 > NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
@@ -228,15 +229,20 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > should be cut on the strength of that claim.**
 >
 > **What survives, and it is the important one: the bots' bet-size grid IS the grader's
-> grid.** `sizing.py:58` pins `RECOGNIZED_BET_FRACS = (0.33, 0.5, 0.75, 1.0, 1.5)`, and
-> `grade_map_reject.py` carries an explicit `BET_FRACTION_OFF_GRID` rejection for any bet off
+> grid.** `backend/app/domain/table/sizing.py:58` pins
+> `RECOGNIZED_BET_FRACS = (0.33, 0.5, 0.75, 1.0, 1.5)`, and
+> `backend/app/domain/table/grade_map_reject.py` carries an explicit `BET_FRACTION_OFF_GRID`
+> rejection for any bet off
 > it. Varying bet sizes to look human therefore makes those hands ungradeable, against a
 > coverage clause already failing at −0.26pp. **Realism and the teaching function are in
 > direct architectural conflict on bet sizing, and no slice on this roadmap addresses it.**
 > Escalated to the owner as a standing item; do not attempt size jitter until it is resolved.
 >
-> **Also surviving:** de-robotization changed PREFLOP OPENS ONLY. Postflop fractions, the
-> isolation ladder and 4-bet sizing are untouched and remain single exact values. And the
+> **Also surviving, with one correction (2026-08-18): de-robotization changed preflop opens
+> and the postflop size ECOLOGY, not preflop only** — slice 1's own outcome above records the
+> postflop class read falling from 0.557 to 0.441. What remains untouched is narrower than
+> "everything postflop": the postflop fractions themselves, the isolation ladder and 4-bet
+> sizing all still take single exact values. And the
 > project's only real judge observation cuts against ranking tells by detectability at all —
 > the judge explicitly noticed a control bot's "always 3x opens" and called it human anyway.
 >
@@ -246,28 +252,83 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > measurement slice was rejected as the same failure mode repeating. The blind play-test is
 > now the primary acceptance evidence, not a supplement to a detection number.
 
-- [ ] **Slice 2 — Invest-then-fold lines** — problem: bots put money in and then abandon the
-      pot for no reason a human would recognise (remeasure SYNTHESIS §B), measured at maniac
-      7.0 per 1,000 hands, station 5.6, fish 2.6, tag 1.2, nit 0.4 · **the mechanism named in
-      ruling A is wrong and must be re-derived during spec, not assumed.** Ruling A calls the
-      fix commitment-aware pricing, which presumes the bots call price-blind. They do not:
-      under linear normalisation, scaling the FOLD merit by the price term is distributionally
-      identical to scaling every other candidate by its inverse, so the fold-or-continue split
-      is already price-responsive (`personas_postflop.py:966`, `:1358`; reached independently
-      by two reviewers). Only the call-versus-raise mix is genuinely price-invariant. One
-      hypothesis worth testing first and explicitly NOT yet evidence: the river polarisation
-      rule zeroes air's call merit, so a busted semi-bluff must fold or raise regardless of
-      price · **diagnosis belongs in the spec phase — `/ai-org:spec` may run, and its first
-      job is to find the node.**
-- [ ] **Slice 3 — Calldown** — **KEPT. An earlier draft of this audit recommended cutting it
-      and that recommendation was withdrawn under review.** Two reasons it is worth more than
-      it looks. Went-to-showdown is the single binding term in the S5 pool distance — target
-      27.0 against a sigma of 2.73, roster near 45 — so calldown is the largest available
-      move on the ceiling number. And showdowns are what make every OTHER tell visible to a
-      judge, so it moves the north star twice. It remains the declared scope valve if the
-      appetite runs out, but it is no longer the first thing to cut · **not yet spec'd.**
+- [ ] **Slice 2 — Invest-then-fold lines — SPEC'D + REVIEWED 2026-08-18, three tickets,
+      NOT built.** Spec `../specs/phase3-invest-then-fold.md` · tickets · ledger · contract
+      map `../contracts/phase3-invest-then-fold.md` · evidence
+      `../research/slice2-invest-then-fold/`.
+      **The problem statement this entry used to carry was wrong.** It said bots abandon pots
+      "for no reason a human would recognise". The reason is recognisable — they have nothing.
+      Enumerated against the real boards, 84% of the folded holdings lack the price and 66%
+      are drawing dead, so the slice does not try to make the fold go away. Two things ARE
+      defective, and neither is the fold.
+      **(1) Half the folds are forced, not chosen.** 524 of 1,147 events (46%) have exactly one
+      weighted action: the river rule zeroes the call (`personas_postflop.py:1010`) and the
+      engine offers no raise when the faced bet exceeds the stack
+      (`table/engine.py:204-206`). The hypothesis this entry recorded on 2026-08-17 was
+      right about the node and wrong in two details worth keeping: the raise is *illegal*,
+      not merely unattractive, and two thirds of the cell is **ace-high, not air** (413 of
+      550) — which is what produced the owner ruling below. **This is not a detection
+      argument.** 524 events across 450,000 seat-hands is 0.03 per 30-hand judged bundle; it
+      matters because it is the same lookup-table signature slice 1 removed from bet sizing.
+      **(2) The money goes in as a CALL 62% of the time**, a raise 25%, a bet 13% — and 38% of
+      the seats never bet or raised at all, which refutes the "build a pot with aggression"
+      description inherited from remeasure SYNTHESIS §B.
+      **Ceiling caveat — expect a small number, not zero.** 93% of events are refusals to call
+      an all-in in pots averaging 253bb, and a fifth of hands see an all-in. That is the
+      environment, which ruling A cut from this phase. T1's measured effect is −5.5%.
+      **Measured at the shipped tip**, seed 20260817, ratified lineup: maniac 6.40 per 1,000
+      hands, station 4.60, fish 2.77, **LAG 2.48** (missing from this entry's earlier list),
+      tag 1.23, nit 0.22 — against the 2026-08-05 baseline of 7.0 / 5.58 / 2.60 / 2.22 / 1.19
+      / 0.38. Four fell, two rose slightly; de-robotization did not fix this.
+      **OWNER RULING 2026-08-18 — remove ACE_HIGH from the river call zero, keep AIR**
+      (ticket T3). Deciding reason, recorded as a standing principle: the change is correct
+      poker independently of the realism goal, so it cannot be Goodharted. When a realism
+      change is *also* sound play, that asymmetry belongs in the options.
+      **Tickets:** T1 ace-high stops floating multiway bets (measured 1,147 → 1,084,
+      showdown flat) · T2 bluff frequency priced on the stack-capped size · T3 the ruling
+      above, branched from T1 and measured on top of it.
+- [ ] **Slice 3 — Calldown — KEPT, and its headline number was wrong** *(corrected
+      2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended cutting it; that was
+      withdrawn under review. **Not yet spec'd.**
+      ⚠️ **CORRECTION: this entry said the roster's went-to-showdown was "near 45". It is
+      54.85.** The 44.92 figure came from the S5 close-out, where it is a *counterfactual* —
+      the pool with the maniac's showdown rate driven to zero, constructed to prove no
+      single-persona configuration reaches the cutoff. It was never the roster's value. The
+      real one is recorded in
+      `poker-analytics:analysis/output/score-campaign2-august-F1.json` under
+      `canonical.pool_tier`: 59,907 showdowns over 109,214 seat-hands seeing the flop, seed
+      20260805, ratified lineup — the 2026-08-05 run itself.
+      **What that changes.** The pool distance clears its 5.1586 cutoff only if
+      went-to-showdown falls to roughly 42.7. From "45" that reads as a two-point move and
+      makes calldown look like it could close the ceiling. From 54.85 it is a **twelve-point**
+      move. Went-to-showdown is about 91% of the pool distance squared, so calldown is still
+      by far the largest available lever on that number — **and it will not be enough.** For
+      scale: eliminating the calling station's showdowns entirely buys about 13 points.
+      **The reason to keep it that does not depend on that metric:** showdowns are what make
+      other tells visible to a judge at all. That argument stands on its own and does not rest
+      on a study closed without a verdict, or on a surrogate score that failed its own
+      validation. Treat it as the primary reason.
+      **What it inherits from slice 2.** Under the boundary in that slice's spec §6.2 —
+      slice 2 owns degenerate or mis-invested decisions, slice 3 owns continuation frequency
+      at nodes that already mix — the calling personas' residual continuation is slice 3's.
+      That is roughly 45% of the invest-then-fold events. It is NOT "these events belong to
+      calldown because they happen to calling personas": the conditional rate is flat across
+      all six, and slice 2's own T1 already reduces those personas. The boundary is drawn on
+      the defect, not the persona.
+      ⚠️ **Scope-valve status needs an owner decision.** The block header above still calls
+      calldown "the declared scope valve, cut first if the appetite runs out", while this
+      entry has said since 2026-08-17 that it is "no longer the first thing to cut". Those
+      contradict. The fact that should settle it: **slice 3 is the only slice on this roadmap
+      that lowers pooled went-to-showdown, and slice 2's T3 raises it by up to 3.78 points.
+      Cut slice 3 and the improvement phase ships a net increase in the roster's worst
+      statistic.**
+      **Before it can be spec'd** it needs a post-T1/T2/T3 baseline on the ratified lineup, a
+      defect definition sharper than "went-to-showdown is high", named code nodes, and the
+      draw-floor decision below — which is a prerequisite, not a sibling, because that floor
+      holds part of the strong-draw calling weight fixed no matter how far `call_looseness`
+      tightens, and `call_looseness` is calldown's principal dial.
 - [ ] **Draw-floor bug — bots cannot fold a strong draw at any dial setting** *(NEW
-      2026-08-17)* — `personas_postflop.py:1006-1007` floors the 0.55 strong-draw call bonus
+      2026-08-17; assigned to slice 3 as a PREREQUISITE, 2026-08-18)* — `personas_postflop.py:1006-1007` floors the 0.55 strong-draw call bonus
       at `max(looseness, 1.0)`, so it does not shrink when `call_looseness` tightens. Five of
       six personas run below 1.0 (tag 0.60, lag 0.55, nit 0.45, fish 0.42, maniac 0.55 via
       fallback), so the floor is live for all of them and a large share of their calling

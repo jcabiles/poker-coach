@@ -1,11 +1,17 @@
 # Tickets — invest-then-fold (phase-3 ruling A, improvement slice 2)
 
 **Bottom line: three tickets, three pull requests. T1 stops naked ace-high
-floating multiway bets and already has its answer — a measured 2,015 → 1,879
+floating multiway bets and already has its answer — a measured 1,147 → 1,084
 events with showdown frequency flat. T2 makes a bot's bluff frequency reflect
 the bet it can actually make rather than the one its pack authored. T3 is the
-important one: it restores a mixed strategy to 659 river decisions the engine
+important one: it restores a mixed strategy to 413 river decisions the engine
 currently makes with probability 1.000, on the owner's ruling of 2026-08-18.**
+
+**Every number below is measured on the RATIFIED lineup**
+`tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac` at seed
+20260817. The exporter default is alphabetical and is not comparable with the
+gate or the baseline; an earlier version of these tickets carried default-lineup
+numbers and its pre-committed acceptance figure was wrong.
 
 Spec: `../specs/phase3-invest-then-fold.md`.
 Contract map: `../contracts/phase3-invest-then-fold.md` — read it before T1 or
@@ -23,12 +29,19 @@ T1 (ace-high multiway float damp)      [PR-1] ──> T3 (river call zero: air o
 T2 (bluff frequency on effective size) [PR-2]
 ```
 
-T2 is independent and branches from `main`. **T3 branches from T1 and must be
-measured on top of it**, because T1 reduces how often ace-high reaches the river
+T2 is independent of T1 and branches from `main`. **T3 branches from T1 and must
+be measured on top of it**, because T1 reduces how often ace-high reaches the river
 at all — measuring T3 against the unchanged roster would credit it with T1's
 work. Whichever of T1 and T2 lands second is test-merged against the first, and
 any real conflict is reported rather than resolved quietly. There is no T0: the
 gate runner and the five-seed set already exist and are not modified.
+
+**T2 and T3 do not conflict textually but their effects interact.** Both act on
+the `bluff_cell` hand class — T2 at the sizing weight (`:1374`), T3 at the river
+call merit (`:1010`) — so whichever lands second must re-measure its own effect
+rather than assume its counterfactual still holds. `bluff_cell` is read at six
+live sites; changing what it *means* is out of scope for both tickets, and
+neither does.
 
 ---
 
@@ -40,8 +53,8 @@ gate runner and the five-seed set already exist and are not modified.
 applies to naked ace-high on the flop and turn — but only when facing a *raise*
 (`personas_postflop.py:980-986`). Facing an ordinary bet with several opponents
 live, ace-high floats at full `_CALL_BASE` weight. That single node is the
-largest contributor to invest-then-fold: 457 events, 22.7 percent of the total,
-and calls are 59.6 percent of all the money that gets abandoned.
+largest contributor to invest-then-fold: 245 events, 21.4 percent of the total,
+and calls are 62.3 percent of all the money that gets abandoned.
 
 The change is the predicate: fire the damp when facing a raise **or** when more
 than one opponent is live. Heads-up facing-a-bet calibration is untouched, and
@@ -52,15 +65,17 @@ on the same 50,000 hands at seed 20260817 and reproduced independently:
 
 | | before | after |
 |---|---:|---:|
-| events | 2,015 | **1,879** |
-| pool went-to-showdown | 58.46% | 58.43% |
-| hands containing an all-in | 15,473 | 15,272 |
-| maniac per 1,000 hands | 7.88 | 7.69 |
-| calling station per 1,000 | 6.48 | 6.00 |
-| nit per 1,000 | 0.54 | 0.30 |
+| events | 1,147 | **1,084** |
+| pool went-to-showdown | 54.5% | 54.1% |
+| hands containing an all-in | 10,121 | 10,043 |
+| maniac per 1,000 hands | 6.40 | 6.30 |
+| calling station per 1,000 | 4.60 | 4.36 |
+| passive fish per 1,000 | 2.77 | 2.54 |
 
-If the implementation does not land on 1,879 at that seed, it is not this
-change and the difference must be explained before the pull request opens.
+If the implementation does not land on 1,084 at that seed **and that lineup**,
+it is not this change, and the difference must be explained before the pull
+request opens. Passing `--lineup` is not optional; the diagnosis script now
+prints which table it ran on and says whether it is the ratified one.
 
 **Do not:**
 - Alter `_ACE_HIGH_FLOAT_RAISE_DAMP`'s value. Its magnitude was reasoned
@@ -118,7 +133,7 @@ two-thirds of the pot and then bets an eighth of it — bluffing at roughly thre
 times the frequency its own contract prescribes for the bet it made.
 
 That is the aggression channel: raises and bets are 40.4 percent of the money
-abandoned in this statistic, and air raising alone is 9.1 percent.
+abandoned in this statistic, and air raising alone is 7.1 percent.
 
 - Compute the effective fraction from the bracket's own maximum, which already
   carries the stack cap, and weight with that.
@@ -173,9 +188,9 @@ abandoned in this statistic, and air raising alone is 9.1 percent.
 **Note on a perverse channel, measured and bounded.** Where the river bluff cell
 does offer a raise, damping it moves mass to fold — and a fold is the counted
 event. Only 29 bluff-cell raises in 50,000 hands already satisfy the counted
-precondition, 8 of them on the river, against 2,015 counted folds; at 94 percent
+precondition, 2 of them on the river, against 1,147 counted folds; at 93 percent
 of the events a raise is not legal at all. Converting every one would raise the
-statistic by 1.4 percent. Confirm the direction; if the statistic rises, the
+statistic by 0.9 percent. Confirm the direction; if the statistic rises, the
 change is firing in the wrong place rather than merely too hard.
 
 **Done-condition:** as T1.
@@ -194,14 +209,20 @@ The rule reads `if bluff_cell and street is Street.RIVER: call_merit = 0.0`, and
 `bluff_cell` at `:893` bundles ACE_HIGH with AIR. Every comment around the rule
 describes it as "air never bluff-CALLS the river". Ace-high is not air — it beats
 a busted draw and it beats a bluff, which is the definition of a river
-bluff-catcher, and real players call with it. **659 of the 985 blocked decisions
+bluff-catcher, and real players call with it. **413 of the 550 blocked decisions
 are ace-high.**
 
 The consequence today is not merely over-folding, it is determinism. When the
 faced bet is at least the seat's remaining stack the engine offers no raise
 (`table/engine.py:204-206`), so a zeroed call leaves fold as the only weighted
 candidate and the bot folds 1000 times out of 1000. That is the machine tell this
-whole initiative exists to remove, and it fires 950 times per 50,000 hands.
+whole initiative exists to remove, and it fires 524 times per 50,000 hands.
+
+**Do not justify this ticket on detectability.** 524 events across 450,000
+seat-hands means a judge reading a 30-hand bundle expects 0.03 of them. The
+ruling turns on the poker — ace-high is a bluff-catcher — and on internal
+consistency with slice 1, which removed exactly this kind of certainty from bet
+sizing.
 
 - Change the predicate at the call-zero only. Use the made-hand bucket and draw
   directly rather than `bluff_cell`, so the change is visibly scoped to the call.
@@ -222,9 +243,9 @@ whole initiative exists to remove, and it fires 950 times per 50,000 hands.
 **Acceptance:**
 1. **The determinism improves and is reported as a number.** Re-run the
    diagnosis script: the count of river air/ace-high folds facing a bet at least
-   the stack should fall from 950 toward roughly 300 — the AIR-only residual.
+   the stack should fall from 524 toward roughly 130 — the AIR-only residual.
    This is the ticket's real acceptance criterion; the event count is secondary.
-2. Pool went-to-showdown rises by no more than the **3.66 point upper bound** in
+2. Pool went-to-showdown rises by no more than the **3.78 point upper bound** in
    spec §6, measured on top of T1 rather than against the unchanged roster.
    Exceeding the bound means something other than this change moved.
 3. `python -m tools.derobo_gate --check` passes at seed 601, with the LAG–TAG
@@ -254,7 +275,8 @@ Owed before the slice is marked complete:
   draft's own proposal was withdrawn; that belongs on the record.
 - The out-of-scope findings written up as filed items: the all-in cascade at
   30.9 percent of hands, the residual AIR-only deterministic folds, the bottom-bucket
-  price saturation, the maniac's preflop 4-bet catch-all, and the 851 events
-  belonging to the calling personas that are slice 3's to fix.
+  price saturation, the maniac's preflop 4-bet catch-all, and the calling
+  personas' residual continuation, which is slice 3's under the boundary in
+  spec §6.2.
 - The owner's blind play session. Under the 2026-08-17 ruling it is the primary
   acceptance evidence for the slice, not a supplement to the gate.
