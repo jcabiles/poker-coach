@@ -1616,10 +1616,18 @@ def _exact_dist_opp(persona, hole, board, legal, pot, stack, opponents, current_
 #
 # On `street=Street.RIVER` the sampler floors to 0.0: the non-bluff RAISE
 # merit for {MIDDLE_PAIR, TOP_PAIR, OVERPAIR_TPTK} (facing RAISE entry AND
-# the matched CHECK+RAISE branch; BET untouched) and the bluff-cell CALL
+# the matched CHECK+RAISE branch; BET untouched) and the AIR/no-draw CALL
 # merit (air folds or bluff-raises, never calls). Default `street=None` (and
 # any non-river street) is byte-identical to the pre-P2a sampler. Exact
 # normalized weights via the capture rng — deterministic, no sampling noise.
+#
+# THE CALL FLOOR IS AIR-ONLY SINCE T3 (improvement slice 2, 2026-08-19). P2a
+# wrote it on `bluff_cell`, which is `bucket in (AIR, ACE_HIGH) and draw is
+# NONE`, so it caught naked ace-high too; T3 narrowed it to AIR and gave
+# ace-high a damped river call instead. Every leg below probes AIR, so all of
+# them still measure what they always did — but do not read "the bluff cell
+# never calls the river" out of this block, because half of that cell now
+# does.
 
 _RIVER_BOARD = ["Kc", "9s", "3h", "7d", "2s"]
 _TURN_BOARD = _RIVER_BOARD[:4]
@@ -1778,9 +1786,15 @@ def test_river_bet_floor_middle_pair_river_gated():
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
 def test_river_air_never_calls_but_still_bluff_raises(persona):
-    """Bluff-cell CALL merit floored to exactly 0 on the river for every
+    """AIR/no-draw CALL merit floored to exactly 0 on the river for every
     persona (air folds or bluff-raises — maniac pre-P2a called .086); the
-    _BLUFF_RAISE_FACTOR path survives (raise weight strictly positive)."""
+    _BLUFF_RAISE_FACTOR path survives (raise weight strictly positive).
+
+    The probe hole is AIR, so this leg is unaffected by T3 (improvement slice
+    2, 2026-08-19) narrowing the floor from the whole `bluff_cell` to AIR
+    alone. It no longer covers naked ace-high, which now calls the river at a
+    damped weight; `test_t3_river_air_facing_an_all_in_bet_still_never_calls`
+    is the T3-era statement of the same property."""
     hole = _RIVER_HOLES[StrengthBucket.AIR]
     river = _dist_street(persona, hole, _RIVER_BOARD, _facing_legal(), Street.RIVER)
     assert river[ActionType.CALL] == 0.0
@@ -3745,12 +3759,43 @@ _GOLDEN_STATS_N200 = {
     # `test_persona_postflop_bands` gates AF, fold-to-c-bet and WTSD at
     # population n and passes unchanged, including the lag's WTSD leg, whose
     # frozen 0.59 ceiling this change moves AWAY from rather than toward.
-    "calling_station": (0.302491103202847, 0.2857142857142857, 0.6397058823529411),
-    "lag": (2.4693877551020407, None, 0.5573770491803278),
-    "maniac": (3.7169811320754715, 0.37777777777777777, 0.5446009389671361),
-    "nit": (None, None, 0.5576923076923077),
+    # RE-RECORDED for T3 (improvement slice 2, 2026-08-19, slice-authorized).
+    # T3's mechanism: naked ace-high may call a river bet again, at a damped
+    # weight. The river call zero used to be written on `bluff_cell`, which
+    # bundles ACE_HIGH with AIR; it now reads the made-hand bucket and refuses
+    # AIR only, and ace-high's restored call merit is multiplied by
+    # `personas_postflop._ACE_HIGH_RIVER_CALL_DAMP` = 0.06. Minimum-defence
+    # arithmetic over the measured river price distribution derives about
+    # 0.46; 0.06 is a round value inside the range the lag and calling_station
+    # went-to-showdown bands admit with margin, and the owner ruled that
+    # conflict in the bands' favour on 2026-08-19.
+    # FIVE OF SIX ROWS MOVE, and unlike the preflop entries above this one both
+    # channels are live: river showdowns are exactly what WTSD counts, so every
+    # WTSD cell that moves does so for a real behavioural reason, while AF and
+    # FtC move through the shared-stream displacement a longer hand causes.
+    # WTSD rises on all five, which is the direction the ticket is for — hands
+    # that used to end on a river fold now sometimes reach showdown. THE SIXTH
+    # ROW, passive_fish, IS BYTE-IDENTICAL on all three cells, and maniac's and
+    # tag's AF cells are identical too; a partial move is the expected signature
+    # at n=200, where a persona's sample can miss the changed nodes entirely.
+    # Old row values: calling_station (0.302491103202847, 0.2857142857142857,
+    # 0.6397058823529411), lag (2.4693877551020407, None, 0.5573770491803278),
+    # maniac (3.7169811320754715, 0.37777777777777777, 0.5446009389671361),
+    # nit (None, None, 0.5576923076923077), passive_fish (0.8145161290322581,
+    # None, 0.6146341463414634), tag (1.9545454545454546, None,
+    # 0.6547619047619048).
+    # NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW, which is
+    # slice 1's actual rule. The draw COUNT is not claimed invariant: a fold
+    # flipping to a call changes which later decisions happen at all.
+    # Exact tripwire re-record; population bands are NOT re-anchored here. They
+    # did not need to be: the shipped constant is the largest one they admit,
+    # which is the whole reason it is 0.06 rather than the derived ~0.46.
+    "calling_station": (0.2972027972027972, 0.2857142857142857, 0.6617647058823529),
+    "lag": (2.42, None, 0.5819672131147541),
+    "maniac": (3.7169811320754715, 0.37777777777777777, 0.5492957746478874),
+    "nit": (None, None, 0.5961538461538461),
     "passive_fish": (0.8145161290322581, None, 0.6146341463414634),
-    "tag": (1.9545454545454546, None, 0.6547619047619048),
+    "tag": (1.9545454545454546, None, 0.6785714285714286),
 }
 
 
@@ -6753,8 +6798,21 @@ def test_ace_high_facing_a_bet_is_byte_identical(persona, street):
     multiway movement itself. This test is kept unchanged as the seeded record
     of the heads-up curve.
 
-    The RIVER leg additionally covers the facing-a-raise case — call_merit is
-    already 0 there via the bluff-cell river gate."""
+    WHAT THE RIVER LEG NOW PROTECTS, WHICH IS LESS THAN IT READS. It used to
+    say the facing-a-raise case comes along free because `call_merit` is
+    already 0 on the river via the bluff-cell gate. Since T3 (improvement slice
+    2, 2026-08-19) that is FALSE for this probe hole: `_W3R6_AHI` is naked
+    ace-high, whose river call merit is no longer zeroed but multiplied by
+    `_ACE_HIGH_RIVER_CALL_DAMP`. The equality still holds, for a different and
+    weaker reason — the control arm below neutralises `_ONE_PAIR_RAISE_DAMP`
+    and `_ACE_HIGH_FLOAT_RAISE_DAMP` but leaves `_ACE_HIGH_RIVER_CALL_DAMP`
+    LIVE IN BOTH ARMS, and neither neutralised damp is street-active on the
+    river. So the RIVER leg is no longer a comparison against the pre-W3R-6
+    engine at all; it asserts that the two flop/turn damps stay off the river,
+    which is worth having and is not what the name suggests. A test that
+    genuinely pinned the pre-T3 river vector would have to neutralise the T3
+    damp as well, and `test_t3_river_damp_moves_only_the_ace_high_call_leg`
+    is the test that does that."""
     hole, flop, turn = _W3R6_AHI
     board = {Street.TURN: turn, Street.RIVER: turn + ["6c"]}.get(street, flop)
     faced_bet = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
@@ -6773,8 +6831,11 @@ def test_ace_high_facing_a_bet_is_byte_identical(persona, street):
         personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = ace
     assert faced_bet == pre_slice
     if street is Street.RIVER:
-        # facing a RAISE on the river is byte-identical too (call_merit is
-        # already 0 via the bluff-cell river gate; the raise damp is pre-river).
+        # Facing a RAISE on the river is byte-identical to facing a BET because
+        # BOTH neutralised damps are gated to flop and turn. It is NOT because
+        # the call merit is zero — T3 replaced that zero with
+        # `_ACE_HIGH_RIVER_CALL_DAMP`, which is live in both arms. See the
+        # docstring; this leg is narrower than its name.
         assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == faced_bet
 
 
@@ -7816,15 +7877,14 @@ def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
 
 
 def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
-    """A river polar-bluff cell: `bluff_cell` on the river, where `call_merit`
-    is hard-zeroed (the `if bluff_cell and street is Street.RIVER: call_merit
-    = 0.0` guard) and a RAISE is legal.
+    """A river bluff cell with a RAISE legal. At the default hole cards this is
+    AIR with no draw, where `call_merit` is hard-zeroed by the river/AIR/no-draw
+    guard in `sample_postflop_decision`, so FOLD and RAISE carry all the weight.
 
-    `bluff_cell` is `bucket in (AIR, ACE_HIGH) and draw is NONE` (the
-    `bluff_cell` assignment near the top of `sample_postflop_decision`), so the
-    hard-zeroed class has TWO members and both must be pinned. The default
-    (AIR, half-pot) is the mild one; ACE_HIGH at a small faced price is ~6x
-    larger in span."""
+    The ace-high variant (`hole=("Ah", "8d")`) is the same node shape for the
+    other member of `bluff_cell`. It stopped being hard-zeroed at T3
+    (improvement slice 2, 2026-08-19): ace-high now has a live CALL leg there,
+    so that variant is used by the T3 raise-mass pin rather than by G4."""
     return _NlogitCell(
         "polar_bluff/river",
         Street.RIVER,
@@ -7846,15 +7906,16 @@ def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
 # hit these and no band depends on them. At the base engine every row is flat
 # at its x1 value (asserted below), which is the point of the gate.
 #
-# TWO cells, because `bluff_cell` has two members (`bucket in (AIR, ACE_HIGH)
-# and draw is NONE`, the `bluff_cell` assignment near the top of
-# `sample_postflop_decision`) and their magnitudes differ by ~6x. An earlier
-# revision of this gate pinned only the AIR / half-pot cell and its comment
-# claimed the largest response in the class was maniac's 0.157 — the build
-# refuter showed that is false of the CLASS: on ACE_HIGH at a small faced price
-# lag alone spans 0.104 -> 0.651 and maniac reaches 0.773 (ledger B-9). Pinning
-# the mild member and describing it as the maximum would have handed the theory
-# reviewer the weakest number in the class as the headline.
+# ONE cell since T3 (improvement slice 2, 2026-08-19). The hard-zeroed class
+# used to have two members, because `bluff_cell` is `bucket in (AIR, ACE_HIGH)
+# and draw is NONE`, and both were pinned here — ACE_HIGH at a small faced
+# price was the larger by roughly 6x. T3 narrowed the river call zero to AIR,
+# so a river ACE_HIGH node now has a live CALL leg and its vector is not
+# degenerate; the lever reaches it through CALL like every other bucket, which
+# is G1 and G3's subject rather than this gate's. The ACE_HIGH numbers were not
+# discarded: they moved, unchanged to the digit, to
+# `test_t3_river_ace_high_raise_to_fold_odds_are_untouched` below, where they
+# now pin that T3 left the bluff-RAISE mass alone.
 # RE-RECORDED for the de-robotization slice's T5 (2026-08-16,
 # slice-authorized). All twelve rows move — six personas x both cells — and the
 # cause is the F2 joint law rather than anything in the N-LOGIT mechanism these
@@ -7878,8 +7939,11 @@ def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
 # that coupling — the twelve-of-twelve move is the expected signature, and a
 # PARTIAL move would have been the thing to investigate.
 # The coupling this gate exists to watch — `call_looseness` reaching the
-# bluff-raise rate on a hard-zeroed call cell — is untouched: the sweep still
-# spans the same shape, and `test_nlogit_g1`/`g3` pass unchanged.
+# bluff-raise rate on a hard-zeroed call cell — was untouched by that
+# re-record: the sweep still spans the same shape, and `test_nlogit_g1`/`g3`
+# pass unchanged. T3 later removed ACE_HIGH from the class the coupling can
+# reach, which is a change of SCOPE and not of magnitude; the AIR rows below
+# are byte-identical across it.
 _NLOGIT_BLUFF_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
 # AIR, half-pot faced price — the mild member.
 _NLOGIT_BLUFF_PINS = {
@@ -7890,7 +7954,9 @@ _NLOGIT_BLUFF_PINS = {
     "calling_station": [0.0008321924048908285, 0.0016630008730857482, 0.0033204797853893303, 0.0066189813769167395, 0.013150917078600846],  # noqa: E501
     "passive_fish": [0.0015733919400161421, 0.0031418405334601223, 0.0062640005760089225, 0.01245001425554976, 0.024593834915799185],  # noqa: E501
 }
-# ACE_HIGH, an eighth-pot faced price — the LARGEST member of the class.
+# ACE_HIGH, an eighth-pot faced price. Recorded on the pre-T3 engine, where
+# this cell was hard-zeroed too; kept unchanged because T3 must not move it —
+# see `test_t3_river_ace_high_raise_to_fold_odds_are_untouched`.
 _NLOGIT_BLUFF_PINS_ACE_HIGH = {
     "nit": [0.012690061839999685, 0.025062084280638778, 0.04889866607099545, 0.09323811279913614, 0.17057237889449078],  # noqa: E501
     "tag": [0.06439820175506222, 0.12100396571297749, 0.21588499133634537, 0.35510758480384264, 0.5241024237278488],  # noqa: E501
@@ -7917,16 +7983,12 @@ def test_nlogit_g4_river_bluff_cell_response_is_pinned():
     and G3 passes (identity at the authored value), so without this pin
     nothing in the gate set would see the coupling at all.
 
-    BOTH members of the hard-zeroed class are pinned — see the comment on the
-    pin tables. On the larger one the response is not small: lag's bluff-raise
-    rate spans 0.104 -> 0.651 across the sweep."""
+    The class has ONE member since T3 narrowed the river call zero to AIR (see
+    the comment on the pin table). The ACE_HIGH cell that used to be pinned
+    here is no longer degenerate and is gated by
+    `test_t3_river_ace_high_raise_to_fold_odds_are_untouched` instead."""
     for label, pins, cell in (
         ("air/half_pot", _NLOGIT_BLUFF_PINS, _nlogit_bluff_cell()),
-        (
-            "ace_high/small_price",
-            _NLOGIT_BLUFF_PINS_ACE_HIGH,
-            _nlogit_bluff_cell(hole=("Ah", "8d"), to_call=0.5),
-        ),
     ):
         for persona, expected in pins.items():
             scaled = [
@@ -7948,6 +8010,184 @@ def test_nlogit_g4_river_bluff_cell_response_is_pinned():
             # ...and the scaled path is monotone in the lever.
             assert scaled == sorted(scaled), (label, persona, scaled)
             assert scaled[0] < scaled[2], (label, persona, scaled)
+
+
+# ================= T3 — ace-high may call the river again =====================
+#
+# Improvement slice 2, ticket T3, owner ruling of 2026-08-18 (spec §6). The
+# river call zero used to be written on `bluff_cell`, which bundles ACE_HIGH
+# with AIR, and so it refused the call to a hand that is a river bluff-catcher.
+# It is now written on the bucket and the draw and applies to AIR alone.
+#
+# The defect the ticket names is DETERMINISM, not over-folding. Where the faced
+# bet is at least the seat's remaining stack the engine offers no RAISE
+# (`table/engine.py:204-206`), so a zeroed call left FOLD as the only weighted
+# candidate: probability exactly 1.000, a thousand times out of a thousand.
+#
+# Measured on 50,000 hands at seed 20260817 on the ratified lineup. BEFORE T3
+# that node was reached 823 times by naked ace-high and 380 times by air, and
+# every one of the 1,203 was a fold at probability one. AT THE SHIPPED DAMP OF
+# 0.06 it is reached 829 times by ace-high, which now splits 678 folds and 151
+# calls for P(call) 0.1821, and 382 times by air, which still folds every time.
+# Per persona on the ace-high half: calling_station 0.3559 (n=295), maniac
+# 0.1061 (n=132), tag 0.0992 (n=121), nit 0.0769 (n=13), lag 0.0714 (n=70),
+# passive_fish 0.0707 (n=198).
+# An earlier version of this block quoted 0.691, which was the UNDAMPED figure
+# measured before the owner's band ruling and never re-measured. Full table:
+# `docs/ai-dlc/research/slice2-invest-then-fold/t3-measurements.md`.
+
+_T3_RIVER_BOARD = ["Ks", "9h", "2s", "4d", "7c"]
+_T3_ACE_HIGH = ("Ad", "8c")  # naked ace-high, no draw, no pair with the board
+_T3_AIR = ("8h", "6c")  # air, no draw — the half of the rule that survives
+
+
+def _t3_allin_river_dist(persona, hole, *, pot_bb=40.0, to_call=12.0, stack_bb=12.0):
+    """The node the ticket is about: river, facing a bet at least the seat's
+    remaining stack, so no RAISE is legal and the vector is FOLD + CALL only."""
+    legal = [personas_postflop_legal_fold(), personas_postflop_legal_call(to_call)]
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _pack(persona),
+        hole,
+        _T3_RIVER_BOARD,
+        legal,
+        pot_bb,
+        stack_bb,
+        1,
+        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=to_call,
+        street=Street.RIVER,
+        latest_aggressor_contribution_bb=to_call,
+        facing_raise=False,
+    )
+    return cap.dist or {}
+
+
+def test_t3_spots_classify_as_intended():
+    """Both probe holes must be the buckets the tests below assume; a board or
+    ladder edit that silently re-classified either would make every leg
+    vacuous."""
+    assert strength_bucket(_T3_ACE_HIGH, _T3_RIVER_BOARD) == (
+        StrengthBucket.ACE_HIGH,
+        DrawCategory.NONE,
+    )
+    assert strength_bucket(_T3_AIR, _T3_RIVER_BOARD) == (
+        StrengthBucket.AIR,
+        DrawCategory.NONE,
+    )
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_t3_river_ace_high_facing_an_all_in_bet_is_mixed(persona):
+    """T3 acceptance 4 — the ticket's headline, and the leg that fails on the
+    unmodified engine.
+
+    Naked ace-high on the river, facing a bet at least its remaining stack, now
+    returns a genuine mixture. Before T3 this vector was FOLD 1.0 / CALL 0.0 for
+    every persona, which is the machine tell the whole initiative exists to
+    remove: there is no rng draw whose outcome can differ.
+
+    The assertion is deliberately on MIXEDNESS rather than on a level. T3's
+    point is that the decision mixes, not that ace-high calls often; a
+    river-specific damp on the call term would lower these numbers without
+    touching what this test asserts."""
+    dist = _t3_allin_river_dist(persona, _T3_ACE_HIGH)
+    assert set(dist) == {ActionType.FOLD, ActionType.CALL}, dist
+    call = dist[ActionType.CALL]
+    assert 0.0 < call < 1.0, (persona, dist)
+    assert 0.0 < dist[ActionType.FOLD] < 1.0, (persona, dist)
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_t3_river_air_facing_an_all_in_bet_still_never_calls(persona):
+    """The half of the rule that was always right. "Air never calls the river"
+    survives T3 intact and is asserted at EXACTLY zero, not merely small: air
+    beats nothing at showdown, so the certainty is correct play rather than a
+    lookup-table artifact."""
+    dist = _t3_allin_river_dist(persona, _T3_AIR)
+    assert dist[ActionType.CALL] == 0.0, (persona, dist)
+    assert dist[ActionType.FOLD] == 1.0, (persona, dist)
+
+
+def test_t3_river_call_damp_is_the_shipped_constant():
+    """The pin is EXACT, because a bracket cannot express what constrains this
+    constant, and the previous revision of this test proved it: it allowed
+    anything up to 0.065, including values since measured as violating the
+    margin standard the source comment states.
+
+    What ships is not what was derived. Minimum-defence arithmetic over the
+    measured river price distribution puts the constant near 0.46; 0.06 ships
+    because the lag and calling-station went-to-showdown bands do not admit the
+    derived value, and the owner ruled that conflict in the bands' favour on
+    2026-08-19. Measured on the bands' own harness, the top of the admissible
+    range is a knife edge — 0.061 clears the stated standard and 0.062 misses it
+    by 0.0003 of station margin — which is why the source describes 0.06 as a
+    round constant inside that range rather than as its maximum, and why this
+    test pins the shipped value rather than a bound.
+
+    Change the constant and this test fails on purpose: the band sweep, the
+    residual under-defence and the population figures in the provenance block
+    all have to be re-measured with it.
+
+    The second assertion is deliberately redundant against the first. It names
+    the one property that must survive ANY future re-derivation: at zero this
+    branch is the hard-zero T3 removed, and the determinism win would revert
+    silently with every other test in this file still green."""
+    assert personas_postflop._ACE_HIGH_RIVER_CALL_DAMP == 0.06
+    assert personas_postflop._ACE_HIGH_RIVER_CALL_DAMP > 0.0, (
+        "a zero river call damp is the pre-T3 hard zero by another name"
+    )
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_t3_river_damp_moves_only_the_ace_high_call_leg(persona):
+    """Neutralizing the damp to 1.0 must change the river ace-high CALL leg and
+    nothing else about the vector's shape, and must leave AIR bit-identical.
+
+    This is what stops a later edit from routing the damp through the fold or
+    raise merit, which would be the N-LOGIT misroute in a new costume."""
+    saved = personas_postflop._ACE_HIGH_RIVER_CALL_DAMP
+    try:
+        damped = _t3_allin_river_dist(persona, _T3_ACE_HIGH)
+        air_damped = _t3_allin_river_dist(persona, _T3_AIR)
+        personas_postflop._ACE_HIGH_RIVER_CALL_DAMP = 1.0
+        undamped = _t3_allin_river_dist(persona, _T3_ACE_HIGH)
+        air_undamped = _t3_allin_river_dist(persona, _T3_AIR)
+    finally:
+        personas_postflop._ACE_HIGH_RIVER_CALL_DAMP = saved
+    assert air_damped == air_undamped, persona
+    assert damped[ActionType.CALL] < undamped[ActionType.CALL], (persona, damped, undamped)
+    # The damp multiplies the call merit, so on a two-outcome node the CALL:FOLD
+    # odds fall by exactly the constant.
+    d_odds = damped[ActionType.CALL] / damped[ActionType.FOLD]
+    u_odds = undamped[ActionType.CALL] / undamped[ActionType.FOLD]
+    assert d_odds == pytest.approx(u_odds * saved, rel=1e-9), (persona, d_odds, u_odds)
+
+
+def test_t3_river_ace_high_raise_to_fold_odds_are_untouched():
+    """T3 unblocked ONE action, and this is the pin that says so — using the
+    very numbers G4 held before the change, unedited.
+
+    `bluff_cell` still bundles ACE_HIGH, so the river bluff-RAISE merit is still
+    `_BLUFF_RAISE_FACTOR * bluff_mass`, and the FOLD merit was never in scope.
+    The N-LOGIT `rscale` cannot smuggle the new CALL weight into RAISE either:
+    its call-tracking branch is gated on `draw is DrawCategory.STRONG`, and this
+    cell is draw-NONE, so `rscale` is `looseness / ref` and depends on nothing
+    T3 touched.
+
+    RAISE : FOLD odds are therefore an EXACT invariant of the change. Before it
+    the cell was hard-zeroed, so the pinned P(raise) `p` sat in a two-outcome
+    vector and the odds were `p / (1 - p)`; afterwards the call leg takes some
+    of the probability and the odds must be unchanged. A ticket that moved the
+    bluff mass — the thing "leave `bluff_cell` alone" protects — fails here."""
+    cell = _nlogit_bluff_cell(hole=("Ah", "8d"), to_call=0.5)
+    for persona, pre_t3 in _NLOGIT_BLUFF_PINS_ACE_HIGH.items():
+        for mult, p in zip(_NLOGIT_BLUFF_SWEEP, pre_t3, strict=True):
+            dist = _nlogit_dist(_nlogit_probe(persona, mult), cell)
+            # T3 landed: the cell is no longer degenerate.
+            assert _nlogit_p(dist, ActionType.CALL) > 0.0, (persona, mult, dist)
+            odds = _nlogit_p(dist, ActionType.RAISE) / _nlogit_p(dist, ActionType.FOLD)
+            assert odds == pytest.approx(p / (1.0 - p), rel=1e-9), (persona, mult, odds)
 
 
 def _nlogit_commit_cell():
@@ -8791,12 +9031,15 @@ def test_r9d_s2_continue_mass_never_collapses_at_either_end():
     mass whose tuned end has none is a FAILURE, never a skip.
 
     Zero-continue cells ARE reachable in scope, so they are counted, not
-    silently dropped: the river polar-bluff cell hard-zeroes `call_merit`
-    (the `if bluff_cell and street is Street.RIVER: call_merit = 0.0` guard)
-    and RAISE is appended only when legal, so
-    the 48 river x {ACE_HIGH, AIR} x FOLD+CALL cells per pack have `C + R == 0`
-    at BOTH ends. P-5 pins them inert. Measured: 528 graded / 48 skipped per
-    persona, identical for all six."""
+    silently dropped: the river AIR/no-draw cell hard-zeroes `call_merit` and
+    RAISE is appended only when legal, so those river AIR FOLD+CALL cells have
+    `C + R == 0` at BOTH ends. P-5 pins them inert.
+
+    HALVED BY T3 (improvement slice 2, 2026-08-19). The guard used to read
+    `if bluff_cell and street is Street.RIVER`, and `bluff_cell` bundles
+    ACE_HIGH with AIR, so the empty set was the 48 river x {ACE_HIGH, AIR}
+    FOLD+CALL cells per pack and the measurement was 528 graded / 48 skipped.
+    T3 gave river ace-high a live call, so only the AIR half is left."""
     grid = _r9d_grid()
     cells = grid["_cells"]
     collapsed, nonfinite = [], []
@@ -9127,10 +9370,15 @@ def test_r9d_p1_structural_only_call_and_raise_raw_merits_move():
 
     Scale equality is asserted only where BOTH ends are strictly positive: the
     captured vector is post-`max(m, 0.0)`, so positivity is what makes it
-    equal to the raw merit, and a ratio out of a clamped zero is 0/0. That
-    leaves 1,920 graded (persona, cell, action) ratios out of a possible 2,304 —
-    the shortfall is exactly the river's two hard zeroes (bluff-catchers never
-    value-raise, the polar-bluff cell never calls).
+    equal to the raw merit, and a ratio out of a clamped zero is 0/0. The
+    shortfall is the river's two hard zeroes (bluff-catchers never value-raise,
+    and AIR never calls). Re-counted at T3 (improvement slice 2, 2026-08-19):
+    4,320 graded ratios out of a possible 5,184 before the change and 4,608
+    after it, the 288 gained being the river ace-high CALL leg the ticket
+    unblocked. The figures this paragraph used to carry, 1,920 of 2,304, were
+    already stale when T3 found them — the grid has grown since they were
+    written — so they are replaced rather than adjusted. Nothing asserts on the
+    exact count; the floor below is `>= 1800`.
 
     "ONE common factor" is checked per persona across the WHOLE grid, not just
     within a cell: the factor is `exp(-λ_p)` and depends on nothing about the
@@ -9562,10 +9810,12 @@ def test_r9d_p5_zero_continue_cells_are_inert():
     `C + R == 0`, the vector is unchanged between line = 0 and line = 1.
 
     These cells are REACHABLE in scope, which is the whole point: the river
-    polar-bluff cell hard-zeroes `call_merit` and RAISE is appended only when
-    legal, so a river ACE_HIGH/AIR hand at a FOLD+CALL node has no continue mass
-    at all. S-3 and S-4 exclude them because their ratios are 0/0; this pin is
-    what stops that exclusion from being a hole (ledger R-3).
+    AIR/no-draw cell hard-zeroes `call_merit` and RAISE is appended only when
+    legal, so a river AIR hand at a FOLD+CALL node has no continue mass at all.
+    S-3 and S-4 exclude them because their ratios are 0/0; this pin is what
+    stops that exclusion from being a hole (ledger R-3). Naked ACE_HIGH used to
+    be in this set too and left it at T3 (improvement slice 2, 2026-08-19),
+    which is why the set is half the size it was.
 
     Their existence is asserted, not hoped for: an empty set here would make the
     exclusions in S-3/S-4 unaudited."""
@@ -11054,7 +11304,13 @@ def test_nd_t2_raise_scale_is_coupled_on_strong_draws_and_nowhere_else():
 # measured values, pinned; neither is a threshold.
 _ND_G1_CELLS_BY_DRAW = {DrawCategory.NONE: 1472, DrawCategory.STRONG: 128, DrawCategory.WEAK: 128}
 _ND_G1_COMPARISONS_BY_DRAW = {
-    DrawCategory.NONE: 5376,  # 1,472 cells x 4 lever settings, less 128 anchor-skipped
+    # T3 (improvement slice 2, 2026-08-19): 5,376 -> 5,504. Narrowing the river
+    # call zero to AIR gives the 32 `ace_high/river` `with_raise=False` cells a
+    # live CALL leg, so they stop being anchor-skipped: 32 cells x 4 lever
+    # settings = the 128 comparisons added. Derived arithmetic, not a
+    # re-measurement — the other two categories cannot move, because the
+    # narrowing is gated on `draw is DrawCategory.NONE`.
+    DrawCategory.NONE: 5504,  # 1,472 cells x 4 lever settings, less 96 anchor-skipped
     DrawCategory.STRONG: 512,  # 128 x 4 — every STRONG cell is compared at every setting
     DrawCategory.WEAK: 512,  # 128 x 4
 }
@@ -11088,14 +11344,17 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
     128 STRONG cells, so something has to say those 128 cells still exist and
     are still measured somewhere.
 
-    MEASURED after T1, identical for all six personas: NONE 5,376 · STRONG 512
-    · WEAK 512 = 6,400, out of 1,728 cells x 4 lever settings = 6,912. The 512
-    missing are the 128 draw-NONE cells whose anchor has no continue mass at
-    all, enumerated rather than guessed: the four river bluff-cell templates
-    (`air/river`, `ace_high/river`, `river_busted_straight`,
-    `river_busted_flush`) in their `with_raise=False` shapes, 32 each — CALL is
-    hard-zeroed by the river polarization rule and there is no RAISE entry to
-    hold the mass instead.
+    MEASURED after T3, identical for all six personas: NONE 5,504 · STRONG 512
+    · WEAK 512 = 6,528, out of 1,728 cells x 4 lever settings = 6,912. The 384
+    missing are the 96 draw-NONE cells whose anchor has no continue mass at
+    all, enumerated rather than guessed: three river bluff-cell templates
+    (`air/river`, `river_busted_straight`, `river_busted_flush`) in their
+    `with_raise=False` shapes, 32 each — CALL is hard-zeroed by the river
+    polarization rule and there is no RAISE entry to hold the mass instead.
+
+    It was four templates and NONE 5,376 until T3 (improvement slice 2,
+    2026-08-19), which narrowed that rule to AIR. `ace_high/river` left the
+    empty set then and its 32 cells are now compared at all four settings.
     """
     sweep = _nlogit_sweep()
     cells = sweep["_cells"]

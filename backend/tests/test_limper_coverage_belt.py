@@ -403,8 +403,27 @@ _PRE_M3_FIRES = {
     # conditional on the action — flip a CALL into a RAISE and a draw that did
     # not previously happen now fires. Displacement is therefore expected here,
     # not excluded.
-    ("UTG2", 1): 98, ("LJ", 1): 112, ("HJ", 1): 116, ("CO", 1): 98,
-    ("CO", 2): 26, ("SB", 1): 80, ("SB", 2): 42, ("BTN", 1): 83,
+    # RE-RECORDED for T3 (improvement slice 2, 2026-08-19, slice-authorized):
+    # naked ace-high may call a river bet again, at a damped weight. The river
+    # call zero used to be written on `bluff_cell`, which bundles ACE_HIGH with
+    # AIR; it is now written on the made-hand bucket and refuses AIR only, and
+    # the restored ace-high call merit is multiplied by
+    # `personas_postflop._ACE_HIGH_RIVER_CALL_DAMP` = 0.06. Minimum-defence
+    # arithmetic derives about 0.46; 0.06 is a round value inside the range
+    # two frozen went-to-showdown bands admit with margin, and the owner ruled
+    # that conflict in the bands' favour on 2026-08-19. No limper-belt content
+    # changed and no preflop content changed. Seven of the nine pairs move;
+    # ("HJ", 1) and ("BTN", 2) land on their old values (old: UTG2 98, LJ 112,
+    # HJ 116, CO 98, CO x2 26, SB 80, SB x2 42, BTN 83, BTN x2 31). Every
+    # _WANT_* coverage shape still fires (verified: BB 58, BB x2 27, BB x3 4)
+    # — stream displacement, not a coverage regression.
+    # The paragraphs above about WHY a postflop change moves preflop counts, and
+    # about the draw count NOT being invariant, apply here unchanged: a river
+    # fold flipping to a river call changes how many further decisions the hand
+    # contains, which displaces the deal and the preflop action of every hand
+    # after it. No new draw was added and none precedes the action draw.
+    ("UTG2", 1): 97, ("LJ", 1): 115, ("HJ", 1): 116, ("CO", 1): 99,
+    ("CO", 2): 25, ("SB", 1): 78, ("SB", 2): 40, ("BTN", 1): 85,
     ("BTN", 2): 31,
 }
 

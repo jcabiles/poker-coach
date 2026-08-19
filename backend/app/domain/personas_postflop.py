@@ -275,6 +275,13 @@ _CHECK_BASE = {
 # below). T1 (improvement slice 2, 2026-08-18) widened its predicate from
 # `facing_raise` to `facing_raise or opponents > 1`.
 #
+# THERE ARE NOW TWO SCOPED DAMPS ON THIS BUCKET AND THEY DO NOT OVERLAP.
+# T3 (improvement slice 2, 2026-08-19) added `_ACE_HIGH_RIVER_CALL_DAMP` for the
+# RIVER, which is the street `_ACE_HIGH_FLOAT_RAISE_DAMP` is gated out of. A
+# reader looking for "why does naked ace-high call less than 0.40 suggests"
+# needs both, and neither is a cut to the global base above, which stays
+# refuted.
+#
 # W3R-6's SAFETY ARGUMENT DIED WITH THAT WIDENING AND IS NOT REPLACED IN KIND.
 # It used to read: the α-ceiling contract is measured over a facing-a-BET curve,
 # so a facing-a-RAISE gate is off the measurement node by construction and every
@@ -296,6 +303,21 @@ _CHECK_BASE = {
 #    ACE-HIGH AT ALL IS AN OPEN QUESTION referred to the owner; this comment
 #    reports the measurement and does not settle the contract. Full table:
 #    `docs/ai-dlc/research/slice2-invest-then-fold/alpha-multiway-t1.md`.
+#
+#    ⚠️ THE ENGINE NOW SAYS BOTH THINGS ABOUT ACE-HIGH, AND THAT IS DISCLOSED
+#    RATHER THAN RESOLVED. `_CATCHER_BUCKETS` excludes ace-high on the reasoning
+#    above — it loses to part of a balanced bettor's bluff half, so it is not a
+#    catcher. T3 (improvement slice 2, 2026-08-19) restored its RIVER call on the
+#    opposite reasoning, that a hand which beats a busted draw and beats a bluff
+#    IS a river bluff-catcher, and that is the owner's stated deciding reason in
+#    spec §6. Both can be true of different streets — with cards to come,
+#    ace-high is a hand that must improve, and on a finished board it is exactly
+#    a bluff-catcher — but this file does not currently say so anywhere except
+#    here, and no test enforces the distinction. WHAT IS REPORTED, NOT SETTLED:
+#    T3's new call leg sits OUTSIDE the α guard, because the guard is scoped by
+#    `_CATCHER_BUCKETS` and ace-high is not in it. That placement is a
+#    consequence of the open question above rather than a decision this ticket
+#    made, and it is the owner's to rule on together with it.
 #  - What protects the CATCHER range is now the BUCKET gate alone, and that is
 #    tested at one, two and three opponents by
 #    `test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents`. Widen
@@ -434,6 +456,155 @@ _ONE_PAIR_RAISE_DAMP = 0.35
 # is kept because it is the anchored magnitude and the mildest one that clears it
 # with margin at every measured cell.
 _ACE_HIGH_FLOAT_RAISE_DAMP = 0.55
+
+# T3 (improvement slice 2, 2026-08-19): naked ace-high's RIVER call term. It is a
+# separate constant from the flop/turn float damp above ON PURPOSE — that one was
+# fitted on floating a bet with cards still to come, and nothing had ever measured
+# it on a river bluff-catch, which is a different decision with a different
+# correct answer.
+#
+# READ THE NEXT PARAGRAPH BEFORE USING THIS NUMBER FOR ANYTHING. The shipped value
+# is NOT the derived value. Minimum-defence arithmetic puts the constant at about
+# 0.46 — two significant figures is all the inversion supports, see below;
+# what ships is 0.06, a round value inside the range two frozen went-to-showdown
+# bands admit with margin. The gap is a live disagreement between the poker and
+# those bands,
+# and the owner ruled it in the bands' favour on 2026-08-19. Both numbers are kept
+# here because a reader has to be able to see that T3 ships its acceptance
+# criterion without its full reason.
+#
+# WHY THERE IS A DAMP AT ALL. T3 removed ace-high from the river call zero, and at
+# full undamped weight the roster over-defends. The ticket names this remedy
+# itself — "a river-specific damp on ace-high's call term, keeping the mixing while
+# lowering its weight". The determinism win survives any value above zero, and that
+# win, not the call rate, is what T3 is for; that is also the reason the ruling
+# could go the bands' way without costing the ticket its criterion.
+#
+# WHY IT IS FLAT rather than conditioned on price or opponent count. The price
+# response already lives in the FOLD leg: `fold_merit` scales with
+# `_price_factor(faced_frac, ...)`, so a flat multiplier on CALL preserves the
+# whole price curve and only shifts its level. An opponent-count condition was
+# considered and REFUSED, and the reason has to be stated carefully because an
+# earlier draft mis-cited it. Spec §6.2 assigns slice 3 the continuation
+# frequency at nodes that ALREADY mix; this node mixes only BECAUSE of T3, so
+# §6.2 does not reach it on its own words. What the owner actually ruled, on
+# 2026-08-19, is that the multiway question goes to slice 3 anyway — the node
+# mixes at the tip slice 3 will inherit, and a multiway term is a
+# continuation-frequency lever rather than a fix for a degenerate decision.
+# The finding is filed there; it is not built here.
+#
+# THE DERIVATION — minimum-defence arithmetic over the measured price
+# distribution, not a single node, and derived before any band was consulted.
+#
+# Facing a bet of `f` times the pot, the DEFENDING RANGE must continue at
+# MDF = 1/(1+f) or a bluff with any two cards prints. That is a range obligation,
+# so the question a per-bucket constant has to answer is not "should ace-high
+# call" but "how much defence does ace-high still owe once the rest of the range
+# has defended". Measured on 50,000 hands at seed 20260817 on the ratified lineup,
+# over all 19,854 river facing-chips decisions (mean faced size f = 0.528, so
+# mean MDF = 0.678):
+#   - the range WITHOUT naked ace-high continues at 0.740, which covers 11,664 of
+#     the 13,461 continues MDF asks for;
+#   - so naked ace-high owes the remaining 1,797 over its own 4,088 decisions, a
+#     continue rate of 0.440 — of which its bluff-raise, which T3 does not touch,
+#     already supplies 0.022;
+#   - inverting the merit law at the population's aggregate (FOLD 0.369,
+#     CALL 0.609, RAISE 0.022 at full weight) for a call rate of 0.418 gives
+#     0.46.
+# TWO SIGNIFICANT FIGURES IS ALL THAT INVERSION SUPPORTS, and an earlier draft
+# quoted it to four. The inversion treats a heterogeneous population of nodes as
+# one aggregate node, which is an approximation this block concedes twice; the
+# check on its size is that shipping 0.45 landed the range at 0.688 where the
+# arithmetic predicted 0.678, a miss of 0.010 in the quantity being solved for.
+# Read the derived value as "about 0.46" and do not carry more digits than that
+# into anything downstream.
+# Before T3 the same population continued at 0.603 against MDF 0.678, under-
+# defending by 7.3 points; at full undamped weight it continued at 0.717, over-
+# defending by 3.9; at the derived value rounded to 0.45 it continued at 0.688,
+# over-defending by 1.1.
+#
+# WHAT SHIPS INSTEAD, AND WHAT IT COSTS. At 0.45 the lag's frozen went-to-showdown
+# band [0.37, 0.59] read 0.6067 and the calling station's [0.66, 0.72] read 0.7383.
+# Sweeping the constant through the bands' own harness: at 0.05, 0.5789 and 0.7054;
+# at 0.06, 0.5793 and 0.7096; at 0.07, 0.5800 and 0.7179; at 0.08, 0.5812 and
+# 0.7202, which is already over. At the shipped 0.06 the margins are lag +0.0107
+# (1.07 sigma, n=2458) and station +0.0104 (1.71 sigma, n=5516).
+#
+# 0.06 IS A ROUND CONSTANT INSIDE THE ADMISSIBLE RANGE, NOT THE TOP OF IT, and
+# an earlier draft of this block wrongly claimed the maximum. Measured on the
+# same harness at review: 0.061 clears both limbs of the standard below (lag
+# +0.0107, station +0.0102) and 0.062 misses it (lag +0.0107, station +0.0097).
+# Read that as the useful fact it is. The top of the range is a KNIFE EDGE — one
+# thousandth of the constant moves the station margin by three ten-thousandths
+# across the line — and a constant chosen there would be a value fitted to a
+# standard rather than one the standard endorses. So the claim here is the
+# modest one: 0.06 sits inside the range with margin on both bands, and is
+# stated as a round number rather than a maximum.
+#
+# THE STANDARD ITSELF IS A JUDGEMENT CALL, and calling it anything else would be
+# the same error. It is: clear both bands by at least one binomial sigma at the
+# harness's own n, and by at least a full absolute point. Neither limb is a rule
+# this file already had. The band assertions require interval membership and
+# nothing more, and where this file discusses a ~1 sigma margin — the
+# passive-fish showdown leg — it calls that margin FRAGILE and says to re-measure
+# across seeds, which is a caveat rather than an endorsement. The absolute limb
+# is coarser still: the ~0.001 it is scaled against is the gap between adjacent
+# damp readings, which mixes real policy response with stream displacement rather
+# than isolating jitter. What the standard is FOR is refusing a margin like
+# 0.10's +0.0002, which passes today and flaps on any resampling; it is not a
+# calibrated instrument and nothing downstream should treat it as one.
+# 0.07 fails it on the station at +0.0021, which is 0.35 sigma. Note also what
+# caps the whole exercise: the lag's ENTIRE pre-T3 headroom is 0.0227, about 2.3
+# sigma, so no value of this ticket could have had a comfortable margin there.
+#
+# THE RESIDUAL IS THE PRICE OF THE RULING AND IS NOT TUNED AWAY. Re-measured at
+# 0.06 on the same 50,000 hands: the river range continues at 0.628 against the
+# 0.676 obligation, so the roster still under-defends its rivers by 4.8 points,
+# against the 7.3 it under-defended by before T3. T3 buys back a third of the
+# defence shortfall and all of the determinism. Naked ace-high calls the river
+# 0.174 of the time at a faced size of a quarter pot or less, falling to 0.131
+# above 0.85 pot — the price curve survives, at a level minimum defence does not
+# endorse.
+#
+# AND THE RESIDUAL IS ON THE WRONG STREET, which is the finding worth carrying
+# forward rather than the number. The bands that capped this constant are
+# went-to-showdown bands, and the theory contract attributes the roster's
+# showdown excess to flop and turn calldown, not to the river. So T3 pays for a
+# flop-and-turn problem by leaving the RIVER under-defending by 4.8 points. That
+# is fixing the wrong street, it is a consequence of which instrument happened to
+# bind, and it points at slice 3 — whose remit IS calldown frequency — as where
+# the real correction lives. Filed there, not fixed here.
+#
+# WHAT THE SHIPPED FREQUENCY ACTUALLY LOOKS LIKE, stated because it is the honest
+# cost of the ruling and should not have to be derived from the constant. At the
+# headline node five of the six personas now call between one time in ten and one
+# in fourteen — calling_station 0.3559, maniac 0.1061, tag 0.0992, nit 0.0769,
+# lag 0.0714, passive_fish 0.0707 — and no member of this roster would actually
+# play a river bluff-catch that rarely. Mixing is restored; the frequency is not
+# one a human would choose. Full table:
+# `docs/ai-dlc/research/slice2-invest-then-fold/t3-measurements.md`.
+#
+# WHAT THIS DELIBERATELY DOES NOT USE. Naked ace-high calling the river wins only
+# 8.0% of the time at the shipped constant (46 of 575 calls) and 7.4% at full
+# weight (184 of 2,491), against a mean required equity of 23.8% in both cases,
+# and it is under required equity in every faced-size band. So the
+# EXPLOITATIVE answer against this roster is to fold
+# almost always — which is where the code was, and which is the machine tell T3
+# exists to remove. Minimum defence is an UNEXPLOITABILITY argument and not a
+# profit argument: the derived value is right against a balanced opponent and
+# wrong against this particular field, because these bots do not bluff their own
+# rivers often enough to justify a bluff-catch. That is a measured, known and
+# unfixed property of the roster, filed rather than fixed, and a fair reader may
+# call this branch an addition of losing calls that hides a machine tell. Do not
+# re-derive the constant from that win rate: it would walk the engine straight
+# back to a probability-1.000 fold. If the bots bluffed the river at a defensible
+# rate, no damp constant would need deriving at all.
+#
+# TWO CAVEATS, stated rather than buried. MDF is averaged over decisions here, so
+# it is a population obligation and not a per-node guarantee. And in a multiway
+# pot the obligation is shared between defenders, so a single flat constant
+# over-defends there — which is exactly the finding filed to slice 3.
+_ACE_HIGH_RIVER_CALL_DAMP = 0.06
 
 
 def _draw_agg_street_mult(draw: DrawCategory, street: Street | None) -> float:
@@ -1030,8 +1201,13 @@ def sample_postflop_decision(
         if bucket in _MW_CATCH_BUCKETS:
             fold_merit *= _MW_CATCH_TIGHTEN ** max(opponents - 1, 0)
         entries.append((ActionType.FOLD, fold_merit))
-        # River polarization (see _RIVER_RAISE_FLOOR): air never bluff-CALLS
-        # the river — it folds or bluff-raises. Flooring happens BEFORE the
+        # River polarization (see _RIVER_RAISE_FLOOR): AIR never bluff-CALLS
+        # the river — it folds or bluff-raises. Since T3 (improvement slice 2,
+        # 2026-08-19) that is a statement about AIR alone; naked ACE_HIGH used
+        # to be caught by the same branch and is now free to call, because it
+        # is a bluff-catcher rather than a bluff. The branch itself is below,
+        # written on the bucket and the draw rather than on `bluff_cell`, and
+        # it carries the reasoning. Flooring still happens BEFORE the
         # SPR-commit block so a floored 0 survives the commit boost.
         # W3R-6 (#5) + T1: naked ace-high stops floating pre-river, both when
         # facing a RAISE and when more than one opponent is live. Damps the
@@ -1072,8 +1248,51 @@ def sample_postflop_decision(
             call_merit = call_base * looseness + _DRAW_CALL_BONUS[draw] * max(looseness, 1.0)
         else:
             call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness
-        if bluff_cell and street is Street.RIVER:
-            call_merit = 0.0
+        # River polarization, NARROWED TO AIR by T3 (improvement slice 2,
+        # 2026-08-19). The predicate is written on the made-hand bucket and the
+        # draw rather than on `bluff_cell` so the narrowing is visible at the
+        # branch itself: only AIR is refused the river call. `bluff_cell` still
+        # bundles ACE_HIGH and is deliberately left untouched, because it also
+        # sets the bluff BET and bluff RAISE mass — including ace-high's river
+        # bluff-raise on the very next branch below, which this ticket must not
+        # change. T3 unblocks one action, not a hand class.
+        #
+        # Ace-high used to be caught here even though every comment describing
+        # the rule said "air never bluff-CALLS the river". It is a river
+        # bluff-catcher — it beats a busted draw and it beats a bluff — so
+        # calling with it sometimes is correct poker rather than merely less
+        # predictable poker. That is the owner's stated deciding reason (spec
+        # §6, RULED 2026-08-18), and the fact that the reason is a poker one is
+        # load-bearing: a change defensible only as "harder to detect" is what
+        # the roadmap's Goodhart guard exists to catch, and this is not one.
+        #
+        # The secondary reason is internal consistency. Where the faced bet is
+        # at least the seat's remaining stack the engine withholds RAISE
+        # (`table/engine.py:204-206`), so a zeroed call left FOLD as the only
+        # weighted candidate and the bot folded with probability exactly 1.000
+        # — the same lookup-table certainty slice 1 spent seven pull requests
+        # removing from bet sizing. It is NOT justified on detectability: the
+        # event fires a few hundred times per 50,000 hands, which a judge
+        # reading a 30-hand bundle would essentially never see.
+        #
+        # Ace-high does not get its full call weight back, only a small mixed
+        # one: `_ACE_HIGH_RIVER_CALL_DAMP`. That constant does NOT land the
+        # roster on its minimum-defence obligation — it is a round value inside
+        # the range two frozen went-to-showdown bands admit, and the owner ruled
+        # on 2026-08-19 that the bands win where they and the poker disagree.
+        # The derived value, the shipped value, the residual under-defence and
+        # the reason the constant is flat rather than price-conditioned are all
+        # recorded with the constant. Read them before changing this branch.
+        #
+        # The bucket gate here says ace-high IS a river bluff-catcher, while
+        # `_CATCHER_BUCKETS` excludes it from the α contract on the ground that
+        # it is not one. That tension is real, is street-shaped, and is disclosed
+        # at the `_CALL_BASE` block above rather than resolved here.
+        if street is Street.RIVER and draw is DrawCategory.NONE:
+            if bucket is StrengthBucket.AIR:
+                call_merit = 0.0
+            elif bucket is StrengthBucket.ACE_HIGH:
+                call_merit *= _ACE_HIGH_RIVER_CALL_DAMP
         entries.append((ActionType.CALL, call_merit))
         if ActionType.RAISE in by_kind:
             if bluff_cell:
@@ -1362,13 +1581,19 @@ def sample_postflop_decision(
     #
     # TWO REACH CHANGES, both disclosed (build review, ledger B-9 / B-10) and
     # both gated so they cannot move silently. They are mirror images:
-    #  - GAINED reach, river polar-bluff cell: `call_merit` is hard-zeroed there
-    #    (the `if bluff_cell and street is Street.RIVER` branch above — named,
-    #    not line-numbered, because the anchor that used to sit here went stale
-    #    twice in one slice), so RAISE is the only continue and the lever moves the
-    #    bluff-raise rate, which at HEAD it could not. Largest on ACE_HIGH at a
-    #    small faced price (lag: P(raise) 0.104 / 0.318 / 0.651 over ×0.25/×1/×4
-    #    against a flat HEAD 0.318). G4 pins it.
+    #  - GAINED reach, river AIR cell: `call_merit` is hard-zeroed there (the
+    #    river/AIR/no-draw branch above — named, not line-numbered, because the
+    #    anchor that used to sit here went stale twice in one slice), so RAISE
+    #    is the only continue and the lever moves the bluff-raise rate, which at
+    #    HEAD it could not. G4 pins it.
+    #    SCOPE NARROWED BY T3 (improvement slice 2, 2026-08-19). This used to
+    #    read "river polar-bluff cell" and to cite naked ACE_HIGH at a small
+    #    faced price as the largest member (lag P(raise) 0.104 / 0.318 / 0.651
+    #    over ×0.25/×1/×4 against a flat HEAD 0.318). That member is GONE: T3
+    #    gives ace-high a live river call, so its FOLD+CALL+RAISE vector is no
+    #    longer degenerate and the lever reaches its call leg the ordinary way,
+    #    exactly as on every other bucket. AIR is the whole of the gained reach
+    #    now, and it is the mild member — see G4's pin table for the numbers.
     #  - LOST reach, SPR-committed nodes: `_commit_transform` zeroes the FOLD
     #    merit while FOLD stays legal, so the vector is (0, C₀·L, 3·R₀·L/ref) and
     #    L cancels out of the WHOLE distribution — `call_looseness` is inert

@@ -219,19 +219,49 @@ def _hash_manifest(manifest: dict) -> str:
 #   hands         b2d04e9210ba7041bd291f1013de870de6f465c4b4e8936467d9653798568a91
 #   seat_outcomes e4277183be543a7add97fe5b7e3ddf4c77bac9a10d98b9817a85b77ba66f108b
 #   decisions     79b25a603987dbba08d547f3960993e85296eb751e783da30748f709f2109e79
+# RE-RECORDED for T3 (improvement slice 2, 2026-08-19, slice-authorized): naked
+# ace-high may call a river bet again, at a damped weight. The river call zero
+# used to be written on `bluff_cell`, which bundles ACE_HIGH with AIR; it now
+# reads the made-hand bucket and refuses AIR only, and ace-high's restored call
+# merit is multiplied by `personas_postflop._ACE_HIGH_RIVER_CALL_DAMP` = 0.06.
+# Minimum-defence arithmetic over the measured river price distribution derives
+# about 0.46; 0.06 is a round value inside the range two frozen went-to-showdown
+# bands admit with margin, and the owner ruled that conflict in the bands' favour
+# on 2026-08-19.
+# Hands that used to end on a river fold now sometimes play to showdown, so the
+# seeded twenty-five-hand export contains different actions and different
+# results. Recorded at the final shipped constant; the three digests below are
+# the same at 0.45 and at 0.06, because in these particular twenty-five hands
+# the action draw lands on the same side of the threshold at both values, which
+# it need not have. Values immediately before it:
+#   manifest      998cd03659012e083d7e848b06e907f476c005a74816305842f1db45ecc92482
+#   hands         ab611396d45659c1a240c7b4f5f87702259c39778870f40905106dc4b5e6498b
+#   seat_outcomes ae2056e0efd18e31cba73c2c8c00d6e4ea2af5b64ed53e03630ffd35926e0846
+#   decisions     084bcf40a6e99dce5aad994bff51b4e0ca236ef6a03080461f61486ab8b218eb
+# UNLIKE EVERY PRIOR ENTRY IN THIS CHAIN, THE MANIFEST DIGEST DOES NOT MOVE, and
+# that is the expected signature rather than a partial re-record. T3 is a code
+# change with no pack edit, so no `version` string bumps, so `config_hash` and
+# the `run_id` and `hand_id` columns derived from it are all unchanged; only the
+# cards played and the money moved differ. The three entries above this one each
+# folded a behaviour change together with six version bumps, which is why they
+# moved all four. A future entry that moves the manifest without a pack edit is
+# the thing to investigate.
+# No new random draw was added and none precedes the action draw. The draw COUNT
+# is not claimed invariant: a fold flipping to a call changes which later
+# decisions happen at all.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
     "998cd03659012e083d7e848b06e907f476c005a74816305842f1db45ecc92482"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "ab611396d45659c1a240c7b4f5f87702259c39778870f40905106dc4b5e6498b"
+    "fe90ec8e09536723a3611eda05c299499c75ce4685a38307fdf2de33a071d06d"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "ae2056e0efd18e31cba73c2c8c00d6e4ea2af5b64ed53e03630ffd35926e0846"
+    "568298ef39d69726e68adbf01095978dbb18887e6ce37d773582d0500a2a17ef"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "084bcf40a6e99dce5aad994bff51b4e0ca236ef6a03080461f61486ab8b218eb"
+    "97d0a1e279e059250b0c37616b2617df66f6d3822060cda3854d2c780fa3995d"
 )
 
 
