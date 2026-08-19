@@ -377,9 +377,35 @@ _PRE_M3_FIRES = {
     # pot, and through it the stack-to-pot ratio the postflop commitment ramp
     # uses; hands go further rather than wider. The belt exists to prove every
     # shape is still REACHED, and every one still is.
-    ("UTG2", 1): 85, ("LJ", 1): 121, ("HJ", 1): 117, ("CO", 1): 102,
-    ("CO", 2): 23, ("SB", 1): 65, ("SB", 2): 34, ("BTN", 1): 103,
-    ("BTN", 2): 39,
+    # RE-RECORDED for T1 (improvement slice 2, 2026-08-18, slice-authorized):
+    # naked ace-high stops floating a BET with more than one opponent live on
+    # the flop and turn (`personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP`,
+    # predicate widened from `facing_raise` to `facing_raise or opponents > 1`).
+    # No limper-belt content changed and no preflop content changed. All nine
+    # pairs move (old: UTG2¹ 85, LJ¹ 121, HJ¹ 117, CO¹ 102, CO² 23, SB¹ 65,
+    # SB² 34, BTN¹ 103, BTN² 39). Every _WANT_* coverage shape still fires
+    # (verified: BB¹ 57, BB² 28, BB³ 5) — stream displacement, not a coverage
+    # regression.
+    # THESE ARE PREFLOP COUNTS MOVED BY A POSTFLOP CHANGE, which looks wrong
+    # and is not. The belt plays whole hands on one shared rng stream, so
+    # changing what a bot does on a multiway flop changes how many further
+    # decisions that hand contains, which displaces the deal and the preflop
+    # action of every hand after it. The displacement is the whole of the
+    # effect here; nothing about limping, and nothing about arrival, changed.
+    # NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW. That is
+    # slice 1's actual rule and it is intact — worth stating, because breaking
+    # it would shift every seeded test in the repository rather than only the
+    # exact-count pins.
+    # THE NUMBER OF DRAWS IS NOT INVARIANT, and an earlier version of this note
+    # wrongly said it was ("the same NUMBER of draws is taken and different
+    # ACTIONS come out of them"). The damp only reweights an existing call
+    # merit, but that changes which action is drawn, and the sizing draw is
+    # conditional on the action — flip a CALL into a RAISE and a draw that did
+    # not previously happen now fires. Displacement is therefore expected here,
+    # not excluded.
+    ("UTG2", 1): 98, ("LJ", 1): 112, ("HJ", 1): 116, ("CO", 1): 98,
+    ("CO", 2): 26, ("SB", 1): 80, ("SB", 2): 42, ("BTN", 1): 83,
+    ("BTN", 2): 31,
 }
 
 

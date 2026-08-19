@@ -3714,12 +3714,43 @@ _GOLDEN_STATS_N200 = {
     # until it was not (see the ledger — the seat ladder was NOT the cause).
     # One FtC cell crosses the n>=30 floor (lag, None -> 0.323) and the tag's
     # and the nit's stay None — the usual single-digit denominator.
-    "calling_station": (0.3215686274509804, 0.31746031746031744, 0.6377358490566037),
-    "lag": (2.225806451612903, 0.3225806451612903, 0.6048387096774194),
-    "maniac": (3.2388059701492535, 0.35555555555555557, 0.6267281105990783),
-    "nit": (0.9333333333333333, None, 0.6181818181818182),
-    "passive_fish": (0.7876106194690266, 0.40476190476190477, 0.551219512195122),
-    "tag": (1.84, None, 0.6629213483146067),
+    # RE-RECORDED for T1 (improvement slice 2, 2026-08-18, slice-authorized):
+    # naked ace-high stops floating a BET with more than one opponent live on
+    # the flop and turn — `_ACE_HIGH_FLOAT_RAISE_DAMP`'s predicate widened from
+    # `facing_raise` to `facing_raise or opponents > 1`. All six rows move.
+    # THE REAL EFFECT IS ON THE FOLDING SIDE, AND IT IS NOT THE AF COLUMN. At
+    # population n (the gate's own 50,000-hand run at seed 601, ratified
+    # lineup) fold-to-c-bet rises for the four personas that fold at all — tag
+    # 26.48 -> 28.84, lag 29.45 -> 30.83, passive_fish 39.22 -> 40.49, nit
+    # 22.00 -> 22.76 — and went-to-showdown falls for four — nit 61.98 ->
+    # 60.07, lag 51.87 -> 50.80, passive_fish 48.93 -> 48.41, tag 54.05 ->
+    # 53.65. That is the intended mechanism arriving where it should: a hand
+    # class that used to call multiway flop and turn bets now folds them, so
+    # fewer floats reach a showdown. The unit measurement agrees — over 1,250
+    # naked ace-high spots the fold rate rises by +0.053 to +0.157 at two and
+    # three opponents and by exactly nothing heads-up.
+    # THE AF COLUMN BELOW IS NOT A DIRECTION, and an earlier draft of this note
+    # claimed it was — "AF rises because ace-high supplies fewer CALLs to the
+    # denominator". That is refuted by the population-n reading, where AF moves
+    # in BOTH directions and by at most 0.15 (station 0.333 -> 0.328, lag 2.652
+    # -> 2.576, maniac 4.163 -> 4.312, nit 1.176 -> 1.241, fish 0.926 -> 0.951,
+    # tag 2.064 -> 2.049) while the n=200 rows here swing several times further
+    # in places (maniac 3.239 -> 3.717). These n=200 AF movements are
+    # shared-table stream displacement, not a per-persona effect; read the
+    # population numbers above instead.
+    # The `-> None` cells (nit AF, and FtC for lag, passive_fish) are the n=200
+    # denominator floor, the same artifact the R10-PRE2 and W5-b4 re-records
+    # documented, not a stat that stopped existing. The claim that aggression
+    # and showdown stayed in range is NOT made from these numbers:
+    # `test_persona_postflop_bands` gates AF, fold-to-c-bet and WTSD at
+    # population n and passes unchanged, including the lag's WTSD leg, whose
+    # frozen 0.59 ceiling this change moves AWAY from rather than toward.
+    "calling_station": (0.302491103202847, 0.2857142857142857, 0.6397058823529411),
+    "lag": (2.4693877551020407, None, 0.5573770491803278),
+    "maniac": (3.7169811320754715, 0.37777777777777777, 0.5446009389671361),
+    "nit": (None, None, 0.5576923076923077),
+    "passive_fish": (0.8145161290322581, None, 0.6146341463414634),
+    "tag": (1.9545454545454546, None, 0.6547619047619048),
 }
 
 
@@ -6529,9 +6560,19 @@ def test_position_sensitivity_bounded_to_unit_interval():
 
 
 # ====================== W3R-6 — facing-a-raise merit damps (#9, #5) =============
-# Both damps are gated on `facing_raise`, so `facing_raise=False` at the SAME
-# street IS the pre-slice status quo — every "byte-identical to status quo" leg
-# below is exactly that A/B (and the street=None path is pinned equal to it).
+# `facing_raise=False` at the SAME street is the pre-slice status quo AT ONE
+# OPPONENT, and every "byte-identical to status quo" leg below is exactly that
+# A/B (the street=None path is pinned equal to it too).
+#
+# THE HEADS-UP QUALIFIER IS LOAD-BEARING NOW, WHERE IT USED TO BE INCIDENTAL.
+# This block used to read "both damps are gated on `facing_raise`", which was
+# the whole reason the A/B held. T1 (improvement slice 2, 2026-08-18) widened
+# `_ACE_HIGH_FLOAT_RAISE_DAMP`'s predicate to `facing_raise or opponents > 1`,
+# so at more than one opponent `facing_raise=False` is NOT the status quo for
+# naked ace-high. The legs below are still correct only because `_w3r6_dist`
+# passes `opponents=1`. Do not generalise any of them by threading `opponents`
+# through that helper; the T1 section further down has its own `_t1_dist` for
+# multiway work, deliberately kept separate.
 #
 # GATE NOTE: #9 shipped with the spec's AUTHORIZED NARROWING (facing a RAISE,
 # not merely facing chips). The wider gate was implemented and measured first and
@@ -6698,10 +6739,22 @@ def test_naked_ace_high_folds_to_a_raise(persona, street):
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
 @pytest.mark.parametrize("street", [Street.FLOP, Street.TURN, Street.RIVER, None])
 def test_ace_high_facing_a_bet_is_byte_identical(persona, street):
-    """The whole α-ceiling safety argument: the arrival-range fold-to-bet curve
-    is measured facing a BET, and NOTHING on that node moved (both damps need
-    facing_raise). The RIVER leg additionally covers the facing-a-raise case —
-    call_merit is already 0 there via the bluff-cell river gate."""
+    """HEADS-UP facing a bet is byte-identical to the pre-W3R-6 engine, and this
+    test is heads-up-only by construction — `_w3r6_dist` passes `opponents=1`.
+
+    It used to claim more than that. The original docstring read "NOTHING on
+    that node moved (both damps need facing_raise)", which was true until T1
+    (improvement slice 2, 2026-08-18) widened `_ACE_HIGH_FLOAT_RAISE_DAMP` to
+    `facing_raise or opponents > 1`. The facing-a-bet node DOES move now, at
+    more than one opponent, and this test cannot see it. That is not a gap left
+    open: `test_ace_high_multiway_damp_gate_lock` pins the heads-up case through
+    a helper that takes `opponents` explicitly, and
+    `test_naked_ace_high_multiway_bet_calls_less_than_heads_up` pins the
+    multiway movement itself. This test is kept unchanged as the seeded record
+    of the heads-up curve.
+
+    The RIVER leg additionally covers the facing-a-raise case — call_merit is
+    already 0 there via the bluff-cell river gate."""
     hole, flop, turn = _W3R6_AHI
     board = {Street.TURN: turn, Street.RIVER: turn + ["6c"]}.get(street, flop)
     faced_bet = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
@@ -6733,6 +6786,143 @@ def test_ace_high_with_a_draw_facing_raise_is_byte_identical():
         for street in (Street.FLOP, Street.TURN):
             sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
             assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == sq
+
+# ====================== T1 — the ace-high float damp goes multiway ============
+#
+# T1 (improvement slice 2, invest-then-fold) widened the W3R-6 predicate from
+# `facing_raise` to `facing_raise or opponents > 1`, so the damp now fires on the
+# facing-a-BET node for the first time. That DELETED W3R-6's structural safety
+# argument — "a facing-a-raise gate is off the α measurement node by
+# construction" — and the leg-5 guard above cannot see the deletion, because its
+# `_w3r6_dist` helper passes `opponents=1`. The three tests below are what
+# replaces the argument, and they drive `opponents` explicitly.
+#
+# READ THE MERIT CURRENCY BEFORE CHANGING THESE. `_MW_CATCH_TIGHTEN` at
+# `personas_postflop.py:969-970` ALREADY multiplies ACE_HIGH's FOLD merit by
+# 1.15 ** (opponents - 1), and normalization already turns that into a lower
+# P(CALL) multiway. So "P(CALL) at three opponents is below heads-up" was TRUE
+# BEFORE T1 and asserting only that is vacuous. Every leg that must fail on the
+# pre-T1 engine therefore compares against the same node with
+# `_ACE_HIGH_FLOAT_RAISE_DAMP` neutralized to 1.0 — the one comparison the
+# pre-existing fold-side tighten cannot satisfy.
+
+
+def _t1_dist(persona, hole, board, *, street, facing_raise, opponents):
+    """`_w3r6_dist` with `opponents` under the caller's control. Deliberately a
+    sibling rather than an edit: leg 5's byte-identical guard keeps its own
+    hardcoded heads-up node untouched."""
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _pack(persona), hole, board, _W3R6_FACING, 10.0, 100.0, opponents,
+        cap,  # type: ignore[arg-type]
+        current_bet_to=5.0, street=street, facing_raise=facing_raise,
+    )
+    total = sum(cap.dist.values())
+    return {a: w / total for a, w in cap.dist.items()}
+
+
+def _t1_neutralized_dist(persona, hole, board, *, street, opponents):
+    """The same node on the pre-T1 engine: `_ACE_HIGH_FLOAT_RAISE_DAMP` = 1.0,
+    i.e. the damp contributing literally nothing, with the multiway fold-side
+    tighten still live."""
+    saved = personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP
+    try:
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = 1.0
+        return _t1_dist(persona, hole, board, street=street,
+                        facing_raise=False, opponents=opponents)
+    finally:
+        personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = saved
+
+
+@pytest.mark.parametrize("persona", ["tag", "passive_fish", "calling_station"])
+@pytest.mark.parametrize("opponents", [2, 3])
+@pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
+def test_naked_ace_high_multiway_bet_calls_less_than_heads_up(persona, opponents, street):
+    """T1 acceptance 4: naked ace-high facing an ordinary BET with more than one
+    opponent live calls strictly less than the same hand heads-up — and does so
+    BECAUSE of the damp, not because of `_MW_CATCH_TIGHTEN`."""
+    hole, flop, turn = _W3R6_AHI
+    board = flop if street is Street.FLOP else turn
+    _w3r6_assert_bucket(hole, board, StrengthBucket.ACE_HIGH, DrawCategory.NONE)
+    hu = _t1_dist(persona, hole, board, street=street, facing_raise=False, opponents=1)
+    mw = _t1_dist(persona, hole, board, street=street, facing_raise=False,
+                  opponents=opponents)
+    assert mw[ActionType.CALL] < hu[ActionType.CALL]
+    # The load-bearing leg: on the pre-T1 engine these two are EQUAL, because the
+    # damp was gated on facing_raise and this node faces a bet.
+    pre_t1 = _t1_neutralized_dist(persona, hole, board, street=street,
+                                  opponents=opponents)
+    assert mw[ActionType.CALL] < pre_t1[ActionType.CALL], (
+        f"{persona} {street} opponents={opponents}: the damp is not firing on the "
+        f"facing-a-bet node — CALL {mw[ActionType.CALL]:.6f} vs pre-T1 "
+        f"{pre_t1[ActionType.CALL]:.6f}"
+    )
+    assert mw[ActionType.FOLD] > pre_t1[ActionType.FOLD]
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_ace_high_multiway_damp_gate_lock(persona):
+    """T1 acceptance 5 and the ticket's three explicit boundaries: heads-up is
+    still byte-identical, the river is still untouched at any opponent count,
+    and ace-high WITH a draw is still untouched (the damp is on the
+    `_CALL_BASE` term of NAKED hands only)."""
+    hole, flop, turn = _W3R6_AHI
+    river = turn + ["6c"]
+    for street in (Street.FLOP, Street.TURN):
+        board = flop if street is Street.FLOP else turn
+        live = _t1_dist(persona, hole, board, street=street,
+                        facing_raise=False, opponents=1)
+        assert live == _t1_neutralized_dist(persona, hole, board, street=street,
+                                            opponents=1)
+    for opponents in (1, 2, 3):
+        live = _t1_dist(persona, hole, river, street=Street.RIVER,
+                        facing_raise=False, opponents=opponents)
+        assert live == _t1_neutralized_dist(persona, hole, river,
+                                            street=Street.RIVER,
+                                            opponents=opponents)
+    drawing, draw_board = ("Ad", "7d"), ["Kd", "9d", "2s"]
+    _w3r6_assert_bucket(drawing, draw_board, StrengthBucket.ACE_HIGH,
+                        DrawCategory.STRONG)
+    for street in (Street.FLOP, Street.TURN):
+        for opponents in (2, 3):
+            live = _t1_dist(persona, drawing, draw_board, street=street,
+                            facing_raise=False, opponents=opponents)
+            assert live == _t1_neutralized_dist(persona, drawing, draw_board,
+                                                street=street,
+                                                opponents=opponents)
+
+
+_T1_CATCHER_SPOTS = [
+    (StrengthBucket.MIDDLE_PAIR, *_W3R6_MID),
+    (StrengthBucket.TOP_PAIR, *_W3R6_TOP),
+]
+
+
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+@pytest.mark.parametrize("bucket,hole,flop,turn", _T1_CATCHER_SPOTS)
+@pytest.mark.parametrize("opponents", [1, 2, 3])
+def test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents(
+    persona, bucket, hole, flop, turn, opponents
+):
+    """T1 acceptance 6, the half a measurement cannot supply. The α = f/(1+f)
+    fold ceiling is asserted over the one-pair no-draw BLUFF-CATCHER range
+    (`_CATCHER_BUCKETS`, `test_fold_to_bet_respects_alpha_ceiling`), which
+    deliberately EXCLUDES ace-high — ace-high loses to part of a balanced
+    bettor's bluff half, so it is not a catcher and α does not bind on it.
+
+    W3R-6 kept that contract safe by construction (the damp could not reach a
+    facing-a-bet node at all). T1 removes that reason, so what protects the
+    contract now is the BUCKET gate alone: the damp reads
+    `bucket is StrengthBucket.ACE_HIGH`, so the catcher range must stay
+    byte-identical at EVERY opponent count, not just heads-up. This test is the
+    thing that fails if a later ticket widens the bucket gate."""
+    for street in (Street.FLOP, Street.TURN):
+        board = flop if street is Street.FLOP else turn
+        _w3r6_assert_bucket(hole, board, bucket, DrawCategory.NONE)
+        live = _t1_dist(persona, hole, board, street=street,
+                        facing_raise=False, opponents=opponents)
+        assert live == _t1_neutralized_dist(persona, hole, board, street=street,
+                                            opponents=opponents)
 
 
 def test_w3r6_damp_constants_inside_their_fitted_ranges():
