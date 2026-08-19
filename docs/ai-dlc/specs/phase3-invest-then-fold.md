@@ -2,7 +2,7 @@
 
 **Bottom line: the defect is real, ruling A's named cause is wrong, and the
 sharpest thing wrong with these hands is not that the bot folds — it is that it
-folds with probability exactly 1.000. Forty-seven percent of invest-then-fold
+folds with probability exactly 1.000. Forty-six percent of invest-then-fold
 events are a decision with only one non-zero option, because the engine zeroes
 the call and the rules make the raise illegal. Of the rest, the fold is usually
 correct poker and the error is upstream, in money the bot put in with a hand
@@ -27,20 +27,33 @@ supplied both tickets below. Findings and adjudication:
 
 ## 1. What was measured
 
-Fifty thousand hands at the shipped tip (`d619535`, seed 20260817, the default
-nine-seat lineup), scored with the definition the 2026-08-05 re-measure used: a
-fold where the seat has already committed at least 25bb in the hand and is being
-offered pot odds of at least 5:1. Two thousand and fifteen events.
+Fifty thousand hands at the shipped tip, seed 20260817, on the **ratified**
+nine-seat lineup `tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac`
+— the lineup the gate, the frozen baseline artifact and the 2026-08-05 re-measure
+all use. Scored with the definition that re-measure used: a fold where the seat
+has already committed at least 25bb and is being offered pot odds of at least
+5:1. **One thousand one hundred and forty-seven events.**
 
-**The rate has not moved.** Per thousand hands: maniac 7.88, calling station
-6.48, passive fish 3.52, LAG 2.94, TAG 1.64, nit 0.54, against a 2026-08-05
-baseline of 7.0, 5.58, 2.60, 2.22, 1.19, 0.38. Same ordering, same order of
-magnitude. Different seed and a changed roster, so the small rise is not
-attributed to anything. De-robotization did not touch this.
+> **CORRECTION, 2026-08-18.** The first version of this spec measured on the
+> exporter's default lineup, which is alphabetical and carries two calling
+> stations, two LAGs and two maniacs instead of three TAGs and two passive fish.
+> `../reports/flywheel-s4-acceptance.md` states plainly that the default is not
+> ratified. Every count in that version was therefore incomparable with the gate
+> and with the 2026-08-05 baseline. Two independent reviewers found it. **Every
+> mechanism finding below survived the re-measure; every count changed.** The
+> diagnosis script now reads the export manifest and refuses to let a reader
+> mistake one lineup for the other.
+
+**The rate has not moved, and this is now a comparable claim.** Per thousand
+hands: maniac 6.40, calling station 4.60, passive fish 2.77, LAG 2.48, TAG 1.23,
+nit 0.22, against a 2026-08-05 baseline on the same lineup of 7.0, 5.58, 2.60,
+2.22, 1.19, 0.38. Four fell, two rose slightly. Different seed and a changed
+roster, so nothing is attributed to de-robotization either way — but it plainly
+did not fix this.
 
 ### 1.1 Forty-seven percent of the events are not decisions at all
 
-At 950 of the 2,015 the bot has exactly one action with any weight behind it, so
+At 524 of the 1,147 the bot has exactly one action with any weight behind it, so
 it folds with probability 1.000. Three facts compose to produce that:
 
 - The seat is facing a bet at least as large as its remaining stack, so
@@ -58,12 +71,12 @@ call/fold decision.
 
 ### 1.2 The events are all-in refusals in pots the environment inflates
 
-Ninety-four percent of the time the declined call would put the seat's entire
-remaining stack in. Median pot 258bb — two and a half buy-ins. In 97 percent of
-them at least one seat in the hand finishes all-in and in 56 percent two or more
+Ninety-three percent of the time the declined call would put the seat's entire
+remaining stack in. Median pot 253bb — two and a half buy-ins. In 97 percent of
+them at least one seat in the hand finishes all-in and in 53 percent two or more
 do, counted over the whole hand, so some of those land after the fold.
 
-Those pots exist because 30.9 percent of hands at this tip see at least one seat
+Those pots exist because 20.2 percent of hands at this tip see at least one seat
 all-in. Nine seats, each re-bought to about 100bb before every hand, no rake, no
 stack progression. **Ruling A cut engine and stack work from this phase, so the
 largest single contributor to this statistic is out of reach by ruling.** It is
@@ -73,13 +86,20 @@ in nearly a third of hands long before noticing anyone's fold.
 ### 1.3 The fold itself is right, and this was checked hand by hand
 
 The reviewer working from the data alone enumerated the remaining boards against
-the actual holdings. The caller needs a median of 11 percent equity. **1,692 of
-the 2,015 holdings (84 percent) do not have it, and 1,330 (66 percent) are
-drawing dead.** Only 323 clear the price; on the river only 45 of 1,152 do.
+the actual holdings. The caller needs a median of 11 percent equity. **84 percent
+of the holdings do not have it and 66 percent are drawing dead**; 16 percent do
+clear the price.
 
-So a minority of these folds are individually mistakes, and forcing calls across
-the board would be badly wrong poker — quite apart from what it would do to
-showdown frequency.
+Two limits on that number, both load-bearing. It is a **post-hoc** check — it asks
+whether folding was right given what was actually out there, not given what the
+bot could know. And that enumeration was run on the earlier default-lineup export,
+so the shares are quotable and the counts are not.
+
+**What this slice does not fix, stated so the 84 percent does not read as an
+acquittal:** the 16 percent where the price is genuinely there, and **264 folds
+holding a made pair (23 percent — 234 middle pair, 30 top pair)**. Equity
+arithmetic is invisible to someone reading hands; a seat folding a made pair at
+long odds is not.
 
 ### 1.4 The money went in as a call, not as a bluff
 
@@ -87,13 +107,13 @@ Split by the action at the seat's single largest chip commitment:
 
 | action | events | share |
 |---|---:|---:|
-| call | 1,200 | 59.6% |
-| raise | 484 | 24.0% |
-| bet | 331 | 16.4% |
+| call | 715 | 62.3% |
+| raise | 284 | 24.8% |
+| bet | 148 | 12.9% |
 
 The most common single path is calling a big turn bet holding naked ace-high:
-457 events, 22.7 percent of the total. The largest commitment lands on the turn
-58 percent of the time and on the flop 37 percent.
+245 events, 21.4 percent of the total. The largest commitment lands on the turn
+59 percent of the time and on the flop 35 percent.
 
 `_CALL_BASE[ACE_HIGH] = 0.40` is multiplied by persona looseness with no equity
 term and no street term, and the damp that exists for naked ace-high
@@ -103,26 +123,34 @@ weight — including at the calling station's looseness of 4.0.
 
 ### 1.5 "Build a pot with aggression, then fold" is false for most of it
 
-Forty percent of the seats never bet or raised at all in the hand; 59 percent put
-more than half their money in by calling. Mean share of the investment that went
-in aggressively:
+Thirty-eight percent of the seats never bet or raised at all in the hand, and the
+median seat put in three quarters of its money by calling. Mean share of the
+investment that went in aggressively:
 
 | persona | events | aggressive share | reading |
 |---|---:|---:|---|
-| maniac | 788 | 0.74 | aggression |
-| LAG | 294 | 0.54 | aggression |
-| TAG | 82 | 0.41 | mixed |
-| nit | 27 | 0.26 | calling |
-| passive fish | 176 | 0.21 | calling |
-| calling station | 648 | 0.04 | calling |
+| maniac | 320 | 0.71 | aggression |
+| LAG | 124 | 0.57 | aggression |
+| TAG | 185 | 0.42 | mixed |
+| passive fish | 277 | 0.25 | calling |
+| nit | 11 | 0.20 | calling |
+| calling station | 230 | 0.03 | calling |
 
-The three calling-driven personas account for **851 events, 42.2 percent**.
+The three calling-driven personas account for **518 events, 45.2 percent**.
+
+**That share is not an ownership claim, and an earlier draft wrongly made it
+one.** The conditional rate is flat across all six personas (§1.6), which is
+evidence of a *shared* node rather than a calling-specific mechanism; ticket T1
+already reduces these personas' counts; and the split is a property of the table
+composition. See §6.2 for where the slice boundary actually falls.
 
 ### 1.6 The mechanism is shared; only the arrival differs
 
 Given a seat has already folded after investing 25bb, the chance it was getting
-5:1 or better is 26.2 to 33.4 percent for every persona. The per-hand rate spans
-fifteen-fold. One shared node, six arrival frequencies.
+5:1 or better is 21.2 to 26.8 percent for every persona — a span of five points
+across archetypes that differ wildly in everything else. The per-hand rate spans
+nearly thirtyfold, from the nit's 0.22 to the maniac's 6.40. One shared node, six
+arrival frequencies.
 
 ### 1.7 Retracted from the first draft of this spec
 
@@ -151,11 +179,13 @@ showdown frequency up.
 
 1. **Extend the naked-ace float damp to multiway bets.** The damp already exists
    and already has a reviewed constant; it simply never fires against an
-   ordinary bet with more than one opponent. This is the 59.6 percent channel.
-   **Already measured on the same 50,000 hands and seed:** events 2,015 → 1,879
-   (−6.7 percent), pool went-to-showdown 58.46 → 58.43 percent, hands containing
-   an all-in 15,473 → 15,272. Every persona falls. Reproduced independently
-   before being written into this spec.
+   ordinary bet with more than one opponent. This is the 62.3 percent channel.
+   **Already measured, on the ratified lineup at seed 20260817:** events
+   1,147 → 1,084 (−5.5 percent), pool went-to-showdown 54.5 → 54.1 percent, hands
+   containing an all-in 10,121 → 10,043. Reproduced independently before being
+   written into this spec. (On the earlier default lineup the same change measured
+   −6.7 percent; the effect is real but its size depends on how multiway the table
+   is, which is exactly why the lineup is pinned now.)
 2. **Price the bluff-size factor on the size the seat can actually bet.**
    `_bluff_size_factor` is applied to the *authored* pot-fraction key at
    `personas_postflop.py:1374-1375`, and the resulting bet is only clamped to the
@@ -165,7 +195,7 @@ showdown frequency up.
    theory contract's own bluff-share identity says they must not. This is the
    24.0 + 16.4 percent channel, and it is a bug fix rather than a new lever.
 3. **Remove ACE_HIGH from the river call zero, per §6's ruling.** Restores a
-   mixed strategy to 659 of the 985 deterministic folds. Ships last, measured on
+   mixed strategy to 413 of the 550 events in that cell. Ships last, measured on
    top of ticket 1, because ticket 1 reduces how often ace-high reaches the
    river at all and the two effects must not be attributed to each other.
 
@@ -192,9 +222,9 @@ without taking a position on it.
   2026-08-18 and ticketed as T3; see §6.
 - **The all-in cascade and stack persistence.** Cut by ruling A. It is 94 percent
   of the surface.
-- **The calling personas' bulk calldown.** Their 851 events are slice 3's, except
-  for the specific ace-high multiway float in ticket 1, which belongs here
-  because it is showdown-neutral and is the top single node in this statistic.
+- **The calling personas' residual continuation.** Slice 3's, on the boundary in
+  §6.2 — not because of who they happen to, but because they are arrival at nodes
+  that already mix. The specific ace-high multiway float stays here as ticket 1.
 - **Bet-size variation.** The bots' grid is the grader's grid; escalated and
   unresolved.
 - **The strong-draw call floor at `:1006-1007`.** Its own roadmap item.
@@ -243,19 +273,29 @@ call, not a value to fit around.
 **The river call hard-zero is the biggest thing here and this spec deliberately
 does not resolve it.** Two facts make it a decision rather than a ticket.
 
-It manufactures determinism. It is the direct cause of the 950 forced folds in
-§1.1 — the single largest identifiable machine tell this diagnosis found, in a
-project whose north star is whether a judge can spot the machine.
+It manufactures determinism. It is the direct cause of the 524 forced folds in
+§1.1.
+
+**But not because a judge will catch it, and this spec should not pretend
+otherwise.** 524 events across 50,000 hands is 524 of 450,000 seat-hands. A judge
+reading a 30-hand bundle from one seat expects **0.03 of these events** — roughly
+one per thirty judged sessions. The direct detectability is not weak, it is
+absent. Two reasons that do hold: it is the same lookup-table signature slice 1
+spent seven pull requests removing from bet sizing, and leaving it in the
+call/fold decision while having removed it from sizing is internally
+inconsistent; and any statistical detector sees it at once, which is why it is a
+good regression statistic even though it is a poor detection argument.
 
 And the cell is wider than its own stated rationale. `bluff_cell` at
 `personas_postflop.py:893` bundles ACE_HIGH together with AIR, while every
-comment around the rule says "air never bluff-calls the river". **Of the 985
-events in that cell, 659 are ace-high, not air** — a hand that is a legitimate
-river bluff-catcher, folded at up to 12:1.
+comment around the rule says "air never bluff-calls the river". **Of the 550
+events in that cell, 413 are ace-high, not air** — a hand that is a legitimate
+river bluff-catcher, folded at up to 12:1. **This is the argument the ruling
+turns on, and it is a poker argument, not a detection one.**
 
 The cost of opening it, measured, and stated as the upper bound it is: converting
-**every** such fold to a call moves pool went-to-showdown from 58.46 percent to
-62.12 percent for the ace-high half alone, or 64.60 percent for both. The real
+**every** such fold to a call moves pool went-to-showdown from 54.5 percent to
+58.3 percent for the ace-high half alone, or 60.5 percent for both. The real
 figure would be lower, because the merit law would mix rather than always call.
 Showdown frequency is the binding term slice 3 must reduce, so this trades the
 initiative's north star against its inner-loop metric, and that trade is the
@@ -285,8 +325,39 @@ metric-against-metric judgement. That framing was wrong: the poker argument
 breaks the tie, and it should have been surfaced as such the first time.
 
 Separately, the roadmap's slice 2 entry still names a mechanism this measurement
-refutes, and its slice 3 entry does not know that 851 of these events are its
-own. This spec does not edit the roadmap.
+refutes, and its slice 3 entry does not know about the boundary in §6.2 or the
+share of these events it implies. This spec does not edit the roadmap.
+
+### 6.2 Where the slice boundary actually falls
+
+An earlier draft claimed the calling personas' events "belong to" slice 3 on the
+strength of who they happen to occur to. Both reviewers rejected that, and they
+were right: persona membership is not ownership, the conditional rate is flat
+across all six, and T1 — a slice-2 ticket — already reduces those same personas.
+
+The boundary that survives is drawn on the **defect**, not on the persona and not
+on the showdown direction:
+
+> **Slice 2 owns decisions that are degenerate or mis-invested. Slice 3 owns the
+> continuation frequency at decisions that already mix.**
+
+| Item | Slice | Why |
+|---|---|---|
+| T1 — ace-high stops floating multiway bets | 2 | money invested with a hand that cannot win |
+| T2 — bluff frequency priced on the bettable size | 2 | frequency and size disagree; a coherence bug |
+| T3 — ace-high out of the river call zero | 2 | turns a probability-1.000 decision into a mixed one |
+| The calling personas' residual continuation | 3 | arrival at nodes that already mix, driven by looseness |
+| Draw floor at `personas_postflop.py:1006-1007` | 3 | it makes a mixing node untunable, and tunability is calldown's dial |
+
+T3 was the counterexample that killed an earlier version of this principle, which
+was drawn on showdown direction. Under this one T3 is unproblematic: it removes a
+certainty, and its showdown cost is a number to report rather than a classifier.
+
+The boundary also assigns the draw-floor entry, which currently sits on the
+roadmap owned by nobody — and it is a **prerequisite** for slice 3, not a
+sibling. The floor holds part of the strong-draw calling weight fixed no matter
+how far `call_looseness` tightens, and `call_looseness` is calldown's principal
+dial.
 
 ## 7. Acceptance
 
@@ -298,7 +369,8 @@ own. This spec does not edit the roadmap.
    request before and after.
 4. A targeted test that has been seen to fail without the change.
 5. **The measured delta is reported, not a direction.** Ticket 1 has a
-   pre-committed number to hit: 1,879 events. Ticket 2 lands on an
+   pre-committed number to hit: 1,084 events on the ratified lineup at seed
+   20260817. Ticket 2 lands on an
    exact-frequency cell where the bet probability *is* the merit, so its constant
    is not diluted by normalization and its effect must be stated as a measured
    frequency change, not as a directional seed.
@@ -333,14 +405,16 @@ cd backend && ruff check .
 ## 9. Risks
 
 - **The slice's ceiling is low and that should be said plainly.** Ticket 1's
-  measured effect is a 6.7 percent reduction. Ninety-four percent of the events
-  are all-in refusals in pots inflated by an environment ruling A put out of
-  reach. T3 is the largest single lever and it targets the determinism rather
+  measured effect is a 5.5 percent reduction. Ninety-four percent of the events
+  are all-in refusals in pots that only exist because a fifth of hands see an
+  all-in — an environment ruling A put out of reach. Note what is *not* claimed:
+  no counterfactual has been run that removes the cascade, so "the environment
+  causes the rate" is an inference, not a measurement. T3 is the largest single lever and it targets the determinism rather
   than the count — it may barely move this statistic while fixing the thing that
   actually matters. Nobody should expect the number near zero at slice end.
 - **Ticket 1 pushes the binding separation pair together.** See §5.
 - **Ticket 2 changes bluff frequency wherever stacks are short,** which is far
-  more hands than the 2,015 counted here. It is judged on the whole diagnosis
+  more hands than the 1,147 counted here. It is judged on the whole diagnosis
   output and the gate, not on the headline rate.
 - **Both tickets came from reviewers rather than from the author of this spec.**
   That is recorded, not hidden: the first draft's own fix was refuted on the

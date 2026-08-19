@@ -1,10 +1,24 @@
 """Diagnosis for improvement slice 2 — where invest-then-fold actually comes from.
 
-Run it against an analytics export produced by `backend/tools/export_analytics.py`:
+Run it against an analytics export produced by `backend/tools/export_analytics.py`.
+**The `--lineup` argument is mandatory and is not the exporter default.** The
+default is alphabetical; the ratified nine seats are the ones the gate, the
+frozen baseline artifact and the 2026-08-05 re-measure all use, and counts taken
+on any other table are not comparable with any of them.
 
     cd backend && PYTHONPATH=. python -m tools.export_analytics \
-        --hands 50000 --seed 20260817 --out /tmp/sim50k
+        --hands 50000 --seed 20260817 \
+        --lineup tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac \
+        --out /tmp/sim50k
     python docs/ai-dlc/research/slice2-invest-then-fold/diagnose.py /tmp/sim50k 50000
+
+This script reads the export's own `_SUCCESS` manifest and prints the lineup,
+seed and engine SHA it actually ran on, then says plainly whether that lineup is
+the ratified one. The first version of this diagnosis omitted `--lineup` and every
+count it produced was measured on a table with two calling stations, two LAGs and
+two maniacs instead of three TAGs and two passive fish. The mechanism findings
+survived that; none of the counts did. The header exists so the next reader
+cannot repeat it.
 
 This is evidence for a spec, not a gate and not a standing harness. It adds no
 apparatus: it reads the existing export contract and prints, and it is expected
@@ -20,12 +34,45 @@ is being offered pot odds of at least 5:1, that is
 aggressor's bet, so that ratio is the caller's share of the pot it would win.
 """
 import collections
+import json
 import sys
 
 import pyarrow.parquet as pq
 
 SIM = sys.argv[1]
 N_HANDS = int(sys.argv[2])
+
+RATIFIED_LINEUP = ["tag", "tag", "calling_station", "tag", "passive_fish",
+                   "lag", "passive_fish", "nit", "maniac"]
+
+
+def _provenance(sim_dir):
+    """Print what this export actually ran on, and whether it is comparable."""
+    try:
+        with open(f"{sim_dir}/_SUCCESS") as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        print("!! no readable _SUCCESS manifest — provenance unknown, treat every\n"
+              "!! number below as uncomparable with the gate and the baseline.\n")
+        return
+    lineup_map = manifest.get("lineup") or {}
+    lineup = [lineup_map[k] for k in sorted(lineup_map, key=int)]
+    print(f"export     : {sim_dir}")
+    print(f"seed       : {manifest.get('seed')}")
+    print(f"engine sha : {manifest.get('git_sha')}")
+    print(f"lineup     : {','.join(lineup)}")
+    if lineup == RATIFIED_LINEUP:
+        print("             ^ the ratified lineup — counts are comparable with the "
+              "gate,\n               the frozen baseline and the 2026-08-05 "
+              "re-measure.")
+    else:
+        print("!!           ^ NOT the ratified lineup. Every COUNT below is "
+              "specific to\n!!             this table and must not be compared "
+              "with the gate, the\n!!             baseline artifact, or any "
+              "earlier measurement. The\n!!             mechanism shares are "
+              "robust; the counts are not.")
+    print()
+
 
 so = pq.read_table(f"{SIM}/seat_outcomes.parquet").to_pydict()
 dc = pq.read_table(f"{SIM}/decisions.parquet").to_pydict()
@@ -115,7 +162,8 @@ for i in order:
 pct = lambda c: 100 * c / max(total, 1)
 PERS = ["maniac", "calling_station", "passive_fish", "lag", "tag", "nit"]
 
-print(f"=== invest-then-fold on {SIM} ({N_HANDS} hands) ===\n")
+_provenance(SIM)
+print(f"=== invest-then-fold ({N_HANDS} hands) ===\n")
 print(f"{'persona':17} {'folds':>7} {'fold>=25bb':>11} {'events':>7} "
       f"{'conditional':>12} {'per 1k hands':>13}")
 for p in PERS:

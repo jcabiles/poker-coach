@@ -131,9 +131,61 @@ sizing draw never executes under estimation.
 tool, so it returned the content and the session persisted it. The brief was
 wrong, not the agent.
 
+## Third review round, 2026-08-18 — the lineup error
+
+**Both reviewers independently found that every count in this slice was measured
+on the wrong table.** The diagnosis never passed `--lineup`, so it used the
+exporter's alphabetical default — two calling stations, two LAGs and two maniacs
+— while the gate, the frozen baseline artifact and the 2026-08-05 re-measure all
+run the ratified nine seats: three TAGs, two passive fish, one each of the rest.
+`../reports/flywheel-s4-acceptance.md` states the default is not ratified, in
+those words.
+
+Re-measured on the ratified lineup at the same seed. **Every mechanism finding
+survived; every count changed.**
+
+| | default (as shipped) | ratified (correct) |
+|---|---:|---:|
+| events | 2,015 | 1,147 |
+| deterministic folds | 950 (47.1%) | 524 (45.7%) |
+| river hard-zero cell | 985 (48.9%) | 550 (48.0%) |
+| all-in refusals | 94.0% | 92.7% |
+| hands with an all-in | 30.9% | 20.2% |
+| money in as a call | 59.6% | 62.3% |
+| pool went-to-showdown | 58.5% | 54.5% |
+| T1 counterfactual | 1,879 (−6.7%) | 1,084 (−5.5%) |
+
+The pre-committed acceptance number in ticket T1 was wrong as a result. The
+diagnosis script now reads the export's `_SUCCESS` manifest, prints the lineup,
+seed and engine SHA it ran on, and says whether that lineup is the ratified one.
+
+**A second number was wrong, in the roadmap rather than here.** Slice 3's entry
+says the roster's went-to-showdown is "near 45". That figure is 44.92 from the
+S5 close-out, where it is a *counterfactual* with the maniac's showdown rate
+driven to zero. The roster's actual value is **54.85**, recorded in
+`poker-analytics/analysis/output/score-campaign2-august-F1.json` as
+`canonical.pool_tier` with counters 59,907 over 109,214, on the ratified lineup
+at seed 20260805 — the 2026-08-05 run itself. The cutoff needs roughly 42.7, so
+the ceiling gap is twelve points rather than two. Slice 3 is still the largest
+available move on it and still cannot close it. That correction belongs to the
+roadmap and is filed separately.
+
+### Other findings from this round
+
+| Finding | Adjudication |
+|---|---|
+| "851 events belong to calldown" does not follow from persona membership — the conditional rate is flat across all six personas, and T1 already reduces those personas. | **Accepted.** The claim is removed. Spec §6.2 replaces it with a boundary drawn on the defect: slice 2 owns degenerate or mis-invested decisions, slice 3 owns continuation frequency at nodes that already mix. That boundary survives T3, which the earlier showdown-based version did not, and it assigns the ownerless draw-floor entry to slice 3 as a prerequisite. |
+| The determinism finding is oversold if offered as something the finale judge will catch. 524 of 450,000 seat-hands is 0.03 events per 30-hand bundle. | **Accepted.** Both spec §6 and ticket T3 now say the direct detectability is absent and rest the case on the poker and on consistency with slice 1. |
+| "84 percent of folds are correct" is a post-hoc check against the real board, not against what the bot could know, and risks reading as an acquittal. | **Accepted.** §1.3 now states both limits and names the residuals: the 16 percent that clear the price and the 264 made-pair folds. |
+| T2 and T3 both act on the `bluff_cell` hand class, so calling them independent is too strong. | **Accepted with a bound.** They touch different lines and merge cleanly; their measured effects interact. The ticket now requires whichever lands second to re-measure rather than inherit its counterfactual. |
+| The ceiling caveat asserted the environment causes the rate, which no counterfactual has tested. | **Accepted.** Restated as an inference. |
+
 ## Still open at the time of writing
 
-- The roadmap's slice 2 entry still names a refuted mechanism, its slice 3 entry
-  does not know 851 of these events are its own, and neither knows about T3. Not
-  edited here — the roadmap edit is the owner's to ratify.
+- The roadmap needs six corrections, filed separately: slice 2's refuted
+  mechanism and unrecorded status, slice 3's "near 45" figure, the missing LAG row
+  in the baseline, a NOW banner that still calls both slices unspec'd, a
+  self-contradiction over whether calldown is cut first, and an audit banner that
+  says de-robotization touched preflop only four lines below slice 1's measured
+  postflop change.
 - No ticket is implemented. This slice is spec and tickets only.
