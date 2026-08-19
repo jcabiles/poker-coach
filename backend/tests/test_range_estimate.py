@@ -46,6 +46,7 @@ from app.domain.table.postflop_context import aggressor_barrel_run
 from app.domain.table.range_estimate import (
     PublicAction,
     PublicActionHistory,
+    _legal_from_ctx,
     _postflop_action_dist,
     _replay_contexts,
     estimate_range,
@@ -494,7 +495,18 @@ def _live_legal(ctx) -> list[LegalAction]:
     (deliberately NOT `range_estimate._legal_from_ctx`, so the parity assertions
     below stay independent of the module under test). ESTIM-PRICE: CALL carries
     the faced price; BET/RAISE min/max stay None because the sampler reads them
-    only in the sizing draw, which a capture rng never reaches."""
+    only in the sizing draw, which a capture rng never reaches.
+
+    THAT LAST CLAUSE IS THE ONE THIS FILE CANNOT CHECK FOR ITSELF, so do not
+    read it as a guarantee. It matches `_legal_from_ctx` exactly, which means
+    every parity test using this helper feeds BOTH sides a capless bracket and
+    would keep passing if the sampler started reading those fields — which is
+    precisely what improvement slice 2's withdrawn T2 lever did. The assumption
+    is asserted instead by
+    `test_no_aggressive_bracket_field_is_read_before_the_action_draw`, which
+    builds its live side from `engine.legal_actions`. Keep this helper capless:
+    its job is to mirror the estimator, and the other test's job is to catch the
+    mirror being wrong."""
     return [
         LegalAction(action=k, min_bb=ctx.to_call_bb if k is ActionType.CALL else None)
         for k in sorted(ctx.kinds)
@@ -1260,3 +1272,98 @@ def test_estimator_multiway_flop_bet_parity_with_live_sampler(packs):
         "the multiway damp is not reaching the estimator — this parity test is "
         "vacuous as written"
     )
+
+
+# ------------------------------- the estimator's capless-bracket assumption
+
+
+def _short_stack_node(kind: str):
+    """A real short-stack postflop node, played out on the engine, returned with
+    the engine's OWN legal bracket at the moment the target seat acts.
+
+    Seat 3 starts with 14bb, raises to 3, is re-raised to 10 and calls, so it
+    reaches the flop with 4bb behind in a pot of 20.5 — far less than any
+    authored sizing key would cost.
+
+      "bet"   — checked to seat 3: CHECK + BET(min 1.0, max 4.0).
+      "raise" — seat 2 bets 2: FOLD + CALL + RAISE(min 4.0, max 4.0), a bracket
+                the engine COLLAPSES because the seat cannot reach a full
+                min-raise. Both aggressive shapes, and both a plain cap and a
+                jam, are therefore covered.
+    """
+    stacks = [100.0] * 9
+    stacks[3] = 14.0
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=stacks)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _raise_to(10.0)), (3, _CALL)]
+    state = _script(state, moves)
+    if kind == "bet":
+        state = _script(state, [(2, _CHECK)])
+        at_decision = legal_actions(state)
+        state = _script(state, [(3, _CHECK)])
+    else:
+        state = _script(state, [(2, _bet(2.0))])
+        at_decision = legal_actions(state)
+        state = _script(state, [(3, _CALL)])
+    hist = _project(state, starting_stacks=tuple(stacks))
+    return _replay_contexts(hist, seat=3, n=len(hist.actions))[-1], at_decision
+
+
+@pytest.mark.parametrize("kind", ["bet", "raise"])
+@pytest.mark.parametrize("persona", ["calling_station", "passive_fish", "nit",
+                                     "tag", "lag", "maniac"])
+def test_no_aggressive_bracket_field_is_read_before_the_action_draw(packs, persona, kind):
+    """🔴 The assumption `_legal_from_ctx` and `_live_legal` both rest on, finally
+    asserted: no field of the BET/RAISE bracket reaches the merit vector.
+
+    WHY THIS TEST EXISTS. The estimator leaves BET/RAISE min/max None on the
+    argument that only the sizing draw reads them, and a capture rng never
+    reaches the sizing draw. Every other parity test in this file rebuilds the
+    live side the same capless way, so all of them would keep passing if that
+    argument stopped being true. Improvement slice 2's T2 made it stop being
+    true — it priced a bluff on the stack-capped size inside the merit
+    computation, which runs before the action draw — and the villain range shown
+    to the player silently diverged from the live bot by 1.2x to 1.45x at short
+    stacks. The lever was withdrawn on the owner's ruling; this test is what the
+    round left behind so the next one cannot land unnoticed.
+
+    THE LIVE SIDE COMES FROM `engine.legal_actions`, which is the whole point.
+    The two brackets differ materially — the engine caps the aggressive action
+    at the seat's 4bb all-in-to and collapses the raise to a jam, the estimator
+    supplies neither bound — so equality of the two action distributions is a
+    substantive claim about the sampler rather than a comparison of a thing with
+    itself. It is that difference, asserted below before the distributions are
+    compared, that makes this test able to fail.
+
+    A node with air is used because the bluff cell is where a size-linked lever
+    would land; the fixture is short-stacked because that is where an
+    unsupplied cap would bite hardest."""
+    ctx, engine_legal = _short_stack_node(kind)
+    aggressive = ActionType.BET if kind == "bet" else ActionType.RAISE
+    estimator_legal = _legal_from_ctx(ctx)
+
+    # The precondition that makes the comparison meaningful at all.
+    assert ctx.street is Street.FLOP and ctx.stack_bb == pytest.approx(4.0)
+    engine_bracket = {la.action: (la.min_bb, la.max_bb) for la in engine_legal}
+    estimator_bracket = {la.action: (la.min_bb, la.max_bb) for la in estimator_legal}
+    assert engine_bracket[aggressive] != estimator_bracket[aggressive]
+    assert estimator_bracket[aggressive] == (None, None)
+    assert engine_bracket[aggressive][1] == pytest.approx(4.0)
+    if kind == "raise":  # the engine's jam encoding, stated rather than implied
+        assert engine_bracket[ActionType.RAISE] == (4.0, 4.0)
+
+    pack = packs[VillainType(persona)]
+    hole = ("6h", "4c")  # naked air, no draw — the bluff cell
+    cap = _CaptureFirstChoices()
+    sample_postflop_decision(
+        pack, hole, list(ctx.board), engine_legal, ctx.pot_bb, ctx.stack_bb,
+        ctx.opponents,
+        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=ctx.current_bet_to, street=ctx.street,
+        latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
+        facing_raise=ctx.facing_raise,
+        aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
+    )
+    assert _postflop_action_dist(pack, hole, ctx) == cap.dist, (persona, kind)
