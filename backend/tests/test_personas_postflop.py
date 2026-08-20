@@ -530,12 +530,17 @@ PRICE_FRACS = (0.33, 0.5, 1.0, 1.5)  # SMALL / MEDIUM / LARGE(pot) / OVERBET
 _PRICE_N = 1250
 
 
-@pytest.fixture(scope="module")
-def fold_by_size():
+def _measure_fold_by_size(street: Street | None = None):
     """persona -> {frac: measured fold-to-bet} facing FOLD/CALL/RAISE with a
     bet of `frac * pot-before-the-bet`, same pre-dealt spot list for every
     persona x size (paired comparison, variance from range composition
-    cancels across cells)."""
+    cancels across cells).
+
+    `street` (default `None`) is threaded straight into
+    `sample_postflop_decision` so street-gated levers (e.g. T3's
+    `_ACE_HIGH_RIVER_CALL_DAMP`, RIVER-only) are measurable here; every
+    existing caller leaves it at the default and is byte-identical to before
+    this parameter existed."""
     from app.domain.equity import RANKS
 
     packs = load_persona_packs()
@@ -566,11 +571,25 @@ def fold_by_size():
             folds = 0
             for hole, board in spots:
                 d = sample_postflop_decision(
-                    pack, hole, board, legal, pot, 100.0, 1, rng, current_bet_to=to_call
+                    pack,
+                    hole,
+                    board,
+                    legal,
+                    pot,
+                    100.0,
+                    1,
+                    rng,
+                    current_bet_to=to_call,
+                    street=street,
                 )
                 folds += d.action is ActionType.FOLD
             rates[persona][frac] = folds / _PRICE_N
     return rates
+
+
+@pytest.fixture(scope="module")
+def fold_by_size():
+    return _measure_fold_by_size()
 
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
@@ -622,10 +641,14 @@ def test_fold_to_bet_monotone_in_faced_size(persona, fold_by_size):
 _CATCHER_BUCKETS = (StrengthBucket.MIDDLE_PAIR, StrengthBucket.TOP_PAIR)
 
 
-@pytest.fixture(scope="module")
-def catcher_fold_by_size():
+def _measure_catcher_fold_by_size(street: Street | None = None):
     """persona -> {frac: fold-to-bet} over a pure bluff-catcher range (see the
-    block above), measured at the same node/seeds as `fold_by_size`."""
+    block above), measured at the same node/seeds as `fold_by_size`.
+
+    `street` (default `None`) is threaded straight into
+    `sample_postflop_decision`, same as `_measure_fold_by_size`; every
+    existing caller leaves it at the default and is byte-identical to before
+    this parameter existed."""
     from app.domain.equity import RANKS
 
     packs = load_persona_packs()
@@ -659,11 +682,25 @@ def catcher_fold_by_size():
             folds = 0
             for hole, board in spots:
                 d = sample_postflop_decision(
-                    pack, hole, board, legal, pot, 100.0, 1, rng, current_bet_to=to_call
+                    pack,
+                    hole,
+                    board,
+                    legal,
+                    pot,
+                    100.0,
+                    1,
+                    rng,
+                    current_bet_to=to_call,
+                    street=street,
                 )
                 folds += d.action is ActionType.FOLD
             rates[persona][frac] = folds / _PRICE_N
     return rates
+
+
+@pytest.fixture(scope="module")
+def catcher_fold_by_size():
+    return _measure_catcher_fold_by_size()
 
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
@@ -824,6 +861,33 @@ def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
     assert r["calling_station"] < r["lag"], r
     assert r["lag"] < r["tag"], r
     assert r["tag"] < r["nit"], r
+
+
+# ---- Non-vacuity: `street` is actually threaded, not a dead parameter -----
+#
+# The fixtures above default to `street=None`, which sits outside every
+# street-gated lever in `sample_postflop_decision` (river-only river
+# polarization, T3's `_ACE_HIGH_RIVER_CALL_DAMP`, flop/turn-only
+# `_ACE_HIGH_FLOAT_RAISE_DAMP`, etc.) — see `phase3-invest-then-fold.md`'s T1
+# round, where a copy of these fixtures measured a FLOP/TURN-gated lever at
+# street=None and produced byte-identical before/after tables. This test
+# calls the underlying `_measure_fold_by_size` helper directly at
+# `street=Street.RIVER` (bypassing the module-scoped fixture, which is pinned
+# to the default) and proves the surface actually moves — it guards the
+# THREADING MECHANISM, not one pinned number, so it fails if `street` is ever
+# dropped or silently ignored again.
+def test_fold_by_size_is_street_aware():
+    r_none = _measure_fold_by_size(street=None)
+    r_river = _measure_fold_by_size(street=Street.RIVER)
+    # calling_station at pot-size (frac=1.0): measured 0.2256 at street=None
+    # vs 0.4368 at street=RIVER (river polarization zeros AIR's call merit and
+    # T3 damps ACE_HIGH's) — a +0.21 rise, far past noise at n=1250.
+    none_pot = r_none["calling_station"][1.0]
+    river_pot = r_river["calling_station"][1.0]
+    assert river_pot - none_pot > 0.15, (
+        f"street=RIVER should fold measurably more than street=None at "
+        f"pot-size, got {river_pot:.4f} vs {none_pot:.4f}"
+    )
 
 
 # ---------------------------------------------------------------------
