@@ -5737,21 +5737,60 @@ def test_r10_3bet_fold_to_3bet_stratified_report():
 #     fold-to-3bet(opener) = Σ_class open_mass(class) × fold_weight(class)
 #                            / Σ_class open_mass(class)
 # with open_mass = combo_count × P(raise | class, position) summed over the
-# nine `unopened` nodes (uniform position weight — the opener arrives from
-# every seat, and a position's own raise width already weights it).
+# EIGHT `unopened` nodes that can actually open (uniform position weight — the
+# opener arrives from every one of them, and a position's own raise width
+# already weights it).
 #
-# CALIBRATION (why this proxy is trusted): at pre-slice HEAD it reproduces the
-# harness's sampled opener stratum on the two personas this slice retunes —
+# ⚠️ EIGHT, NOT NINE — corrected 2026-08-19 (Codex Sol review of the lag
+# vs-3-bet re-tune). This summed all nine seats including the BIG BLIND, which
+# cannot open an unopened pot: `play._preflop_facing` returns "unopened" only
+# when preflop history holds NO raise and NO call, and by the time the big
+# blind acts either someone has voluntarily acted (making it vs_rfi/vs_limpers/
+# vs_3bet/vs_4bet) or everyone has folded and the hand is over. Verified in the
+# ENGINE rather than taken from the comments that assert it
+# (`table/sizing.py`, `content/models.py`, `test_preflop_size_mix.py`): over
+# 20,000 seeded hands of live play the big blind reaches `unopened` ZERO times
+# while every other seat reaches it thousands of times (UTG 20000, UTG1 15034,
+# UTG2 10186, LJ 6510, HJ 3940, CO 2148, BTN 1152, SB 509, BB 0).
+# The contamination was not small: the impossible seat carried 12.20% of the
+# lag's supposed opening mass and 10.88% of the maniac's, and it was PAIRED
+# with the SB/BB vs_3bet table, which folds far more than the table the real
+# openers use — so the proxy read high.
+# The `unopened` BB node still exists in the packs and is still validated
+# elsewhere; nothing here says a pack may drop it. This helper simply stops
+# counting a seat that never opens as part of the opening population.
+# The nine-seat validator in `content/models.py:228` is NOT the same question
+# and is NOT contradicted: that field is the SIZE table, which the big blind
+# genuinely reads, because it also sizes the ISOLATION raise a big blind makes
+# routinely. An iso is `vs_limpers`, a different node from the `unopened` one
+# summed here.
+#
+# CALIBRATION (why this proxy is trusted): at pre-slice HEAD it reproduced the
+# harness's sampled opener stratum on the two personas N-3BSTRATA retuned —
 # maniac 0.609 proxy vs 0.630 sampled, lag 0.829 proxy vs 0.821 sampled (the
 # 756-hand corpus figures quoted in the roadmap). Deterministic, so no CI.
+# ⚠️ Those two proxy figures were computed on the NINE-seat population and are
+# left as the historical record rather than restated, because the pack they
+# were measured on is long gone and re-deriving them is not possible here. For
+# scale, on the pre-re-tune pack at THIS tip the same `cold`-role quantity
+# reads 0.6087 nine-seat vs 0.6091 eight-seat for the maniac and 0.8177 vs
+# 0.8155 for the lag — the correction is worth about a fifth of a point there,
+# against the ~1pp proxy-to-sampled agreement the calibration claims. The
+# claim survives the correction; it is not re-proved by it.
 
 
 def _open_range_mass_by_seat(pack) -> dict[Position, dict[str, float]]:
-    """seat -> (class -> combo-weighted mass this pack OPENS the pot with)."""
+    """seat -> (class -> combo-weighted mass this pack OPENS the pot with).
+
+    The big blind is excluded: it never opens an unopened pot. See the block
+    comment above for the engine evidence and for why the nine-seat SIZE-table
+    validator is a different question."""
     from app.domain.content.notation import parse_range
 
     by_seat: dict[Position, dict[str, float]] = {}
     for pos in Position:
+        if pos is Position.BB:
+            continue  # cannot open an unopened pot — see the block comment above
         node = _node_for_seat(pack, "unopened", pos)
         seat_mass: dict[str, float] = {}
         seen: set[str] = set()
@@ -5813,9 +5852,16 @@ def test_n3bstrata_defect_gates_fail_at_pre_slice_head():
     """🔴 NON-VACUITY (the R9-3 lesson): pre-slice HEAD is reproducible in-test
     because the retained `cold` node IS the pre-slice shared node, byte for
     byte. Feeding the opener stratum through it must MISS both targets —
-    maniac ~0.61 (target ~0.30) and lag ~0.83 (target 0.43-0.53) — which is
+    maniac ~0.61 (target ~0.30) and lag ~0.82 (target 0.43-0.53) — which is
     exactly the defect this slice fixes: one weight table cannot fold cold
-    junk without over-folding the opener."""
+    junk without over-folding the opener.
+
+    lag's figure was written as ~0.83 until 2026-08-19, when the big blind — a
+    seat that cannot open — was removed from this proxy's population (see the
+    `_open_range_mass_by_seat` block comment). The reading moves 0.818 -> 0.816
+    at this tip; maniac's is 0.609 either way. The defect these thresholds
+    demonstrate is nowhere near them, so nothing about this gate's meaning
+    changes."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -5828,7 +5874,8 @@ def test_n3bstrata_defect_gates_fail_at_pre_slice_head():
     )
     assert lag_head > 0.53, (
         f"lag's cold table folds only {lag_head:.3f} of its opening range — "
-        f"the pre-slice defect (0.829) is gone, so this gate no longer demonstrates it"
+        f"the pre-slice defect (0.829 as first recorded, 0.816 on the "
+        f"eight-seat population) is gone, so this gate no longer demonstrates it"
     )
 
 
@@ -5866,15 +5913,66 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     precedent). No vs_3bet edit was needed this time: the production blend
     moved 0.4914 -> 0.4722 @ n=12000 (CI [0.447, 0.498]), still comfortably
     inside the [0.43, 0.53] dossier band (see
-    `test_n3bstrata_production_opener_blend_in_dossier_band`)."""
+    `test_n3bstrata_production_opener_blend_in_dossier_band`).
+
+    RE-PINNED AND TIGHTENED for the lag vs-3-bet re-tune (2026-08-19,
+    owner-ruled; lag.json 1.13.0). The OPENER node's three weakest tiers now
+    fold more — speculative 0.53 -> 0.45 call, weak offsuit broadways
+    0.32 -> 0.16, weak offsuit aces 0.20 -> 0.10 — so this authored component
+    RISES (update-the-pin law, N-LAGLADDER precedent).
+
+    ⚠️ THIS PIN HAD BEEN WRONG TWO INDEPENDENT WAYS, and the slice fixes both
+    rather than only re-centring it.
+
+    (1) THE VALUE WAS STALE. On the PRE-edit pack at this tip the nine-seat
+    form of this proxy reads 0.5955, not the 0.6012 the pin carried — the
+    +-0.02 window had silently absorbed 0.0057 of drift from the slices
+    between N-LAGWIDTH and here (the seat-split opening ranges reshape the
+    arriving unopened mix this proxy weights by).
+
+    (2) THE POPULATION CONTAINED A SEAT THAT CANNOT OPEN (Codex Sol review).
+    `_open_range_mass_by_seat` summed all nine `unopened` nodes including the
+    BIG BLIND, which never opens an unopened pot — engine-verified, zero BB
+    `unopened` decisions in 20,000 seeded hands; see that helper's block
+    comment. The impossible seat carried 12.20% of the lag's supposed opening
+    mass, paired with the harder-folding SB/BB vs_3bet table, so the proxy
+    read HIGH. Excluding it moves the lag 0.5955 -> 0.5768 pre-edit and
+    0.6346 -> 0.6214 shipped, and the maniac 0.3058 -> 0.2956.
+
+    Both maniac and lag are therefore re-pinned on the CORRECTED eight-seat
+    population. The maniac number moves for reason (2) ONLY — this slice
+    edits no maniac content, and could not: its whole content diff is three
+    `weights` objects in one lag node.
+
+    (3) THE TOLERANCE DID NOT PROTECT WHAT THE DOCSTRING SAYS IT PROTECTS
+    (Codex Sol review). At +-0.02 this pin passed with ANY ONE of the three
+    trimmed tiers fully reverted, so "a pack edit can't silently reshape it"
+    was false at that width. Measured single-tier reversions from the shipped
+    0.621358, on the corrected population:
+        revert the speculative tier      0.603844  (delta 0.017514)
+        revert the offsuit broadways     0.601351  (delta 0.020007)
+        revert the offsuit aces          0.614325  (delta 0.007034)  <- smallest
+        revert all three (pre-slice)     0.576803  (delta 0.044555)
+    The tolerance is now 1e-4: 70x tighter than the smallest real reversion,
+    so every one of those fails loudly.
+
+    THE PIN CAN AFFORD THAT, because it is exact pack arithmetic and not a
+    sample — no rng, no seed, ~0.1s. Nondeterminism was measured, not assumed:
+    across five processes at different PYTHONHASHSEED values the readings span
+    0.6213583922590235-0.6213583922590238 (lag) and 0.2955647152818099-
+    0.29556471528181005 (maniac), i.e. 1-2 ULP of float-summation-order noise
+    at ~3e-16. The 1e-4 window is twelve orders of magnitude above that jitter
+    and two below the smallest signal it must catch. Values are quoted to six
+    decimals because at this width four-decimal rounding would spend a third
+    of the window."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
     maniac = _opener_fold_to_3bet(packs[VillainType.MANIAC])
     lag = _opener_fold_to_3bet(packs[VillainType.LAG])
-    print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.4f} lag {lag:.4f}")
-    assert maniac == pytest.approx(0.3073, abs=0.02), f"maniac component {maniac:.4f} moved"
-    assert lag == pytest.approx(0.6012, abs=0.02), f"lag component {lag:.4f} moved"
+    print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.6f} lag {lag:.6f}")
+    assert maniac == pytest.approx(0.295565, abs=1e-4), f"maniac component {maniac:.6f} moved"
+    assert lag == pytest.approx(0.621358, abs=1e-4), f"lag component {lag:.6f} moved"
 
 
 def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
@@ -6096,7 +6194,56 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     sibling `test_n3bstrata_opener_fold_to_3bet_targets` passes unchanged. That
     is what localises the drift to the arriving mix rather than to the policy.
 
-    Cost of the re-power: this test goes from ~50s to ~150s."""
+    Cost of the re-power: this test goes from ~50s to ~150s.
+
+    ✅ RE-TUNED (2026-08-19, owner ruling; lag.json 1.13.0). The re-tune the
+    T5 note above says is owed HAS NOW BEEN MADE, so read that note as history:
+    its "the sibling pin passes unchanged" no longer holds, because this slice
+    moves the pack's authored policy on purpose and re-pins the sibling with
+    it. The lever is the `vs_3bet` OPENER node's three weakest tiers —
+    speculative 0.53 -> 0.45 call, weak offsuit broadways 0.32 -> 0.16, weak
+    offsuit aces 0.20 -> 0.10. Same seed, same n=36000:
+
+        persona   pre-tune            re-tuned
+        lag       0.4372 (n_dec 4387) 0.4841 (n_dec 4383, CI [0.469, 0.499])
+        maniac    0.2729 (n_dec 7652) 0.2702 (n_dec 7731, CI [0.260, 0.280])
+
+    The margin is the point, not the level. lag cleared its 0.43 floor by
+    0.72pp before (0.96 SE, with the printed Wilson interval already dipping
+    under the floor) and clears it by 5.41pp now (7.2 SE); the 0.53 ceiling is
+    4.59pp away (6.1 SE). 0.4841 sits just above the middle of the dossier's
+    43-53% online-core target — the exact midpoint is 0.4800 and the reading is
+    0.41pp above it, NOT on it — so the tune is toward the research figure
+    rather than away from a test edge. The 0.43pp of pure shared-stream churn
+    that three postflop-only commits produced between them can no longer breach
+    either edge.
+
+    maniac is untouched by this slice and moves -0.27pp, which is that same
+    stream churn: its harness lineup uses lag seats as fillers, so a lag that
+    folds a 3-bet instead of calling one displaces every later hand.
+
+    ⚠️ THE LAG-TAG AXIS IS NOW COUPLED, AND THE NEXT SLICE ON IT INHERITS THAT
+    (theory review). This tune spends lag-tag separation from the lag's side,
+    and the TAG's own fold-to-3-bet correction — still owed, measured 76.2
+    against a target near 50 — will spend the SAME z-axis from the other side.
+    THAT SLICE MUST RE-MEASURE SEPARATION BEFORE IT PICKS ITS MAGNITUDE, not
+    after. The room left is real but no longer generous; lag-tag is the binding
+    pair on all five gate seeds, before and after:
+
+        seed   pre-tune   re-tuned   floor 1.254429
+        601    2.038801   1.802042
+        602    1.883035   1.802026
+        603    1.808383   1.702837
+        604    1.710870   1.543450   <- tightest, 1.23x the floor
+        605    1.862100   1.691839
+
+    All five PASS. The worst seat loses 0.167 and sits 0.289 above the floor,
+    so a TAG correction of this size on the same axis is roughly the budget
+    that remains, not a free move.
+
+    THE BAND IS STILL NOT WIDENED. It was not widened for T5 and it is not
+    widened here — the pack moved to fit the band, which is the direction §11
+    item 7 requires."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")

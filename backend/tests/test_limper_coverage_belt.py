@@ -422,9 +422,23 @@ _PRE_M3_FIRES = {
     # fold flipping to a river call changes how many further decisions the hand
     # contains, which displaces the deal and the preflop action of every hand
     # after it. No new draw was added and none precedes the action draw.
-    ("UTG2", 1): 97, ("LJ", 1): 115, ("HJ", 1): 116, ("CO", 1): 99,
-    ("CO", 2): 25, ("SB", 1): 78, ("SB", 2): 40, ("BTN", 1): 85,
-    ("BTN", 2): 31,
+    # RE-RECORDED for the lag vs-3-bet re-tune (2026-08-19,
+    # slice-authorized): the lag's `vs_3bet` OPENER node folds more in its
+    # three weakest tiers, so a lag that opened and got 3-bet now folds where
+    # it used to call, the hand ends earlier, and the shared organic rng
+    # stream drifts at this seed. All nine pairs move (old: UTG2 97, LJ 115,
+    # HJ 116, CO 99, CO x2 25, SB 78, SB x2 40, BTN 85, BTN x2 31). No
+    # limper-belt content changed, and every _WANT_* coverage shape still
+    # fires (measured at this tip: BB 55, BB x2 27, BB x3 5) — stream
+    # displacement, not a coverage regression. ATTRIBUTION: this slice's whole
+    # content diff is three `weights` objects in one node of
+    # content/personas/lag.json plus that pack's `version` and `_doc`; no
+    # engine file and no limper-belt file is touched, and neither `version`
+    # nor `_doc` can reach this belt (`_doc` is not a model field, and
+    # `version` only enters `config_hash`, which only the export digests read).
+    ("UTG2", 1): 94, ("LJ", 1): 109, ("HJ", 1): 114, ("CO", 1): 106,
+    ("CO", 2): 24, ("SB", 1): 82, ("SB", 2): 37, ("BTN", 1): 86,
+    ("BTN", 2): 28,
 }
 
 
