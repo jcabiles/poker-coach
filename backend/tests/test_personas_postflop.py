@@ -5866,7 +5866,22 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     precedent). No vs_3bet edit was needed this time: the production blend
     moved 0.4914 -> 0.4722 @ n=12000 (CI [0.447, 0.498]), still comfortably
     inside the [0.43, 0.53] dossier band (see
-    `test_n3bstrata_production_opener_blend_in_dossier_band`)."""
+    `test_n3bstrata_production_opener_blend_in_dossier_band`).
+
+    RE-PINNED for the lag vs-3-bet re-tune (2026-08-19, owner-ruled;
+    lag.json 1.13.0): the OPENER node's three weakest tiers now fold more —
+    speculative 0.53 -> 0.45 call, weak offsuit broadways 0.32 -> 0.16, weak
+    offsuit aces 0.20 -> 0.10 — so this authored component RISES, 0.5955 ->
+    0.6346 (update-the-pin law, N-LAGLADDER precedent). Tolerance is
+    UNCHANGED at +-0.02; only the centre moves.
+
+    ⚠️ THE 0.6012 THIS PIN CARRIED WAS ITSELF STALE. Measured directly on the
+    PRE-edit pack at this tip, the component reads 0.5955, not 0.6012 — the
+    +-0.02 band had silently absorbed 0.0057 of drift from the slices between
+    N-LAGWIDTH and here (the seat-split opening ranges reshape the arriving
+    unopened mix this proxy weights by). The new centre is the value the
+    shipped pack actually measures, so that drift is spent rather than
+    carried forward."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")
@@ -5874,7 +5889,7 @@ def test_n3bstrata_opener_fold_to_3bet_targets():
     lag = _opener_fold_to_3bet(packs[VillainType.LAG])
     print(f"N-3BSTRATA opener fold-to-3bet (unopened component): maniac {maniac:.4f} lag {lag:.4f}")
     assert maniac == pytest.approx(0.3073, abs=0.02), f"maniac component {maniac:.4f} moved"
-    assert lag == pytest.approx(0.6012, abs=0.02), f"lag component {lag:.4f} moved"
+    assert lag == pytest.approx(0.6346, abs=0.02), f"lag component {lag:.4f} moved"
 
 
 def test_n3bstrata_lag_opener_fourbet_share_in_dossier_band():
@@ -6096,7 +6111,36 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     sibling `test_n3bstrata_opener_fold_to_3bet_targets` passes unchanged. That
     is what localises the drift to the arriving mix rather than to the policy.
 
-    Cost of the re-power: this test goes from ~50s to ~150s."""
+    Cost of the re-power: this test goes from ~50s to ~150s.
+
+    ✅ RE-TUNED (2026-08-19, owner ruling; lag.json 1.13.0). The re-tune the
+    T5 note above says is owed HAS NOW BEEN MADE, so read that note as history:
+    its "the sibling pin passes unchanged" no longer holds, because this slice
+    moves the pack's authored policy on purpose and re-pins the sibling with
+    it. The lever is the `vs_3bet` OPENER node's three weakest tiers —
+    speculative 0.53 -> 0.45 call, weak offsuit broadways 0.32 -> 0.16, weak
+    offsuit aces 0.20 -> 0.10. Same seed, same n=36000:
+
+        persona   pre-tune            re-tuned
+        lag       0.4372 (n_dec 4387) 0.4841 (n_dec 4383, CI [0.469, 0.499])
+        maniac    0.2729 (n_dec 7652) 0.2702 (n_dec 7731, CI [0.260, 0.280])
+
+    The margin is the point, not the level. lag cleared its 0.43 floor by
+    0.72pp before (0.96 SE, with the printed Wilson interval already dipping
+    under the floor) and clears it by 5.41pp now (7.2 SE); the 0.53 ceiling is
+    4.59pp away (6.1 SE). 0.4841 is the MIDPOINT of the dossier's 43-53%
+    online-core target, so the tune is toward the research figure rather than
+    away from a test edge. The 0.43pp of pure shared-stream churn that three
+    postflop-only commits produced between them can no longer breach either
+    edge.
+
+    maniac is untouched by this slice and moves -0.27pp, which is that same
+    stream churn: its harness lineup uses lag seats as fillers, so a lag that
+    folds a 3-bet instead of calling one displaces every later hand.
+
+    THE BAND IS STILL NOT WIDENED. It was not widened for T5 and it is not
+    widened here — the pack moved to fit the band, which is the direction §11
+    item 7 requires."""
     packs = load_persona_packs()
     if not packs:
         pytest.skip("no persona packs")

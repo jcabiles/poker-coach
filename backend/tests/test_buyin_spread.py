@@ -249,19 +249,37 @@ def _hash_manifest(manifest: dict) -> str:
 # No new random draw was added and none precedes the action draw. The draw COUNT
 # is not claimed invariant: a fold flipping to a call changes which later
 # decisions happen at all.
+# RE-RECORDED for the lag vs-3-bet re-tune (2026-08-19, slice-authorized): the
+# lag's `vs_3bet` OPENER node folds more in its three weakest tiers, so the lag
+# continues fewer 3-bet pots, hands end differently and every byte of a seeded
+# export changes with them. The pack `version` bumps to 1.13.0 with the values.
+# Both causes are folded into this one re-pin and both are deliberate. Values
+# immediately before it (measured at this tip with the old weights):
+#   manifest      998cd03659012e083d7e848b06e907f476c005a74816305842f1db45ecc92482
+#   hands         fe90ec8e09536723a3611eda05c299499c75ce4685a38307fdf2de33a071d06d
+#   seat_outcomes 568298ef39d69726e68adbf01095978dbb18887e6ce37d773582d0500a2a17ef
+#   decisions     97d0a1e279e059250b0c37616b2617df66f6d3822060cda3854d2c780fa3995d
+# THE MANIFEST MOVES HERE, unlike the T3 entry immediately above, and that is
+# the expected signature for a PACK edit. `config_hash` is
+# `counterfactual.baseline_config_hash(packs)`, canonicalized over the loaded
+# pack MODELS, so the weight change alone would move it and the `version` bump
+# does too; the `run_id` and `hand_id` columns derived from it move with it.
+# Measured rather than assumed: the baseline config hash goes 492ed91c908126b6
+# -> 3eb80f12c52ccf70 (first 16). T3 moved only three digests because it was
+# engine-only and bumped no pack.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "998cd03659012e083d7e848b06e907f476c005a74816305842f1db45ecc92482"
+    "c6702078ad7cc7da963e6e21e38ca4dd8b29fdffa6c937327417200c5769c3c5"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "fe90ec8e09536723a3611eda05c299499c75ce4685a38307fdf2de33a071d06d"
+    "88746bc22780d45e9cb0d1f233b6eed2d510b000befa31fb5cd879567bcd04fe"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "568298ef39d69726e68adbf01095978dbb18887e6ce37d773582d0500a2a17ef"
+    "396a96ba84469917d4fd9acf7c182f369110c65b45182c8182bead4f0537df6c"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "97d0a1e279e059250b0c37616b2617df66f6d3822060cda3854d2c780fa3995d"
+    "a62f0dec1c517ca8d84fd52630f723719e7a40933d0a93dd498391854dac2094"
 )
 
 

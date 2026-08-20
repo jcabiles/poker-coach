@@ -1,8 +1,51 @@
 {
   "id": "persona_lag",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "domain": "persona",
   "_doc": [
+    "1.13.0 (lag vs-3-bet re-tune, 2026-08-19) — the opener node's three",
+    "weakest tiers fold more. Facing a 3-bet after making the hand's first",
+    "raise from a non-blind seat, the speculative tier (small pairs, small",
+    "suited kings and queens, suited connectors, and the offsuit broadways)",
+    "calls 0.53 -> 0.45; the weak-offsuit-broadway tier (KTo, QTo, T9o, A9o,",
+    "A8o, A7o, K9o, Q9o, J9o) calls 0.32 -> 0.16; and the weak-offsuit-ace",
+    "tier (A6o-A2o, K8o, K7o, Q8o, J8o, T8o, 98o, 87o) calls 0.20 -> 0.10.",
+    "No 4-bet weight, no combo list and no other node moves, so the authored",
+    "opener 4-bet share is unchanged at 4.08% and its dossier band is not",
+    "reopened.",
+    "Measured at the frozen n=36000 harness",
+    "(`test_n3bstrata_production_opener_blend_in_dossier_band`), fold-to-3-bet",
+    "over the production opener population goes 0.4372 -> 0.4841 (n=4383",
+    "decisions). The dossier target for the online-core lag is 43-53% and the",
+    "owner ruled that band on 2026-08-19; 0.4841 is its midpoint. The point of",
+    "the edit is the margin rather than the level: before it, the reading",
+    "cleared the 43% floor by 0.72pp, which is under one standard error, and",
+    "three shipped POSTFLOP-only commits had already moved the same reading",
+    "0.43pp between them through shared-stream displacement alone. The pin was",
+    "reading the stream, not this pack. It now clears the floor by 5.41pp and",
+    "the ceiling by 4.59pp, both over six standard errors.",
+    "The trim is ordered by weakness and deliberately stops short of the tiers",
+    "that make a lag a lag. The suited-broadway/suited-ace/88-77/AQo-AJo tier",
+    "is UNTOUCHED at 0.62 call — those are the defends the archetype is built",
+    "on, and folding them is how a lag turns into a tag. What folds more is",
+    "dominated offsuit: A7o and K9o against a 3-betting range are",
+    "reverse-implied-odds calls, and 22-66 needs implied odds that a 3-bet pot",
+    "at 100bb does not offer often enough to justify continuing two times in",
+    "three. The node still continues about 52% of the hands that arrive at it,",
+    "which is wide.",
+    "The SB/BB sibling node is deliberately NOT touched. It carries 45 of the",
+    "4,387 measured decisions (1.0%), so no edit there could buy usable",
+    "margin, and it already folds far more than this node does (0.65 and 0.62",
+    "in the two tiers that carry its mass, against 0.38 and 0.37) — the",
+    "over-continuing this ticket corrects is specific to the non-blind opener.",
+    "[UNVERIFIED] — the tier-level weights. The 43-53% AGGREGATE is sourced",
+    "(playstyle-research/lag.md §19, online core, re-validated against 1,228",
+    "live hands in the 2026-08-05 re-measure); no committed source gives a",
+    "per-tier continue distribution facing a 3-bet, so the shape is judgement",
+    "scaled to that aggregate. One older research wave (RP6_findings.md) gives",
+    "a lower 35-45% target for the same statistic and is unreconciled with the",
+    "dossier; the owner's 2026-08-19 ruling is on 43-53, which is also the",
+    "figure the coded gate has always used.",
     "1.12.0 (de-robotization slice 1, T2b, 2026-08-17) — the open is authored",
     "per seat and the 3-bet multiplier gains two more rungs. Before this change",
     "the pack opened 3.0bb with share 1.000 from all eight opening seats, 741",
@@ -428,15 +471,15 @@
         },
         {
           "combos": "22-66, K9s, K8s, Q9s, Q8s, J9s, J8s, T8s, 97s, 87s, 76s, 65s, 54s, KQo, ATo, KJo, QJo, JTo",
-          "weights": { "4bet": 0.1, "call": 0.53, "fold": 0.37 }
+          "weights": { "4bet": 0.1, "call": 0.45, "fold": 0.45 }
         },
         {
           "combos": "KTo, QTo, T9o, A9o, A8o, A7o, K9o, Q9o, J9o",
-          "weights": { "call": 0.32, "fold": 0.68 }
+          "weights": { "call": 0.16, "fold": 0.84 }
         },
         {
           "combos": "A6o, A5o, A4o, A3o, A2o, K8o, K7o, Q8o, J8o, T8o, 98o, 87o",
-          "weights": { "call": 0.2, "fold": 0.8 }
+          "weights": { "call": 0.1, "fold": 0.9 }
         },
         {
           "combos": "K6o, K5o, Q7o, Q6o, J7o, T7o, 97o, 86o, 76o, 65o, J7s, T7s, Q7s, 96s, 86s, 75s, 64s, 53s, 43s",
