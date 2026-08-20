@@ -1061,9 +1061,17 @@ def test_fold_by_size_is_opponents_aware():
     r_hu = _measure_fold_by_size(street=Street.FLOP, opponents=1)
     r_mw = _measure_fold_by_size(street=Street.FLOP, opponents=3)
     # tag facing a ⅓-pot bet on the flop: measured 0.2168 at opponents=1 vs
-    # 0.3184 at opponents=3 (T1's damp shrinks naked ace-high's CALL_BASE, and
-    # `_MW_CATCH_TIGHTEN` separately tightens the one-pair catcher buckets'
-    # FOLD merit) — a +0.10 rise, far past noise at n=1250.
+    # 0.3184 at opponents=3 — a +0.1016 rise, far past noise at n=1250. THREE
+    # mechanisms carry it, not two: T1's `_ACE_HIGH_FLOAT_RAISE_DAMP` (shrinks
+    # naked ace-high's CALL_BASE facing a bet at opponents > 1) and
+    # `_MW_CATCH_TIGHTEN` (tightens the FOLD merit of the AIR/ACE_HIGH/
+    # MIDDLE_PAIR/TOP_PAIR buckets — not "one-pair" alone) together carry only
+    # part of it: neutralizing both still leaves +0.0432. The rest is the
+    # pack-level `multiway_bluff_damp` (shrinks bluff_mass, which raises FOLD's
+    # normalized share through the complement) — neutralizing all three drops
+    # the delta to exactly 0.0. So this guard is load-bearing on all three,
+    # and a maintainer changing any one of them should expect this number to
+    # move.
     hu = r_hu["tag"][0.33]
     mw = r_mw["tag"][0.33]
     assert mw - hu > 0.05, (
