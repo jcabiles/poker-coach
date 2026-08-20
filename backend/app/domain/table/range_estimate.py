@@ -366,12 +366,34 @@ def _legal_from_ctx(ctx: _Ctx) -> list[LegalAction]:
     shape for every field the persona-response path READS.
 
     ESTIM-PRICE: that is the CALL entry's `min_bb` alone — it is the faced-price
-    numerator (`sample_postflop_decision`'s `to_call_bb`, :845). BET/RAISE
-    min/max are left None deliberately: their only readers are the SIZING draw
-    and its bracket clamp (:1015-1020), which `_CaptureRng` short-circuits by
-    returning population[0] (never BET/RAISE) on the action draw, so no size is
-    ever computed here. Reconstructing a min-raise ladder for a code path that
-    cannot run would be dead precision.
+    numerator (`sample_postflop_decision`'s `to_call_bb`). BET/RAISE min/max are
+    left None: their only readers are the SIZING draw and its bracket clamp,
+    which runs AFTER the action draw and which `_CaptureRng` short-circuits by
+    returning population[0] (never BET/RAISE), so no size is ever computed here.
+    Reconstructing a min-raise ladder for a code path that cannot run would be
+    dead precision. Verified against the sampler rather than assumed: the only
+    `.min_bb`/`.max_bb` reads in `personas_postflop.sample_postflop_decision`
+    are the CALL entry's, twice, and the sizing clamp's.
+
+    THAT IS A STATEMENT ABOUT TODAY'S SAMPLER, NOT A PROPERTY OF THIS FUNCTION,
+    AND IT HAS ALREADY BEEN FALSE ONCE. Improvement slice 2's T2 added a lever
+    that priced a bluff on the stack-capped size, reading `max_bb` inside the
+    merit computation — which runs BEFORE the action draw and therefore lands in
+    the very vector `_CaptureRng` records. The live bot then priced a
+    short-stacked bot's bluff on the size it could make while the villain range
+    shown to the player priced it on the authored size, overstating air by 1.2x
+    to 1.45x. That lever did not ship, so the paragraph above is true again.
+
+    The danger is that the parity tests could not see it. Both this function and
+    `test_range_estimate.py`'s `_live_legal` built the same capless bracket, so
+    every parity assertion compared a capless estimator against a capless live
+    side and would have passed whatever the sampler did with those fields.
+    `test_no_aggressive_bracket_field_is_read_before_the_action_draw` now drives
+    the live side from `engine.legal_actions` instead, at a node where the real
+    bracket and the capless one differ materially, so the assumption this
+    docstring rests on is asserted rather than believed. Anyone adding a lever
+    that reads an aggressive bracket bound must expect that test to go red, and
+    must thread the real bracket through here rather than deleting it.
     """
     return [
         LegalAction(action=k, min_bb=ctx.to_call_bb if k is ActionType.CALL else None)
