@@ -530,7 +530,7 @@ PRICE_FRACS = (0.33, 0.5, 1.0, 1.5)  # SMALL / MEDIUM / LARGE(pot) / OVERBET
 _PRICE_N = 1250
 
 
-def _measure_fold_by_size(street: Street | None = None):
+def _measure_fold_by_size(street: Street | None = None, opponents: int = 1):
     """persona -> {frac: measured fold-to-bet} facing FOLD/CALL/RAISE with a
     bet of `frac * pot-before-the-bet`, same pre-dealt spot list for every
     persona x size (paired comparison, variance from range composition
@@ -540,7 +540,13 @@ def _measure_fold_by_size(street: Street | None = None):
     `sample_postflop_decision` so street-gated levers (e.g. T3's
     `_ACE_HIGH_RIVER_CALL_DAMP`, RIVER-only) are measurable here; every
     existing caller leaves it at the default and is byte-identical to before
-    this parameter existed."""
+    this parameter existed.
+
+    `opponents` (default `1`) is threaded the same way, so multiway-gated
+    levers (e.g. T1's `_ACE_HIGH_FLOAT_RAISE_DAMP`, which now also fires
+    facing a BET at `opponents > 1`) are measurable here too; every existing
+    caller leaves it at the default and is byte-identical to before this
+    parameter existed."""
     from app.domain.equity import RANKS
 
     packs = load_persona_packs()
@@ -577,7 +583,7 @@ def _measure_fold_by_size(street: Street | None = None):
                     legal,
                     pot,
                     100.0,
-                    1,
+                    opponents,
                     rng,
                     current_bet_to=to_call,
                     street=street,
@@ -641,14 +647,14 @@ def test_fold_to_bet_monotone_in_faced_size(persona, fold_by_size):
 _CATCHER_BUCKETS = (StrengthBucket.MIDDLE_PAIR, StrengthBucket.TOP_PAIR)
 
 
-def _measure_catcher_fold_by_size(street: Street | None = None):
+def _measure_catcher_fold_by_size(street: Street | None = None, opponents: int = 1):
     """persona -> {frac: fold-to-bet} over a pure bluff-catcher range (see the
     block above), measured at the same node/seeds as `fold_by_size`.
 
-    `street` (default `None`) is threaded straight into
-    `sample_postflop_decision`, same as `_measure_fold_by_size`; every
-    existing caller leaves it at the default and is byte-identical to before
-    this parameter existed."""
+    `street` (default `None`) and `opponents` (default `1`) are threaded
+    straight into `sample_postflop_decision`, same as `_measure_fold_by_size`;
+    every existing caller leaves both at the default and is byte-identical to
+    before these parameters existed."""
     from app.domain.equity import RANKS
 
     packs = load_persona_packs()
@@ -688,7 +694,7 @@ def _measure_catcher_fold_by_size(street: Street | None = None):
                     legal,
                     pot,
                     100.0,
-                    1,
+                    opponents,
                     rng,
                     current_bet_to=to_call,
                     street=street,
@@ -840,9 +846,13 @@ def test_fold_to_bet_respects_alpha_ceiling(persona, catcher_fold_by_size):
 # would fail on 15 to 24 cells per street, which is a red suite, not a guard.
 #
 # This helper is purpose-built rather than a reuse of `_measure_catcher_fold_by_size`
-# for two reasons: the range filter is a different bucket, and `opponents` has to
-# be swept (both standing price fixtures pin it to 1, so neither can see
-# `_MW_CATCH_TIGHTEN` or T1's `opponents > 1` predicate). Node, deal seed,
+# for one reason now, not two: the range filter is a different bucket
+# (naked ACE_HIGH here vs the one-pair catcher buckets there). `opponents`
+# no longer distinguishes them — `_measure_fold_by_size` and
+# `_measure_catcher_fold_by_size` both accept it too (2026-08-20 follow-up to
+# #203), and `test_fold_by_size_is_opponents_aware` (next to
+# `test_fold_by_size_is_street_aware` above) proves the price fixtures now
+# see `_MW_CATCH_TIGHTEN`/T1's `opponents > 1` predicate. Node, deal seed,
 # per-cell decision seed and n are otherwise identical to that fixture, so the
 # two tables are directly comparable.
 def _measure_ace_high_fold_by_size(persona: str, street, opponents: int):
@@ -1031,6 +1041,42 @@ def test_fold_by_size_is_street_aware():
     assert river_pot - none_pot > 0.15, (
         f"street=RIVER should fold measurably more than street=None at "
         f"pot-size, got {river_pot:.4f} vs {none_pot:.4f}"
+    )
+
+
+# ---- Non-vacuity: `opponents` is actually threaded, not a dead parameter --
+#
+# 2026-08-20 follow-up to #203 (this fixture's own history): `opponents` was
+# still hardcoded to `1` (the 7th positional arg to `sample_postflop_decision`)
+# even after `street` got threaded, so multiway-gated levers stayed invisible
+# to it — notably T1's `_ACE_HIGH_FLOAT_RAISE_DAMP`, which since T1
+# (improvement slice 2, 2026-08-18) fires on the facing-a-BET node whenever
+# `opponents > 1`, not only `facing_raise`. This test calls the underlying
+# `_measure_fold_by_size` helper directly at `opponents=3` (bypassing the
+# module-scoped fixture, which is pinned to the `opponents=1` default) and
+# proves the surface actually moves — same shape as
+# `test_fold_by_size_is_street_aware` above, guarding the THREADING
+# MECHANISM rather than one pinned number.
+def test_fold_by_size_is_opponents_aware():
+    r_hu = _measure_fold_by_size(street=Street.FLOP, opponents=1)
+    r_mw = _measure_fold_by_size(street=Street.FLOP, opponents=3)
+    # tag facing a ⅓-pot bet on the flop: measured 0.2168 at opponents=1 vs
+    # 0.3184 at opponents=3 — a +0.1016 rise, far past noise at n=1250. THREE
+    # mechanisms carry it, not two: T1's `_ACE_HIGH_FLOAT_RAISE_DAMP` (shrinks
+    # naked ace-high's CALL_BASE facing a bet at opponents > 1) and
+    # `_MW_CATCH_TIGHTEN` (tightens the FOLD merit of the AIR/ACE_HIGH/
+    # MIDDLE_PAIR/TOP_PAIR buckets — not "one-pair" alone) together carry only
+    # part of it: neutralizing both still leaves +0.0432. The rest is the
+    # pack-level `multiway_bluff_damp` (shrinks bluff_mass, which raises FOLD's
+    # normalized share through the complement) — neutralizing all three drops
+    # the delta to exactly 0.0. So this guard is load-bearing on all three,
+    # and a maintainer changing any one of them should expect this number to
+    # move.
+    hu = r_hu["tag"][0.33]
+    mw = r_mw["tag"][0.33]
+    assert mw - hu > 0.05, (
+        f"opponents=3 should fold measurably more than opponents=1 at "
+        f"⅓-pot on the flop, got {mw:.4f} vs {hu:.4f}"
     )
 
 
