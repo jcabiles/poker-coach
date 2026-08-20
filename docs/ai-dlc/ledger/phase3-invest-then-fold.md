@@ -478,9 +478,24 @@ PASS at seed 601: minimum pairwise 2.038801 against the pinned floor 1.254429,
 labels 6/6, second-closest pair nit–TAG at 2.5996. Both frozen went-to-showdown
 bands clear, and they are the constraint that set the shipped value: lag 0.5793
 against a 0.59 ceiling, margin +0.0107; calling station 0.7096 against 0.72,
-margin +0.0104. The determinism rule's worst persona reads 0.1429. That rule is
-structurally blind to the defect T3 removes — its context key carries no hand
-class — so it is not evidence either way here, and the source says so.
+margin +0.0104. The determinism rule's worst persona reads 0.1429.
+
+**That rule is not evidence either way here, and the reason is not the one PR
+#200 gave.** The pull request said the rule's "context key carries no hand class,
+so this cell was never one of its deterministic contexts". Both halves are false:
+the rule keys a context as `(persona, street, engine_node_key,
+hand_class_bucket)`, and the cell **is** one of its flagged contexts — at this very
+tip the nit's river `flat` / `ace_high|none` context is reported deterministic at a
+0.9864 modal share over 220 observations. **The real mechanism is that the rule
+counts contexts rather than decisions and allows each persona 20 percent of its
+qualifying contexts to be deterministic.** Two or three flagged river contexts
+among the nit's 91 qualifying ones cannot approach that allowance, before or after
+T3. Compounding it: `engine_node_key` does not encode "faced a bet at least the
+seat's remaining stack", so the surface T3 targets is a thin slice inside a broader
+context, and a damp of 0.06 does not lift that broader context back under the 0.98
+modal-share threshold. The guard therefore flags the same contexts either side of
+the change. See the five-seed table in the close-out for the readings at all five
+seeds, and the corrected note on spec §7's slice criterion 2.
 
 ### How the review was run
 
@@ -520,15 +535,32 @@ worker's false "largest dip" claim rather than checking it against the same file
 own history; it wrote the T2 forced-jam finding up as live impact before the
 byte-identity measurement existed; and it nearly overwrote the worker's honest
 finding that criterion 1 is unmet on literal terms with the softer determinism-only
-reading. The worker's version is what shipped, and it was right to insist.
+reading.
+
+**A sixth false claim was found after merge, at close-out, and it is the most
+instructive of the six because no code carried it.** PR #200's body asserted that
+the gate's determinism rule "is structurally blind to the defect T3 removes — its
+context key carries no hand class, so this cell was never one of its deterministic
+contexts". The rule's own definition contradicts both halves, and the gate output
+flags the very cell in question. Nothing in the repository ever said it; it was
+written in a pull-request body, and the close-out then repeated it in three places
+without checking it against the rule's source. It was caught by a reviewer whose
+only brief was to check numbers against sources. **A claim about an instrument is
+as checkable as a claim about the code, and it was checked by nobody until the
+slice was already merged.** The worker's version is what shipped, and it was right to insist.
 
 ### Two lessons this slice earned, stated rather than smoothed over
 
 1. **All three tickets shipped stale or false claims past a fully green test
-   suite.** T1 shipped four, T2 one, T3 five. Not one was caught by a test, because
-   no test reads prose. The only instrument that works on this failure class is
-   independent readers looking for contradictions, and the cost of the slice's
-   review rounds is what buying that instrument costs.
+   suite.** T1 shipped four, T2 one, T3 five in the code and a sixth in its
+   pull-request body that survived merge and was caught only at close-out. Not one
+   was caught by a test, because no test reads prose. The only instrument that
+   works on this failure class is independent readers looking for contradictions,
+   and the cost of the slice's review rounds is what buying that instrument costs.
+   **The sixth adds a rider: prose outside the repository — a pull-request body —
+   gets no review pass at all once it is merged, and this slice put a false claim
+   about a gate's own definition there and then propagated it into three
+   documents.**
 2. **T2 was killed by its own worker reproducing, from scratch, a measurement
    against its own ticket's interest.** A process that only rewards shipped diffs
    would have suppressed that. Recording it is how it stays repeatable.
@@ -544,9 +576,20 @@ built, and nothing below blocks the slice.
   all-in, and 93 percent of the counted events are all-in refusals in pots the
   cascade inflates — median pot 253bb. Cut by ruling A, which put engine and stack
   work out of this phase, so the largest single contributor to the statistic is out
-  of reach by ruling rather than by oversight. (An earlier version of the close-out
-  list quoted 30.9 percent; that is the default-lineup figure the 2026-08-18
-  re-measure superseded.)
+  of reach by ruling rather than by oversight.
+
+  **Reconciling the four figures the slice's documents quote, because two of them
+  are the same statistic and two are not.** Spec §1.2's "93 percent" and the
+  out-of-scope entry's "94 percent of the surface" are **one statistic on two
+  lineups**: the share of counted events that are all-in refusals, which this
+  ledger's own 2026-08-18 re-measure table records as **94.0 percent on the
+  default lineup and 92.7 percent on the ratified one**. The out-of-scope line
+  still carries the default-lineup survivor; §1.2's 93 is the ratified 92.7
+  rounded. **20.2 percent is a different statistic** — the share of *hands* in
+  which at least one seat finishes all-in, whose default-lineup counterpart is the
+  30.9 percent an earlier version of the ticket's close-out list quoted. So: two
+  statistics, four numbers, each pair a default-lineup and a ratified-lineup
+  reading of the same thing.
 - **The residual air-only deterministic folds.** 144 per 50,000 hands survive T3 by
   design: "air never calls the river" is the half of the rule that was always right.
   They remain probability-1.000 folds and remain a statistical signature.
@@ -656,8 +699,16 @@ line, which is why the tickets required the pair to be reported explicitly.
   0.20 ceiling. The persona carrying it moves between the nit and the calling
   station across seeds on counts of 11 to 14 out of 85 to 113, which is the same
   churn in which contexts clear the observation threshold that the T3 round
-  recorded. Separately, that rule is structurally blind to the defect T3
-  removes; see the correction to spec §7.
+  recorded. **Read the pass as a pass and nothing more: the rule still flags a
+  river naked-ace-high context on every one of the five seeds** — the nit's
+  `flat` / `ace_high|none` at modal shares of 0.9852 to 0.9952, the calling
+  station's at 0.9881 to 0.9966, and on seed 603 the nit's `river_value` /
+  `ace_high|none` as well. It flags them because it counts contexts and allows each
+  persona 20 percent of its qualifying set, so a few river entries among ninety-odd
+  contexts never move it, and because a damp of 0.06 does not lift a whole
+  hand-class context back under a 0.98 modal-share threshold. The guard is not
+  measuring what this slice did; the diagnosis count is. See the corrected note on
+  spec §7's slice criterion 2.
 - **LAG–TAG is the binding pair on every seed**, so the pair the spec told this
   slice to watch is the right one to keep watching, and it was recomputed from
   the raw statistic vectors independently of the tool, matching to six decimals.

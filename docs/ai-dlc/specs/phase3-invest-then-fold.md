@@ -388,14 +388,38 @@ dial.
    is evidence the change did not reach the node it was aimed at.
 
    **Corrected 2026-08-19: this criterion cannot do the job it was written for,
-   and the "659" was a default-lineup figure.** The gate's determinism rule keys
-   its contexts without any hand class, so the cell T3 fixes was never one of its
-   deterministic contexts — the rule is structurally blind to this defect, and its
-   readings wandered between 0.13 and 0.16 across the slice on counts of 12–15 out
-   of 89–91, which is churn in which contexts clear the 50-observation threshold.
-   The instrument that does measure the property is the diagnosis script's count of
-   folds that are probability-1.000 by construction: **524 at slice start, 495 after
-   T1, 144 at the merged tip.** Read that, not the guard.
+   and the "659" was a default-lineup figure.** **The mechanism, derived from the
+   rule's own definition and from the five-seed gate output rather than assumed:
+   the guard does see these contexts and flags them, but it is a share-of-contexts
+   rule and a handful of flagged river contexts cannot move it.** The rule keys a
+   context as `(persona, street, engine_node_key, hand_class_bucket)`, qualifies it
+   at 50 or more observations, calls it deterministic when its modal action share
+   reaches 0.98, and fails a persona only when more than 20 percent of that
+   persona's qualifying contexts are deterministic. River naked-ace-high contexts
+   clear the observation threshold easily and are flagged: at the merged tip the
+   nit's river `flat` / `ace_high|none` context reads a 0.9864 modal share over 220
+   observations at seed 601, and the equivalent calling-station context reads 0.9907
+   over 2,266 — **flagged after T3, exactly as they were before it.** They are a
+   couple of entries among the nit's 91 qualifying contexts, so they sit far below
+   the 20 percent allowance whether they are deterministic or not. Two further
+   reasons the reading is insensitive: `engine_node_key` does not encode "faced a
+   bet at least the seat's remaining stack", so the fold surface this slice targets
+   is a thin slice inside a broader context rather than a context of its own; and a
+   damp of 0.06 does not lift these contexts back under the 0.98 threshold. The
+   guard's own readings wandered between 0.12 and 0.16 across the slice on counts of
+   11–15 out of 85–113, which is churn in which contexts clear the 50-observation
+   threshold. **The instrument that does measure the property is the diagnosis
+   script's count of folds that are probability-1.000 by construction: 524 at slice
+   start, 495 after T1, 144 at the merged tip.** Read that, not the guard.
+
+   **An earlier revision of this correction said the rule "keys its contexts
+   without any hand class" and was therefore blind to the cell. That was false in
+   both halves** — the key's fourth element *is* `hand_class_bucket`, and the cell
+   *is* among the rule's flagged contexts. The claim came from PR #200's body and
+   was repeated here without being checked against the rule's source. The
+   conclusion survives the correction and is in fact firmer: a guard that flags
+   these contexts identically before and after T3 says nothing about whether T3
+   worked.
 3. Events fall materially and the aggressive-investment shares of the maniac and
    the LAG (0.74 and 0.54) fall with them.
 4. Pool went-to-showdown rises by no more than T3's measured cost and by nothing
