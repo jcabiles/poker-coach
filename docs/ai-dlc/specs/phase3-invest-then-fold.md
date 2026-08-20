@@ -257,10 +257,15 @@ measurement apparatus, per the owner ruling of 2026-08-17.
 **Which gate can actually see this slice's damage, corrected.** The binding
 separation pair is **LAG–TAG at 1.7920**, not anything involving the maniac —
 maniac–LAG sits at 3.7247 with a preflop-only component of 2.774, so the maniac
-could lose its entire postflop identity without breaching the floor. Ticket 1
-damps the LAG's 294 events and barely touches TAG's 82, which pushes exactly the
-binding pair together. Watch that pair specifically, and watch the determinism
-guard, which is the other rule with something to say here.
+could lose its entire postflop identity without breaching the floor. **Corrected
+2026-08-19, owner-authorised (ledger finding 9 of the T1 build round): this
+paragraph said ticket 1 "damps the LAG's 294 events and barely touches TAG's 82",
+and the committed evidence says LAG 124 and TAG 185.** Ticket 1 in fact removes
+more TAG events in absolute count (185 → 168) than LAG (124 → 114). The 294 and
+82 figures were default-lineup survivors that the 2026-08-18 re-measure missed.
+**The prediction built on them was also wrong**: T1 moved the binding pair APART,
+1.8469 → 1.9852, not together. Watch that pair specifically anyway, and watch the
+determinism guard, which is the other rule with something to say here.
 
 **A known interaction, not a surprise if it fires.** A slice-1 owner item records
 that the LAG's frozen showdown band has about 0.8 standard errors of headroom and
@@ -379,8 +384,42 @@ dial.
 
 1. Five-seed gate set passes, with the LAG–TAG pair reported explicitly.
 2. The determinism guard IMPROVES, not merely passes. T3's whole purpose is to
-   turn 659 forced folds into mixed decisions, and a guard reading that does not
-   move is evidence the change did not reach the node it was aimed at.
+   turn forced folds into mixed decisions, and a guard reading that does not move
+   is evidence the change did not reach the node it was aimed at.
+
+   **Corrected 2026-08-19: this criterion cannot do the job it was written for,
+   and the "659" was a default-lineup figure.** **The mechanism, derived from the
+   rule's own definition and from the five-seed gate output rather than assumed:
+   the guard does see these contexts and flags them, but it is a share-of-contexts
+   rule and a handful of flagged river contexts cannot move it.** The rule keys a
+   context as `(persona, street, engine_node_key, hand_class_bucket)`, qualifies it
+   at 50 or more observations, calls it deterministic when its modal action share
+   reaches 0.98, and fails a persona only when more than 20 percent of that
+   persona's qualifying contexts are deterministic. River naked-ace-high contexts
+   clear the observation threshold easily and are flagged: at the merged tip the
+   nit's river `flat` / `ace_high|none` context reads a 0.9864 modal share over 220
+   observations at seed 601, and the equivalent calling-station context reads 0.9907
+   over 2,266 — **flagged after T3, exactly as they were before it.** They are a
+   couple of entries among the nit's 91 qualifying contexts, so they sit far below
+   the 20 percent allowance whether they are deterministic or not. Two further
+   reasons the reading is insensitive: `engine_node_key` does not encode "faced a
+   bet at least the seat's remaining stack", so the fold surface this slice targets
+   is a thin slice inside a broader context rather than a context of its own; and a
+   damp of 0.06 does not lift these contexts back under the 0.98 threshold. The
+   guard's own readings wandered between 0.12 and 0.16 across the slice on counts of
+   11–15 out of 85–115, which is churn in which contexts clear the 50-observation
+   threshold. **The instrument that does measure the property is the diagnosis
+   script's count of folds that are probability-1.000 by construction: 524 at slice
+   start, 495 after T1, 144 at the merged tip.** Read that, not the guard.
+
+   **An earlier revision of this correction said the rule "keys its contexts
+   without any hand class" and was therefore blind to the cell. That was false in
+   both halves** — the key's fourth element *is* `hand_class_bucket`, and the cell
+   *is* among the rule's flagged contexts. The claim came from PR #200's body and
+   was repeated here without being checked against the rule's source. The
+   conclusion survives the correction and is in fact firmer: a guard that flags
+   these contexts identically before and after T3 says nothing about whether T3
+   worked.
 3. Events fall materially and the aggressive-investment shares of the maniac and
    the LAG (0.74 and 0.54) fall with them.
 4. Pool went-to-showdown rises by no more than T3's measured cost and by nothing
