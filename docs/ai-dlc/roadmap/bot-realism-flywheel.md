@@ -1,9 +1,11 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-17 (rev 4)
+# Bot-Realism Flywheel Roadmap — updated 2026-08-19 (rev 4)
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
 passing.)* Two edits on 2026-08-17: the improvement-phase block was added to the NOW lane,
-and the same day's audit and owner ruling were recorded against it.
+and the same day's audit and owner ruling were recorded against it. One edit on 2026-08-19:
+slice 2's ticket-merge status recorded (T1 #198, T2 #199, T3 #200 all merged) — the slice
+itself stays OPEN, since the owner's blind play session, not a ticket count, is what closes it.
 
 ## Bottom line
 
@@ -72,9 +74,10 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > one finale detection run at the end under the new rule-breaker control, plus the
 > preregistered owner blind play-test as product acceptance.
 > **Slice-by-slice state for that phase is the improvement-phase block at the END of this
-> lane (added 2026-08-17, updated 2026-08-18): slice 1 de-robotization is CLOSED, slice 2 is
-> SPEC'D and reviewed with three tickets but not built, slice 3 is unspec'd. Resume there,
-> not from this banner.**
+> lane (added 2026-08-17, updated 2026-08-19): slice 1 de-robotization is CLOSED, slice 2's
+> three tickets are all merged (T1 #198, T2 #199, T3 #200) but the slice itself stays OPEN —
+> acceptance is the owner's blind play session, not a ticket count — slice 3 is unspec'd.
+> Resume there, not from this banner.**
 > *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
 > NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
@@ -252,10 +255,12 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > measurement slice was rejected as the same failure mode repeating. The blind play-test is
 > now the primary acceptance evidence, not a supplement to a detection number.
 
-- [ ] **Slice 2 — Invest-then-fold lines — SPEC'D + REVIEWED 2026-08-18, three tickets,
-      NOT built.** Spec `../specs/phase3-invest-then-fold.md` · tickets · ledger · contract
-      map `../contracts/phase3-invest-then-fold.md` · evidence
-      `../research/slice2-invest-then-fold/`.
+- [ ] **Slice 2 — Invest-then-fold lines — SPEC'D + REVIEWED 2026-08-18; all three tickets
+      merged 2026-08-19 (T1 #198, T2 #199, T3 #200). The slice stays OPEN**: under the
+      2026-08-17 ruling the owner's blind play session is the primary acceptance evidence, and
+      no play session has run yet — a merged ticket count is not a close condition. Spec
+      `../specs/phase3-invest-then-fold.md` · tickets · ledger · contract map
+      `../contracts/phase3-invest-then-fold.md` · evidence `../research/slice2-invest-then-fold/`.
       **The problem statement this entry used to carry was wrong.** It said bots abandon pots
       "for no reason a human would recognise". The reason is recognisable — they have nothing.
       Enumerated against the real boards, 84% of the folded holdings lack the price and 66%
@@ -284,9 +289,18 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       (ticket T3). Deciding reason, recorded as a standing principle: the change is correct
       poker independently of the realism goal, so it cannot be Goodharted. When a realism
       change is *also* sound play, that asymmetry belongs in the options.
-      **Tickets:** T1 ace-high stops floating multiway bets (measured 1,147 → 1,084,
-      showdown flat) · T2 bluff frequency priced on the stack-capped size · T3 the ruling
-      above, branched from T1 and measured on top of it.
+      **Tickets, as merged.** T1 (#198) ace-high stops floating multiway bets — measured
+      1,147 → 1,084, showdown flat 54.5 → 54.1. T2 (#199): the bluff-frequency repricing this
+      ticket was written to build was **withdrawn on an owner ruling** — measured against the
+      betting-range identity the contract actually states, it moved stack-capped nodes further
+      from target (0.4762 → 0.4022 against a 0.5168 uncapped norm) and flipped sign in the
+      small-bet band. What shipped instead is a single test class, an estimator-parity guard
+      that can now catch the villain-range estimator and the live sampler disagreeing; engine
+      behaviour is byte-identical to T1. T3 (#200) is the ruling above, branched from T1 and
+      measured on top of it: it ships at a damp of 0.06, not the ~0.46 the minimum-defence
+      arithmetic derived, because a further owner ruling on 2026-08-19 capped it inside two
+      frozen went-to-showdown bands. Measured: invest-then-fold events 1,084 → 1,015, pool
+      went-to-showdown +0.94 points (54.14 → 55.09), inside the spec's 3.78-point bound.
 - [ ] **Slice 3 — Calldown — KEPT, and its headline number was wrong** *(corrected
       2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended cutting it; that was
       withdrawn under review. **Not yet spec'd.**
