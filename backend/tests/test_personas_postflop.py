@@ -967,6 +967,7 @@ def test_ace_high_alpha_holds_for_the_station_pre_river():
                     f"regressed; see alpha-acehigh-ruling.md"
                 )
 
+
 def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
     """RES-D §2 invariant 2 at MEDIUM (½-pot), RE-DERIVED at W3R-2.
 
