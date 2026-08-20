@@ -430,6 +430,52 @@ ratio, not the raw total -- held and gained 0.29pp. Cumulative against the
 immutable `coverage_baseline.persona-realism-start.json` (349/1233 = 28.30%):
 341/1236 = 27.59%, -0.71pp, a further recovery on T2b.
 
+RE-RECORDED for T3 (improvement slice 2, 2026-08-19, slice-authorized). T3's
+mechanism: naked ace-high may call a river bet again, at a damped weight. The
+river call zero used to be written on `bluff_cell`, which bundles ACE_HIGH with
+AIR, and it is now written on the made-hand bucket so that it refuses AIR only;
+ace-high's restored call merit is multiplied by
+`personas_postflop._ACE_HIGH_RIVER_CALL_DAMP` = 0.06. Minimum-defence arithmetic
+over the measured river price distribution derives about 0.46; 0.06 is a round
+value inside the range two frozen went-to-showdown bands admit with margin, and
+the owner ruled that conflict in the bands' favour on 2026-08-19. Hands that used to end on a
+river fold now sometimes reach showdown, so the hero meets a different number of
+decision points in the same 400 seeded hands.
+
+Graded decisions went 341 -> 318 against a total of 1,236 -> 1,228, i.e.
+27.59% -> 25.90%. Cumulative against the immutable
+`coverage_baseline.persona-realism-start.json` (349/1233 = 28.30%):
+318/1228 = 25.90%, -2.40pp.
+
+IT IS NOT THE LARGEST DIP THIS CHAIN HAS RECORDED. An earlier draft of this
+entry said it was; the WAVE 3 COMBINED entry above reads 322/1314 = 24.5%,
+-3.8pp, and says so of itself. -2.40pp is the third-deepest, behind wave 3 and
+level with T5's -2.10pp. The claim is corrected rather than quietly dropped
+because a superlative is exactly the kind of thing a reader trusts without
+checking.
+
+The reading is stream displacement, and this file already documents the pattern.
+Three things support it. The wave-3 entry above records the same NON-MONOTONE
+shape and names it -- lane B alone read 27.8%, lane A alone 26.4%, and the
+combined tip 24.5%, "worse than either, i.e. mostly cross-lane rng displacement,
+not a monotone behavioral trend". This ticket reproduces that shape within one
+lever: it measured 351 graded at a river call damp of 0.45 and 318 at 0.06, a
+10% swing in the numerator from a constant that only changes how often one
+bucket calls one street, and 0.06 is the SMALLER behavioural change of the two.
+And two independent reviewers re-measured the ratio at review, one of them at
+36,000 decisions, where it is flat -- the dip is a 400-hand artifact, not a
+coverage regression.
+
+The class is the one every entry since W3-b/c/d has carried: mapper coverage is
+orthogonal to persona realism, the mapper is untouched, and more realistic
+villains route the hero into a different mix of spots. Treat the LEVEL as noisy
+at this n and the TREND as the thing to watch.
+
+NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW, which is slice
+1's actual rule. The number of draws is NOT claimed invariant: a fold flipping
+to a call changes which later decisions happen at all, so stream displacement is
+expected here rather than ruled out.
+
 WHY A BOT CHANGE MOVES A LEG WHOSE STATED PURPOSE IS CATCHING A BROKEN HARNESS.
 The `total` assertion exists to prove this file stayed engine-only -- that the
 hero script never started reading mapper or display output, which would let the
@@ -442,22 +488,29 @@ entries above this one moved it for the same reason. The leg is still worth
 keeping and is not being softened -- it just needs a re-record, with a written
 mechanism, on any slice that intentionally changes bot play.
 
-T1's mechanism, and it is the one the ticket intends: naked ace-high stops
-calling flop and turn bets with more than one opponent live
-(`personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP`, predicate widened from
-`facing_raise` to `facing_raise or opponents > 1`).
+The mechanism at THIS tip is T3's, stated in the T3 entry above: naked ace-high
+may call a river bet again, at a damped weight. The paragraph that stood here
+described T1's mechanism instead -- naked ace-high ceasing to float flop and turn
+bets multiway -- and was left standing when the T3 values were recorded. It is
+replaced rather than appended to, because it attributed the current numbers to a
+change that is not the current change. T1's own entry retains its mechanism.
 
 NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW, which is slice
 1's actual rule and is what would otherwise shift every seeded test in the
 repository. THE NUMBER OF DRAWS IS NOT INVARIANT, THOUGH, and an earlier version
-of this entry wrongly said it was. The damp only reweights an existing merit,
-but reweighting changes which action is drawn, and the sizing draw downstream of
-the action draw is conditional on that action -- flip a CALL to a RAISE and a
-draw that did not happen now happens. So stream displacement is EXPECTED here
-rather than ruled out, and point (4)'s pairing caveat applies in principle,
-which is why the movement below is re-recorded rather than explained away.
+of this entry wrongly said it was. A damp only reweights an existing merit, but
+reweighting changes which action is drawn, and what runs after that action is
+conditional on it -- flip a river FOLD to a CALL and the hand continues to
+showdown, generating decisions that did not previously exist. So stream
+displacement is EXPECTED here rather than ruled out, and point (4)'s pairing
+caveat applies in principle, which is why the movement above is re-recorded
+rather than explained away.
 
-Spec 7.1 is met at this tip rather than merely not made worse: the ratio rose.
+Spec 7.1 at this tip: the ratio FELL, 27.59% -> 25.90%. An earlier version of
+this paragraph said it rose, which was true of T1 and is not true of T3. The
+fall is the third-deepest in the chain, is attributed to displacement on the
+evidence set out in the T3 entry above, and is reported rather than claimed as
+compliance.
 """
 
 from __future__ import annotations
