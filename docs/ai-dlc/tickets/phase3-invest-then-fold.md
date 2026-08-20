@@ -1,11 +1,16 @@
 # Tickets — invest-then-fold (phase-3 ruling A, improvement slice 2)
 
-**Bottom line: three tickets, three pull requests. T1 stops naked ace-high
-floating multiway bets and already has its answer — a measured 1,147 → 1,084
-events with showdown frequency flat. T2 makes a bot's bluff frequency reflect
-the bet it can actually make rather than the one its pack authored. T3 is the
-important one: it restores a mixed strategy to 413 river decisions the engine
-currently makes with probability 1.000, on the owner's ruling of 2026-08-18.**
+**Bottom line, updated 2026-08-19: all three tickets are merged and the slice is
+still OPEN.** T1 stopped naked ace-high floating multiway bets, landing its
+pre-committed 1,147 → 1,084 events (PR #198). T2's repricing was built, measured
+against the identity it cites, found to move the roster the wrong way, and
+withdrawn on the owner's ruling; a test shipped in its place and no behaviour
+changed (PR #199). T3 restored a mixed strategy to the river decisions the engine
+made with probability 1.000, at a damp the frozen went-to-showdown bands allow
+rather than the one its arithmetic derives (PR #200). **What keeps the slice open
+is the owner's blind play session, which under the 2026-08-17 ruling is the
+primary acceptance evidence.** Each ticket below carries a status block; the
+build rounds are in `../ledger/phase3-invest-then-fold.md`.
 
 **Every number below is measured on the RATIFIED lineup**
 `tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac` at seed
@@ -46,6 +51,10 @@ neither does.
 ---
 
 ## T1 — Naked ace-high stops floating multiway bets
+
+**Status: DONE, merged as PR #198 on 2026-08-19.** It hit its pre-committed 1,084
+events exactly. Build round, findings and adjudication:
+`../ledger/phase3-invest-then-fold.md`.
 
 **Do:** Extend an existing damp to the case it always should have covered.
 
@@ -91,9 +100,14 @@ prints which table it ran on and says whether it is the ratified one.
 2. `python -m tools.derobo_gate --check` passes at seed 601 — separation above
    `1.254429`, determinism below `0.20`. `a5_baseline_z.json` is not rebuilt.
 3. **Report the LAG–TAG pairwise distance explicitly, not just the minimum.** It
-   is the binding pair at 1.7920, and this ticket damps 294 LAG events against
-   82 TAG events, which pushes exactly that pair together. The overall PASS line
-   is not sufficient evidence here.
+   is the binding pair at 1.7920, and this ticket damps 124 LAG events against
+   185 TAG events. The overall PASS line is not sufficient evidence here.
+   **Corrected 2026-08-19, owner-authorised (ledger finding 9 of the T1 build
+   round): this criterion said "294 LAG events against 82 TAG events, which
+   pushes exactly that pair together". Both figures were default-lineup survivors
+   the 2026-08-18 re-measure missed, and the prediction was wrong in the harmless
+   direction — the pair moved APART, 1.8469 → 1.9852.** The criterion did its job
+   regardless, which is why it is left standing rather than deleted.
 4. A behavioural test: naked ace-high on the flop, facing a bet, three opponents
    live, calls less than the same hand heads-up. Seen to fail before the change.
 5. Heads-up facing-a-bet behaviour is byte-identical on an existing seeded test.
@@ -120,6 +134,37 @@ and the comment block at `:253-258`), `backend/tests/`.
 ---
 
 ## T2 — A bluff's frequency reflects the bet it can actually make
+
+**Status: DONE AS WITHDRAWN, merged as PR #199 on 2026-08-19. The repricing this
+ticket asks for does not ship, on the owner's ruling. Everything below the status
+block is the ticket as written and is kept unedited as the record of what was
+asked for.**
+
+**Why it was withdrawn.** The repricing was built, then measured on the identity
+the ticket cites — the bluff share `s/(1+2s)` **of the betting range**, not of a
+single hand. Over 40,000 hands per arm on the ratified lineup at seed 601 it moved
+stack-capped nodes from 0.4762 of that target to 0.4022, against the roster's own
+uncapped calibration of 0.5168, a move of 3.1 standard errors in the wrong
+direction. The cause is that the identity has a value side and the engine has no
+lever for it: `_AGG_BASE` is indexed by strength bucket alone, with no size and no
+stack-to-pot term, so the value hands at a capped node keep betting just as often
+while the identity's target there shrinks. Correcting one side of a two-sided
+identity moves the composition away from target while every gate passes. The
+theory reviewer measured it; the worker reproduced the whole table independently
+before reporting it.
+
+**What shipped instead.** No behaviour change — the engine is byte-identical to the
+tip this branched from. One test,
+`test_no_aggressive_bracket_field_is_read_before_the_action_draw`, twelve legs,
+which asserts the assumption the villain-range estimator rests on and could not
+previously be checked: that no field of the BET or RAISE bracket reaches the merit
+vector. Plus the two docstrings that record why it exists. **Criterion 6 below is
+wrong and was load-bearing in the wrong direction** — an estimator test both can and
+now does catch a fault on this path, because stage one of the bluff-size law runs
+before the action draw. See the corrected Risk 3 in `../contracts/phase3-invest-then-fold.md`.
+
+**Filed, and blocking any future work on bluff frequency:** the missing value-side
+size lever in `_AGG_BASE`. Owner's to dispose of.
 
 **Do:** Feed `_bluff_size_factor` the stack-capped size rather than the authored
 pot-fraction key.
@@ -202,6 +247,13 @@ path), `backend/tests/`.
 
 ## T3 — Ace-high may call the river again
 
+**Status: DONE, merged as PR #200 on 2026-08-19,** at
+`_ACE_HIGH_RIVER_CALL_DAMP = 0.06` — not the value the ticket's own arithmetic
+derives. Minimum-defence arithmetic over the measured river price distribution
+gives about 0.46; two frozen went-to-showdown bands do not admit it, and the owner
+ruled the conflict in the bands' favour on 2026-08-19. Build round and the full
+findings table: `../ledger/phase3-invest-then-fold.md`.
+
 **Do:** Narrow the river call zero at `personas_postflop.py:1010` so it applies
 to AIR only, leaving ACE_HIGH free to call.
 
@@ -243,8 +295,21 @@ sizing.
 **Acceptance:**
 1. **The determinism improves and is reported as a number.** Re-run the
    diagnosis script: the count of river air/ace-high folds facing a bet at least
-   the stack should fall from 524 toward roughly 130 — the AIR-only residual.
+   the stack should fall from 495 toward roughly 144 — the AIR-only residual.
    This is the ticket's real acceptance criterion; the event count is secondary.
+
+   **Corrected and adjudicated 2026-08-19.** The figures originally written here,
+   524 and "roughly 130", were measured before T1 shipped; T3 branches from T1 and
+   the correct baseline is 495, with an AIR-only residual of 144. **Outcome: NOT
+   MET on the criterion's literal statistic, MET on the property it was written to
+   capture.** The diagnosis script's printed count covers both buckets and reads
+   495 → 444, because roughly 300 ace-high folds remain inside it — folds that come
+   out of a decision now mixing at P(call) 0.1821, which the statistic counts as
+   folds because it cannot see certainty. The same filter restricted to AIR, the
+   only bucket still hard-zeroed, reads 495 → **144**. **The cause of the shortfall
+   is the band ruling capping the damp at roughly a seventh of its derived value,
+   not the build.** Both readings are recorded here and in PR #200; neither is
+   picked for being the flattering one.
 2. Pool went-to-showdown rises by no more than the **3.78 point upper bound** in
    spec §6, measured on top of T1 rather than against the unchanged roster.
    Exceeding the bound means something other than this change moved.
@@ -266,17 +331,35 @@ predicate), `backend/tests/`.
 
 ## Slice close-out
 
-Owed before the slice is marked complete:
+**The slice is OPEN. Every ticket is merged, the ledger is written and the filed
+items are recorded, but the owner's blind play session has not happened — and
+under the 2026-08-17 ruling that session is the primary acceptance evidence for
+the slice, outranking the gate rather than supplementing it. A passing gate is
+not a closed slice.**
 
-- The five-seed gate set, `--all-seeds`, at the final tip, with LAG–TAG and the
-  determinism rule's measured value both reported.
-- A ledger at `../ledger/phase3-invest-then-fold.md` recording what each reviewer
-  found and how it was adjudicated. Both tickets came from review and the first
-  draft's own proposal was withdrawn; that belongs on the record.
-- The out-of-scope findings written up as filed items: the all-in cascade at
-  30.9 percent of hands, the residual AIR-only deterministic folds, the bottom-bucket
-  price saturation, the maniac's preflop 4-bet catch-all, and the calling
-  personas' residual continuation, which is slice 3's under the boundary in
-  spec §6.2.
-- The owner's blind play session. Under the 2026-08-17 ruling it is the primary
-  acceptance evidence for the slice, not a supplement to the gate.
+Merged tip `862e614`, pull requests #198, #199 and #200.
+
+Discharged:
+
+- **The five-seed gate set**, `--all-seeds`, at the final tip, with LAG–TAG and
+  the determinism rule's measured value both reported. **PASS on all five seeds**,
+  LAG–TAG binding on every one, lowest pairwise minimum 1.710870 against a
+  1.254429 floor and worst determinism share 0.164706 against a 0.20 ceiling. Full
+  table in the ledger's close-out section.
+- **The ledger** at `../ledger/phase3-invest-then-fold.md`, with a build round per
+  ticket recording what each reviewer found and how it was adjudicated. Both
+  surviving tickets came from review, the first draft's own proposal was
+  withdrawn, and so was T2's; that is all on the record.
+- **The out-of-scope findings written up as filed items**, in one place — the
+  ledger's "Filed at slice close" section. It carries the five this list named
+  (the all-in cascade, the residual air-only deterministic folds, the
+  bottom-bucket price saturation, the maniac's preflop 4-bet catch-all, and the
+  calling personas' residual continuation, which is slice 3's under the boundary
+  in spec §6.2) plus the seven this slice's reviews added. **One correction: the
+  all-in cascade is 20.2 percent of hands, not the 30.9 percent this list
+  originally said** — 30.9 was the default-lineup figure the 2026-08-18 re-measure
+  superseded.
+
+Outstanding:
+
+- **The owner's blind play session.** The one thing between the slice and closed.

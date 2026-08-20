@@ -1,10 +1,18 @@
 # Ledger — invest-then-fold (phase-3 ruling A, improvement slice 2)
 
-**Bottom line: the spec was reviewed before any code was written, and review
-replaced its central proposal. The first draft's fix was withdrawn, two of its
-numbers were wrong, one of its exclusion reasons was backwards, and both tickets
-that survive were supplied by reviewers. This file records that rather than
-presenting the final spec as if it arrived that way.**
+**Bottom line: the slice shipped three pull requests and two behaviour changes.
+Naked ace-high stopped floating multiway bets (#198) and may call the river again
+at a damped weight (#200); the third ticket's repricing was measured, found to
+move the roster away from the target it was meant to serve, and withdrawn on the
+owner's ruling, shipping a test instead (#199). Review, not the test suite, is
+what caught everything that mattered: all three tickets shipped stale or false
+claims past a fully green suite. The slice is NOT closed — the owner's blind play
+session is the primary acceptance evidence and has not happened.**
+
+This file is chronological. The spec review comes first, then the contract scan,
+then one build round per ticket, then the filed items and the close-out. The
+close-out at the bottom is the current state; anything above it is a record of
+what was true when it was written.
 
 Spec: `../specs/phase3-invest-then-fold.md` ·
 Tickets: `../tickets/phase3-invest-then-fold.md` ·
@@ -180,7 +188,10 @@ roadmap and is filed separately.
 | T2 and T3 both act on the `bluff_cell` hand class, so calling them independent is too strong. | **Accepted with a bound.** They touch different lines and merge cleanly; their measured effects interact. The ticket now requires whichever lands second to re-measure rather than inherit its counterfactual. |
 | The ceiling caveat asserted the environment causes the rate, which no counterfactual has tested. | **Accepted.** Restated as an inference. |
 
-## Still open at the time of writing
+## Still open at the spec-review stage, 2026-08-18
+
+Superseded by the build rounds and the close-out below; kept as the record of
+what the slice looked like before any code was written.
 
 - The roadmap needs six corrections, filed separately: slice 2's refuted
   mechanism and unrecorded status, slice 3's "near 45" figure, the missing LAG row
@@ -284,3 +295,405 @@ and blocked the build until it was lifted.
   measurement copied them and produced before-and-after tables that were
   byte-identical — it measured nothing at all. Any future ticket touching a
   street-gated lever is invisible to both.
+
+## Build round — T2, 2026-08-19 (merged as PR #199)
+
+**T2's repricing does not ship. The build was completed, measured on the
+identity the ticket cites, found to move the roster three standard errors away
+from that identity's target, and withdrawn on the owner's ruling. What ships is
+a test that can catch the villain-range estimator and the live sampler
+disagreeing — something no test in this repository could do before — plus the
+two docstrings that stop it being deleted by mistake. Engine behaviour at the
+merged tip is byte-identical to the tip T2 branched from.**
+
+T2 is the second of the slice's three tickets: pricing a bot's bluff frequency
+on the bet its stack lets it make rather than on the bet its pack authored.
+
+### What was measured, and what it showed
+
+The ticket's premise is right per hand and wrong per range. Per hand, a seat with
+20bb behind in a 258bb pot does price its bluff as though making a two-thirds-pot
+bet and then make an eighth-pot one; nobody disputed that and it remains true.
+But the theory contract does not state the bluff-share identity per hand. It
+states that the optimal bluff share is `s/(1+2s)` **of the betting range**, so the
+instrument is the realised composition of that range.
+
+Measured that way — 40,000 hands per arm, ratified lineup, seed 601, the two arms
+differing only in whether the repricing is active — the repricing moves
+stack-capped nodes from 0.4762 of the identity's target to 0.4022, against the
+roster's own uncapped calibration of 0.5168. In the small-bet band where the
+ticket's worked example lives, the sign flips outright: 1.041 of target before,
+0.839 after. The change in the capped-bet bluff share is 3.1 standard errors on
+the two binomials. The full table is in PR #199 and is not repeated here.
+
+**The cause is a missing lever, and that is a contract defect rather than a build
+defect.** `_AGG_BASE` is indexed by strength bucket alone — seven entries, no size
+term, no stack-to-pot term — so a value hand that would have bet two-thirds of the
+pot bets an eighth of it just as often, and at capped nodes the commit block
+raises the strong buckets' bet frequency further. Made-value hands bet 9.1 percent
+*more* often where the cap is exposed, while the identity's target there is
+smaller. The denominator of `s/(1+2s)` is enlarged exactly where the target
+shrinks, so correcting the numerator alone moves the composition away from target
+even though every gate passes.
+
+No narrower version was available, and that is arithmetic rather than judgement:
+`_bluff_size_factor` is monotone non-decreasing and the effective fraction is
+never larger than the authored one, so the repricing can only ever lower a capped
+node's bluff share — and the capped population already sat below the roster norm.
+There is no subset of capped nodes where it pushes the composite up. Landing the
+one band that starts above the norm would have required scaling by a fitted
+constant, which the spec forbids.
+
+### The gate
+
+**Unmoved, because the merged tip changes no behaviour.** Minimum pairwise
+separation at seed 601 is 1.985172 at both the parent and the merged tip, all
+fifteen pairwise distances identical, 0 of 15 moved; LAG–TAG 1.9852; determinism
+worst persona 0.155556. The invest-then-fold statistic and the 50,000-hand export
+are byte-identical to the parent, and the three exact-count fixtures the build had
+re-recorded were reverted and pass unmodified.
+
+Worth recording because it nearly went unremarked: **while the repricing was live
+it narrowed the binding separation pair by 12.9 percent**, 1.9852 to 1.729101, the
+refuter recovering that figure independently from the pinned baseline artifact. It
+still cleared the floor, so the gate would have passed a change that was moving
+the roster the wrong way on the identity as well as on separation.
+
+### How the review was run
+
+Three reviewers, all briefed to derive their own verdict rather than react to the
+author's, as in the T1 round.
+
+- **The persona-realism theory reviewer, Opus.** Verdict NO-GO. Measured the
+  range-level composition and produced the finding that killed the ticket.
+- **Codex Sol, high effort.** Verdict request-changes. Found the estimator
+  divergence independently and quantified it at the same node.
+- **The refuter, Sonnet at high effort.** Verdict pass with two issues. Re-ran the
+  suite, the gate and the separation arithmetic, and found the collapsed
+  forced-jam bracket independently of Codex.
+
+### Findings and adjudication
+
+| # | Finding | Source | Adjudication |
+|---|---|---|---|
+| 1 | Measured on the betting range rather than per hand, the repricing moves capped nodes AWAY from `s/(1+2s)`, 0.4762 → 0.4022 against an uncapped 0.5168, because the identity's value side has no lever. | Theory | **Accepted, and it ended the ticket.** The worker reproduced the whole table independently, with a harness written from the analytics export's hand loop rather than from the reviewer's code, and matched every figure. The owner then ruled the repricing out. Recorded as a contract defect: the theory contract states the identity and carries no size or stack-to-pot term anywhere on the made-value bet path. |
+| 2 | Estimator parity is broken. `_effective_bluff_fraction` reads `bracket.max_bb`, the estimator builds BET and RAISE with `max_bb=None`, so the villain range shown to the player kept the old pricing while the live bot used the new one — maniac P(BET) 0.5905 against a live 0.4074, and 13.0 percent of bluff-cell aggressive nodes have a binding cap. | Theory and Sol, independently | **Accepted.** It also falsified the premise the slice had inherited in three places (contract map Risk 3, ticket criterion 6, and this ledger's contract-scan entry), all of which reasoned only about the sizing draw while stage one runs before the action draw. The repricing went; the finding became the shipped test. |
+| 3 | The existing parity tests are structurally blind to finding 2: both the estimator's bracket builder and the test file's live-side helper build the same capless bracket, so every parity assertion compared a capless estimator against a capless live side. | Theory | **Accepted, and this is what shipped.** `test_no_aggressive_bracket_field_is_read_before_the_action_draw` builds its live side from `engine.legal_actions` at a real short-stack node, asserts the two brackets differ materially before comparing distributions, and covers twelve legs — six personas by two node shapes. Proven non-vacuous: reintroducing a lever that reads `max_bb` before the action draw turns all twelve red while the six pre-existing parity tests stay green. |
+| 4 | `_effective_bluff_fraction` mis-prices a collapsed forced-jam bracket, where the engine sets `min_bb == max_bb` and the wager is forced to the cap for every authored key. Reproduced against the shipped function at roughly a 1.9× factor error. | Refuter and Sol, independently | **Accepted as real and then measured inert, in that order.** The review sampled 1,045 key instances at forced jams over 6,000 hands and found zero bucket mispricings on the shipped packs; with the fix applied, the 50,000-hand export was byte-identical to the one without it. It is moot at the merged tip because the helper it lived in is gone. The initial write-up called it live impact, which it never was. |
+| 5 | The comment claiming that moving only the weights means no bet size changes is false — weighted selection determines which authored key is drawn, so the same sizing variate can produce a different wager at a partially capped node. | Sol | **Accepted.** A false claim in a file the author had just edited, again. |
+| 6 | No behavioural test drove the RAISE branch of the helper at a capped stack; all thirty-five legs ran through one unopened-BET fixture. | Refuter | **Accepted, then moot.** The branch does not ship. |
+
+### What was dropped, and why
+
+The repricing, on the owner's ruling, taking `_effective_bluff_fraction`, both
+call sites, the whole of `test_bluff_effective_size.py` and three exact-count
+re-records with it. The estimator's bracket reconstruction went too, judged on
+its own: with nothing reading those fields it is production code with no
+consumer, and the new test protects the next ticket better because it fails
+loudly rather than hiding a divergence. The collapsed-jam fix went because the
+helper it lived in is gone and it was in any case inert.
+
+### What the author got wrong, for the record
+
+The build was faithful to its ticket and the ticket was wrong, which is the
+useful way round. Two things belong on the record beyond that.
+
+**The build shipped a false comment about its own bet sizes** (finding 5), in the
+third consecutive ticket of this slice to ship a stale or false claim past a
+fully green suite. **And the safety premise the ticket inherited was never
+checked** — three merged documents said an estimator fault here was impossible,
+all three reasoning about the wrong stage of a two-stage law, and criterion 6
+turned that error into an instruction pointing the build away from the test that
+would have caught it.
+
+The orchestrator's own error this round: it wrote the collapsed forced-jam
+bracket up as live impact before the byte-identity measurement existed.
+
+### What this round proves about the process
+
+**A worker reproduced, against its own ticket's interest, the finding that killed
+its ticket.** The theory reviewer measured it; the worker rebuilt the measurement
+from a different starting point rather than re-running the reviewer's code, got
+the same numbers, and reported them. That is the review loop working as designed,
+and it is worth naming because the outcome — three pull requests, one of which
+ships no behaviour — reads like a failure if only the diff is counted.
+
+## Build round — T3, 2026-08-19 (merged as PR #200)
+
+**T3 shipped at a damp of 0.06, which is not the value its own arithmetic
+derives. Minimum-defence arithmetic over the measured river price distribution
+gives about 0.46; two frozen went-to-showdown bands do not admit that, and the
+owner ruled the conflict in the bands' favour on 2026-08-19. The determinism win
+survives — folds that are probability-1.000 by construction fall from 495 to 144
+— and the residual is carried rather than tuned: the river range still
+under-defends its obligation by 4.8 points, on a street the contract's own
+diagnosis says is not where the showdown excess comes from.**
+
+T3 is the slice's third ticket: narrowing the river call zero so it applies to
+air alone, letting naked ace-high call the river again.
+
+### What was measured
+
+50,000 hands, seed 20260817, ratified lineup, measured on top of T1 as the ticket
+required.
+
+| | base (T1) | shipped (damp 0.06) |
+|---|---|---|
+| Folds that are probability-1.000 by construction | 495 | **144** |
+| `diagnose.py`'s printed count, both buckets | 495 | 444 |
+| Headline node, ace-high P(call) | 0.0000 | **0.1821** (151 of 829) |
+| Headline node, air P(call) | 0.0000 | **0.0000** (382 decisions) |
+| Invest-then-fold events | 1,084 | 1,015 |
+| Pool went-to-showdown | 54.1429% | 55.0865% (+0.9435, bound 3.78) |
+| River range continue against its obligation | 0.603 / 0.678 | 0.628 / 0.676 |
+| LAG–TAG separation, seed 601 | 1.9852 | **2.0388** |
+
+The passive fish moved the wrong way, 2.54 to 2.57 events per thousand hands,
+against five personas that fell. It is recorded for the same reason the nit's rise
+was recorded in the T1 round: a table showing only the falls would imply the roster
+moved uniformly.
+
+### Acceptance criterion 1, unmet on its literal terms and met on the property
+
+**Both readings ship, and the pull request carries both rather than choosing.**
+
+- The ticket's literal statistic is the diagnosis script's printed count of river
+  air-or-ace-high folds facing a bet at least the seat's stack. It reads 495 at the
+  base and **444** at the shipped value. It does not fall toward "roughly 130", so
+  on literal terms **criterion 1 is not met.**
+- The property the criterion was written to capture is determinism. The same filter
+  restricted to AIR — the only bucket still hard-zeroed — reads **144**, which is the
+  "roughly 130" the ticket predicted. On this reading it is met.
+
+The gap is the roughly 300 ace-high folds still inside the printed count. They are
+not machine folds; they come out of a decision that mixes at 0.1821. The ticket's
+statistic counts folds rather than certainties and cannot tell the difference, and
+its text assumed ace-high would essentially stop folding — true only at a damp far
+above what the bands admit. **The cause of the shortfall is the band ruling capping
+the damp, not the build.**
+
+### The gate
+
+PASS at seed 601: minimum pairwise 2.038801 against the pinned floor 1.254429,
+labels 6/6, second-closest pair nit–TAG at 2.5996. Both frozen went-to-showdown
+bands clear, and they are the constraint that set the shipped value: lag 0.5793
+against a 0.59 ceiling, margin +0.0107; calling station 0.7096 against 0.72,
+margin +0.0104. The determinism rule's worst persona reads 0.1429. That rule is
+structurally blind to the defect T3 removes — its context key carries no hand
+class — so it is not evidence either way here, and the source says so.
+
+### How the review was run
+
+Three reviewers again, same asymmetric brief.
+
+- **Codex Sol, high effort.** Verdict request-changes, five findings, all addressed
+  before merge.
+- **The persona-realism theory reviewer, Opus.** Verdict go-with-changes.
+  Reproduced the entire band sweep to four decimal places including values that
+  were not shipped, and referred one item to the owner rather than the implementer.
+- **The refuter, Sonnet at high effort.** Verdict pass. Re-derived the gate
+  distance, the band sweep and the coverage-baseline explanation independently.
+
+### Findings and adjudication
+
+| # | Finding | Source | Adjudication |
+|---|---|---|---|
+| 1 | The source claimed 0.06 is the largest damp satisfying its stated margin standard. It is not: 0.061 clears both limbs and 0.062 misses. | Sol | **Accepted; the claim was false and is withdrawn.** 0.06 is kept and now described as a round value inside the admissible range rather than its maximum. One thousandth of the constant moves the station margin three ten-thousandths across the line, so a value chosen at 0.061 would be fitted to the standard rather than endorsed by it. The knife edge is itself the useful fact and is now in the table. |
+| 2 | The margin standard — clear both bands by at least one binomial sigma and 0.010 absolute — is not an existing rule. The band assertions require interval membership and nothing more, and the 0.010 limb mixes policy response with stream displacement rather than isolating jitter. | Sol | **Accepted on governance.** The standard stands as a judgement call and is now labelled as one. What it is for is refusing a margin like the +0.0002 that damp 0.10 produces, which passes today and flaps on any resampling. |
+| 3 | The test block header said the ace-high half mixes at P(call) 0.691. That is the undamped figure, measured before the band ruling and never re-measured; it is 0.1821. | All three reviewers, independently | **Accepted.** Four times the true value, shipped past a green suite, and found by reading rather than by running — because there was nothing to run. The direct fix is that T3's harness and its output at all four tips are now committed under `../research/slice2-invest-then-fold/`. |
+| 4 | The coverage-baseline fixture called the new 25.90 percent ratio the largest dip in its chain. The same file's wave-3 entry reads 24.5 percent and −3.8pp. | Sol | **Accepted.** 25.90 percent is third-deepest. The correction also cites the wave-3 entry's own precedent for non-monotone displacement, and two reviewers re-measured the ratio independently, one at 36,000 decisions where it is flat. |
+| 5 | Stale T1 prose survived the re-record at the end of the same docstring, attributing the movement to multiway flop and turn floating and concluding the ratio rose and spec §7.1 was met — directly above T3 values that fall. | Sol | **Accepted.** Replaced; it now reports rather than claims compliance. |
+| 6 | Three places still said river ace-high call merit is zero through the old `bluff_cell` gate. The worst is `test_ace_high_facing_a_bet_is_byte_identical`, whose river leg stays green only because its control neutralises two damps while leaving the new one live in both arms. | Sol | **Accepted.** The docstring now states what the test actually protects: that the two flop and turn damps stay off the river. |
+| 7 | The derived value was quoted to four significant figures off an inversion the same block twice concedes is approximate. | Sol | **Accepted.** Rounded to 0.46 everywhere, with the precision stated. Shipping 0.45 landed the range at 0.688 where the arithmetic predicted 0.678, which is the size of the error the two figures support. |
+| 8 | T3 obeys the theory contract faithfully and the contract is wrong here: applying the re-anchor rule to two went-to-showdown ceilings the contract itself records as inflated forced the river-defence lever down by a factor of 7.7 from its derived value. | Theory | **Adjudicated, and it cuts for the ruling rather than against it.** The pinned bands do sit far above the contract's research-grounded targets. But the roster sits near 71 percent against a 38–48 target, and the derived 0.46 would have taken it to 74.7 percent — further from the grounded target. The band stopped a change that would have widened the gap the contract wants closed. The ruling holds on firmer ground than it was made on. What survives is a filed finding: T3 under-defends the river to pay for showdown excess the contract attributes to flop and turn calldown, which is fixing the wrong street and points at slice 3. |
+| 9 | The regression test encoded a bracket admitting anything through 0.065, including the 0.062 since measured as violating. | Sol | **Accepted.** It now pins the shipped constant exactly, with a deliberately redundant non-zero assertion naming the one property that must survive any re-derivation. |
+
+### What the author got wrong, for the record
+
+**Five stale or false claims, and the suite was fully green through all five.**
+Three of them — the P(call) figure, the largest-dip claim and the stale T1 prose —
+were in files the author had just edited, and one of them was a superlative about
+the author's own calibration. The instrument that caught every one was readers.
+
+The orchestrator contributed three errors of its own this round: it repeated the
+worker's false "largest dip" claim rather than checking it against the same file's
+own history; it wrote the T2 forced-jam finding up as live impact before the
+byte-identity measurement existed; and it nearly overwrote the worker's honest
+finding that criterion 1 is unmet on literal terms with the softer determinism-only
+reading. The worker's version is what shipped, and it was right to insist.
+
+### Two lessons this slice earned, stated rather than smoothed over
+
+1. **All three tickets shipped stale or false claims past a fully green test
+   suite.** T1 shipped four, T2 one, T3 five. Not one was caught by a test, because
+   no test reads prose. The only instrument that works on this failure class is
+   independent readers looking for contradictions, and the cost of the slice's
+   review rounds is what buying that instrument costs.
+2. **T2 was killed by its own worker reproducing, from scratch, a measurement
+   against its own ticket's interest.** A process that only rewards shipped diffs
+   would have suppressed that. Recording it is how it stays repeatable.
+
+## Filed at slice close
+
+Written up here so the slice has one list rather than several. Nothing below is
+built, and nothing below blocks the slice.
+
+### Carried forward from the spec's out-of-scope list
+
+- **The all-in cascade.** 20.2 percent of hands at this tip see at least one seat
+  all-in, and 93 percent of the counted events are all-in refusals in pots the
+  cascade inflates — median pot 253bb. Cut by ruling A, which put engine and stack
+  work out of this phase, so the largest single contributor to the statistic is out
+  of reach by ruling rather than by oversight. (An earlier version of the close-out
+  list quoted 30.9 percent; that is the default-lineup figure the 2026-08-18
+  re-measure superseded.)
+- **The residual air-only deterministic folds.** 144 per 50,000 hands survive T3 by
+  design: "air never calls the river" is the half of the rule that was always right.
+  They remain probability-1.000 folds and remain a statistical signature.
+- **Bottom-bucket price saturation.** A sub-`SMALL` price resolution stays out. The
+  draft's original reason for excluding it was refuted — at these nodes no raise is
+  legal, so the change is an exact no-op there — and it stays out on the reasons that
+  do hold: off the river it converts folds into calls and pushes showdown up, and its
+  blast radius is every small-bet decision in the game.
+- **The maniac's preflop 4-bet catch-all.** Twelve events, the maniac calling or
+  shoving any two cards in a re-entrant raise war. Real, tiny, and a pack question
+  rather than an engine one.
+- **The calling personas' residual continuation.** Slice 3's, under the boundary in
+  spec §6.2 — arrival at nodes that already mix, driven by looseness, not a
+  degenerate decision.
+
+### New from this slice's reviews
+
+- **`_AGG_BASE` has no size or stack-to-pot term, so the bluff-share identity has
+  no value-side lever.** This killed T2 and it blocks any future work on bluff
+  frequency: correcting one side of a two-sided identity moves the composition away
+  from target while every gate passes. Owner's to dispose of; see PR #199.
+- **The pinned went-to-showdown bands sit well above the theory contract's own
+  grounded targets** — the calling station's band is 66–72 against a 38–48 target,
+  a gap of 18 to 24 points, and the lag's is 37–59 against 26–31 — and the contract
+  calls for a downward re-anchor that has not happened. The bands bound T3's constant at roughly a seventh of its
+  derived value. Owner authorised evidence-gathering on 2026-08-19; no re-anchor is
+  proposed here.
+- **T3 leaves the river under-defending its obligation by about 4.8 points to
+  protect a showdown ceiling whose excess the contract attributes to flop and turn
+  calldown.** That is fixing the wrong street, and slice 3 — whose remit is
+  continuation frequency — is where the correction lives.
+- **The roster does not bluff its river often enough for ace-high's restored call to
+  be profitable against this field.** It wins 8.0 percent at the shipped value
+  against a mean required equity of 23.8 percent, and is under required equity in
+  every faced-size band. Minimum defence is an unexploitability argument, not a
+  profit one, and T3 rests on the former: the point is that the decision mixes. Said
+  plainly because a fair reader could call T3 an addition of losing calls. If the
+  bots bluffed the river at a defensible rate, no damp constant would need deriving
+  at all.
+- **Whether the α fold-ceiling should be asserted over the ACE_HIGH bucket.**
+  `_CATCHER_BUCKETS` excludes ace-high because it loses to part of a balanced
+  bettor's bluffing range; T3's branch restores its river call because on a finished
+  board it is exactly a bluff-catcher. Both can be true of different streets and
+  nothing in the code says so. **Owner ruled 2026-08-19 that α does apply to the
+  bucket, and authorised a guard-extension ticket**; T3's new call leg currently sits
+  outside the guard, because the guard is scoped by `_CATCHER_BUCKETS`.
+- **The two standing price fixtures are blind to street-gated levers.**
+  `fold_by_size` and `catcher_fold_by_size` both omit `street`, so they measure at
+  `street=None`, outside any street gate; a first version of T1's α measurement
+  copied them and produced before-and-after tables that were byte-identical. **Fix
+  authorised 2026-08-19.**
+- **The lag preflop dossier band is fragile and its re-tune is overdue.** Preflop
+  policy is byte-identical across T3 by construction, yet the same unchanged policy
+  reads 0.4262, 0.4301 and 0.4372 across the three damp values — a 0.011 spread on a
+  0.43 floor, entirely rng-stream displacement. It passes by luck of the stream.
+  Slice 1's T5 tripped it the same way, and the `vs_3bet` opener re-tune that test's
+  own docstring filed is two slices overdue. Evidence-gathering authorised
+  2026-08-19.
+
+## Slice close-out
+
+**The slice is OPEN. Every ticket is merged and the gate obligations are recorded
+below, but the owner's blind play session has not happened, and under the
+2026-08-17 ruling that session is the primary acceptance evidence for the slice
+— it outranks the gate rather than supplementing it. Nothing here should be read
+as the slice being finished.**
+
+Merged tip: `862e614`. Pull requests #198 (T1), #199 (T2), #200 (T3).
+
+### Ticket status
+
+| Ticket | State | What actually shipped |
+|---|---|---|
+| T1 — naked ace-high stops floating multiway bets | **Done**, PR #198 | One predicate, plus four tests and four rewritten comment blocks. Hit its pre-committed 1,084 events exactly. |
+| T2 — bluff frequency on the bettable size | **Done as withdrawn**, PR #199 | No behaviour change. An estimator-parity test that can catch the villain range diverging from the live sampler, plus two docstrings. The repricing was withdrawn on the owner's ruling; see the T2 build round. |
+| T3 — ace-high may call the river again | **Done**, PR #200 | `_ACE_HIGH_RIVER_CALL_DAMP = 0.06` and a narrowed river call zero. Criterion 1 is unmet on its literal statistic and met on the determinism property it was written to capture. |
+
+### The five-seed gate set — discharged, PASS on all five seeds
+
+**The slice's gate obligation is discharged. All five seeds pass both rules at
+the merged tip, LAG–TAG is the binding pair on every one of them, and the
+weakest reading anywhere sits comfortably inside its limit.** The slice stays
+OPEN regardless; the owner confirmed today that the play session has not
+happened.
+
+Run as `python -m tools.derobo_gate --check --all-seeds`, against baseline
+artifact `a5baseline-98abd160f03a501b` at engine SHA `a0de83e`, with the
+separation floor at `1.254429` — 0.7 of the baseline — and the determinism
+ceiling at `0.20`. The baseline artifact was not rebuilt.
+
+| seed | overall | binding pair | LAG–TAG distance | label preservation | determinism, worst persona |
+|---|---|---|---:|---|---|
+| 601 | PASS | lag–tag | 2.038801 | 6/6 | nit 0.142857 (13/91) |
+| 602 | PASS | lag–tag | 1.883035 | 6/6 | nit 0.164706 (14/85) |
+| 603 | PASS | lag–tag | 1.808383 | 6/6 | nit 0.159091 (14/88) |
+| 604 | PASS | lag–tag | 1.710870 | 6/6 | calling_station 0.123894 (14/113) |
+| 605 | PASS | lag–tag | 1.862100 | 6/6 | nit 0.122222 (11/90) |
+
+Three things are worth reading off that table rather than leaving to the PASS
+line, which is why the tickets required the pair to be reported explicitly.
+
+- **The lowest pairwise minimum anywhere is 1.710870, at seed 604** — still 0.46
+  above the floor, and the seed spread of 1.71 to 2.04 is a reminder that the
+  single-seed 2.0388 T3 reported is the top of the range rather than the middle
+  of it.
+- **The worst determinism share anywhere is 0.164706, at seed 602**, against the
+  0.20 ceiling. The persona carrying it moves between the nit and the calling
+  station across seeds on counts of 11 to 14 out of 85 to 113, which is the same
+  churn in which contexts clear the observation threshold that the T3 round
+  recorded. Separately, that rule is structurally blind to the defect T3
+  removes; see the correction to spec §7.
+- **LAG–TAG is the binding pair on every seed**, so the pair the spec told this
+  slice to watch is the right one to keep watching, and it was recomputed from
+  the raw statistic vectors independently of the tool, matching to six decimals.
+  Seed 601 reproduces the reference figure exactly.
+
+No seed failed and there were no anomalies to escalate.
+
+### What the slice moved
+
+| | slice start | merged tip |
+|---|---|---|
+| Invest-then-fold events, 50k at seed 20260817, ratified lineup | 1,147 | 1,015 |
+| Folds that are probability-1.000 by construction | 524 | 144 |
+| Pool went-to-showdown | 54.5% | 55.09% |
+| LAG–TAG separation, seed 601 | 1.8469 | 2.0388 |
+| Hero's graded-decision coverage ratio | 27.30% | 25.90% |
+
+**The coverage ratio fell, and spec §7.5 asks for it to be reported rather than
+quietly worsened, so it is reported here.** T1 raised it to 27.59 percent and T3
+took it to 25.90, a 2.40-point cumulative dip against the immutable snapshot and
+the third-deepest in that fixture's chain. Two reviewers re-measured it
+independently, one at 36,000 decisions where it is flat, and the same fixture's
+own wave-3 entry records a deeper non-monotone dip attributed to cross-lane
+random-stream displacement. The reading is consistent with displacement rather
+than with lost coverage, and it is the owner's to judge.
+
+The events fell 11.5 percent. The certainty the slice was really aimed at fell
+by roughly three quarters, and what remains is air on the river, which is
+correct play rather than a defect. Went-to-showdown rose by less than a point
+against the 3.78-point bound the spec allowed.
+
+### Still owed
+
+- **The owner's blind play session.** The only outstanding acceptance item, and
+  the decisive one.
+- **The owner's disposition of the filed items above**, in particular the missing
+  value-side lever in `_AGG_BASE`, which blocks future bluff-frequency work, and
+  the went-to-showdown bands, whose distance from the theory contract's grounded
+  targets bounded T3's constant.

@@ -86,13 +86,41 @@ pot-fraction and **never** on the discrete authored sizing keys. Stage 2 is
 currently on the wrong side of that rule, and T2 fixes it — which is also why
 leaving stage 1 on authored keys would put *it* on the wrong side.
 
-## Risk 3 (MEDIUM) — no estimator test will ever catch a T2 regression
+## Risk 3 (MEDIUM) — CORRECTED: a T2 fault CAN corrupt the displayed villain range
 
-`_CaptureRng.choices()` at `range_estimate.py:357-361` returns `population[0]` on
-its first call and is never invoked again, so **the sizing draw never executes
-under estimation**. T2 therefore cannot corrupt the displayed villain range — and
-equally, no estimator-side test can detect a T2 fault. Its only protection is
-`test_price_tail.py`'s frozen vectors and the live-bot suite.
+**Corrected 2026-08-19 after PR #199 measured the opposite of what this section
+claimed. The original text is kept below because a ticket criterion inherited its
+error.**
+
+The half that is true: `_CaptureRng.choices()` at `range_estimate.py:357-361`
+returns `population[0]` on its first call and is never invoked again, so **the
+sizing draw never executes under estimation**.
+
+The half that was false: concluding from that "T2 therefore cannot corrupt the
+displayed villain range". **That reasoning covers stage two of the bluff-size law
+only.** Stage one runs *before* the action draw and scales `bluff_mass`, and the
+action merit vector is precisely what `_CaptureRng` records — so a stage-one
+change reaches the estimator directly. Risk 2 above says as much in its own
+words, "including in the villain range the player is shown", so this map
+contradicted itself and the slice followed the wrong half.
+
+Measured during T2's build, on the repricing that was later withdrawn: the
+estimator builds BET and RAISE with `max_bb=None` while stage one read that
+field, so the range shown to the player kept the old pricing while the live bot
+used the new one — overstating a short-stacked bot's air by 1.25× to 1.45×, at
+nodes that are 13.0 percent of all bluff-cell aggressive nodes.
+
+**The error propagated.** Ticket acceptance criterion 6 read "No estimator test
+can catch a fault here, so do not rely on one", which pointed the build away from
+the one test that would have caught it. The estimator's own parity tests were
+structurally blind for the same reason: both sides of every comparison built the
+same capless bracket. PR #199 fixes that with
+`test_no_aggressive_bracket_field_is_read_before_the_action_draw`, which drives
+its live side from `engine.legal_actions` at a real short-stack node.
+
+**The original text, for the record:** "T2 therefore cannot corrupt the displayed
+villain range — and equally, no estimator-side test can detect a T2 fault. Its
+only protection is `test_price_tail.py`'s frozen vectors and the live-bot suite."
 
 ## What is safe, and why — checked, not assumed
 
