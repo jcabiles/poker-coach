@@ -824,6 +824,149 @@ def test_fold_to_bet_respects_alpha_ceiling(persona, catcher_fold_by_size):
         )
 
 
+# ---- Naked ace-high against the same α ceiling (2026-08-19 owner ruling) ----
+#
+# `_CATCHER_BUCKETS` above excludes ACE_HIGH, on the stated ground that ace-high
+# loses to part of a balanced bettor's bluff half and so is not a bluff-catcher.
+# The OWNER RULED ON 2026-08-19 that the α bound DOES apply to the ACE_HIGH
+# bucket anyway, closing the question T1's build round referred up
+# (`docs/ai-dlc/ledger/phase3-invest-then-fold.md`, finding 3 + first open item).
+#
+# The ruling is recorded here rather than applied. Applying it as a runtime
+# calibration would raise ace-high call rates and breach the frozen
+# went-to-showdown bands that capped T3's `_ACE_HIGH_RIVER_CALL_DAMP` at 0.06;
+# reconciling the ruling with those bands is a separate owner decision. So the
+# α fixture above is deliberately NOT widened to include ACE_HIGH — doing so
+# would fail on 15 to 24 cells per street, which is a red suite, not a guard.
+#
+# This helper is purpose-built rather than a reuse of `_measure_catcher_fold_by_size`
+# for two reasons: the range filter is a different bucket, and `opponents` has to
+# be swept (both standing price fixtures pin it to 1, so neither can see
+# `_MW_CATCH_TIGHTEN` or T1's `opponents > 1` predicate). Node, deal seed,
+# per-cell decision seed and n are otherwise identical to that fixture, so the
+# two tables are directly comparable.
+def _measure_ace_high_fold_by_size(persona: str, street, opponents: int):
+    """{frac: fold-to-bet} for NAKED ace-high (ACE_HIGH + DrawCategory.NONE) at
+    one persona, street and opponent count, on `catcher_fold_by_size`'s node."""
+    from app.domain.equity import RANKS
+
+    packs = load_persona_packs()
+    if set(VillainType) - set(packs):
+        pytest.skip("not all persona packs authored yet")
+    deal_rng = random.Random(20260721)
+    deck0 = [r + s for r in RANKS for s in "shdc"]
+    spots = []
+    while len(spots) < _PRICE_N:
+        deck = deck0[:]
+        deal_rng.shuffle(deck)
+        hole, board = (deck[0], deck[1]), deck[2:5]
+        made, draw = strength_bucket(hole, board)
+        if draw is DrawCategory.NONE and made is StrengthBucket.ACE_HIGH:
+            spots.append((hole, board))
+
+    pack = packs[VillainType(persona)]
+    pi = ALL_PERSONAS.index(persona)
+    pot_pre = 6.0
+    rates = {}
+    for fi, frac in enumerate(PRICE_FRACS):
+        to_call = round(frac * pot_pre, 2)
+        legal = [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(to_call),
+            personas_postflop_legal_raise(2 * to_call, 100.0),
+        ]
+        rng = random.Random(20260721 + 100 * pi + fi)  # same per-cell seed
+        folds = 0
+        for hole, board in spots:
+            d = sample_postflop_decision(
+                pack,
+                hole,
+                board,
+                legal,
+                pot_pre + to_call,
+                100.0,
+                opponents,
+                rng,
+                current_bet_to=to_call,
+                street=street,
+            )
+            folds += d.action is ActionType.FOLD
+        rates[frac] = folds / _PRICE_N
+    return rates
+
+
+def test_ace_high_alpha_holds_for_the_station_pre_river():
+    """The α ceiling on naked ace-high, asserted over the ONLY part of that
+    surface the engine satisfies today: `calling_station`, all four prices, one
+    through three opponents, on every street before the river.
+
+    THE RULING. The owner ruled on **2026-08-19** that α = f/(1+f) DOES bound
+    the ACE_HIGH strength bucket, answering the open question T1 referred up.
+    This test is that ruling's instrument, not its implementation: NO engine
+    behaviour changed with it, and none may change to make it pass.
+
+    WHY THE ASSERTION IS THIS NARROW, stated as a violation map rather than
+    implied. Measured at this file's own α node (n=1250 naked-ace-high spots,
+    deal seed 20260721, per-cell decision seed 20260721 + 100·persona_index +
+    frac_index), the count of persona-and-size cells whose fold rate EXCEEDS α:
+
+        street        opp=1    opp=2    opp=3
+        None          15/24    19/24    19/24
+        FLOP          15/24    20/24    20/24
+        TURN          17/24    20/24    20/24
+        RIVER         24/24    24/24    24/24
+
+    `street=None` at one opponent reproduces `alpha-multiway-t1.md`'s 15-of-24
+    figure cell for cell. The calling station is the only persona with a clean
+    row anywhere; no street has a clean column; the river has no clean cell for
+    anyone. Full per-cell table, the reproducer, and the reasoning:
+    `docs/ai-dlc/research/slice2-invest-then-fold/alpha-acehigh-ruling.md`.
+
+    THE VIOLATED CELLS ARE DELIBERATELY NOT PINNED, in either direction. An
+    expected-failure pin would entrench a violation the ruling calls wrong as
+    the engine's specification, and the α identity is a CEILING and never a
+    floor (the A1 guardrail — no lower bound on any fold rate exists in this
+    file and none is added here).
+
+    T3'S RIVER CALL LEG AGAINST α, because the obvious question is whether it
+    helped. Sweeping `_ACE_HIGH_RIVER_CALL_DAMP` at one opponent: 0.0 (the
+    pre-T3 hard zero) 24/24 over α · **0.06 (shipped) 24/24** · 0.45 20/24 ·
+    1.0, the leg fully undamped, still 18/24 · zero cells only near 3.0. T3 cut
+    the station's ⅓-pot river fold rate 0.9744 → 0.5584 and closed no α cells,
+    and the constant is not the reason: the bound sits about fifty times the
+    shipped value away, outside this branch's whole range. That is the arithmetic
+    the ruling-versus-bands reconciliation needs, and it is the owner's.
+
+    WHY THIS SUBSET IS WORTH A TEST rather than being a decorative pass. The
+    binding cell is TURN / three opponents / ⅓-pot at **+9.53pp** of headroom
+    (0.1528 vs α 0.2481), ≈7.8 binomial SE at n=1250, and the sign never flips
+    across five (deal seed, decision seed, n) configurations — min headroom
+    (20260721, 20260721, 1250) +9.53pp · (…, 625) +9.77pp · (777, 777, 1250)
+    +8.93pp · (424242, 424242, 1250) +9.09pp · (99, 12345, 2500) +8.45pp, with
+    the binding cell always at three opponents and a small price. The quantity
+    is live and moving the wrong way: T1 raised this persona's multiway flop
+    ace-high fold rate by up to +0.1176 in one slice (0.2312 → 0.3488 at 1.5×,
+    two opponents), spending about a third of that cell's headroom. Two more
+    slices of that size and the last compliant persona breaches.
+
+    SCOPE, honestly. This guards a decision rule on a uniform-deal
+    naked-ace-high range at one node — not an arrival range, not a closed-loop
+    population statistic, and not the other five personas. Nothing here replaces
+    `test_fold_to_bet_respects_alpha_ceiling`, which still owns the one-pair
+    bluff-catcher range and is untouched by this slice."""
+    for street in (None, Street.FLOP, Street.TURN):
+        for opponents in (1, 2, 3):
+            r = _measure_ace_high_fold_by_size("calling_station", street, opponents)
+            for frac in PRICE_FRACS:
+                alpha = frac / (1 + frac)  # size-exact; no tolerance
+                assert r[frac] <= alpha, (
+                    f"calling_station naked-ace-high fold {r[frac]:.4f} vs a "
+                    f"{frac}-pot bet at street={street} opponents={opponents} "
+                    f"exceeds the α ceiling {alpha:.4f} — the last α-compliant "
+                    f"cells on this bucket (owner ruling 2026-08-19) have "
+                    f"regressed; see alpha-acehigh-ruling.md"
+                )
+
 def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
     """RES-D §2 invariant 2 at MEDIUM (½-pot), RE-DERIVED at W3R-2.
 
@@ -7033,7 +7176,16 @@ def test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents(
     fold ceiling is asserted over the one-pair no-draw BLUFF-CATCHER range
     (`_CATCHER_BUCKETS`, `test_fold_to_bet_respects_alpha_ceiling`), which
     deliberately EXCLUDES ace-high — ace-high loses to part of a balanced
-    bettor's bluff half, so it is not a catcher and α does not bind on it.
+    bettor's bluff half, so it is not a catcher by that fixture's construction.
+
+    ⚠️ THE EXCLUSION IS A FIXTURE SCOPE, NOT A STATEMENT THAT α SPARES THE
+    BUCKET. This docstring used to end "and α does not bind on it", which the
+    owner's 2026-08-19 ruling makes false: α DOES bound ACE_HIGH. What this
+    test asserts is unaffected — it pins the one-pair catcher range as
+    byte-identical across opponent counts, and says nothing about ace-high's
+    own rates. Those are measured, and violate α nearly everywhere, in
+    `test_ace_high_alpha_holds_for_the_station_pre_river` and
+    `docs/ai-dlc/research/slice2-invest-then-fold/alpha-acehigh-ruling.md`.
 
     W3R-6 kept that contract safe by construction (the damp could not reach a
     facing-a-bet node at all). T1 removes that reason, so what protects the

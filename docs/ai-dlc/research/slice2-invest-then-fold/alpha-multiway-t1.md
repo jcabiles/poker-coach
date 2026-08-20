@@ -14,6 +14,14 @@ stays byte-identical at every opponent count, which is now a test.**
 
 Ticket acceptance criterion 6. Produced by `alpha_measure.py` beside this file.
 
+**UPDATE 2026-08-19 — the open question above is answered, and this file's
+measurements still stand.** The owner ruled that α DOES apply to the ACE_HIGH
+bucket. Every number below is unchanged and reproduces at HEAD; what changes is
+that "whether α should be asserted over this bucket" is no longer open, so read
+the sentences below that refer it as historical. The ruling, the RIVER street
+this file never swept, and the full violation map are in
+`alpha-acehigh-ruling.md` beside this file.
+
 ## What was measured, and one thing that nearly broke the measurement
 
 1,250 naked-ace-high spots (`StrengthBucket.ACE_HIGH` + `DrawCategory.NONE`),
