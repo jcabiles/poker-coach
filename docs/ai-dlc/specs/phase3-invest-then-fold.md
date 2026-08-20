@@ -407,7 +407,7 @@ dial.
    is a thin slice inside a broader context rather than a context of its own; and a
    damp of 0.06 does not lift these contexts back under the 0.98 threshold. The
    guard's own readings wandered between 0.12 and 0.16 across the slice on counts of
-   11–15 out of 85–113, which is churn in which contexts clear the 50-observation
+   11–15 out of 85–115, which is churn in which contexts clear the 50-observation
    threshold. **The instrument that does measure the property is the diagnosis
    script's count of folds that are probability-1.000 by construction: 524 at slice
    start, 495 after T1, 144 at the merged tip.** Read that, not the guard.

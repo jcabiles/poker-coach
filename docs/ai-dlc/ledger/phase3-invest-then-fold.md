@@ -701,7 +701,7 @@ line, which is why the tickets required the pair to be reported explicitly.
   churn in which contexts clear the observation threshold that the T3 round
   recorded. **Read the pass as a pass and nothing more: the rule still flags a
   river naked-ace-high context on every one of the five seeds** — the nit's
-  `flat` / `ace_high|none` at modal shares of 0.9852 to 0.9952, the calling
+  `flat` / `ace_high|none` at modal shares of 0.9851 to 0.9952, the calling
   station's at 0.9881 to 0.9966, and on seed 603 the nit's `river_value` /
   `ace_high|none` as well. It flags them because it counts contexts and allows each
   persona 20 percent of its qualifying set, so a few river entries among ninety-odd
