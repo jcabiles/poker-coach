@@ -679,9 +679,9 @@ Merged tip: `862e614`. Pull requests #198 (T1), #199 (T2), #200 (T3).
 
 **The slice's gate obligation is discharged. All five seeds pass both rules at
 the merged tip, LAG–TAG is the binding pair on every one of them, and the
-weakest reading anywhere sits comfortably inside its limit.** The slice stays
+weakest reading anywhere sits comfortably inside its limit.** ~~The slice stays
 OPEN regardless; the owner confirmed today that the play session has not
-happened.
+happened.~~ *(Superseded 2026-08-21 — the play session has since happened and the slice is CLOSED; see the "Close-out, 2026-08-21" section at the bottom of this file.)*
 
 Run as `python -m tools.derobo_gate --check --all-seeds`, against baseline
 artifact `a5baseline-98abd160f03a501b` at engine SHA `a0de83e`, with the
@@ -772,8 +772,10 @@ rationale: `../roadmap/bot-realism-flywheel.md`, slice 2 entry.
 Two related owner rulings landed the same day, in a parallel pull request to the
 theory contract, and are noted here without duplicating their detail:
 
-- **Stage-0 interim went-to-showdown band regime — RATIFIED.** The grounded
-  floors and one-way ceiling ratchet that replace the frozen bands T3 above was
+- **Stage-0 interim went-to-showdown band regime — RATIFIED.** Three
+  components: grounded floors, a one-way downward ceiling ratchet, and the
+  maniac's went-to-showdown assertion restored at a ratcheted ceiling — it has
+  been skipped since 2026-08-01. Replaces the frozen bands that T3 above was
   capped inside of. Detail: `../roadmap/bot-realism-flywheel.md`, improvement-phase
   block.
 - **Stage-1 stack-commitment brake (`W4-a`) — DEFERRED** past the phase-3
