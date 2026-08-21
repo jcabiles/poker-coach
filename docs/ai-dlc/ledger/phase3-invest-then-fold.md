@@ -1,13 +1,17 @@
 # Ledger — invest-then-fold (phase-3 ruling A, improvement slice 2)
 
-**Bottom line: the slice shipped three pull requests and two behaviour changes.
+**Bottom line, updated 2026-08-21: the slice is CLOSED.** The owner played the
+blind play session and the verdict was acceptance — see the close-out entry at
+the bottom of this file. *(Superseded text below, kept for provenance — it was
+accurate when written and describes the build, which did not change at
+close-out.)* ~~the slice shipped three pull requests and two behaviour changes.
 Naked ace-high stopped floating multiway bets (#198) and may call the river again
 at a damped weight (#200); the third ticket's repricing was measured, found to
 move the roster away from the target it was meant to serve, and withdrawn on the
 owner's ruling, shipping a test instead (#199). Review, not the test suite, is
 what caught everything that mattered: all three tickets shipped stale or false
 claims past a fully green suite. The slice is NOT closed — the owner's blind play
-session is the primary acceptance evidence and has not happened.**
+session is the primary acceptance evidence and has not happened.~~
 
 This file is chronological. The spec review comes first, then the contract scan,
 then one build round per ticket, then the filed items and the close-out. The
@@ -651,11 +655,15 @@ built, and nothing below blocks the slice.
 
 ## Slice close-out
 
-**The slice is OPEN. Every ticket is merged and the gate obligations are recorded
+**Superseded 2026-08-21 — see the "Close-out, 2026-08-21" section at the bottom
+of this file for the current state (CLOSED). What follows is the record of the
+gate obligations and ticket status as they stood before the play session.**
+
+~~The slice is OPEN. Every ticket is merged and the gate obligations are recorded
 below, but the owner's blind play session has not happened, and under the
 2026-08-17 ruling that session is the primary acceptance evidence for the slice
 — it outranks the gate rather than supplementing it. Nothing here should be read
-as the slice being finished.**
+as the slice being finished.~~
 
 Merged tip: `862e614`. Pull requests #198 (T1), #199 (T2), #200 (T3).
 
@@ -748,3 +756,27 @@ against the 3.78-point bound the spec allowed.
   value-side lever in `_AGG_BASE`, which blocks future bluff-frequency work, and
   the went-to-showdown bands, whose distance from the theory contract's grounded
   targets bounded T3's constant.
+
+## Close-out, 2026-08-21 — slice CLOSED
+
+**The slice is CLOSED. The owner played the blind play session; the verdict was
+acceptance.** The bots felt plausibly human at the table, and nothing stood out
+as robotic. Under the 2026-08-17 ruling recorded above, that session's table
+impressions are the primary acceptance evidence for this phase, outranking the
+two statistical gates rather than supplementing them — so this verdict is what
+closes the slice, not the ticket-merge count that was already in place. All six
+close-out pull requests (#201–#206) are merged, on top of the three ticket pull
+requests (#198, #199, #200) already recorded above. Full record and the ruling's
+rationale: `../roadmap/bot-realism-flywheel.md`, slice 2 entry.
+
+Two related owner rulings landed the same day, in a parallel pull request to the
+theory contract, and are noted here without duplicating their detail:
+
+- **Stage-0 interim went-to-showdown band regime — RATIFIED.** The grounded
+  floors and one-way ceiling ratchet that replace the frozen bands T3 above was
+  capped inside of. Detail: `../roadmap/bot-realism-flywheel.md`, improvement-phase
+  block.
+- **Stage-1 stack-commitment brake (`W4-a`) — DEFERRED** past the phase-3
+  finale, as a named post-finale slice, with a reopening trigger tied to slice 3
+  (calldown) stalling on commit-gated pots. Detail:
+  `../roadmap/bot-realism-flywheel.md`, improvement-phase block.
