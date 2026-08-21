@@ -2829,22 +2829,44 @@ def budget():
 # N (fish AF .940/.951, ftc .411/.431; station AF .341/.337, ftc .158/.160) —
 # those tuples are KEPT unmoved.
 #
+# ---------------------------------------------------------------------------
+# STAGE-0 INTERIM WENT-TO-SHOWDOWN REGIME (owner-ratified 2026-08-21).
+#
+# Every WTSD tuple below is now an INTERIM band, not a frozen one, and the two
+# edges are governed by different rules. The floor is the persona's grounded
+# floor from the theory contract's §5 keystone row; the ceiling is this tip's
+# own measurement plus three binomial standard deviations, rounded outward and
+# never above the incumbent ceiling. Showdown frequency is meant to FALL, so a
+# slice that lowers it must stop failing CI for doing the right thing, while a
+# slice that raises it must still be stopped. Floors give way; ceilings never
+# rise. Authority: theory contract §5, amendments A4 and A5, plus the §11 item 7
+# exception (A7) that makes a move under this regime reviewable rather than
+# auto-failed. Full arithmetic: `test_persona_postflop_bands`' docstring below.
+#
+# The AF and fold-to-c-bet tuples are NOT touched by the regime and stay frozen
+# to the single re-anchor slice.
+#
+# One retirement lands here: the 2026-07-24 W3R exception that moved the
+# station's WTSD floor UP to 0.66 — 18 points above that persona's own grounded
+# CEILING — is retired by A4.2 item 1. It was the single most binding obstacle
+# to lowering showdown frequency. Its AF/fold-to-c-bet half is untouched.
+# ---------------------------------------------------------------------------
 # persona -> (AF band or None, fold_to_cbet band, WTSD band), all fractions.
 BANDS = {
     # (both W3R-2 lines: owner-authorized post-fit collision — see block above)
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.50, 0.57)),  # WTSD re-anchor W3R-2
-    "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.66, 0.72)),  # WTSD re-anchor W3R-2
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.57)),  # WTSD: Stage-0 interim
+    "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.37, 0.80)),  # AF/WTSD re-anchored (P2a)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.69)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
     # be as low as ~40 ⇒ 3σ ≈ ±0.19, so the floor must sit well below center).
     # P2a: ftc floor 0.05 → 0.0 (measured 0.152 at n=33 ⇒ CI floor < 0) and
     # WTSD (0.52,0.79) → (0.41,0.65) (river polarization, see block above).
-    "tag": ((1.4, 3.6), (0.0, 0.55), (0.41, 0.65)),  # ftc/WTSD re-anchored (P2a)
-    "lag": ((1.5, 4.5), (0.12, 0.64), (0.37, 0.59)),  # AF/ftc/WTSD re-anchored (P2a)
+    "tag": ((1.4, 3.6), (0.0, 0.55), (0.25, 0.65)),  # WTSD: Stage-0 interim (ftc frozen)
+    "lag": ((1.5, 4.5), (0.12, 0.64), (0.26, 0.59)),  # WTSD: Stage-0 interim (AF/ftc frozen)
     # maniac AF top re-anchored (F3, RES-D §4 measure-then-anchor): the F1
     # band's 999 (∞) top was a saturation artifact — with aggression=15
     # effectively argmaxing bet/raise, AF had no meaningful upper bound to
@@ -2869,7 +2891,7 @@ BANDS = {
     # maniac P2a: AF top 4.5 → 5.1 (measured 4.102 at N=670, CI top 5.079),
     # ftc top 0.56 → 0.61 (measured .446/.466, CI top 0.609), WTSD
     # (0.39,0.56) → (0.34,0.50) (measured .420/.398 — river polarization).
-    "maniac": ((2.4, 5.1), (0.0, 0.61), (0.34, 0.50)),  # AF/ftc/WTSD re-anchored (P2a)
+    "maniac": ((2.4, 5.1), (0.0, 0.61), (0.30, 0.62)),  # WTSD: Stage-0 interim + A5 repair
 }
 
 
@@ -6430,6 +6452,66 @@ _WTSD_ORDER_N = 4000
 
 @pytest.mark.parametrize("persona", ALL_PERSONAS)
 def test_persona_postflop_bands(persona, budget):
+    """Aggression factor, fold-to-c-bet and went-to-showdown against `BANDS`.
+
+    The went-to-showdown edges are INTERIM as of 2026-08-21, under the
+    owner-ratified transition regime (theory contract §5, amendments A4/A5, made
+    reviewable by the §11 item 7 exception in A7). "Went to showdown" is the
+    share of hands a persona takes to showdown out of the hands where it saw the
+    flop. The regime is asymmetric on purpose, because showdown frequency is
+    meant to FALL: the floor is the persona's grounded floor from the contract's
+    §5 keystone row, so a slice that lowers showdown frequency toward the target
+    can no longer fail for doing so; the ceiling is this tip's own measurement
+    plus three binomial standard deviations, rounded outward to the nearest
+    hundredth and NEVER above the incumbent ceiling. Floors give way; ceilings
+    never rise. The aggression-factor and fold-to-c-bet edges are untouched by
+    the regime and stay frozen to the single re-anchor slice.
+
+    THE ARITHMETIC, PER PERSONA, computed on 2026-08-21 at commit `d351150` with
+    this file's own band harness — its own pinned seed (`random.Random(20260710)`
+    inside `_persona_stats`) and its own stable sample size (`_WTSD_ORDER_N` =
+    4000 hands). `n` is the harness's flop-seen hand count for that persona,
+    which is the sample the binomial standard deviation is taken at; it differs
+    per persona because each sees a different number of flops over the same
+    4,000 hands. `sd = sqrt(p * (1 - p) / n)`.
+
+        persona          measured   n     1 sd      3 sd      p + 3sd   -> ceiling
+        nit              0.6356      955  0.015573  0.046720  0.682322  -> 0.69
+        tag              0.6133     1593  0.012202  0.036605  0.649913  -> 0.65
+        lag              0.5728     2437  0.010020  0.030061  0.602897  -> 0.61
+        maniac           0.5960     3998  0.007760  0.023281  0.619329  -> 0.62
+        calling_station  0.7105     5499  0.006116  0.018348  0.728841  -> 0.73
+        passive_fish     0.5403     4107  0.007777  0.023330  0.563627  -> 0.57
+
+    THE INSTALLED CEILING IS THE SMALLER OF THAT RATCHET AND THE INCUMBENT, so
+    two of the six are capped by their incumbent value and do not move:
+
+        persona          incumbent  ratchet  INSTALLED  what happened
+        nit                  0.80     0.69     0.69     tightens by 11 points
+        tag                  0.65     0.65     0.65     unchanged
+        lag                  0.59     0.61     0.59     capped by the incumbent
+        maniac               0.50     0.62     0.62     the single A5 upward repair
+        calling_station      0.72     0.73     0.72     capped by the incumbent
+        passive_fish         0.57     0.57     0.57     unchanged
+
+    THE FLOORS all drop to the §5 grounded floor: nit 0.37 -> 0.20, tag 0.41 ->
+    0.25, lag 0.37 -> 0.26, maniac 0.34 -> 0.30, calling_station 0.66 -> 0.38,
+    passive_fish 0.50 -> 0.33. The station's is the consequential one: the
+    2026-07-24 W3R exception had moved that floor UP to 0.66, which is 18 points
+    ABOVE the same persona's own grounded ceiling of 0.48, and it was the single
+    most binding obstacle to lowering showdown frequency. A4.2 item 1 retires it.
+
+    WHAT REPLACES THE FLOORS AS A REGRESSION GUARD: the floors were never
+    protecting an absolute level, they were protecting against every persona
+    converging on one population average. That job passes to
+    `test_persona_wtsd_ordering_invariants` below, whose legs are split three
+    permanent and two transition-scoped — see that test's own docstring.
+
+    NO ENGINE FILE, PERSONA PACK OR BASELINE ARTIFACT WAS TOUCHED to install
+    this. The numbers above are a measurement of the unchanged bot; the regime
+    is a gate on levels, not a licence on mechanisms, and a slice whose only
+    argument is "this lands inside the interim band" has not made an argument.
+    """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]
     af, ftc, wtsd, call_n, ftc_n, wtsd_n = _persona_stats(packs, persona, per_persona_n)
@@ -6478,33 +6560,29 @@ def test_persona_postflop_bands(persona, budget):
                 f"— outside [{lo},{hi}]"
             )
     if wtsd is not None:
-        # maniac WTSD — DEFERRED to W4-b by OWNER RULING, 2026-08-01
-        # (instrument-repair wave). This rationale REPLACES the W2-era one, which
-        # said maniac's WTSD "sits ON the 0.50 ceiling" and flipped over/under by
-        # throughput-n noise (0.52 @ n=200, 0.484 @ n=1000). That is no longer
-        # what the instrument reads and the old note would misinform the next
-        # reader: after the R-L2 preflop-sizing repair the harness plays
-        # production's raise sizes, so preflop pots get big and all-in run-outs
-        # (which count as showdowns) get common — maniac's WTSD reads 0.593
-        # (n=2000) and 0.588 (n=4000), measured in SEPARATE processes at seed
-        # 20260710, against the frozen band (0.34, 0.50). That is a ~9-point
-        # breach, not a straddle.
+        # maniac WTSD — ASSERTION RESTORED, 2026-08-21 (owner-ratified amendment
+        # A5, the ruler-repair record). This REPLACES the 2026-08-01 deferral,
+        # which skipped the leg because the persona measured about 0.59 against a
+        # frozen ceiling of 0.50 — a roughly nine-point breach that appeared when
+        # the harness was repaired to play production's raise sizes. The bot did
+        # not change; the instrument did.
         #
-        # WHY DEFERRED RATHER THAN RE-ANCHORED: the BOT did not change — no
-        # persona pack, no sampler, no engine code moved in this wave; only the
-        # RULER was repaired, and it now measures production-faithful play. The
-        # band VALUE (0.34, 0.50) was recorded against the old, min-raising
-        # ruler, so re-anchoring it is a band re-anchor decision, and W4-b is the
-        # single authoritative re-anchor. Owner ruled 2026-08-01: defer the
-        # ASSERTION, freeze the VALUE. maniac's AF + fold-to-cbet bands and every
-        # other persona's WTSD (including passive_fish, restored live directly
-        # below) stay live.
-        if persona == "maniac":
-            pytest.skip(
-                "maniac WTSD 0.588-0.593 at stable n (n=4000/2000) vs frozen "
-                "(0.34, 0.50) after the R-L2 sizing repair; ruler repaired, bot "
-                "unchanged — owner-deferred to W4-b (ruling 2026-08-01)"
-            )
+        # THE ASYMMETRY, STATED RATHER THAN SMOOTHED OVER. Under the Stage-0
+        # interim regime every ceiling in this file may only ratchet DOWN. The
+        # maniac's is the ONE authorized upward move: 0.50 -> 0.62. It is
+        # authorized because the band was recorded against a superseded
+        # instrument, so it is not evidence about the bot — NOT because the bot
+        # earned it. Measured against today's skipped assertion this is a
+        # tightening (a live ceiling catches a regression; a skip catches
+        # nothing); measured against the frozen 0.50 value it is a loosening, and
+        # both readings are true at once. No other ceiling in this file may move
+        # up on this precedent.
+        #
+        # Arithmetic, at this tip and this harness's own pinned seed and stable
+        # sample size: measured 0.5960 at n=3998 flop-seen hands, 1 sd =
+        # sqrt(0.5960 * 0.4040 / 3998) = 0.007760, 3 sd = 0.023281, measurement +
+        # 3 sd = 0.619329, rounded outward to 0.62.
+        #
         # passive_fish WTSD — SKIP LIFTED, 2026-08-01 (instrument-repair wave);
         # the assertion below is live for the fish again. The R10-3BET-era skip
         # deferred it on a reading of 0.4873 vs the frozen [0.50, 0.57] floor,
@@ -6548,6 +6626,51 @@ def test_persona_wtsd_ordering_invariants(budget):
     since they follow directly from each persona's PRD-intended fold/call
     discipline (station folds least -> highest WTSD; maniac folds most among
     the aggressive personas -> lowest WTSD relative to the calling personas).
+
+    THIS TEST IS NOW THE PRIMARY ANTI-FLATTENING GUARD. As of 2026-08-21 the
+    went-to-showdown FLOORS in `BANDS` above are the contract's grounded floors
+    rather than engine-anchored ones, so they no longer stop a persona drifting
+    toward the population average. The job passes here. But the five legs are
+    NOT all of the same kind, and treating them as one block would rebuild the
+    veto the interim regime exists to remove, so amendment A4.2 item 4
+    (owner-ratified 2026-08-21) splits them three-and-two. NO LEG VALUE CHANGES
+    IN THIS PULL REQUEST; only the classification below is new.
+
+    PERMANENT, AND HARD THROUGHOUT -- these three agree with the grounded
+    endpoint, so no slice under the interim regime may weaken them:
+
+      * station > tag     (grounded midpoints about 43 against 27)
+      * station > lag     (43 against 28.5)
+      * maniac  < station (35 against 43)
+
+    TRANSITION-SCOPED, AND TO BE RE-DERIVED AT THE SINGLE RE-ANCHOR -- these two
+    were pinned against the ENGINE rather than derived from the grounded
+    targets, and they CONTRADICT those targets:
+
+      * fish < tag. The leg was deliberately re-pinned on 2026-07-24, in the
+        same W3R wave that moved the fish and station bands, to bless the fish
+        folding more than the tag after its calling dial was authored down. The
+        grounded endpoint says the opposite -- fish 33-42 sits ABOVE tag 25-29.
+        Any slice that legitimately moves the tag toward its target trips this
+        leg, which is the identical veto class the floors created.
+      * station - fish > 0.10. At the grounded midpoints that gap is about 5.5
+        points, so the leg is unsatisfiable across most of the target region and
+        is satisfiable only at opposite band edges.
+
+    Both transition-scoped legs stay LIVE during the transition as
+    anti-flattening guards. A slice may move either ONCE, in the ratcheting
+    spirit of A4.2 item 2: with the measurement, the direction, and a statement
+    of which grounded pair it is moving toward. Both are re-derived at the
+    single re-anchor -- the fish-versus-tag leg most likely FLIPPED, and the
+    separation constant expected to shrink from 0.10 toward that roughly
+    5.5-point gap -- where the grounded bands become the reference.
+
+    A slice that trips one of the two transition-scoped legs while moving a
+    persona toward its band has found the band's veto in a second place, not a
+    regression. Together with the de-robotization gate's archetype separation
+    floor, which is archetype-wide and does not depend on any one statistic's
+    direction, this is a stronger guard against persona-flattening than an
+    absolute floor ever was.
     """
     # W3-b/c/d (persona-realism-w3bcd, 2026-07-24): the position IP/OOP c-bet
     # boost narrowed the station-vs-tag WTSD gap to ~0.044 (station 0.63 > tag
@@ -6566,9 +6689,11 @@ def test_persona_wtsd_ordering_invariants(budget):
         assert w is not None, f"{persona} WTSD unmeasurable at n={wn} (<30 floor)"
         wtsd[persona] = w
 
+    # A4.2 item 4: PERMANENT and HARD throughout (grounded midpoints ~43 vs ~27).
     assert wtsd["calling_station"] > wtsd["tag"], (
         f"station WTSD {wtsd['calling_station']:.3f} not > tag WTSD {wtsd['tag']:.3f}"
     )
+    # A4.2 item 4: PERMANENT and HARD throughout (grounded midpoints ~43 vs ~28.5).
     assert wtsd["calling_station"] > wtsd["lag"], (
         f"station WTSD {wtsd['calling_station']:.3f} not > lag WTSD {wtsd['lag']:.3f}"
     )
@@ -6583,15 +6708,22 @@ def test_persona_wtsd_ordering_invariants(budget):
     # moves to the station-vs-fish separation below: the two passive personas
     # must stay clearly distinguishable — the fish is now a fold-to-big-bet
     # persona, the station the one that still calls everything.
+    # A4.2 item 4: TRANSITION-SCOPED. Engine-anchored, and it contradicts the
+    # grounded endpoint (fish 33-42 sits ABOVE tag 25-29); re-derived at the
+    # single re-anchor and expected to FLIP. Value unchanged here.
     assert wtsd["passive_fish"] < wtsd["tag"], (
         f"passive_fish WTSD {wtsd['passive_fish']:.3f} not < tag WTSD "
         f"{wtsd['tag']:.3f} (W3R-2: the fish now folds more than the tag)"
     )
+    # A4.2 item 4: TRANSITION-SCOPED. The grounded midpoints imply a gap of only
+    # ~5.5 points, so 0.10 is unsatisfiable across most of the target region;
+    # re-derived at the single re-anchor. Value unchanged here.
     assert wtsd["calling_station"] - wtsd["passive_fish"] > 0.10, (
         f"station WTSD {wtsd['calling_station']:.3f} and fish WTSD "
         f"{wtsd['passive_fish']:.3f} have converged (<0.10 apart) — the two "
         f"passive personas must stay distinguishable (W3R-2)"
     )
+    # A4.2 item 4: PERMANENT and HARD throughout (grounded midpoints ~35 vs ~43).
     assert wtsd["maniac"] < wtsd["calling_station"], (
         f"maniac WTSD {wtsd['maniac']:.3f} not < station WTSD {wtsd['calling_station']:.3f}"
     )
