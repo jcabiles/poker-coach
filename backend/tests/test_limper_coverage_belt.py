@@ -522,9 +522,21 @@ _PRE_M3_FIRES = {
     # limper-belt content changed and every _WANT_* coverage shape still fires
     # (verified: BB x1 47, BB x2 20, BB x3 6) — stream displacement, not a
     # coverage regression.
-    ("UTG2", 1): 100, ("LJ", 1): 110, ("HJ", 1): 115, ("CO", 1): 100,
-    ("CO", 2): 22, ("SB", 1): 61, ("SB", 2): 34, ("BTN", 1): 87,
-    ("BTN", 2): 25,
+    # RE-RECORDED for S3-T3 (improvement slice 3, 2026-08-22,
+    # slice-authorized): the stack-to-pot damp on made-value betting
+    # (`_value_spr_mult`, theory contract §3 amendment A8) changes which bots bet a
+    # made hand when the stack stops covering the bet, so the shared organic
+    # rng stream displaces from the first such decision onward and every pair
+    # moves (old counts: UTG2¹ 100, LJ¹ 110, HJ¹ 115, CO¹ 100, CO² 22, SB¹ 61,
+    # SB² 34, BTN¹ 87, BTN² 25). ATTRIBUTION PROVEN, not assumed: with
+    # `_VALUE_SPR_FLOOR` set back to 1.0 — the ramp's identity value, which is
+    # the pre-S3-T3 engine exactly — and every other edit on this branch left in
+    # place, all nine counts reproduce their old values; restoring 0.88
+    # reproduces the new ones. Stream displacement, not a coverage regression:
+    # every `_WANT_*` shape still fires.
+    ("UTG2", 1): 81, ("LJ", 1): 118, ("HJ", 1): 109, ("CO", 1): 116,
+    ("CO", 2): 20, ("SB", 1): 71, ("SB", 2): 31, ("BTN", 1): 88,
+    ("BTN", 2): 37,
 }
 
 

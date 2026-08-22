@@ -868,6 +868,58 @@ _MW_VALUE_CAP = 3
 _MW_VALUE_BUCKETS = (StrengthBucket.TOP_PAIR, StrengthBucket.MIDDLE_PAIR)
 
 
+# S3-T3 (theory contract §3 amendment A8): the made-value side's stack-to-pot term.
+# Until this lever the value side of the bluff-share identity had NO response to
+# stack depth below an overpair — `_AGG_BASE` is indexed by strength bucket
+# alone, so top pair bet at the same probability with the stack 30% of the pot
+# as with it ten times the pot. The only stack response anywhere on the value
+# side was the SPR-commit block's single flat step on OVERPAIR_TPTK+ (`:1731`),
+# which is a step, not a slope.
+#
+# Why a damp and not a boost. Where the stack caps the wager the seat cannot
+# make its own biggest authored size, so the size it actually makes is smaller
+# than the size its bluff mass was priced against — which leaves the betting
+# range there too VALUE-heavy relative to the identity's `s/(1+2s)` target. The
+# fix available at the merit layer is to bet made hands less often as the stack
+# stops mattering, not to bluff more.
+#
+# `_VALUE_SPR_FLOOR` is the multiplier at a stack-to-pot ratio of zero; the ramp
+# is linear in `c = (spr_commit - spr)/spr_commit` and returns EXACTLY 1.0 at and
+# above `spr_commit`, so every deep-stack decision is bit-identical (0.88 is an
+# UNFIT DIRECTIONAL SEED of the same status as `_MW_VALUE_DAMP`'s 0.8 — a merit
+# multiplier under softmax, so the frequency it moves is far smaller than the
+# multiplier suggests). Continuous by design: a step at `spr_commit` is exactly
+# the shape the de-robotization determinism guard exists to catch, and the
+# commit block already puts one there.
+#
+# NOT reachable from here, deliberately: the bluff cell (an air or ace-high hand
+# with no draw takes the `bluff_cell` branch and never reads `_AGG_BASE`), the
+# commit block's fold-zeroing (a committed bot that folds is a far worse leak
+# than one that bets thin), and any bracket field — this lever reads `stack_bb`
+# and `pot_bb` only, the two chip-walk quantities the range estimator
+# reconstructs exactly, which is why it cannot trip PR #199's parity guard.
+_VALUE_SPR_FLOOR = 0.88
+_VALUE_SPR_BUCKETS = (
+    StrengthBucket.MIDDLE_PAIR,
+    StrengthBucket.TOP_PAIR,
+    StrengthBucket.OVERPAIR_TPTK,
+    StrengthBucket.TWO_PAIR_PLUS,
+    StrengthBucket.MONSTER,
+)
+
+
+def _value_spr_mult(spr: float, spr_commit: float) -> float:
+    """Damp on the made-value BET merit as the stack stops covering the bet.
+
+    Exactly 1.0 at and above `spr_commit`, falling linearly to
+    `_VALUE_SPR_FLOOR` at a stack-to-pot ratio of zero. Same ramp shape as the
+    below-commitment draw damp (`c` at the SPR-commit block below), so the two
+    stack-keyed damps in this module read the same geometry.
+    """
+    c = min(max((spr_commit - spr) / spr_commit, 0.0), 1.0)
+    return 1.0 - (1.0 - _VALUE_SPR_FLOOR) * c
+
+
 def _bluff_size_factor(frac: float) -> float:
     """Multiplier on the bluff mass for a chosen pot-fraction: the bucket's
     polar bluff share relative to the MEDIUM reference. Bucketed on the
@@ -1691,6 +1743,25 @@ def sample_postflop_decision(
             # matched-with-option check-RAISE is out of scope); HU byte-identical.
             if agg_action is ActionType.BET and bucket in _MW_VALUE_BUCKETS:
                 agg_merit *= _MW_VALUE_DAMP ** min(max(opponents - 1, 0), _MW_VALUE_CAP)
+            # S3-T3 (A8): the stack-to-pot damp on made-value betting. Placed
+            # HERE — after the multiway damp, before the texture damps and well
+            # before `pos_mult`, which stays last — because it belongs with the
+            # made-value damp stage the contract's §7 order names, and because
+            # this is the one position that reads correctly against the block's
+            # own logic: everything below it is either a texture term or a
+            # river floor that ZEROES the merit, and a damp applied after a
+            # floor of 0.0 would be dead code. No existing multiplier moves;
+            # among pure multipliers the order is arithmetically irrelevant, so
+            # this choice is about where a reader should look for it.
+            #
+            # BET only, matching `pos_mult` and `_MW_VALUE_DAMP` on this arm:
+            # the matched-with-option check-RAISE and the facing-a-bet RAISE arm
+            # (`_RAISE_BASE`, `:1650`) are out of scope for the same reason they
+            # are out of scope for those two, and because a raise's realised
+            # pot-fraction is not `stack_bb / pot_bb` — recovering it needs the
+            # seat's street investment, which is not in scope here.
+            if agg_action is ActionType.BET and bucket in _VALUE_SPR_BUCKETS:
+                agg_merit *= _value_spr_mult(stack_bb / pot_bb, pf.spr_commit)
             # W3-d (B2/B3, F3/F20): a vulnerable one-pair hand slows down as
             # overcards fall and on wetter boards — whether-to-bet, not just size.
             # MIDDLE_PAIR/TOP_PAIR only; composes multiplicatively with position +
