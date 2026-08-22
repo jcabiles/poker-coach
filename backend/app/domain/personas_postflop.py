@@ -1235,6 +1235,29 @@ def _position_agg_mult(pf: PersonaPostflop, context: PostflopContext | None) -> 
     return 1.0 + _POSITION_AGG_DELTA * s if context.in_position else 1.0 - _POSITION_AGG_DELTA * s
 
 
+# S3-T5: the late-street bet gains. `late_street_bet` (a pack field, [0, 1],
+# absent → off) scales the aggressive candidate's merit at an UNOPENED turn or
+# river by `1 + late_street_bet * _LATE_STREET_GAIN[street]`, so a bot lets
+# fewer hands drift to a showdown nobody ever wagered into. Half of the nit's
+# showdown hands arrive that way, which is where the roster's excess showdown
+# frequency now lives; the calling dial cannot reach them because they contain
+# no calling decision (`docs/ai-dlc/research/slice3-calldown/t5-preregistration.md`).
+#
+# The river gain is the larger of the two because the river is the last chance
+# to win a pot without showing down, and because a checked-through turn leaves a
+# river node where neither player has shown strength. Both values were fixed by
+# the sweep recorded in `t5-report.md` §4 — the deepest pair whose dial-1.0
+# reading kept every persona's aggression factor inside its band — and they are
+# FIT constants, not measured poker quantities: the pack dial carries the
+# per-persona magnitude, and these two numbers only set what a dial of 1.0 means.
+#
+# The flop is deliberately absent. The flop continuation bet is already governed
+# by `aggression` and `position_sensitivity`, and the theory contract's c-bet
+# band is UNVERIFIED on level, so a flop lever could not be checked against
+# anything.
+_LATE_STREET_GAIN = {Street.TURN: 0.60, Street.RIVER: 1.00}
+
+
 # R9-DEFENCE-a: the opponent-LINE damp. `λ_p = _LINE_DELTA · pf.line_sensitivity`
 # is the log-odds shift applied to the continue-vs-fold split at a facing node
 # whose aggressor also bet/raised the previous postflop street.
@@ -1748,6 +1771,30 @@ def sample_postflop_decision(
                 and bucket in _RIVER_BET_FLOOR
             ):
                 agg_merit = 0.0  # middle pair never value-bets the river
+            # S3-T5: the late-street bet lever. An unopened turn or river gets
+            # its aggressive candidate scaled up, so fewer hands check through
+            # to a showdown nobody wagered into. The fourth condition of the
+            # guard — non-bluff — is structural: this is the non-bluff arm, and
+            # the bluff cell above is left alone on purpose so that pure air
+            # rises only through its own `bluff_freq` mass, which is what keeps
+            # the extra bets strength-weighted rather than a uniform stab rate.
+            # Scaling the aggressive candidate rather than damping `check_merit`
+            # is the same choice for the same reason: the candidate already
+            # carries every hand-strength and draw term.
+            #
+            # BET only (the matched-with-option check-RAISE is out of scope,
+            # exactly as for `pos_mult`), and turn/river only. A pack that does
+            # not author `late_street_bet` is byte-identical. This multiplies a
+            # merit feeding the existing single `rng.choices` action draw — no
+            # new draw, no reordering — and it lives inside this shared
+            # function, so the villain-range estimator inherits it rather than
+            # needing a parallel path.
+            if (
+                agg_action is ActionType.BET
+                and street in (Street.TURN, Street.RIVER)
+                and pf.late_street_bet is not None
+            ):
+                agg_merit *= 1.0 + pf.late_street_bet * _LATE_STREET_GAIN[street]
             # W3-b on the non-bluff path only — the bluff path already applied
             # `pos_mult` above (pre-complement). Exactly once on each path.
             agg_merit *= pos_mult

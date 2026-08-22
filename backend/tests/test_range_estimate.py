@@ -1420,3 +1420,64 @@ def test_no_aggressive_bracket_field_is_read_before_the_action_draw(packs, perso
         aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
     )
     assert _postflop_action_dist(pack, hole, ctx) == cap.dist, (persona, kind)
+
+
+# ---------------------------------------------- S3-T5 late-street bet lever
+
+
+def _unopened_late_ctx(street: Street):
+    """Seat 2's own CHECK at an UNOPENED turn or river: seat 3 opens preflop,
+    seat 2 calls, and every postflop street checks through. The existing parity
+    tests all sit at FACING nodes, so this is the first context in this file
+    where the CHECK/BET branch of the sampler is the branch under test."""
+    dealt = _dealt_fixed(("As", "Ad"), ["Kh", "7d", "2c", "9s", "3h"])
+    state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
+    moves = [(3, _raise_to(3.0))]
+    moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0, 1)]
+    moves += [(2, _CALL)]
+    moves += [(2, _CHECK), (3, _CHECK)]  # flop checks through
+    if street is Street.RIVER:
+        moves += [(2, _CHECK), (3, _CHECK)]  # turn checks through
+    moves += [(2, _CHECK)]  # the decision under test
+    state = _script(state, moves)
+    hist = _project(state)
+    return _replay_contexts(hist, seat=2, n=len(hist.actions))[-1]
+
+
+@pytest.mark.parametrize("street", [Street.TURN, Street.RIVER])
+def test_late_street_bet_estimator_parity_unopened(packs, street):
+    """S3-T5 (improvement slice 3, ticket 5 — the late-street bet lever): the
+    villain range the player is shown replays the lever, because the estimator
+    and the live bot call the same function.
+
+    That is structural rather than tested-into-being, which is exactly why it
+    needs a test that could fail: every other parity assertion in this file sits
+    at a node where a bet is already outstanding, so none of them touches the
+    unopened CHECK/BET branch the lever lives in. The lever-off distribution is
+    asserted to differ from the lever-on one first, so the parity claim is not a
+    comparison of two identical un-levered vectors."""
+    shipped = packs[VillainType.TAG]
+    levered = shipped.model_copy(deep=True)
+    levered.postflop = levered.postflop.model_copy(update={"late_street_bet": 1.0})
+
+    ctx = _unopened_late_ctx(street)
+    assert ctx.street is street
+    assert ctx.kinds == frozenset({ActionType.CHECK, ActionType.BET})
+    assert ctx.to_call_bb == 0.0
+
+    hole = ("Kd", "8d")  # top pair: bets and checks at this node, so both move
+    off = _postflop_action_dist(shipped, hole, ctx)
+    on = _postflop_action_dist(levered, hole, ctx)
+    assert on[ActionType.BET] > off[ActionType.BET], street
+
+    live = _CaptureFirstChoices()
+    sample_postflop_decision(
+        levered, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+        ctx.opponents,
+        live,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=ctx.current_bet_to, street=ctx.street,
+        latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
+        facing_raise=ctx.facing_raise,
+        aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
+    )
+    assert on == live.dist, street

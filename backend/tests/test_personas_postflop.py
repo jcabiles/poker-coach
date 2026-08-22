@@ -2300,6 +2300,129 @@ def test_river_polarization_sampled_and_turn_at_old_freq():
 
 
 # =====================================================================
+# S3-T5 — the late-street bet lever (improvement slice 3, ticket 5)
+# =====================================================================
+#
+# `late_street_bet` scales the aggressive candidate's merit at an UNOPENED turn
+# or river by `1 + late_street_bet * _LATE_STREET_GAIN[street]`, so fewer hands
+# check through to a showdown nobody wagered into. Exact normalized weights via
+# the capture rng, so these are arithmetic statements, not sampling ones.
+
+
+def _late_street_pack(persona: str, dial: float | None):
+    pack = _pack(persona).model_copy(deep=True)
+    pack.postflop = pack.postflop.model_copy(update={"late_street_bet": dial})
+    return pack
+
+
+_UNOPENED_LEGAL = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 97.0)]
+_MATCHED_LEGAL = [personas_postflop_legal_check(), personas_postflop_legal_raise(6.0, 97.0)]
+
+
+def _late_street_dist(persona, dial, hole, board, street, legal=None):
+    cap = _CaptureWeights()
+    sample_postflop_decision(
+        _late_street_pack(persona, dial),
+        hole,
+        board,
+        _UNOPENED_LEGAL if legal is None else legal,
+        9.0,
+        97.0,
+        1,
+        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        current_bet_to=0.0,
+        street=street,
+    )
+    return cap.dist
+
+
+@pytest.mark.parametrize(
+    ("street", "board", "gain"),
+    [
+        (Street.TURN, _TURN_BOARD, 0.60),
+        (Street.RIVER, _RIVER_BOARD, 1.00),
+    ],
+)
+def test_late_street_bet_fires_on_unopened_turn_river_bet_leg(street, board, gain):
+    """The lever multiplies the aggressive candidate, and nothing else.
+
+    Asserted as the exact odds ratio rather than as "the bet weight went up",
+    because a multiplier on one of two competing merits has a signature the
+    direction alone does not pin: CHECK keeps its merit, so the BET:CHECK odds
+    must rise by EXACTLY `1 + dial * gain` at every dial. The gain constants
+    are read from the engine rather than restated, so this test tracks a
+    re-calibration instead of failing on one.
+    """
+    assert personas_postflop._LATE_STREET_GAIN[street] == gain
+    hole = _RIVER_HOLES[StrengthBucket.TOP_PAIR]  # thin value: bets, and checks
+    off = _late_street_dist("tag", None, hole, board, street)
+    assert 0.0 < off[ActionType.BET] < 1.0, off
+    base_odds = off[ActionType.BET] / off[ActionType.CHECK]
+    for dial in (0.25, 0.5, 0.75, 1.0):
+        on = _late_street_dist("tag", dial, hole, board, street)
+        odds = on[ActionType.BET] / on[ActionType.CHECK]
+        assert odds == pytest.approx(base_odds * (1.0 + dial * gain), rel=1e-12), dial
+        assert on[ActionType.BET] > off[ActionType.BET], dial
+
+
+def test_late_street_bet_is_identity_when_absent_or_off_scope():
+    """Every path the lever must NOT touch, at the deepest dial the field
+    allows: an unauthored pack, the flop, a streetless call, the
+    matched-with-option check-RAISE leg, and the bluff cell (pure air, whose
+    bet mass stays `bluff_freq`'s to set).
+
+    Byte-equality of the whole distribution, not just of the BET weight —
+    normalization means a leak anywhere in the vector shows up here."""
+    top_pair = _RIVER_HOLES[StrengthBucket.TOP_PAIR]
+    flop_board = _RIVER_BOARD[:3]
+    # The bluff cell is `AIR with no draw`, and it needs a per-street hole: the
+    # river's air hole (6h4d) is a gutshot while the turn card is still to come,
+    # and the turn's (Jh2d) pairs the river's deuce. Asserted, not assumed.
+    air_by_street = {Street.TURN: ("Jh", "2d"), Street.RIVER: _RIVER_HOLES[StrengthBucket.AIR]}
+    for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
+        assert strength_bucket(air_by_street[street], board) == (
+            StrengthBucket.AIR,
+            DrawCategory.NONE,
+        ), street
+
+    # (i) the field absent is the shipped pack, byte-for-byte, on the very
+    # street the lever fires on.
+    for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
+        shipped = _late_street_dist("tag", None, top_pair, board, street)
+        cap = _CaptureWeights()
+        sample_postflop_decision(
+            _pack("tag"), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
+            cap,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=0.0, street=street,
+        )
+        assert shipped == cap.dist, street
+
+    # (ii) the flop and (iii) a caller that passes no street at all.
+    for street, board in ((Street.FLOP, flop_board), (None, _TURN_BOARD)):
+        assert _late_street_dist("tag", 1.0, top_pair, board, street) == _late_street_dist(
+            "tag", None, top_pair, board, street
+        ), street
+
+    # (iv) the matched-with-option check-RAISE leg, on both late streets.
+    for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
+        on = _late_street_dist("tag", 1.0, top_pair, board, street, legal=_MATCHED_LEGAL)
+        off = _late_street_dist("tag", None, top_pair, board, street, legal=_MATCHED_LEGAL)
+        assert on == off, street
+        # discriminating: the RAISE leg carries real mass on the turn, so the
+        # equality above is not a comparison of two zeros.
+        if street is Street.TURN:
+            assert on[ActionType.RAISE] > 0.0
+
+    # (v) the bluff cell keeps its own mass: pure air is untouched on both
+    # late streets, while the same node's value hand moves.
+    for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
+        air = air_by_street[street]
+        on = _late_street_dist("tag", 1.0, air, board, street)
+        assert on == _late_street_dist("tag", None, air, board, street), street
+        assert on[ActionType.BET] > 0.0, street  # air does bet here; it just does not move
+
+
+# =====================================================================
 # Closed-loop harness: full-hand playouts through the S2 engine
 # =====================================================================
 
