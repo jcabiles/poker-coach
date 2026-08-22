@@ -2865,11 +2865,11 @@ def budget():
 BANDS = {
     # (fish/station AF + fold-to-c-bet are still the W3R-2 tuples — see the
     # block above; their WTSD tuples are Stage-0 interim values)
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.57)),  # WTSD: Stage-0 interim
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.55)),  # WTSD: Stage-0 interim
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.69)),  # WTSD: Stage-0 interim (AF frozen)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.68)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
@@ -4077,11 +4077,51 @@ _GOLDEN_STATS_N200 = {
     # Exact tripwire re-record; population bands are NOT re-anchored here. They
     # did not need to be: the shipped constant is the largest one they admit,
     # which is the whole reason it is 0.06 rather than the derived ~0.46.
-    "calling_station": (0.2972027972027972, 0.2857142857142857, 0.6617647058823529),
-    "lag": (2.42, None, 0.5819672131147541),
+    # RE-RECORDED for S3-T1 (improvement slice 3, 2026-08-21, slice-authorized).
+    # MECHANISM: `personas_postflop._strong_draw_call_dial` splits a STRONG
+    # draw's `_DRAW_CALL_BONUS` under a dial below 1.0 —
+    # `_DRAW_CALL_PROTECTED_SHARE` = 0.7 of the bonus stays out of the dial's
+    # reach and 0.3 of it rides the dial — where the bonus used to be protected
+    # in FULL by `max(looseness, 1.0)`. Five personas hold a dial below 1.0
+    # (nit 0.45, tag 0.6, lag 0.55, maniac 0.55 via `stickiness`, passive_fish
+    # 0.42), so all five chase big draws slightly less; calling_station (4.0)
+    # never takes the branch.
+    # FOUR OF SIX ROWS MOVE — calling_station, lag, nit, passive_fish — and
+    # maniac and tag are byte-identical on all three cells, the usual n=200
+    # signature of a sample that misses the changed nodes.
+    # THE STATION'S ROW MOVING IS NOT A CONTRADICTION of the byte-identity
+    # claim. Its own decision FUNCTION is bitwise unchanged (dial 4.0 is above
+    # the `looseness < 1.0` predicate, and
+    # `test_nd_t4_calling_station_byte_identical_on_strong_draw` passes
+    # unmodified); what changed is the table around it — the five filler
+    # personas in this fixture's own 9-seat lineup now play their draws
+    # differently, so the station is dealt into different hands. The 2026-08-05
+    # N-DRAWLOOSE entry above records the opposite outcome at the same seed for
+    # the same structural reason, and says explicitly that it was a property of
+    # that sample rather than a second guarantee. This entry is that caveat
+    # coming true.
+    # ATTRIBUTION PROVEN, not assumed, and by a cheaper method than a control
+    # worktree: `_DRAW_CALL_PROTECTED_SHARE = 1.0` makes
+    # `_strong_draw_call_dial(L)` return exactly 1.0 for every L, which IS the
+    # `max(looseness, 1.0)` the branch used to carry. Setting it to 1.0 at this
+    # tip and re-measuring reproduces all six PREVIOUS rows exactly (station
+    # 0.2972027972027972 / 0.2857142857142857 / 0.6617647058823529, lag 2.42 /
+    # None / 0.5819672131147541, maniac and tag as below, nit None / None /
+    # 0.5961538461538461, fish 0.8145161290322581 / None / 0.6146341463414634);
+    # restoring 0.7 reproduces the six rows below exactly. The split is the sole
+    # cause.
+    # AT n=200 THESE ARE STILL MOSTLY NOISE — read the population numbers in
+    # `test_persona_postflop_bands`' docstring, where the same change moves
+    # went-to-showdown by -1.4pp (fish) to +0.4pp (tag) at n=4000. Exact
+    # tripwire re-record; the went-to-showdown ceilings ARE ratcheted for this
+    # slice (nit 0.69 -> 0.68, fish 0.57 -> 0.55) under A4.2 item 2, with the
+    # arithmetic in that docstring; the aggression-factor and fold-to-c-bet
+    # bands stay frozen to W4-b.
+    "calling_station": (0.27469135802469136, 0.25, 0.6654929577464789),
+    "lag": (2.3, None, 0.5882352941176471),
     "maniac": (3.7169811320754715, 0.37777777777777777, 0.5492957746478874),
-    "nit": (None, None, 0.5961538461538461),
-    "passive_fish": (0.8145161290322581, None, 0.6146341463414634),
+    "nit": (None, None, 0.5769230769230769),
+    "passive_fish": (0.7936507936507936, None, 0.6146341463414634),
     "tag": (1.9545454545454546, None, 0.6785714285714286),
 }
 
@@ -6320,6 +6360,16 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     so a TAG correction of this size on the same axis is roughly the budget
     that remains, not a free move.
 
+    UPDATE, S3-T1 (improvement slice 3, 2026-08-21): the strong-draw call split
+    RETURNED some of that budget rather than spending more of it. Re-measured on
+    all five gate seeds at the S3-T1 tip: 601 1.815931 · 602 1.833658 · 603
+    1.782449 · 604 1.580584 · 605 1.728596, all PASS, and lag-tag is still the
+    binding pair on the tightest seat (604, where the next-closest pair is
+    nit-tag at 2.320685). The worst seat moves 1.543450 -> 1.580584, i.e. 1.26x
+    the 1.254429 floor rather than 1.23x. The paragraph above is still the
+    warning that matters — the axis is coupled and a tag correction spends it
+    from the other side — but the room is marginally wider than it was.
+
     THE BAND IS STILL NOT WIDENED. It was not widened for T5 and it is not
     widened here — the pack moved to fit the band, which is the direction §11
     item 7 requires."""
@@ -6504,6 +6554,45 @@ def test_persona_postflop_bands(persona, budget):
         maniac               0.50     0.62     0.62     the single A5 upward repair
         calling_station      0.72     0.73     0.72     capped by the incumbent
         passive_fish         0.57     0.57     0.57     unchanged
+
+    ── THE SECOND RATCHET, S3-T1 (improvement slice 3, 2026-08-21). The
+    strong-draw call split (`_strong_draw_call_dial`, engine) hands part of a
+    big draw's call weight back to the calling dial, so five of the six
+    personas — every one whose dial sits below 1.0 — chase big draws slightly
+    less and reach showdown slightly less often. A4.2 item 2 orders the ceiling
+    re-recorded after any slice that moves showdown frequency down, so the
+    arithmetic above is REDONE here on the same harness, the same pinned seed
+    and the same `_WTSD_ORDER_N` = 4000 hands, at the S3-T1 tip:
+
+        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
+        nit              0.6356    0.6317    983  0.046152  0.677892 -> 0.68
+        tag              0.6133    0.6169   1595  0.036517  0.653445 -> 0.66
+        lag              0.5728    0.5630   2405  0.030343  0.593337 -> 0.60
+        maniac           0.5960    0.5899   3989  0.023363  0.613235 -> 0.62
+        calling_station  0.7105    0.7012   5505  0.018508  0.719689 -> 0.72
+        passive_fish     0.5403    0.5266   4113  0.023356  0.549979 -> 0.55
+
+        persona          incumbent  ratchet  INSTALLED  what happened
+        nit                  0.69     0.68     0.68     tightens by 1 point
+        tag                  0.65     0.66     0.65     capped by the incumbent
+        lag                  0.59     0.60     0.59     capped by the incumbent
+        maniac               0.62     0.62     0.62     unchanged
+        calling_station      0.72     0.72     0.72     unchanged
+        passive_fish         0.57     0.55     0.55     tightens by 2 points
+
+    TWO THINGS IN THAT TABLE NEED SAYING PLAINLY. First, the TAG moved UP, by
+    0.0036 — which is 0.30 of one binomial standard deviation at its own n, and
+    is a composition effect rather than a tag-node change: the tag's own strong
+    draws call LESS under S3-T1, but the hands it plays are dealt against five
+    opponents whose lines also changed. It is nowhere near its 0.65 ceiling, so
+    A4.2 item 3's stop-and-report does not fire; the ratchet simply does not
+    apply to a persona that moved up, and its arithmetic is shown above only so
+    the reader can see it was computed rather than skipped. Second, the CALLING
+    STATION also moved (0.7105 -> 0.7012) even though its own decisions are
+    bitwise unchanged — its dial is 4.0, above the split's `looseness < 1.0`
+    predicate, and `test_nd_t4_calling_station_byte_identical_on_strong_draw`
+    still passes untouched. Same cause: its opponents changed, so the hands it
+    is dealt into are not the same hands.
 
     THE FLOORS all drop to the §5 grounded floor: nit 0.37 -> 0.20, tag 0.41 ->
     0.25, lag 0.37 -> 0.26, maniac 0.34 -> 0.30, calling_station 0.66 -> 0.38,
@@ -8018,19 +8107,21 @@ def test_ntagcomp_tag_vpip_pfr_reported_not_gated():
 # RAISE) share one normalization, and `call_looseness` (`looseness`, assigned
 # from `pf.call_looseness`/`pf.stickiness` near the top of
 # `sample_postflop_decision`) multiplies the CALL merit only — on every cell
-# except a STRONG draw below N-DRAWLOOSE's calling-dial floor, where it is
-# affine in the dial instead (call_base scales, the draw bonus is floored at
-# `max(looseness, 1.0)`). Mass taken off CALL is therefore shared out to FOLD
+# except a STRONG draw at a dial below 1.0, where it is affine in the dial
+# instead (call_base scales, and the draw bonus carries
+# `_strong_draw_call_dial`, which protects a share of it from the dial —
+# `max(looseness, 1.0)` until S3-T1 replaced the hard floor with that split on
+# 2026-08-21). Mass taken off CALL is therefore shared out to FOLD
 # *and* RAISE in proportion to their merits, which on an aggressive persona
 # lands mostly on RAISE — measured at the base engine, halving each pack's
 # effective looseness moved raise-share the WRONG way for all six (+0.17;
 # roadmap R10-4). N-logit scales the RAISE merit by
 # `effective_looseness / continue_ref` — the frozen looseness the persona's
 # facing-node raise behaviour was calibrated against — on the same cells CALL
-# stays proportional on; on a STRONG draw below the floor it instead scales
-# RAISE by the live CALL merit over the frozen UNFLOORED anchor, which routes
-# the floor's extra continue mass to RAISE in the base engine's original
-# proportion. Either form makes `P(raise | continue)` no longer depend on the
+# stays proportional on; on a STRONG draw at a dial below 1.0 it instead scales
+# RAISE by the live CALL merit over the frozen UNSPLIT anchor, which routes
+# whatever the protected share did to the continue mass through to RAISE in the
+# base engine's original proportion. Either form makes `P(raise | continue)` no longer depend on the
 # lever, and freed mass routes to FOLD.
 #
 # WHY THESE GATES ARE SHAPED THIS WAY (spec rev 3 §6; ledger R-1, R2-1..R2-10).
@@ -8399,11 +8490,14 @@ def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
     both untouched by this slice and both still green.
 
     ── WHY `DrawCategory.STRONG` IS OUT OF SCOPE (N-DRAWLOOSE ruling R1,
-    2026-08-05, owner). N-DRAWLOOSE floors a STRONG draw's call bonus at a dial
-    below 1.0, and that extra continue mass has to reach the RAISE leg in the
-    same proportion or an aggressive persona stops semi-bluff-raising the very
-    draws the floor exists to keep in. The engine routes it through THIS
-    feature: on a STRONG draw below the floor the raise scale becomes
+    2026-08-05, owner). At a dial below 1.0 a STRONG draw's call bonus is
+    protected from the dial — in full until 2026-08-21, and in the
+    `_DRAW_CALL_PROTECTED_SHARE` part of it since S3-T1 — so the call merit is
+    affine in the dial rather than proportional to it, and whatever that does to
+    the continue mass has to reach the RAISE leg in the same proportion or an
+    aggressive persona stops semi-bluff-raising the very draws the protection
+    exists to keep in. The engine routes it through THIS
+    feature: on a STRONG draw at a dial below 1.0 the raise scale becomes
     `_c_now / _call_merit_at_ref` instead of the literal `looseness / ref`
     (the `if draw is DrawCategory.STRONG and looseness < 1.0 and
     _call_merit_at_ref > 0.0:` branch of the N-LOGIT block). So on those cells
@@ -8414,7 +8508,8 @@ def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
     THE EXCLUSION IS UNAVOIDABLE, not a convenience. The un-opted path
     (`continue_ref is None`) has NO raise scale at all — the whole block is
     short-circuited — so there is no expression on that side that could carry
-    the floor's growth. Any design that hands the growth to RAISE must
+    what the dial protection does to the call merit. Any design that hands that
+    to RAISE must
     therefore break `opted == un-opted` on exactly these cells. The only way to
     keep G3 whole would be to withhold the growth from RAISE, which is the
     already-rejected fan-in defect A (lag's P(raise) at the trace node falls
@@ -8435,7 +8530,7 @@ def test_nlogit_g3_identity_at_authored_values_is_bit_exact():
     personas whose calibration anchor is below 1.0 (nit, tag, lag, maniac,
     passive_fish), and those 64 are precisely the raise-legal half of that
     persona's 128 STRONG cells — a raise-scale change cannot move a cell with
-    no RAISE entry. `calling_station` (anchor 4.0, above the floor) stays
+    no RAISE entry. `calling_station` (anchor 4.0, above 1.0) stays
     bit-identical on all 1,728, and every one of the 1,600 non-STRONG cells
     stays bit-identical for all six personas. Those 1,600 x 6 = 9,600
     comparisons are what this gate still makes.
@@ -11124,8 +11219,8 @@ def test_r9d_p7_the_population_path_never_sees_the_flag_by_default(monkeypatch):
 # factor s ON DRAW-NONE NODES — true of all five panel nodes below, none of
 # which carries a draw against its board — the whole continue mass scales by s
 # and the move is a pure shift of the continue/fold log-odds by ln(s).
-# (N-DRAWLOOSE floors the STRONG-draw dial at 1.0 on the
-# `if draw is DrawCategory.STRONG and looseness < 1.0` branch, so CALL is no
+# (On the `if draw is DrawCategory.STRONG and looseness < 1.0` branch the draw
+# bonus carries `_strong_draw_call_dial` rather than the lever, so CALL is no
 # longer proportional to the lever there; this derivation
 # does not transfer to a strong-draw node — see G-DRAW, which uses a chosen
 # budget instead of this analytic ceiling.) The rise in fold probability is
@@ -11290,9 +11385,9 @@ def test_r9lf_gnode_nit_folds_more_at_correctly_priced_nodes():
     are — so the move is a pure ln(0.75) shift of the continue/fold log-odds and
     the fold-probability rise depends only on the base fold probability p. This
     property, and the 0.071797 ceiling derived from it, do NOT hold on a
-    strong-draw node: N-DRAWLOOSE floors the STRONG-draw dial at 1.0
-    (the `if draw is DrawCategory.STRONG and looseness < 1.0` branch), so CALL
-    there is affine in the lever, not
+    strong-draw node: on the `if draw is DrawCategory.STRONG and looseness <
+    1.0` branch a share of the draw bonus is protected from the lever
+    (`_strong_draw_call_dial`), so CALL there is affine in the lever, not
     proportional. G-DRAW's 0.030 self-difference budget on strong-draw nodes is
     a chosen budget for that reason, not a derived one — see its test:
 
@@ -11598,9 +11693,17 @@ def test_r9lf_gsweep_nit_folds_more_than_tag_across_the_cell_population():
 # ===================================================================
 #
 # Spec: docs/ai-dlc/specs/n-drawloose.md (rev 2, option B). The engine change
-# (T1) floors the archetype's calling dial at 1.0 where it multiplies
-# `_DRAW_CALL_BONUS`, for `DrawCategory.STRONG` ONLY. That makes the CALL merit
-# AFFINE in the dial instead of proportional — and N-LOGIT's G1 gate above
+# (T1) protected `_DRAW_CALL_BONUS` from the archetype's calling dial, for
+# `DrawCategory.STRONG` ONLY, by flooring the dial at 1.0 where it multiplies
+# the bonus. ⚠️ THAT FLOOR IS GONE as of S3-T1 (improvement slice 3,
+# 2026-08-21): the bonus is now SPLIT, `_DRAW_CALL_PROTECTED_SHARE` of it out of
+# the dial's reach and the rest riding the dial (`_strong_draw_call_dial`). Read
+# the S3-T1 section near the end of this file before trusting a number in this
+# block — the gates below all still pass unmodified, and the READINGS behind
+# them moved. What is unchanged is the branch predicate, the shape of the claim,
+# and everything this section says about the raise coupling: the split, like the
+# floor, makes the CALL merit AFFINE in the dial instead of proportional — and
+# N-LOGIT's G1 gate above
 # guarantees, to 1e-12, that the dial never moves `P(raise | continue)`, a
 # guarantee that held only because CALL and RAISE were BOTH proportional to it.
 # So the raise leg had to move with the call leg: on strong draws
@@ -12010,6 +12113,23 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 # 0.0161); a future slice that raises D2 above 0.030 must re-derive the cap
 # rather than widen it.
 #
+# ⚠️ THE LIVE READINGS ARE NO LONGER THE eb34e60 ONES, and the headroom is much
+# smaller than the paragraph above describes. S3-T1 (improvement slice 3,
+# 2026-08-21) replaced the hard floor with a split that hands part of the draw
+# bonus back to the dial, which is the same axis this cap measures. At this tip:
+#
+#     D1 +0.014650   D2 +0.026588   D3 +0.015125
+#     D4 +0.023783   P1 +0.014807   R2 +0.015099   (P2, record-only, +0.006002)
+#
+# D2 is the binding node at 1.13x headroom under the cap, and the cap is what
+# BOUNDED S3-T1's protected share: a share of 0.5 reads +0.0355 at D2 and is
+# red, 0.6 reads +0.0308 and is red, 0.7 is the loosest round value that stays
+# inside. The cap was NOT widened to fit the ticket — the ticket was sized to
+# fit the cap, which is the direction the theory contract's §11 item 7
+# requires. A future slice that needs more dial reach on strong draws than 0.7
+# leaves must re-derive this cap on the record, with the owner, rather than
+# nudge it.
+#
 # ⚠️ THE 0.071797 CEILING DOES NOT TRANSFER HERE. G-NODE's 0.040 is justified by
 # an analytic maximum: when the dial scales the CALL and RAISE merits by the
 # SAME factor s, the move is a pure ln(s) shift of the continue/fold log-odds and
@@ -12105,7 +12225,7 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 #       too. What this can fail on that G1 cannot is a LEVEL shift that is
 #       still lever-invariant — measured witness: the STRONG semi-bluff raise
 #       bonus shrunk 10%, G1 green, this red.
-#   T4's station byte-identity       EXACT equality for a dial above the floor.
+#   T4's station byte-identity       EXACT equality for a dial at or above 1.0.
 #       Fails alone on the re-associated arithmetic at a non-power-of-two dial
 #       (measured: the `strong_all` mutant — this red, all 41 siblings green).
 #   C5's non-STRONG vectors          EXACT equality off the STRONG branch.
@@ -12225,8 +12345,8 @@ def test_nd_gdraw_dial_no_longer_decides_strong_draws():
             f"{node.node_id}: this is a draw-NONE control where the calling dial is "
             f"SUPPOSED to bite, and it moved the fold probability only {self_delta:+.4f} "
             f"(floor {_ND_MADE_CONTROL_FLOOR}); {lo:.4f} at {_ND_LO_LOOSENESS} vs "
-            f"{hi:.4f} at {_ND_HI_LOOSENESS}. Either the floor leaked outside "
-            "DrawCategory.STRONG, or this gate's instrument has stopped reading "
+            f"{hi:.4f} at {_ND_HI_LOOSENESS}. Either the dial protection leaked "
+            "outside DrawCategory.STRONG, or this gate's instrument has stopped reading "
             f"anything at all — the whole panel reads {readings}"
         )
 
@@ -12245,8 +12365,8 @@ def test_nd_gdraw_facing_raise_reaches_the_engine():
     (`_ONE_PAIR_RAISE_DAMP = 0.35`, applied to `raise_base` on the
     `bucket in _VULNERABLE_ONE_PAIR and facing_raise and street in (Street.FLOP,
     Street.TURN)` branch). That is a DIFFERENT code path from
-    the N-DRAWLOOSE floor on purpose: what needs proving is that the argument
-    arrives, and a path the floor cannot influence proves it cleanly. Every
+    the N-DRAWLOOSE branch on purpose: what needs proving is that the argument
+    arrives, and a path that branch cannot influence proves it cleanly. Every
     persona must therefore read differently at R2 than at P1.
     """
     for persona in sorted(v.value for v in VillainType):
@@ -12292,7 +12412,7 @@ def test_nd_priced_helper_refuses_a_mislabelled_node():
 #   * a CEILING on the shipped nit's fold rate at D1 (the slice's trace node);
 #   * a CROSS-PERSONA margin, nit versus the calling station, at the same node;
 #   * P(raise | continue) equal to the BASE engine at seven strong-draw nodes;
-#   * byte-identity pins for the calling station, whose dial clears the floor.
+#   * byte-identity pins for the calling station, whose dial is above 1.0.
 #
 # ── WHY THERE IS NO LOWER BOUND ANY MORE — N-DRAWLOOSE ruling R7 (2026-08-05,
 # owner). This gate used to assert P(fold) in [0.20, 0.34]. The CEILING stays:
@@ -12331,10 +12451,15 @@ def test_nd_t4_absolute_ceiling_at_trace_node():
     (no `call_looseness` override: the claim is about the bot as it actually
     ships, not a rebuilt variant), folds D1 at most 0.34 of the time.
 
-    Red at base commit b0a6a4e: 0.4217. Green at eb34e60: 0.2608. This is the
-    leg that says the dial has stopped deciding this hand's continue. Widening
-    it is not a fix — see the section comment for the lower bound that was
-    REMOVED here on ruling R7 and for the cross-persona leg that replaced it.
+    Red at base commit b0a6a4e: 0.4217. Green at eb34e60: 0.2608, and 0.2944 at
+    the S3-T1 tip (improvement slice 3, 2026-08-21 — the strong-draw call split
+    hands part of the draw bonus back to the calling dial, so the shipped nit,
+    whose dial is 0.45, folds this draw somewhat more than it did under the hard
+    floor). Headroom under the ceiling is 0.0455, against 0.0792 before. This is
+    the leg that says the dial has not gone back to DECIDING this hand's
+    continue. Widening it is not a fix — see the section comment for the lower
+    bound that was REMOVED here on ruling R7 and for the cross-persona leg that
+    replaced it.
     """
     dist = _nd_priced_dist(_pack("nit"), _ND_T4_NODE)
     fold = dist[ActionType.FOLD]
@@ -12357,9 +12482,12 @@ def test_nd_t4_nit_still_folds_strong_draws_far_more_than_the_station():
     personas' draws continue more.
 
     MEASURED (nit P(fold) - calling_station P(fold) at D1): base b0a6a4e
-    +0.330144 · this tip +0.169229 · floor=2.0 mutant +0.062412 · floor=5.0
-    mutant -0.007322. Both oversized floors are red; 0.10 is a chosen budget
-    with 1.69x headroom under the shipped reading.
+    +0.330144 · at eb34e60 +0.169229 · at the S3-T1 tip +0.202941 · floor=2.0
+    mutant +0.062412 · floor=5.0 mutant -0.007322. Both oversized floors are
+    red; 0.10 is a chosen budget with 2.03x headroom under the shipped reading.
+    S3-T1 moves this leg AWAY from its floor rather than toward it: the split
+    tightens the five dialled personas' draw calling and leaves the station's
+    alone, so the gap between the two ends of the roster widens.
 
     THE CLAIM IS PAIRWISE. Nothing here says the nit is the tightest
     strong-draw defender of the six — lag, maniac, tag and the fish are not
@@ -12604,6 +12732,248 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
             "at or above the floor must fall through to the ORIGINAL expression bit for "
             "bit; a one-ulp move here is the signature of the re-associated form"
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S3-T1 — the calling dial reaches a strong draw again (improvement slice 3)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# WHAT CHANGED AND WHY THE GATES ABOVE STILL PASS. N-DRAWLOOSE protected a
+# STRONG draw's `_DRAW_CALL_BONUS` from the calling dial in FULL, with
+# `max(looseness, 1.0)`. That fixed nits folding big draws and it also made a
+# large piece of the calling path untunable: below a dial of 1.0 — five of the
+# six personas — tightening `call_looseness` left strong-draw call weight
+# bitwise untouched. Improvement slice 3 fits that dial, so S3-T1 replaces the
+# hard floor with a SPLIT: `_strong_draw_call_dial(L) = share + (1 - share)·L`
+# with `_DRAW_CALL_PROTECTED_SHARE` = 0.7. Seven tenths of the bonus is still
+# out of the dial's reach — the part a nine-out draw's raw pot odds pay for,
+# which nobody folds regardless of style — and three tenths rides the dial,
+# which is the chase, and the chase IS style. The poker argument is written out
+# at the helper in the engine.
+#
+# The two gates this most obviously argues with both stay green, unmodified:
+# G-DRAW's 0.030 cap on the 0.45-vs-0.60 self-difference (worst reading moves
+# 0.0161 -> 0.0266 at D2, so the cap is what BOUNDS the share: 0.5 reads 0.0355
+# and is red, 0.7 is the loosest round share that stays inside), and T4's 0.34
+# ceiling on the shipped nit at D1 (0.2608 -> 0.2899). The dial's reach was
+# restored as far as the shipped instrument allows and no further; widening
+# G-DRAW to buy more is the thing this ticket refused to do.
+#
+# ── THE MEASUREMENT. `_nd_priced_dist` again — same instrument, same priced
+# nodes, no new engine surface. Three nodes of the N-DRAWLOOSE panel, chosen to
+# span the grid rather than repeat it: D1 (naked 15-out combo draw, flop,
+# 2/3-pot), D2 (naked flush draw, flop, POT — the worst-priced node and the one
+# with the most dial reach) and P1 (middle pair WITH a flush draw, i.e. the
+# pair-plus-draw quadrant).
+#
+# P(call) at the four dials, this tip, all five personas whose dial sits below
+# 1.0 (the calling station is excluded BY CONSTRUCTION — its 4.0 never takes
+# the branch):
+#
+#     node persona          0.50    0.70    0.85    1.00    spread  was
+#     D1   nit             0.5596  0.5742  0.5840  0.5929  +0.0334  +0.0098
+#     D1   tag             0.3851  0.3920  0.3965  0.4006  +0.0155  +0.0045
+#     D1   lag             0.3239  0.3288  0.3320  0.3348  +0.0109  +0.0031
+#     D1   maniac          0.2345  0.2370  0.2387  0.2401  +0.0057  +0.0016
+#     D1   passive_fish    0.5256  0.5384  0.5471  0.5549  +0.0293  +0.0086
+#     D2   nit             0.5825  0.6101  0.6274  0.6423  +0.0598  +0.0391
+#     D2   tag             0.4437  0.4596  0.4693  0.4776  +0.0339  +0.0219
+#     D2   lag             0.3872  0.3993  0.4067  0.4129  +0.0258  +0.0166
+#     D2   maniac          0.2973  0.3044  0.3087  0.3122  +0.0150  +0.0096
+#     D2   passive_fish    0.5389  0.5653  0.5819  0.5962  +0.0573  +0.0375
+#     P1   nit             0.7378  0.7527  0.7613  0.7684  +0.0306  +0.0211
+#     P1   tag             0.5219  0.5293  0.5335  0.5370  +0.0151  +0.0104
+#     P1   lag             0.4433  0.4486  0.4516  0.4541  +0.0109  +0.0075
+#     P1   maniac          0.3256  0.3284  0.3301  0.3314  +0.0058  +0.0040
+#     P1   passive_fish    0.6967  0.7099  0.7175  0.7238  +0.0272  +0.0188
+#
+# The "was" column is the SAME sweep under the old hard floor, and it is not
+# zero — `call_base * looseness` was always dial-scaled, so only the BONUS was
+# untunable. That is exactly why a monotonicity assertion alone would be
+# vacuous here: the floored engine is monotone too. The gate below therefore
+# asserts the RATIO, `spread_now / spread_floored >= 1.35`, measured per cell.
+# Observed range 1.448 (P1 nit) to 3.500 (D1 maniac); 1.35 sits 7% under the
+# worst reading and is 1.35x above the 1.0 a restored floor would produce.
+#
+# ── WHY THE RATIO IS SO MUCH LARGER AT D1 THAN AT D2. D1 is an AIR cell
+# (`_CALL_BASE` 0.08) and D2 is too, but D2 faces a pot-sized bet rather than
+# two thirds, so its FOLD merit is far larger and the same proportional move in
+# CALL displaces more probability. At D1 the bonus is nearly the whole of the
+# call merit, so freeing three tenths of it multiplies a tiny floored spread;
+# at D2 and P1 the dial already had a bigger share of the merit to move. Both
+# are real reach; neither is the "protected share" reading directly.
+#
+# ── HOW THE FLOORED COMPARISON IS TAKEN, and why it cannot go stale. The old
+# engine is not checked out or re-implemented: setting
+# `_DRAW_CALL_PROTECTED_SHARE` to 1.0 makes `_strong_draw_call_dial` return
+# exactly 1.0 for every dial, which IS `max(looseness, 1.0)` on this branch. So
+# the gate measures the floored engine IN THE SAME PROCESS, from the shipped
+# code, and it is red in both directions that matter:
+#   * restore the floor in the branch (`max(looseness, 1.0)` back), and the
+#     patch stops doing anything — every ratio reads 1.000 and this fails;
+#   * set the shipped share to 1.0, and the same thing happens.
+# It is NOT red on a share that merely moves — 0.5, 0.6 and 0.8 all pass this
+# gate — which is deliberate: the SHARE's value is bounded by G-DRAW and by the
+# T4 ceiling above, and pinning it twice would make a future re-derivation a
+# two-file edit for no added protection.
+#
+# ── INDEPENDENCE. Every other gate in this file can be green while this one is
+# red: G-DRAW and T4's ceiling are satisfied by the floored engine (they were
+# WRITTEN against it), the raise-share table is shape-agnostic (`rscale` divides
+# by whatever CALL became), the station pins never take this branch at all, and
+# C5's non-STRONG vectors are untouched by anything on it. The one thing this
+# gate alone forbids is a strong-draw call merit that the dial cannot move.
+
+_S3T1_DIALS = (0.50, 0.70, 0.85, 1.00)
+_S3T1_MIN_REACH_RATIO = 1.35
+_S3T1_SWEEP_NODES = (_ND_DRAW_PANEL[0], _ND_DRAW_PANEL[1], _ND_DRAW_PANEL[4])
+_S3T1_DIALLED_PERSONAS = ("nit", "tag", "lag", "maniac", "passive_fish")
+
+
+def _s3t1_pack_at(persona: str, looseness: float):
+    """The shipped pack with `call_looseness` re-authored to `looseness`.
+
+    `continue_ref` is deliberately LEFT ALONE — it is the frozen raise-side
+    anchor, and re-synchronising it with the calling dial collapses `rscale` to
+    1.0 and silently deletes the N-LOGIT mechanism (that pack comment, and
+    N-LOGIT's own rev-1 history, are why this is worth a sentence). The maniac
+    authors no `call_looseness` at all and inherits `stickiness`; setting the
+    field is what this sweep needs, and it is the same override
+    `_nd_nit_at` makes for the nit.
+    """
+    pack = _pack(persona)
+    probe = pack.model_copy(deep=True)
+    probe.postflop = pack.postflop.model_copy(update={"call_looseness": looseness})
+    return probe
+
+
+def _s3t1_call_sweep(persona: str, node: _NDNode) -> list[float]:
+    return [
+        _nd_priced_dist(_s3t1_pack_at(persona, dial), node)[ActionType.CALL]
+        for dial in _S3T1_DIALS
+    ]
+
+
+def test_s3t1_strong_draw_call_frequency_moves_with_the_dial():
+    """S3-T1's headline: at fifteen (node, persona) cells a strong draw's CALL
+    probability rises strictly with `call_looseness`, and it rises at least
+    1.35x as far as it does under the hard floor S3-T1 replaced.
+
+    Both legs are needed and neither is redundant. Strict monotonicity says the
+    dial has a consistent DIRECTION on this merit — the floored engine passes
+    that leg, because `call_base` was always dial-scaled. The reach ratio says
+    the dial actually reaches the DRAW BONUS, which is the untunable piece
+    S3-T1 exists to free, and only this leg is red when the floor comes back.
+
+    The floored comparison is measured in-process by setting
+    `_DRAW_CALL_PROTECTED_SHARE` to 1.0, which makes `_strong_draw_call_dial`
+    return exactly 1.0 for every dial — that IS the `max(looseness, 1.0)` the
+    branch used to carry. Full sweep table, and the reason 1.35 is the floor,
+    are in the section comment above.
+    """
+    real_share = personas_postflop._DRAW_CALL_PROTECTED_SHARE
+    assert real_share < 1.0, (
+        f"_DRAW_CALL_PROTECTED_SHARE is {real_share}: at 1.0 the whole draw bonus is "
+        "protected from the dial again, which is the defect S3-T1 removed"
+    )
+    readings: list[str] = []
+    try:
+        for node in _S3T1_SWEEP_NODES:
+            for persona in _S3T1_DIALLED_PERSONAS:
+                personas_postflop._DRAW_CALL_PROTECTED_SHARE = real_share
+                now = _s3t1_call_sweep(persona, node)
+                personas_postflop._DRAW_CALL_PROTECTED_SHARE = 1.0
+                floored = _s3t1_call_sweep(persona, node)
+
+                for lo_dial, hi_dial, lo, hi in zip(
+                    _S3T1_DIALS, _S3T1_DIALS[1:], now, now[1:], strict=False
+                ):
+                    assert hi > lo, (
+                        f"{_nd_key(node)}/{persona}: P(call) does not rise from dial "
+                        f"{lo_dial} to {hi_dial} ({lo:.6f} -> {hi:.6f}) — the calling "
+                        "dial is not moving this strong draw's call weight in one "
+                        "direction"
+                    )
+
+                reach, floored_reach = now[-1] - now[0], floored[-1] - floored[0]
+                readings.append(f"{_nd_key(node)}/{persona} {reach / floored_reach:.3f}")
+                assert reach >= _S3T1_MIN_REACH_RATIO * floored_reach, (
+                    f"{_nd_key(node)}/{persona}: over dials {_S3T1_DIALS[0]}-"
+                    f"{_S3T1_DIALS[-1]} P(call) moves {reach:+.4f}, only "
+                    f"{reach / floored_reach:.3f}x the {floored_reach:+.4f} the FULLY "
+                    f"protected bonus already moved (floor {_S3T1_MIN_REACH_RATIO}). "
+                    "The draw bonus is protected from the dial again — either the "
+                    "branch is back on `max(looseness, 1.0)` or the protected share "
+                    f"has been raised toward 1.0. Ratios so far: {readings}"
+                )
+    finally:
+        personas_postflop._DRAW_CALL_PROTECTED_SHARE = real_share
+
+
+def test_s3t1_protected_share_is_the_part_the_dial_cannot_reach():
+    """`_strong_draw_call_dial`'s three arithmetic properties, at the unit.
+
+    (a) It hands back the protected share at a dial of zero and exactly 1.0 at a
+    dial of 1.0. The second is what makes the split CONTINUOUS with the
+    fall-through form `(call_base + bonus) * L` that a dial of 1.0 or more takes
+    — and it is exact in binary64 rather than merely close, which is checked
+    here rather than argued: `1.0 - 0.7` is `0.30000000000000004`, and
+    `0.7 + 0.30000000000000004` rounds back to exactly 1.0.
+
+    (b) It is strictly increasing, so no dial region is flat. A `max(L, floor)`
+    form with a floor below 1.0 would satisfy every OTHER gate in this file
+    while leaving the whole region under the floor untunable — the same defect
+    S3-T1 removed, moved down the dial rather than deleted.
+
+    (c) At the six shipped dials it says how much of a big draw's call bonus
+    each persona keeps: passive_fish 0.826, nit 0.835, lag and maniac 0.865,
+    tag 0.880 — against 1.000 under the old floor, and against the 0.42-0.60
+    an unprotected bonus would have left them. That is the "protected share"
+    figure the slice reports, and it is asserted here so it cannot drift
+    unnoticed while every band still passes.
+    """
+    dial = personas_postflop._strong_draw_call_dial
+    share = personas_postflop._DRAW_CALL_PROTECTED_SHARE
+
+    assert dial(0.0) == share
+    assert dial(1.0) == 1.0, (
+        f"_strong_draw_call_dial(1.0) is {dial(1.0)!r}, not exactly 1.0 — the split "
+        "no longer meets the fall-through form at the dial where the branch stops "
+        "being taken, so a dial sweep across 1.0 steps"
+    )
+    grid = [i / 40 for i in range(41)]
+    for lo, hi in zip(grid, grid[1:], strict=False):
+        assert dial(hi) > dial(lo), (
+            f"_strong_draw_call_dial is flat or falling between {lo} and {hi} "
+            f"({dial(lo)!r} -> {dial(hi)!r}) — a dial region with no reach is the "
+            "defect this ticket removed"
+        )
+
+    shipped = {
+        "passive_fish": 0.826,
+        "nit": 0.835,
+        "lag": 0.865,
+        "maniac": 0.865,
+        "tag": 0.880,
+    }
+    for persona, want in shipped.items():
+        pf = _pack(persona).postflop
+        lever = pf.call_looseness if pf.call_looseness is not None else pf.stickiness
+        assert lever < 1.0, f"{persona} no longer holds a dial below 1.0 ({lever})"
+        assert dial(lever) == pytest.approx(want, abs=5e-4), (
+            f"{persona} keeps {dial(lever):.4f} of a strong draw's call bonus at its "
+            f"shipped dial {lever}, not {want} — either the pack dial or the "
+            "protected share moved"
+        )
+
+    station = _pack("calling_station").postflop
+    station_lever = (
+        station.call_looseness if station.call_looseness is not None else station.stickiness
+    )
+    assert station_lever >= 1.0, (
+        f"the calling station's dial is now {station_lever}, BELOW 1.0 — it would start "
+        "taking the split branch, and its byte-identity pins are no longer structural"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
