@@ -295,6 +295,17 @@ def _hash_manifest(manifest: dict) -> str:
 # No new random draw was added and none precedes the action draw. The draw COUNT
 # is not claimed invariant — the row-count move above is that non-invariance
 # showing up in an artifact.
+# NOT RE-RECORDED for S3-T1b (improvement slice 3, 2026-08-22): that ticket
+# replaced the flat `_DRAW_CALL_PROTECTED_SHARE` with a per-node function,
+# `personas_postflop._strong_draw_protected_share`, and the four digests below
+# do not move. Recorded because it is the surprising direction: a real
+# behaviour change that this 25-hand seeded export cannot see, where the
+# smaller change before it moved all four. The sample simply contains no
+# strong-draw decision at a price where the two shares disagree. The
+# reproduction recipe in the entry above no longer runs as written — the
+# constant it names is gone; the equivalent probe is to replace
+# `_strong_draw_protected_share` with one returning 1.0, which is the
+# `max(looseness, 1.0)` engine.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (

@@ -464,9 +464,40 @@ _PRE_M3_FIRES = {
     # and about the draw count NOT being invariant, apply here unchanged. NO
     # NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the split
     # only reweights an existing call merit.
-    ("UTG2", 1): 98, ("LJ", 1): 109, ("HJ", 1): 113, ("CO", 1): 94,
-    ("CO", 2): 23, ("SB", 1): 80, ("SB", 2): 41, ("BTN", 1): 87,
-    ("BTN", 2): 27,
+    # RE-RECORDED for S3-T1b (improvement slice 3, 2026-08-22,
+    # slice-authorized): the protected share of a STRONG draw's call bonus is
+    # computed per node now — `personas_postflop._strong_draw_protected_share`,
+    # from the faced price, the cards to come and the draw's out count —
+    # instead of the flat 0.7 S3-T1 shipped. A well-priced big draw keeps the
+    # protection the pre-S3-T1 floor gave it, a badly-priced one hands more of
+    # the bonus to the dial, so hands end on different streets and the shared
+    # organic rng stream drifts at this seed. All nine pairs move (old: UTG2 98,
+    # LJ 109, HJ 113, CO 94, CO x2 23, SB 80, SB x2 41, BTN 87, BTN x2 27). No
+    # limper-belt content changed and no preflop content changed.
+    # ✅ THE COVERAGE SHAPE S3-T1 LEFT AT ITS MINIMUM HAS RECOVERED, PARTLY:
+    # BB facing THREE limpers fires 3 times at this tip (BB x1 44, BB x2 28,
+    # BB x3 3), against 1 at the S3-T1 tip and 5 before it. The gate is >= 1 and
+    # it holds with two to spare rather than none. It is still a rare shape at
+    # 4,000 hands and it is still one this belt cannot defend against stream
+    # drift — the honest statement is that nothing in this ticket or the last
+    # one touches limping, preflop content, or the big blind's decision
+    # anywhere, so the count is displacement rather than lost coverage, and a
+    # shape whose organic frequency is this low is a sample-size question the
+    # belt's authors should settle rather than a regression a slice can fix.
+    # ATTRIBUTION PROVEN, not assumed, and without a control worktree:
+    # replacing `_strong_draw_protected_share` with one that returns 1.0 makes
+    # `_strong_draw_call_dial(L, 1.0)` return exactly 1.0 for every dial, which
+    # IS the `max(looseness, 1.0)` the engine carried before S3-T1. Doing that
+    # at this tip reproduces the PRE-S3-T1 counts exactly (UTG2 94, LJ 109,
+    # HJ 114, CO 106, CO x2 24, SB 82, SB x2 37, BTN 86, BTN x2 28, and BB
+    # 55/27/5); the shipped share reproduces the counts below exactly.
+    # The paragraphs above about WHY a postflop change moves preflop counts,
+    # and about the draw count NOT being invariant, apply here unchanged. NO
+    # NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the split
+    # only reweights an existing call merit.
+    ("UTG2", 1): 85, ("LJ", 1): 101, ("HJ", 1): 120, ("CO", 1): 113,
+    ("CO", 2): 37, ("SB", 1): 70, ("SB", 2): 36, ("BTN", 1): 73,
+    ("BTN", 2): 28,
 }
 
 

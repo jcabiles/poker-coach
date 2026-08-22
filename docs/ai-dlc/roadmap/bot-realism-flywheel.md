@@ -388,8 +388,19 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       nodes, and the draw-floor decision below as a PREREQUISITE ticket (S3-T1), not a sibling,
       because that floor holds part of the strong-draw calling weight fixed no matter how far
       `call_looseness` tightens, and `call_looseness` is calldown's principal dial.
-- [ ] **Draw-floor bug — bots cannot fold a strong draw at any dial setting** *(NEW
-      2026-08-17; assigned to slice 3 as a PREREQUISITE, 2026-08-18)* — `personas_postflop.py:1006-1007` floors the 0.55 strong-draw call bonus
+- [x] **Draw-floor bug — bots cannot fold a strong draw at any dial setting** *(NEW
+      2026-08-17; assigned to slice 3 as a PREREQUISITE, 2026-08-18; **BUILT** as S3-T1,
+      PR #211, merged 2026-08-21, and **price-conditioned** as S3-T1b, 2026-08-22)* — the
+      floor is gone. S3-T1 replaced it with a split that protects a flat 0.7 of the bonus
+      from the calling dial and hands 0.3 to it; theory review then measured that a FLAT
+      share is anti-protective where protection matters most — at the trace node, a 15-out
+      combo draw getting 2.5-to-1, the nit's fold rate rose 0.2608 → 0.2945 — so S3-T1b made
+      the protected share the share of the call the draw's own equity pays for at the price
+      it faces (`_strong_draw_protected_share`), which restores those readings exactly and
+      leaves the chase on the dial. S3-T1b also re-derived G-DRAW's cap: it is per node and
+      derived from the price now, not a flat chosen budget of 0.030. **The design question
+      below is CLOSED**; the three objections it records are answered in that helper's
+      docstring. Original text follows. — `personas_postflop.py:1006-1007` floors the 0.55 strong-draw call bonus
       at `max(looseness, 1.0)`, so it does not shrink when `call_looseness` tightens. Five of
       six personas run below 1.0 (tag 0.60, lag 0.55, nit 0.45, fish 0.42, maniac 0.55 via
       fallback), so the floor is live for all of them and a large share of their calling

@@ -172,20 +172,39 @@ def _straight_out_ranks(hole_ranks: set[int], all_ranks: set[int]) -> int:
     return outs
 
 
-def _draw_category(hole: tuple[Card, Card], board: list[Card]) -> DrawCategory:
+def _draw_shape(hole: tuple[Card, Card], board: list[Card]) -> tuple[bool, int]:
+    """The two board reads a draw classification rests on: whether hero holds a
+    four-card flush draw using a hole card, and how many distinct RANKS would
+    complete a straight for hero (`_straight_out_ranks` — 2 or more is the
+    OESD/double-gutter class, 1 is a gutshot).
+
+    Extracted by S3-T1b (improvement slice 3, 2026-08-22) so `_draw_category`
+    and `_strong_draw_outs` read the SAME two facts. They used to be computed in
+    one place and the category thrown away the count; a second copy of this
+    arithmetic would let the class a hand is filed under and the outs it is
+    priced at drift apart silently.
+    """
     cards = list(hole) + list(board)
     suit_counts: dict[str, int] = {}
     for c in cards:
         suit_counts[c[1]] = suit_counts.get(c[1], 0) + 1
     hole_suits = {c[1] for c in hole}
     flush_draw = any(n == 4 and s in hole_suits for s, n in suit_counts.items())
-
     hole_ranks = {_RIDX[c[0]] for c in hole}
     all_ranks = {_RIDX[c[0]] for c in cards}
-    straight_outs = _straight_out_ranks(hole_ranks, all_ranks)
+    return flush_draw, _straight_out_ranks(hole_ranks, all_ranks)
 
+
+def _draw_category(hole: tuple[Card, Card], board: list[Card]) -> DrawCategory:
+    flush_draw, straight_outs = _draw_shape(hole, board)
     if flush_draw or straight_outs >= 2:
         return DrawCategory.STRONG
+    cards = list(hole) + list(board)
+    suit_counts: dict[str, int] = {}
+    for c in cards:
+        suit_counts[c[1]] = suit_counts.get(c[1], 0) + 1
+    hole_suits = {c[1] for c in hole}
+    hole_ranks = {_RIDX[c[0]] for c in hole}
     backdoor_flush = len(board) == 3 and any(
         n == 3 and s in hole_suits for s, n in suit_counts.items()
     )
@@ -360,21 +379,40 @@ _RAISE_BASE = {
 _DRAW_AGG_BONUS = {DrawCategory.NONE: 0.0, DrawCategory.WEAK: 0.15, DrawCategory.STRONG: 0.35}
 _DRAW_RAISE_BONUS = {DrawCategory.NONE: 0.0, DrawCategory.WEAK: 0.05, DrawCategory.STRONG: 0.15}
 _DRAW_CALL_BONUS = {DrawCategory.NONE: 0.0, DrawCategory.WEAK: 0.20, DrawCategory.STRONG: 0.55}
-# S3-T1 (improvement slice 3, 2026-08-21): the share of a STRONG draw's CALL
-# bonus that the calling dial cannot reach. `_strong_draw_call_dial` carries the
-# form and the poker argument for splitting the bonus rather than flooring it.
-# CHOSEN, NOT DERIVED — what is argued is the SHAPE (part of a big draw's call
-# is price-mandated for everyone, the rest is style), and no analytic quantity
-# lands on 0.7. What DID pick the number is the shipped gate it has to clear:
-# G-DRAW caps the nit's 0.45-vs-0.60 fold self-difference at 0.030 on
-# strong-draw nodes, and at the binding node (D2, a flush draw facing a
-# pot-sized bet) a share of 0.5 reads +0.0355 and 0.6 reads +0.0308 — both red —
-# while 0.7 reads +0.0266. It is the LOOSEST round share the instrument admits,
-# i.e. the most dial reach this ticket could restore without re-deriving a gate
-# the owner ratified. Read G-DRAW's section comment in the test file before
-# moving it; moving it UP protects more and tunes less, moving it DOWN needs
-# that cap re-derived first.
-_DRAW_CALL_PROTECTED_SHARE = 0.7
+# S3-T1b (improvement slice 3, 2026-08-22): the probability a draw that called
+# a FLOP bet gets to see the river without paying a price it would decline —
+# the one realization assumption behind the price-mandated share
+# (`_strong_draw_realized_equity`, which states the arithmetic, and
+# `_strong_draw_protected_share`, which states the poker).
+#
+# AN ASSUMPTION, NOT A FIT, and labelled as one. It is the share of turns that
+# check through (or are checked to a draw that declines to bet) rather than
+# arriving with a second price on them. Heads-up on the flop, against a seat
+# that just c-bet, a barrel follows more often than not, so the free river is
+# the minority case; 0.30 is a plainly-stated mid-range value for it and no
+# measurement in this repository pins it. Both endpoints ARE wrong and that is
+# the whole reason a value in between is needed: at 1.0 the draw is priced as
+# if it were all-in (the comparison theory-contract CT-2 forbids at a node that
+# leaves postflop play), at 0.0 it is priced as if it were never given a free
+# card.
+#
+# ── WHAT WOULD JUSTIFY MOVING IT — the closed loop, stated so this constant is
+# not "bounded by whichever gate happens to be tightest" the way the flat 0.7 it
+# replaced was. The statistic it serves is WENT-TO-SHOWDOWN, pooled and per
+# persona, on the ratified nine-seat lineup, with the invest-then-fold count
+# beside it — the two numbers improvement slice 3 exists to move. Raising q
+# protects more of a big draw's call from the calling dial: draws chase further,
+# showdown frequency goes UP, and the dial has less to spend. Lowering it does
+# the reverse. So: if after S3-T2's dial re-tune a persona still sits above its
+# grounded showdown band AND strong-draw calling is measurably the residual
+# driver, q is the next thing to lower. If instead the roster starts folding big
+# draws at prices where equity alone pays for the call — the defect S3-T1b was
+# written to fix, visible as a rising fold rate at well-priced strong-draw nodes
+# — q is too low. G-DRAW cannot bound it: that gate's cap is now DERIVED from
+# the same price-mandated share (see its section comment in the test file), so
+# it asserts that the engine matches the poker the test states, and moving q
+# means re-stating that poker rather than discovering a budget.
+_DRAW_FREE_RIVER_PROB = 0.30
 # Structural constants (shared mechanics).
 # River polarization (P2a Q1): on the river (opt-in via the `street` kwarg)
 # raising is polar — value raises come from TWO_PAIR_PLUS+, bluff raises from
@@ -921,66 +959,177 @@ def _draw_equity(draw: DrawCategory, board: list[Card]) -> float:
     return 0.0
 
 
-def _strong_draw_call_dial(looseness: float) -> float:
+def _strong_draw_outs(hole: tuple[Card, Card], board: list[Card]) -> float:
+    """Card outs for a STRONG draw — the count `DrawCategory` throws away.
+
+    `DrawCategory.STRONG` files a bare open-ender and a fifteen-out combo draw
+    under one label, which is fine for deciding WHETHER a hand is a big draw and
+    useless for deciding what its call is worth. This reads the count back off
+    the same two facts the classification was made from:
+
+        9 flush outs (thirteen of a suit, four of them already visible), plus
+        4 cards per straight-completing RANK — 3 when a flush draw is also
+        present, because that rank's suited card is already counted as a flush
+        out.
+
+    So JhTh on 9h8c2h reads 9 + 2x3 = 15, the number every hand-reading text
+    gives that hand, and Ah5h on Kh8h2c reads 9.
+
+    HEURISTIC, in the same class as `_draw_equity`'s rule of 4 and 2 and with
+    the same standing (interim, no solve): it ignores blockers, board pairing,
+    and outs that arrive second-best (a low flush into a bigger one). It is used
+    ONLY by `_strong_draw_protected_share` below. `_draw_equity` is deliberately
+    left on its flat nine-out proxy, because it feeds the stack-off commit gate
+    and re-pricing that gate is `N-DRAWEQUITY`'s job, not this ticket's.
+    """
+    flush_draw, straight_ranks = _draw_shape(hole, board)
+    return (9.0 if flush_draw else 0.0) + straight_ranks * (3.0 if flush_draw else 4.0)
+
+
+def _strong_draw_realized_equity(hole: tuple[Card, Card], board: list[Card]) -> float:
+    """A STRONG draw's equity AS IT IS ACTUALLY REALIZED by calling one bet.
+
+    ── THE REALIZATION ASSUMPTION, stated rather than left silent (theory
+    contract CT-2, which forbids comparing a two-card equity against a
+    one-street price without one). Calling a flop bet buys the TURN card
+    outright. It does not buy the river: the draw sees a fifth card only when
+    the turn goes cheaply, and when it does not, the money it would have to put
+    in is a fresh decision at a fresh price. So the river card is counted at the
+    probability it arrives free rather than at 1:
+
+        flop  E = p + (1 - p) * q * p        p = outs x 2%,  q = the free-river
+        turn  E = p                          probability, `_DRAW_FREE_RIVER_PROB`
+
+    At q = 1 this collapses to the familiar rule of 4 (up to the small
+    double-count the rule of 4 itself carries) and prices an ALL-IN, which is
+    the comparison CT-2 says must not be made at a node where postflop play
+    continues. At q = 0 it is the rule of 2 and assumes the draw is never given
+    a free card, which is equally untrue. The value in between is an
+    ASSUMPTION, not a fit — see `_DRAW_FREE_RIVER_PROB` for what it is worth,
+    and for the closed-loop statistic that would move it.
+
+    IMPLIED ODDS ARE NOT IN HERE, deliberately. What the draw wins BEYOND the
+    current pot when it hits is exactly the part of a draw's continue that is a
+    matter of style, and handing it to the calling dial is the whole point of
+    the split this function serves.
+    """
+    per_card = _strong_draw_outs(hole, board) * 0.02
+    cards_to_come = 5 - len(board)
+    if cards_to_come >= 2:
+        return per_card + (1.0 - per_card) * _DRAW_FREE_RIVER_PROB * per_card
+    if cards_to_come == 1:
+        return per_card
+    return 0.0
+
+
+def _strong_draw_protected_share(
+    hole: tuple[Card, Card], board: list[Card], faced_frac: float
+) -> float:
+    """How much of a STRONG draw's `_DRAW_CALL_BONUS` the PRICE mandates — the
+    part no persona may fold and the calling dial therefore may not reach.
+
+        share = min(realized equity / equity the price needs, 1.0)
+
+    The price the caller needs is `_value_commit_threshold(faced_frac)`, which
+    is `to_call / (pot after the call)` written in the engine's pre-aggression
+    pot-fraction: f/(1+2f). At the node this ticket was written on — a bet of 4
+    into a live pot of 10, so f = 4/6 — that is 4/14 = 28.6%, the pot odds a
+    player at the table would quote as 2.5-to-1.
+
+    ── THE POKER. A draw's continue splits in two, and only one half is style.
+    The half raw equity pays for is not: nobody folds a fifteen-out combo draw
+    getting 2.5-to-1, and a bot that does it because it is "a nit" is not tight,
+    it is broken. The half above the price — peeling for a card that does not
+    pay at this price, paying on the turn where only one card is left, drawing
+    multiway into reverse implied odds, believing the stack comes with the pot —
+    is exactly what separates a nit from a station. So the price-mandated half
+    is protected and the chase rides the dial.
+
+    ── WHY THE SHARE IS CONDITIONED RATHER THAN FLAT (S3-T1b, improvement slice
+    3, 2026-08-22, owner ruling of the same date). S3-T1 shipped this as a flat
+    0.7 and argued that the price already entered the vector through the
+    price-aware FOLD merit, so a second price term here would be
+    un-jointly-calibrated. That argument was wrong in a way the theory review
+    measured: a flat share withdraws protection in EQUAL PROPORTION at every
+    price and every out count, so it takes the same 30% away from a monster draw
+    at a cheap price as from a bare draw facing a pot-sized bet. At the trace
+    node above, that pushed the nit's fold rate on a 15-out draw getting
+    2.5-to-1 from 0.2608 to 0.2945 — at a node where the correct fold frequency
+    for every archetype is about zero. Flatness is anti-protective exactly where
+    protection is least optional. The share now scales with the faced price, the
+    cards to come and the out count, and the clamp at 1.0 says the thing that
+    was true all along: when equity alone pays for the call, ALL of it is
+    mandated and the dial gets none of it.
+
+    ── THE THREE OBJECTIONS THAT HELD THIS BACK, and what answers each. The
+    flywheel roadmap recorded price-conditioning as "reviewed and found not
+    implementable as first described" for three reasons, all of them about the
+    version that would have reused `_draw_equity`:
+      1. "`_draw_equity` returns 0.0 on the river while STRONG is reachable
+         there." STRONG is NOT reachable there: `strength_bucket` sets the draw
+         category to NONE for any five-card board, which is why the river branch
+         of `_strong_draw_realized_equity` exists to be honest rather than to be
+         taken. This function is also never called off the facing-a-bet branch,
+         which needs a live FOLD.
+      2. "The rule of 4 is calibrated for the all-in node and self-declares
+         uncalibrated." Which is why nothing here uses it — the equity is built
+         card by card with the free-river probability stated, and the comparison
+         is against a one-street price. That is the CT-2 discipline, not a
+         re-use of the all-in heuristic.
+      3. "The same predicate recurs at two other places." It does, and the
+         share is computed ONCE per decision and reused at the damp, rather than
+         recomputed where it could disagree with itself.
+
+    WHAT IS NOT IN HERE. Opponent count: the multiway effect on the price is
+    already in `faced_frac` (more callers, bigger pot, better odds) and the
+    multiway effect on defence is already in `_MW_CATCH_TIGHTEN` on the fold
+    side; a third multiway term here would be un-jointly-calibrated in the way
+    S3-T1's comment feared. Nutness: a low flush draw and the nut flush draw
+    read the same, which is `N-DRAWEQUITY`'s brief, not this one.
+
+    ⚠️ THE DRAW-BONUS EQUITY GATE IS STILL OWED AND MUST BE FIT WITH THIS, NOT
+    AFTER IT. Theory contract §4 row P6/F7 and §9 ledger item 2 require a
+    separate equity/commitment gate on `_DRAW_CALL_BONUS` itself (the standing
+    instance is `_DRAW_CALL_BONUS[WEAK]` = 0.20, 2.5x the AIR call base). That
+    gate would multiply the same bonus this share multiplies, so the two compose
+    MULTIPLICATIVELY, and §7's stacked-multiplier rule says the combined product
+    is what gets calibrated — whoever builds it re-fits it JOINTLY with this
+    share rather than tuning either alone.
+    """
+    needed = _value_commit_threshold(faced_frac)
+    if needed <= 0.0:
+        return 1.0  # a free call: the price mandates all of it
+    return min(_strong_draw_realized_equity(hole, board) / needed, 1.0)
+
+
+def _strong_draw_call_dial(looseness: float, protected_share: float) -> float:
     """The multiplier a STRONG draw's `_DRAW_CALL_BONUS` gets when the persona's
-    calling dial sits BELOW 1.0 (S3-T1, improvement slice 3, 2026-08-21):
+    calling dial sits BELOW 1.0:
 
-        dial(L) = share + (1 - share) * L,  share = _DRAW_CALL_PROTECTED_SHARE
+        dial(L, s) = L + s * (1 - L)
 
-    It is affine, strictly increasing in L, and `dial(1.0)` is EXACTLY 1.0 at
-    the shipped share, so the split is continuous with the fall-through form
-    `(call_base + bonus) * L` that any dial at or above 1.0 takes. That
-    exactness is checked rather than assumed — `1.0 - 0.7` is
-    `0.30000000000000004`, not `0.3`, and `0.7 + 0.30000000000000004` happens to
-    round back to exactly 1.0 in binary64;
-    `test_s3t1_protected_share_is_the_part_the_dial_cannot_reach` asserts it, so
-    a re-fit of the share to a value where it does NOT hold goes red instead of
-    silently putting a step at L = 1. Nothing bitwise depends on it (a dial at
-    or above 1.0 never reaches this function), but a dial SWEEP across 1.0
-    does. NEVER call it on a dial >= 1.0: the caller's branch predicate
+    i.e. the dial governs the chase and the protected share `s` (from
+    `_strong_draw_protected_share`) is held back from it. At s = 0 this is the
+    bare dial, at s = 1 it is exactly the `max(looseness, 1.0)` floor S3-T1
+    replaced, and in between it is affine and strictly increasing in L.
+
+    THE ASSOCIATION IS THIS WAY ROUND ON PURPOSE. `dial(1.0, s)` is `1.0 + s*0.0`
+    = exactly 1.0 for EVERY share, in binary64, structurally — so the split
+    meets the fall-through form `(call_base + bonus) * L` that any dial at or
+    above 1.0 takes, and a dial sweep across 1.0 cannot step. Written the other
+    way round, as `s + (1 - s) * L`, that exactness is a fact about the
+    particular share's bit pattern rather than a property of the expression, and
+    S3-T1 shipped a test asserting it for its single constant. A share computed
+    per node has no single bit pattern to assert, so the arithmetic carries the
+    guarantee instead.
+
+    NEVER call it on a dial >= 1.0: the caller's branch predicate
     (`looseness < 1.0`) is what makes the loose end of the roster — the calling
     station at 4.0 — bitwise unchanged BY CONSTRUCTION rather than by arithmetic
     luck. See the N-DRAWLOOSE block in `sample_postflop_decision` for why the
     re-associated form is refused there.
-
-    ── THE POKER, which is the reason this shape replaced a hard floor. A
-    nine-out draw's decision to continue rests on two different things and only
-    one of them is a matter of style.
-
-    The first is the PRICE. Nine outs is roughly 36% by the river with two cards
-    to come and roughly 18% with one (`_draw_equity`), against 25% needed at a
-    half-pot bet, 29% at two-thirds and 33% at a pot-sized one. At the flop
-    prices this roster actually faces, a big draw's raw equity pays for a large
-    part of the call on its own. Nobody folds a flush draw getting 3-to-1
-    because they are a nit; that is not tightness, it is an error, and it is
-    what the original hard floor was right to prevent.
-
-    The second is the CHASE — calling at prices raw equity does not cover,
-    peeling a second card off on the turn where only one card is left to come,
-    paying to draw multiway into reverse implied odds, and the implied-odds
-    optimism that says the stack comes with the pot when the draw hits. That
-    part is exactly what separates a nit from a station, and a calling dial that
-    cannot reach it is not a calling dial.
-
-    So the bonus is split rather than floored: the price-mandated part is
-    protected and the chase is handed back to the dial. A tight persona now
-    chases big draws less than a loose one — while still never folding the
-    equity-mandated core of them — which is both the behaviour a poker player
-    would describe and the property a dial fit needs.
-
-    ── WHY THE SHARE IS FLAT, and what would make it not flat. The honest
-    price-mandated share is a function of the faced price and the street: at a
-    quarter-pot bet essentially the whole call is mandated, at a three-times-pot
-    overbet with one card to come almost none of it is. This constant is flat
-    anyway, for the same reason `_ACE_HIGH_RIVER_CALL_DAMP` is: the price
-    already enters the vector through the price-aware FOLD merit, so the
-    relative weight of the protected call already responds to the price, and a
-    second price term here would be an un-jointly-calibrated one. A
-    price-conditioned share is the natural follow-up if a fit ever needs it, and
-    it belongs with `N-DRAWEQUITY` (replace the flat nine-out proxy with a real
-    equity read) rather than ahead of it.
     """
-    return _DRAW_CALL_PROTECTED_SHARE + (1.0 - _DRAW_CALL_PROTECTED_SHARE) * looseness
+    return looseness + protected_share * (1.0 - looseness)
 
 
 def _value_commit_threshold(faced_fraction: float) -> float:
@@ -1067,19 +1216,25 @@ _LINE_SENSITIVITY_MAX = 2.0
 # behind W3R-7's bucket split); any draw — see below, the reason is NOT the one
 # an earlier draft of this comment gave.
 #
-# WHY DRAWS ARE OUT (corrected by theory review, ledger R-26). An earlier draft
-# said "its continue is already priced by equity + the T1 threshold, and that
-# machinery already moves with street". Both limbs are FALSE for the CALL leg:
-# `call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness` — the
-# fall-through form taken on the trailing `else` branch below (on the `if draw
-# is DrawCategory.STRONG and looseness < 1.0` branch the bonus instead carries
-# `_strong_draw_call_dial(looseness)`, which protects a share of it from the
-# dial, but that leaves this argument untouched) — consults no
-# equity and no street on either branch — `_DRAW_CALL_BONUS` is a flat lookup —
-# and the cited street-decay machinery (`_STREET_WEAK_DRAW_MULT`,
-# `_DRAW_RAISE_BONUS`) is AGGRESSION-side only. Measured: a naked gutshot's
-# P(call) facing a half-pot bet goes UP flop -> turn (nit 0.3556 -> 0.3696), not
-# down.
+# WHY DRAWS ARE OUT (corrected by theory review, ledger R-26; its STRONG half
+# corrected again by S3-T1b, 2026-08-22). An earlier draft said "its continue is
+# already priced by equity + the T1 threshold, and that machinery already moves
+# with street".
+# For the WEAK cells — the fall-through form `call_merit = (call_base +
+# _DRAW_CALL_BONUS[draw]) * looseness` on the trailing `else` branch below —
+# both limbs are still FALSE: it consults no equity and no street,
+# `_DRAW_CALL_BONUS` is a flat lookup, and the cited street-decay machinery
+# (`_STREET_WEAK_DRAW_MULT`, `_DRAW_RAISE_BONUS`) is AGGRESSION-side only.
+# Measured: a naked gutshot's P(call) facing a half-pot bet goes UP flop -> turn
+# (nit 0.3556 -> 0.3696), not down.
+# For a STRONG draw at a dial below 1.0 the sentence is no longer true and must
+# not be read as if it were: S3-T1b makes the protected share of that bonus a
+# function of realized equity, the out count and the faced price
+# (`_strong_draw_protected_share`), with cards-to-come the way the street
+# enters. That does NOT re-open the exclusion. What the price-mandated share
+# governs is how much of the bonus the CALLING DIAL may move; the line damp is a
+# different claim — that a hand facing a second barrel should continue less —
+# and no equity gate on the bonus itself has landed yet (see F7 below).
 # The exclusion still stands, for the honest reason: `_DRAW_CALL_BONUS[WEAK]` is
 # the un-equity-gated F7 defect, and stacking an un-jointly-calibrated line factor
 # on an already-inflated call merit compounds it (the W3R-5 mistake). STRONG draws
@@ -1302,13 +1457,15 @@ def sample_postflop_decision(
             and street in (Street.FLOP, Street.TURN)
         ):
             call_base *= _ACE_HIGH_FLOAT_RAISE_DAMP
-        # N-DRAWLOOSE, as amended by S3-T1 (improvement slice 3, 2026-08-21): a
-        # STRONG draw's call bonus is SPLIT under a tight dial, not floored.
-        # `_strong_draw_call_dial(L) = share + (1 - share)*L` protects the
-        # price-mandated part of a big draw's call from the dial and leaves the
-        # chase — the part that is a matter of style — riding it. The poker
-        # argument for that shape, and why the share is flat, are with the
-        # helper; read them before changing this branch.
+        # N-DRAWLOOSE, as amended by S3-T1 (2026-08-21) and PRICE-CONDITIONED by
+        # S3-T1b (2026-08-22, both improvement slice 3): a STRONG draw's call
+        # bonus is SPLIT under a tight dial, not floored, and the split point
+        # moves with the price.
+        # `_strong_draw_call_dial(L, s) = L + s*(1 - L)` hands the dial the
+        # chase and holds back `s`, the share of the call that raw equity at
+        # this price pays for — `_strong_draw_protected_share(hole, board,
+        # faced_frac)`, which carries the poker and the realization assumption.
+        # Read it before changing this branch.
         #
         # WHAT S3-T1 CHANGED AND WHY. The bonus used to carry `max(looseness,
         # 1.0)`, i.e. the WHOLE of it was protected. That stopped nits folding
@@ -1319,6 +1476,18 @@ def sample_postflop_decision(
         # slice 3 fits `call_looseness` as its principal dial, so an untunable
         # piece of the very merit it fits is a defect in the lever, and the
         # split fixes it without giving up the property the floor existed for.
+        #
+        # WHAT S3-T1b CHANGED AND WHY (owner ruling, 2026-08-22). S3-T1's share
+        # was a FLAT 0.7, which withdraws protection in equal proportion at
+        # every price and every out count. That is anti-protective exactly where
+        # protection matters most: measured at the trace node below (a 15-out
+        # combo draw getting 2.5-to-1), the flat share pushed the nit's fold
+        # rate from 0.2608 to 0.2945 and the passive fish's from 0.2451 to
+        # 0.2797, at a node where the correct fold frequency for every archetype
+        # is about zero. The share now scales with the faced price, the cards to
+        # come and the out count, so a cheap bet into a monster draw keeps full
+        # protection (`s` clamps at 1.0 and the branch reproduces the old floor
+        # exactly) while a pot-sized bet into a bare draw rides the dial.
         #
         # THREE properties are load-bearing. Two come from the branch PREDICATE
         # carrying `looseness < 1.0` and survive the amendment unchanged:
@@ -1336,17 +1505,21 @@ def sample_postflop_decision(
         #    same factor CALL moved by, instead of cancelling it away — see the
         #    N-LOGIT block, whose derivation holds for ANY call shape and so did
         #    not have to change form for form with this one.
-        # The third is new with the split: `dial(L)` must be CONTINUOUS at
+        # The third is new with the split: `dial(L, s)` must be CONTINUOUS at
         # L = 1, or a dial sweep that crosses 1.0 would step and both this merit
-        # and `rscale` would step with it. It is — exactly, in binary64, at the
-        # shipped share; the helper explains why that is a checked fact rather
-        # than an algebraic one, and a test asserts it.
+        # and `rscale` would step with it. It is, for EVERY share and exactly in
+        # binary64, because the expression is `L + s*(1 - L)` and the second
+        # term is multiplied by a hard zero there. S3-T1 wrote the same algebra
+        # the other way round and had to assert the exactness for its one
+        # constant; a share computed per node has no single constant to assert,
+        # so the association carries it instead. See the helper.
         _ref_lever = pf.continue_ref if pf.continue_ref is not None else looseness
         _call_merit_at_ref = (call_base + _DRAW_CALL_BONUS[draw]) * _ref_lever
         if draw is DrawCategory.STRONG and looseness < 1.0:
-            call_merit = call_base * looseness + _DRAW_CALL_BONUS[draw] * _strong_draw_call_dial(
-                looseness
+            _draw_dial = _strong_draw_call_dial(
+                looseness, _strong_draw_protected_share(hole, board, faced_frac)
             )
+            call_merit = call_base * looseness + _DRAW_CALL_BONUS[draw] * _draw_dial
         else:
             call_merit = (call_base + _DRAW_CALL_BONUS[draw]) * looseness
         # River polarization, NARROWED TO AIR by T3 (improvement slice 2,
@@ -1511,16 +1684,23 @@ def sample_postflop_decision(
             for a, m in entries:
                 if a is ActionType.CALL:
                     if draw is DrawCategory.STRONG and looseness < 1.0:
-                        m -= _DRAW_CALL_BONUS[draw] * _strong_draw_call_dial(looseness) * removed
+                        m -= _DRAW_CALL_BONUS[draw] * _draw_dial * removed
                     else:
                         m -= _DRAW_CALL_BONUS[draw] * looseness * removed
                     # The damp removes `removed` of the bonus that was actually
-                    # ADDED, so it carries the SAME dial the merit above carries
-                    # — the S3-T1 split on the split branch, the plain lever off
-                    # it. A mismatch here would not merely mis-damp: it would
-                    # leave the CALL entry holding a residue of the other
-                    # branch's bonus, which `rscale` then reads as if it were
-                    # the real post-damp call merit.
+                    # ADDED, so it carries the SAME dial the merit above
+                    # carries. `_draw_dial` is REUSED rather than recomputed:
+                    # since S3-T1b the split's multiplier depends on the node
+                    # (price, out count, cards to come) and not only on the
+                    # lever, so recomputing it here would be a second chance to
+                    # disagree with the merit it is damping. It is bound on
+                    # exactly the branch this one tests — `draw is STRONG and
+                    # looseness < 1.0` inside a `facing` block — which is the
+                    # same predicate the merit above used. A mismatch here
+                    # would not merely mis-damp: it would leave the CALL entry
+                    # holding a residue of the other branch's bonus, which
+                    # `rscale` then reads as if it were the real post-damp call
+                    # merit.
                     # The reference below is unconditional, and carries NEITHER
                     # dial, for the same reason the merit above does not: it
                     # stays the base engine's damped call merit at the anchor,
@@ -1637,7 +1817,7 @@ def sample_postflop_decision(
     # N-DRAWLOOSE COUPLING — STRONG draws at a dial below 1.0 only (the
     # call-merit branch above and the branch below share one predicate,
     # `draw is STRONG and looseness < 1.0`). There the draw bonus carries
-    # `_strong_draw_call_dial(L)` rather than L, so CALL is AFFINE in the dial
+    # `_strong_draw_call_dial(L, s)` rather than L, so CALL is AFFINE in the dial
     # rather than proportional to it, the literal `looseness / ref` above would
     # stop cancelling L, and the guarantee would break on those cells. `rscale`
     # instead reads `C(L) / (C0·ref)` — the LIVE call merit over the UNSPLIT
@@ -1650,10 +1830,10 @@ def sample_postflop_decision(
     # VALUE. The guarantee is preserved everywhere and is continuous across
     # L = 1, so a lever sweep that crosses 1.0 sees no step (G1).
     #
-    # RE-DERIVED FOR S3-T1 (improvement slice 3, 2026-08-21), because the call
-    # shape changed underneath this block and "it still cancels" is not
-    # something to assume. The split form is
-    #     C(L) = call_base·L + bonus·(s + (1−s)·L)
+    # RE-DERIVED FOR S3-T1 (2026-08-21) AND AGAIN FOR S3-T1b (2026-08-22),
+    # because the call shape changed underneath this block twice and "it still
+    # cancels" is not something to assume. The split form is
+    #     C(L) = call_base·L + bonus·(L + s·(1−L))
     #          = (call_base + bonus·(1−s))·L + bonus·s ,  s = the protected share
     # i.e. still affine in L, with a smaller intercept than the old hard floor's
     # `bonus·1`. NOTHING in the derivation above reads the intercept or the
@@ -1663,9 +1843,21 @@ def sample_postflop_decision(
     # below 1.0 than it was under the floor (it tracks a smaller CALL), and it
     # is smaller in exactly the proportion CALL shrank, which is the whole point
     # — the raise leg must follow the call leg, not the floor. Continuity at
-    # L = 1 survives too: `C(1⁻) = C0` because `_strong_draw_call_dial(1.0)` is
-    # exactly 1.0, so the coupled branch tends to `1/ref`, which is what the
-    # fall-through computes at L = 1.
+    # L = 1 survives too: `C(1⁻) = C0` because `_strong_draw_call_dial(1.0, s)`
+    # is exactly 1.0 for EVERY s, so the coupled branch tends to `1/ref`, which
+    # is what the fall-through computes at L = 1.
+    #
+    # WHAT S3-T1b ADDED TO THAT, and what it did NOT. `s` is no longer one
+    # module constant: it is computed per node from the faced price, the cards
+    # to come and the draw's out count. The derivation is untouched, because
+    # `s` enters it only inside C(L) and the invariance never reads C(L)'s
+    # coefficients — but one consequence is worth stating, because a reader
+    # would otherwise assume the opposite: `rscale` now varies from node to
+    # node on strong draws at a FIXED dial, and at a node where the price
+    # mandates the whole call (s = 1.0) it takes exactly the value the
+    # pre-S3-T1 hard floor gave it. P(raise | continue) is unchanged by any of
+    # it, per node and per persona — the pinned raise-share table in the test
+    # file is what says so.
     #
     # WHY THE DIVISOR IS UNSPLIT (fan-in review, defect A). It used to carry the
     # same floor as the live merit, so the floor's growth cancelled out of
@@ -1677,7 +1869,8 @@ def sample_postflop_decision(
     # — exactly the factor by which CALL moved. Whichever way CALL moves against
     # the base engine, CALL and RAISE keep their ORIGINAL proportion and FOLD
     # takes the rest, which is why P(raise | continue) on a strong draw matches
-    # the base engine b0a6a4e persona for persona both before and after S3-T1.
+    # the base engine b0a6a4e persona for persona both before and after S3-T1
+    # and S3-T1b.
     #
     # The divisor is the FROZEN authored anchor, NEVER the live lever, on
     # EITHER branch. Rev 1 of this slice (N-LOGIT's own rev 1, a different
@@ -1703,8 +1896,11 @@ def sample_postflop_decision(
     # `rscale = C(ref) / (C0·ref)` is > 1 rather than exactly 1 — that IS the
     # mechanism (the raise leg has to receive the protected share's extra mass;
     # see above), not a rounding artifact. S3-T1 shrank that departure from 1.0
-    # (the protected share is half the bonus now, not all of it) without
-    # removing it. Those 23 frozen vectors are unaffected because
+    # — the protected share stopped being the WHOLE bonus — and S3-T1b made how
+    # far it shrinks depend on the node: where the price mandates the whole call
+    # the share is 1.0 and the departure is exactly the old hard floor's, and
+    # where it does not the share is smaller and so is the departure. Neither
+    # ticket removed it. Those 23 frozen vectors are unaffected because
     # every one of them is a `DrawCategory.NONE` cell, which takes the
     # fall-through branch; that was re-verified by classifying each vector's
     # (hole, board) through `strength_bucket` rather than assumed.
