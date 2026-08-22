@@ -94,7 +94,8 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > (T1 #198, T2 #199, T3 #200) and the owner's blind play session, the primary acceptance
 > evidence under the 2026-08-17 ruling, returned an acceptance verdict: the bots felt
 > plausibly human at the table, nothing stood out as robotic — slice 3 (calldown) is core
-> scope, ruled 2026-08-21, and still unspec'd. Resume there, not from this banner.**
+> scope, ruled 2026-08-21, and spec'd and approved the same day (`docs/ai-dlc/specs/
+> flywheel-slice3-calldown.md`). Resume with its ticket chain, not from this banner.**
 > *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
 > NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
@@ -339,10 +340,13 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 - [ ] **Slice 3 — Calldown — CORE SCOPE (owner-ruled 2026-08-21), and its headline number was
       wrong** *(corrected 2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended
       cutting it; that was withdrawn under review, and the scope-valve question the withdrawal
-      left open is now settled — see the ruling below. **Not yet spec'd.** Slice 3 will be
-      spec'd and measured against the Stage-0 interim went-to-showdown band regime (the
-      grounded floors and one-way ceiling ratchet ratified 2026-08-21, landing in the parallel
-      theory-contract PR), not the old frozen bands T3 above was capped inside of.
+      left open is now settled — see the ruling below. **Spec'd and approved by the owner,
+      2026-08-21.** Spec: `docs/ai-dlc/specs/flywheel-slice3-calldown.md`. Tickets (S3-T1
+      through S3-T4, a serial chain of four): `docs/ai-dlc/tickets/flywheel-slice3-calldown.md`.
+      Contract map: `docs/ai-dlc/contracts/flywheel-slice3-calldown.md`. Measured against the
+      Stage-0 interim went-to-showdown band regime (the grounded floors and one-way ceiling
+      ratchet ratified 2026-08-21, landing in the parallel theory-contract PR), not the old
+      frozen bands T3 above was capped inside of.
       ⚠️ **CORRECTION: this entry said the roster's went-to-showdown was "near 45". It is
       54.85.** The 44.92 figure came from the S5 close-out, where it is a *counterfactual* —
       the pool with the maniac's showdown rate driven to zero, constructed to prove no
@@ -379,11 +383,11 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       appetite would ship the improvement phase with a net increase in the roster's worst
       statistic. If the appetite runs out, something else gets cut instead — not slice 3. See
       the same ruling recorded in full at the improvement-phase block header above.
-      **Before it can be spec'd** it needs a post-T1/T2/T3 baseline on the ratified lineup, a
-      defect definition sharper than "went-to-showdown is high", named code nodes, and the
-      draw-floor decision below — which is a prerequisite, not a sibling, because that floor
-      holds part of the strong-draw calling weight fixed no matter how far `call_looseness`
-      tightens, and `call_looseness` is calldown's principal dial.
+      **Now spec'd**, per the pointers above — it carries a post-T1/T2/T3 baseline on the
+      ratified lineup, a defect definition sharper than "went-to-showdown is high", named code
+      nodes, and the draw-floor decision below as a PREREQUISITE ticket (S3-T1), not a sibling,
+      because that floor holds part of the strong-draw calling weight fixed no matter how far
+      `call_looseness` tightens, and `call_looseness` is calldown's principal dial.
 - [ ] **Draw-floor bug — bots cannot fold a strong draw at any dial setting** *(NEW
       2026-08-17; assigned to slice 3 as a PREREQUISITE, 2026-08-18)* — `personas_postflop.py:1006-1007` floors the 0.55 strong-draw call bonus
       at `max(looseness, 1.0)`, so it does not shrink when `call_looseness` tightens. Five of
