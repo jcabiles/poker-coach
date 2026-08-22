@@ -1535,9 +1535,17 @@ def sample_postflop_decision(
         # item 2 — with the node_trace row for
         # `flop_facing_bet_strong_draw` (JhTh on 9h 8c 2h facing 4 into 10,
         # prescription "semi-bluff raise / call, few folds") as its evidence and
-        # ~0 as its target. S3-T2 carries it as a WATCH, not a target: that
-        # ticket tightens calling dials, which cannot move a number the dial no
-        # longer reaches, and must not be judged on it.
+        # ~0 as its target. S3-T2 carries it as a WATCH, not a target — but
+        # NOT for the reason first written here, and the correction matters
+        # because a test was built on the wrong version. This block used to say
+        # the dial "no longer reaches" that number. It does. What the split
+        # protects is the strong-draw BONUS term; the bucket's base call merit
+        # is still `call_base * L`, and the fold merit does not depend on `L` at
+        # all, so at this node a lower dial DOES fold the draw slightly more.
+        # Measured at S3-T2's shipped dials: the nit's trace-node fold rate goes
+        # 0.2608 at a dial of 0.45 to 0.2642 at 0.32. It is a WATCH because the
+        # residual is a fold-side LEVEL that `N-DRAWEQUITY` owns and the dial
+        # cannot drive to ~0, not because the dial is inert here.
         #
         # THE POPULATION FIGURE S3-T2 MUST SIZE ITSELF OFF, measured over the
         # band harness's own six-persona 4,000-hand population (2026-08-22): the
