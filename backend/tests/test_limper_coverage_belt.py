@@ -436,9 +436,37 @@ _PRE_M3_FIRES = {
     # engine file and no limper-belt file is touched, and neither `version`
     # nor `_doc` can reach this belt (`_doc` is not a model field, and
     # `version` only enters `config_hash`, which only the export digests read).
-    ("UTG2", 1): 94, ("LJ", 1): 109, ("HJ", 1): 114, ("CO", 1): 106,
-    ("CO", 2): 24, ("SB", 1): 82, ("SB", 2): 37, ("BTN", 1): 86,
-    ("BTN", 2): 28,
+    # RE-RECORDED for S3-T1 (improvement slice 3, 2026-08-21,
+    # slice-authorized): a STRONG draw's call bonus is SPLIT under a calling
+    # dial below 1.0 instead of being protected from it in full —
+    # `personas_postflop._strong_draw_call_dial`, with
+    # `_DRAW_CALL_PROTECTED_SHARE` = 0.7. Five of the six personas hold such a
+    # dial, so they chase big draws slightly less, a hand that used to see a
+    # turn now sometimes ends on the flop, and the shared organic rng stream
+    # drifts at this seed. Eight of the nine pairs move; ("LJ", 1) lands on its
+    # old value (old: UTG2 94, LJ 109, HJ 114, CO 106, CO x2 24, SB 82,
+    # SB x2 37, BTN 86, BTN x2 28). No limper-belt content changed and no
+    # preflop content changed.
+    # ⚠️ ONE COVERAGE SHAPE IS NOW AT ITS MINIMUM: BB facing THREE limpers
+    # fires once at this tip, against 5 before (BB x1 50, BB x2 27, BB x3 1).
+    # The gate is >= 1 and it holds, but a shape sitting on 1 is one displaced
+    # hand from a red belt, and the next slice to move this stream should
+    # expect to have to say something about it. It is a rare shape at 4,000
+    # hands, not a regression in what the belt reaches — nothing in this ticket
+    # touches limping, preflop content, or the big blind's decision anywhere.
+    # ATTRIBUTION PROVEN, not assumed, and without a control worktree:
+    # `_DRAW_CALL_PROTECTED_SHARE = 1.0` makes `_strong_draw_call_dial` return
+    # exactly 1.0 for every dial, which IS the `max(looseness, 1.0)` the engine
+    # used to carry. Setting it to 1.0 at this tip reproduces all nine OLD
+    # counts and the old BB shapes (55/27/5) exactly; restoring 0.7 reproduces
+    # the counts below exactly. The split is the sole cause.
+    # The paragraphs above about WHY a postflop change moves preflop counts,
+    # and about the draw count NOT being invariant, apply here unchanged. NO
+    # NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the split
+    # only reweights an existing call merit.
+    ("UTG2", 1): 98, ("LJ", 1): 109, ("HJ", 1): 113, ("CO", 1): 94,
+    ("CO", 2): 23, ("SB", 1): 80, ("SB", 2): 41, ("BTN", 1): 87,
+    ("BTN", 2): 27,
 }
 
 

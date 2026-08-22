@@ -267,19 +267,47 @@ def _hash_manifest(manifest: dict) -> str:
 # Measured rather than assumed: the baseline config hash goes 492ed91c908126b6
 # -> 3eb80f12c52ccf70 (first 16). T3 moved only three digests because it was
 # engine-only and bumped no pack.
+# RE-RECORDED for S3-T1 (improvement slice 3, 2026-08-21, slice-authorized): a
+# STRONG draw's call bonus is SPLIT under a calling dial below 1.0 rather than
+# protected from the dial in full — `personas_postflop._strong_draw_call_dial`,
+# with `_DRAW_CALL_PROTECTED_SHARE` = 0.7. The five personas whose dial sits
+# below 1.0 chase big draws slightly less, so the seeded twenty-five-hand export
+# contains different actions and different money. Values immediately before it:
+#   manifest      c6702078ad7cc7da963e6e21e38ca4dd8b29fdffa6c937327417200c5769c3c5
+#   hands         88746bc22780d45e9cb0d1f233b6eed2d510b000befa31fb5cd879567bcd04fe
+#   seat_outcomes 396a96ba84469917d4fd9acf7c182f369110c65b45182c8182bead4f0537df6c
+#   decisions     a62f0dec1c517ca8d84fd52630f723719e7a40933d0a93dd498391854dac2094
+# THE MANIFEST MOVES WITHOUT A PACK EDIT, which the T3 entry above names as "the
+# thing to investigate". It was investigated, and the cause is benign: the
+# manifest carries `row_counts`, and the DECISIONS row count falls from 475 to
+# 460 because hands that used to see another street now end sooner. Measured
+# directly — `config_hash` is IDENTICAL on both sides
+# (3eb80f12c52ccf70f8b529cb152cf2323b14f8b41d6319ac5c9629b7e7ab7692), and
+# `row_counts` is the ONLY key of the canonical manifest that differs. So the
+# T3 note's rule still holds in the sense it was written: no pack edit, no
+# `config_hash` move, no `run_id`/`hand_id` move. What it did not anticipate is
+# that a behaviour-only change can still move the manifest through a row count.
+# ATTRIBUTION PROVEN, not assumed: `_DRAW_CALL_PROTECTED_SHARE = 1.0` makes
+# `_strong_draw_call_dial` return exactly 1.0 for every dial, which IS the
+# `max(looseness, 1.0)` the engine used to carry; setting it to 1.0 at this tip
+# reproduces all four digests above exactly, and restoring 0.7 reproduces the
+# four below exactly.
+# No new random draw was added and none precedes the action draw. The draw COUNT
+# is not claimed invariant — the row-count move above is that non-invariance
+# showing up in an artifact.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "c6702078ad7cc7da963e6e21e38ca4dd8b29fdffa6c937327417200c5769c3c5"
+    "acace563f84f179ddb1b500359bdb53aebf601b8b0b98a127d8e931e31d8003a"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "88746bc22780d45e9cb0d1f233b6eed2d510b000befa31fb5cd879567bcd04fe"
+    "c66037c53a80bd9203a1c39815c8e16172c7e58ae8a7ec62c4d39dfd127112ec"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "396a96ba84469917d4fd9acf7c182f369110c65b45182c8182bead4f0537df6c"
+    "89d2f9951ab94cdce752bb3c1e6777f3a7922958ceb0a41c0fdf5d51bb0a86c3"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "a62f0dec1c517ca8d84fd52630f723719e7a40933d0a93dd498391854dac2094"
+    "4f27cec0c09e6f2821653484c2e2e6127aab58409d1bab1e6921cc02316f7f68"
 )
 
 
