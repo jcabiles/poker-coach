@@ -70,21 +70,47 @@ value range — reaches half its showdowns with no chips in the middle.
 
 ## 3. Registered floors
 
-**Not yet registered at this commit — deliberately.** The specification fixes
-the derivation rule but forbids inventing the numbers: each floor is the fall
-the deepest aggression-admissible dial delivers in the single-persona sweep,
-minus one binomial standard error on that persona's showdown sample. The sweep
-has not run at this commit, so this section is filled in by the commit that
-registers the floors, which lands before any pack value moves.
+**Registered 2026-08-22, from the single-persona sweeps, before any pack value
+moved.** Every reading below comes from a sweep of one persona at a time with
+the other five packs unedited, on the band harness at its pinned seed, over
+12,000 hands. The derivation rule was fixed by the specification before the
+sweep ran: the floor is the fall the deepest aggression-admissible dial
+delivers, minus one binomial standard error on that persona's showdown sample.
+A dial of 1.0 is aggression-admissible for all three personas — the nit reads
+1.562 against a band of (0.6, 2.4), the TAG 2.720 against (1.4, 3.6), the LAG
+2.743 against (1.5, 4.5) — so 1.0 is the deepest dial for each.
 
-Fixed in advance and not revisable by the sweep:
+| persona | metric | at dial 1.0, before → after | fall | one standard error | registered floor |
+|---|---|---|---|---|---|
+| nit | never faced a wager | 0.5133 → 0.4983 | 1.50pp | 1.16pp | **≥ 0.3pp** |
+| tag | never faced a wager | 0.4562 → 0.4807 | **−2.45pp (a rise)** | 1.34pp | **none can be registered** |
+| nit | checked down | 0.3073 → 0.2963 | 1.10pp | 1.08pp | **direction only** |
+| tag | checked down | 0.2044 → 0.1855 | 1.89pp | 0.77pp | **≥ 1.1pp** |
+| nit, tag, lag | went to showdown | see §4 of the report | — | — | **direction DOWN** (the gate) |
 
-- The nit and the TAG get a magnitude floor on the fall in the
-  never-faced-a-wager share; the LAG gets a direction only, because ticket 2 of
-  this slice could not trace its showdown excess to a lever and no defensible
-  magnitude can be predicted for it.
-- Went-to-showdown must fall for all three, and that is the gate; the
-  never-faced-a-wager fall is the diagnostic.
-- Shortfall rule, from the owner's answer of 2026-08-22: if the admissible dials
-  cannot clear a floor, ship the admissible value and record the shortfall
-  rather than tuning past an aggression band.
+The LAG carries a direction and no magnitude, for the reason ticket 2 recorded:
+its showdown excess has not been traced to a lever, so no defensible magnitude
+can be predicted for it.
+
+### Why a second metric appears here
+
+**The never-faced-a-wager share cannot see this lever working, and that is a
+property of the metric rather than of the lever.** It counts showdown hands in
+which the persona met no wager. A bot that used to check a hand down and now
+bets it and gets called STILL met no wager, so the hand stays in the numerator;
+the metric only falls when somebody wagers AT the bot. The TAG's row above is
+that effect measured: its hands that were genuinely checked down fell 1.9
+points at the same dial where its never-faced-a-wager share rose 2.5.
+
+So a second counter, `checked_down`, was added to the same harness function
+during the sweep and before any pack value moved: the share of showdown hands
+in which NO seat wagered on any postflop street — a hand genuinely checked
+down, which is what this ticket's problem statement describes in prose. Both
+are DIRECTIONAL diagnostics and neither is a gate. The first is kept, floors
+and all, rather than quietly replaced: it is the statistic the ticket was
+written against, and retiring it after seeing its reading would be moving the
+goalposts.
+
+Shortfall rule, from the owner's answer of 2026-08-22: if the admissible dials
+cannot clear a floor, ship the admissible value and record the shortfall rather
+than tuning past an aggression band.

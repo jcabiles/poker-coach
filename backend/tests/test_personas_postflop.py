@@ -3266,10 +3266,11 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
     tested persona repeated to guarantee representation), collect AF /
     fold-to-cbet / WTSD for the tested persona's seats only.
 
-    Returns `(af, ftc, wtsd, call_n, ftc_n, saw_flop_n, never_faced_wager)`.
-    The last element (S3-T5) is the share of the persona's showdown hands that
-    never met a wager on any postflop street; it is a DIRECTIONAL diagnostic
-    and must never be asserted as a HARD gate.
+    Returns
+    `(af, ftc, wtsd, call_n, ftc_n, saw_flop_n, never_faced_wager, checked_down)`.
+    The last two (S3-T5) are shares of the persona's showdown hands: those in
+    which it never met a wager, and those in which NOBODY wagered postflop.
+    Both are DIRECTIONAL diagnostics and must never be asserted as HARD gates.
 
     Memoized per (persona, n, context_aware, pack-content fingerprint) within
     the process (see `_packs_fingerprint`): the band
@@ -3295,7 +3296,7 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
 
     bet_raise = call_count = 0
     folds_to_first_cbet = cbet_opportunities = 0
-    saw_flop_hands = showdown_hands = never_faced_wager_hands = 0
+    saw_flop_hands = showdown_hands = never_faced_wager_hands = checked_down_hands = 0
 
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
@@ -3314,6 +3315,10 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
         # node, where no wager is outstanding), which this counts as a faced
         # wager exactly as the prose figure did.
         faced_wager_seats = {s for s, _st, a in log if a in ("fold", "call", "raise")}
+        # ... and whether ANY seat wagered postflop at all. See the two counters
+        # below for why both are needed: the first cannot tell "nobody bet" from
+        # "I was the one who bet".
+        checked_down = not any(a in ("bet", "raise") for _s, _st, a in log)
         for seat in tested_seats:
             if seat in saw_flop:
                 saw_flop_hands += 1
@@ -3321,6 +3326,8 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
                     showdown_hands += 1
                     if seat not in faced_wager_seats:
                         never_faced_wager_hands += 1
+                    if checked_down:
+                        checked_down_hands += 1
 
         # AF: BET+RAISE / CALL, postflop only, tested seats.
         for seat, _street, action in log:
@@ -3358,6 +3365,17 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
     never_faced_wager = (
         (never_faced_wager_hands / showdown_hands) if showdown_hands >= 30 else None
     )
+    # S3-T5, second reading of the same idea, added during the sweep and NOT a
+    # substitute for the first: the share of showdown hands in which NO seat
+    # wagered on any postflop street — a hand genuinely checked down. The
+    # counter above cannot see this ticket's mechanism working, and that is a
+    # property of its definition rather than of the lever: a bot that bets the
+    # turn and gets called still "never faced a wager", so converting a
+    # check-down into a bet-and-call LEAVES IT IN the numerator. The pair
+    # separates the two: `checked_down` falls when the bot starts wagering,
+    # `never_faced_wager` falls only when someone wagers AT the bot.
+    # DIRECTIONAL diagnostics both, never HARD gates.
+    checked_down = (checked_down_hands / showdown_hands) if showdown_hands >= 30 else None
     result = (
         af,
         ftc,
@@ -3366,6 +3384,7 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
         cbet_opportunities,
         saw_flop_hands,
         never_faced_wager,
+        checked_down,
     )
     _STATS_CACHE[key] = result
     return result
@@ -7214,7 +7233,7 @@ def test_persona_postflop_bands(persona, budget):
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]
-    af, ftc, wtsd, call_n, ftc_n, wtsd_n, _nfw = _persona_stats(packs, persona, per_persona_n)
+    af, ftc, wtsd, call_n, ftc_n, wtsd_n, *_ = _persona_stats(packs, persona, per_persona_n)
 
     if af is not None and af_band is not None:
         lo, hi = af_band
