@@ -161,6 +161,38 @@ makes the strong-draw weight tunable at all).
 
 ## S3-T3 — Value-side lever: stack-to-pot multiplier on made-value aggression
 
+**status: SHIPPED AS INSTRUMENT + LIMITS; lever withdrawn 2026-08-22; owner
+decision filed: value-side commit slope.** The stack-to-pot damp this ticket
+names was built, measured, reviewed and WITHDRAWN. All five acceptance criteria
+passed on their own terms, and the change should still not ship: three reviewers
+converged on a design flaw, not an implementation flaw. **The damp points the
+wrong way for the buckets where it has leverage** — it lowered top-pair betting
+(TAG 0.746 → 0.724, nit 0.423 → 0.400) at the stack depths where commitment says
+those hands should bet MORE — and its premise, a raw bluff-share shortfall at
+capped decisions, is at least partly warranted by the identity's own size term,
+because a smaller wager warrants a smaller bluff share. Adjudicated on the PR
+#199 precedent from slice 2: lever withdrawn, instrument kept. The engine is
+byte-identical to `4f653ef`; the withdrawn code stays in this branch's git
+history for provenance.
+
+**What ships:** `backend/tools/capped_composition_probe.py` (the instrument
+criterion 1 needed and this repository did not have, now reporting BOTH the raw
+and the target-normalised composition) and theory contract §3 amendment A8,
+rewritten as limits only.
+
+**What it turned up, and what it needs from the owner:** made-value betting is
+FLAT in stack depth — top pair and middle pair bet at identical probability to
+twelve decimal places at a stack-to-pot ratio of 10 and of 0.3, for every
+persona — where commitment says it should rise toward certainty. The mechanism
+the engine is missing is a commitment SLOPE over `TOP_PAIR`/`MIDDLE_PAIR`, the
+opposite of what was built. Filed as an OPEN ITEM for the re-anchor slice
+(ledger filed 5, contract A8 item 5); **it needs an owner decision before any
+slice builds it**, because it interacts with the existing commit step.
+
+Report: `../research/slice3-calldown/t3-report.md`; the directions registered
+before the multiplier was written, with a dated postscript on what
+pre-registration failed to catch: `../research/slice3-calldown/t3-preregistration.md`.
+
 **Goal:** add the one approved new lever from the slice-2 reviews — a
 minimal stack-to-pot ratio multiplier on made-value aggression — closing the
 missing value-hand side of the theory contract's bluff-share identity (the
@@ -200,8 +232,17 @@ one.
 **Owns:** `backend/app/domain/personas_postflop.py` (made-value aggression
 path), `backend/tests/test_personas_postflop.py`,
 `docs/ai-dlc/contracts/persona-realism-theory-contract.md` (§3 amendment
-only). Single-owner on the postflop module and its test file — see hotspot
-note above.
+only), `backend/tools/capped_composition_probe.py` and
+`backend/tests/test_capped_composition_probe.py` (the shipped instrument and
+its structural guard), and — **added 2026-08-22, missing from the ticket as
+written** — the two stream-displacement fixtures any engine edit on this path
+disturbs: `backend/tests/test_limper_coverage_belt.py` and
+`backend/tests/test_coverage_baseline.py` with its data fixture
+`backend/tests/data/coverage_baseline.json`. (In the shipped outcome none of
+those four is modified: the lever was withdrawn, so there is no displacement to
+record. They are listed because the ticket could not have been built without
+touching them, and the omission cost a reviewer round.) Single-owner on the
+postflop module and its test file — see hotspot note above.
 
 **Dependencies:** S3-T2 must be merged first (serial chain).
 

@@ -1,7 +1,14 @@
 # Ledger — improvement slice 3 (calldown) of the bot-realism flywheel
 
-**Bottom line. Four things are filed here and none of them is fixed by this
-slice. (1) The calling dial is hand-strength-blind, so it cannot close the
+**Bottom line. Seven things are filed here and none of them is fixed by this
+slice. The most consequential is filed 5: a bot's probability of betting a top
+pair or a middle pair does not respond to its stack depth AT ALL, when
+commitment says it should rise toward certainty as the stack shortens — so the
+mechanism the engine is missing on the value side is a commitment SLOPE. That
+finding came out of the review that WITHDREW ticket 3's lever, which was a damp
+pointing the other way (filed 7).
+
+The seven in order. (1) The calling dial is hand-strength-blind, so it cannot close the
 fold-to-continuation-bet gap: it moves air, which already folds almost always,
 by the same odds factor as the marginal pairs where the gap actually lives —
 that needs a bucket-aware fold lever, which is an ENGINE-LEVER DEFECT at MEDIUM.
@@ -13,7 +20,12 @@ dial DOES move the LAG, but through cross-persona coupling its effect depends on
 where the other personas are set; the reduction floor was withdrawn on the
 owner's ruling and whether to tune it is filed as an owner decision. (4) The
 `_DRAW_FREE_RIVER_PROB` constant stays at 0.30 rather than the roughly 0.50 the
-arithmetic suggests, filed against the contract row that owns it.**
+arithmetic suggests, filed against the contract row that owns it. (5) Made-value
+betting is flat in stack depth where it should slope upward — an OPEN ITEM for
+the re-anchor slice, needing an owner decision. (6) The capped-node bluff-share
+shortfall that seeded ticket 3 was read RAW, and part of it is warranted by the
+identity's own size term. (7) The adjudication that withdrew ticket 3's lever,
+recorded so it is not re-litigated from the code alone.**
 
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
@@ -21,7 +33,8 @@ Contract map: `../contracts/flywheel-slice3-calldown.md` ·
 Theory contract: `../contracts/persona-realism-theory-contract.md`.
 
 This file is chronological within each entry. "S3-T2" is ticket 2 of this slice:
-the retune of the per-persona `call_looseness` calling dials.
+the retune of the per-persona `call_looseness` calling dials. "S3-T3" is ticket
+3: the stack-to-pot multiplier on made-value betting.
 
 ---
 
@@ -174,3 +187,106 @@ equity gate** — "a SEPARATE lever from the fold-side brake: gate
 DIRECTIONAL. Any slice that re-derives this constant re-derives it against that
 row, and against the went-to-showdown statistic the constant's own comment names
 as the thing it serves.
+
+---
+
+## Filed 5 — OPEN ITEM (HIGH): made-value betting is FLAT in stack depth, where commitment says it should rise
+
+**Filed by S3-T3, 2026-08-22, out of the triple review that withdrew that
+ticket's lever.** S3-T3 is ticket 3 of this slice.
+
+**The finding.** A bot's probability of betting a TOP_PAIR or a MIDDLE_PAIR does
+not respond to its stack depth at all. Measured on the merit vectors themselves,
+so there is no sampling variance in it — a K-9-3 rainbow flop, pot 10 big
+blinds, stack swept to give stack-to-pot ratios from 10 down to 0.3:
+
+| bucket | TAG | LAG | maniac | nit | passive_fish | calling_station | varies with stack? |
+|---|---|---|---|---|---|---|---|
+| top pair | 0.7458 | 0.7964 | 0.8725 | 0.4231 | 0.4231 | 0.3793 | **no — identical to 12 decimal places at every ratio** |
+| middle pair | 0.4355 | 0.5070 | 0.6429 | 0.1617 | 0.1617 | 0.1385 | **no** |
+| overpair+ | 0.8485→0.9438 | 0.8819→0.9573 | 0.9289→0.9751 | 0.5833→0.8077 | 0.5833→0.8077 | 0.5385→0.7778 | one step at `spr_commit` |
+
+**Why it is a defect and not a preference.** As the stack-to-pot ratio falls
+toward zero a made hand is progressively more committed, and the poker says its
+betting frequency should rise toward 1. The engine holds it flat. The only stack
+response on the value side is the commit block's flat 3.0× step, which reaches
+overpairs and better and never touches the two buckets above.
+
+**The mechanism that would fix it is a continuous commitment SLOPE over
+`TOP_PAIR` and `MIDDLE_PAIR` below `spr_commit`** — the opposite direction to
+the damp S3-T3 built and withdrew (filed 7). It interacts with the existing
+commit block, whose step it would partly subsume, so it is a re-anchor-slice
+item rather than a ticket-sized one.
+
+**The contract row that owns it** is theory contract §3 amendment A8 item 5,
+where it is filed as an open item for the single designated re-anchor slice.
+**Owner decision required** before any slice builds it: whether the value-side
+commit slope is in scope for the re-anchor, and whether it replaces or composes
+with the existing commit step.
+
+## Filed 6 — MEASUREMENT DEFECT (MEDIUM): the capped-node bluff-share shortfall was read RAW, and part of it is size-warranted
+
+**Filed by S3-T3, 2026-08-22.**
+
+**The defect.** The design dossier that seeded this ticket measured capped
+decisions at about 96 percent of the roster's own bluff-share calibration and
+read the shortfall as a defect. That reading is **raw** — the bluff-cell share of
+the betting range, not divided by the identity's own target at the size each
+wager was actually made at. The theory contract's formula `s / (1 + 2s)` says
+**a smaller wager warrants a smaller bluff share**, and a capped wager is smaller
+by construction. So part of the shortfall is what the identity ASKS for.
+
+**What is now measured, and what still is not.**
+`backend/tools/capped_composition_probe.py` (shipped by this ticket) reports both
+the raw share and the target-normalised one; the figures are in
+`../research/slice3-calldown/t3-report.md` §3. **The residual after
+normalisation is still NOT decomposed** into arrival — which hands reach a capped
+decision, the `π` term the merit layer cannot see — versus policy, the
+conditional probability of betting given the hand. That needs a `π`-by-node table
+nothing in this repository builds.
+
+**The rule this puts on future slices**, now in theory contract §3 amendment A8
+item 3: a gap reported on this instrument is a gap, not a defect, and no slice
+may cite it as evidence that a policy is wrong until the decomposition exists.
+
+## Filed 7 — ADJUDICATION: S3-T3's lever was built, measured and withdrawn
+
+**Filed by S3-T3, 2026-08-22, recording a Director adjudication so the decision
+is not re-litigated from the code alone.**
+
+**What was built.** A stack-to-pot multiplier damping made-value betting below
+`spr_commit` — the design dossier's "Option 1", named in the ticket as the
+approved lever. It was implemented, and every acceptance criterion the ticket
+wrote passed on its own terms.
+
+**What the three reviewers said.** The refuter PASSED it: every number
+reproduced, the build was honest. The theory reviewer returned NEEDS-WORK with
+two HIGH findings and the cross-family reviewer returned FAIL with one BLOCKER,
+and **they converged on the same thing — a design flaw, not an implementation
+flaw**:
+
+1. **The damp's direction is backwards where it has leverage.** It lowered
+   top-pair betting from 0.746 to 0.724 for the TAG and 0.423 to 0.400 for the
+   nit, and middle pair by 2.5 to 2.9 percentage points, at the stack depths
+   where commitment says those hands should bet MORE — and it partly counteracts
+   the commit block the contract already blesses. This is filed 5 seen from the
+   other side: the engine's real defect at these buckets is the absence of a
+   slope, and the lever added a damp.
+2. **The premise was a raw reading of a size-warranted difference** — filed 6.
+3. **The report's "the gap is mostly arrival" claim was unsupported**, because
+   the probe computed a raw share and the paired toggle cannot separate arrival
+   from policy. The claim has been withdrawn from both the report and the
+   contract amendment, and replaced by an explicit "not measured here".
+
+**The adjudication, and the precedent it follows.** WITHDRAW the lever; ship the
+instrument, the contract limits and the finding. The precedent is PR #199 in
+improvement slice 2 — a lever measured, found to move play away from realism,
+withdrawn, with its instrument kept. The engine is byte-identical to `4f653ef`,
+every re-recorded fixture and both went-to-showdown ceiling ratchets are
+reverted (with no lever there is no movement to record), and the withdrawn code
+remains in this branch's git history for provenance.
+
+**One thing worth carrying forward about process.** The ticket's acceptance
+criteria were all met by a change that should not ship. Criteria that ask "did
+the lever move its statistic" cannot catch "moving that statistic is wrong"; the
+pre-registration's own postscript records the same lesson from the other end.
