@@ -509,9 +509,22 @@ _PRE_M3_FIRES = {
     # and about the draw count NOT being invariant, apply here unchanged. NO
     # NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the split
     # only reweights an existing call merit.
-    ("UTG2", 1): 85, ("LJ", 1): 101, ("HJ", 1): 120, ("CO", 1): 113,
-    ("CO", 2): 37, ("SB", 1): 70, ("SB", 2): 36, ("BTN", 1): 73,
-    ("BTN", 2): 28,
+    # RE-RECORDED for S3-T2 (improvement slice 3, 2026-08-22,
+    # slice-authorized): the nit's `call_looseness` moves 0.45 -> 0.32 and the
+    # tag's 0.6 -> 0.38, so both personas take a different action at facing
+    # nodes, the shared organic rng stream displaces, and every pair moves (old
+    # counts: UTG2 x1 85, LJ x1 101, HJ x1 120, CO x1 113, CO x2 37, SB x1 70,
+    # SB x2 36, BTN x1 73, BTN x2 28). This belt runs PRODUCTION
+    # `bot_decision`, so it sees the pack change directly.
+    # ATTRIBUTION PROVEN, not assumed: with the two pack files reverted and
+    # every other edit in this branch left in place, this test passes untouched
+    # at the old counts; restoring the packs reproduces the new ones. No
+    # limper-belt content changed and every _WANT_* coverage shape still fires
+    # (verified: BB x1 47, BB x2 20, BB x3 6) — stream displacement, not a
+    # coverage regression.
+    ("UTG2", 1): 100, ("LJ", 1): 110, ("HJ", 1): 115, ("CO", 1): 100,
+    ("CO", 2): 22, ("SB", 1): 61, ("SB", 2): 34, ("BTN", 1): 87,
+    ("BTN", 2): 25,
 }
 
 

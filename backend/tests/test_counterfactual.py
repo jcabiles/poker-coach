@@ -81,9 +81,14 @@ def _probe(kind, persona, paths):
 
 def test_worked_example_valid_tag_call_looseness_and_bluff_freq(packs):
     """§c "Worked example — valid": TAG `postflop.call_looseness: 0.9`
-    (baseline 0.6) + `postflop.bluff_freq: 0.30` (baseline 0.22) → merges,
-    re-validates, hashes."""
-    assert packs["tag"].postflop.call_looseness == 0.6
+    (shipped 0.38) + `postflop.bluff_freq: 0.30` (shipped 0.22) → merges,
+    re-validates, hashes.
+
+    The shipped calling dial was 0.6 until S3-T2 (improvement slice 3,
+    2026-08-22) re-tuned it to 0.38; the assertion below reads the shipped value
+    so the worked example keeps demonstrating an OVERRIDE — a counterfactual is
+    only worked if the value it supplies differs from the one on disk."""
+    assert packs["tag"].postflop.call_looseness == 0.38
     assert packs["tag"].postflop.bluff_freq == 0.22
 
     result = validate_config(
@@ -98,8 +103,8 @@ def test_worked_example_valid_tag_call_looseness_and_bluff_freq(packs):
     assert result.packs["tag"].postflop.call_looseness == 0.9
     assert result.packs["tag"].postflop.bluff_freq == 0.30
     assert len(result.config_hash) == 64
-    # the baseline packs themselves are untouched
-    assert packs["tag"].postflop.call_looseness == 0.6
+    # the baseline packs themselves are untouched (shipped 0.38 since S3-T2)
+    assert packs["tag"].postflop.call_looseness == 0.38
 
 
 def test_worked_rejection_1_continue_ref_without_probe(packs):

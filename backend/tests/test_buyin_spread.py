@@ -318,19 +318,37 @@ def _hash_manifest(manifest: dict) -> str:
 # constant it names is gone; the equivalent probe is to replace
 # `_strong_draw_protected_share` with one returning 1.0, which is the
 # `max(looseness, 1.0)` engine.
+# RE-RECORDED for S3-T2 (improvement slice 3, 2026-08-22, slice-authorized):
+# two calling dials move — the nit's `call_looseness` 0.45 -> 0.32 and the tag's
+# 0.6 -> 0.38 — so both personas continue less often at every facing node, hands
+# end differently and every byte of a seeded export changes with them. Values
+# immediately before it:
+#   manifest      acace563f84f179ddb1b500359bdb53aebf601b8b0b98a127d8e931e31d8003a
+#   hands         c66037c53a80bd9203a1c39815c8e16172c7e58ae8a7ec62c4d39dfd127112ec
+#   seat_outcomes 89d2f9951ab94cdce752bb3c1e6777f3a7922958ceb0a41c0fdf5d51bb0a86c3
+#   decisions     4f27cec0c09e6f2821653484c2e2e6127aab58409d1bab1e6921cc02316f7f68
+# THE MANIFEST MOVES, which is the expected signature for a PACK edit and the
+# rule the T3 and S3-T1 entries above left standing: `config_hash` is
+# canonicalized over the loaded pack MODELS, so the two weight changes alone
+# would move it and the two `version` bumps (nit 1.10.0 -> 1.11.0, tag the same)
+# do too; the `run_id` and `hand_id` columns derived from it move with it.
+# ATTRIBUTION PROVEN, not assumed: with the two pack files reverted and every
+# other edit in this branch left in place, all four digests above reproduce
+# exactly and this test passes untouched; restoring the packs reproduces the
+# four below. No engine file was changed by this ticket.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "acace563f84f179ddb1b500359bdb53aebf601b8b0b98a127d8e931e31d8003a"
+    "e12c3358b0dfe994ccd92cb2b722a78be2ae31a8928ec7ca5f82d51b8e79b377"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "c66037c53a80bd9203a1c39815c8e16172c7e58ae8a7ec62c4d39dfd127112ec"
+    "b50c38ab287e0bf570ec5be261305da10fc2c47c02be2428ce4a091bffa04f18"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "89d2f9951ab94cdce752bb3c1e6777f3a7922958ceb0a41c0fdf5d51bb0a86c3"
+    "c7b162892d353f6d6ed643c2688771c76e2962d8689a573d10c4fd2f4667e3fe"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "4f27cec0c09e6f2821653484c2e2e6127aab58409d1bab1e6921cc02316f7f68"
+    "f2ac4f0b69d79c938358b044106aa1315b06321ec75987f877cc69de0b70e8b9"
 )
 
 

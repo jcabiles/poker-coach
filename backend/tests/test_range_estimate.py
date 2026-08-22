@@ -6,6 +6,7 @@ Spec: docs/ai-dlc/specs/simulate-villain-range.md.
 
 from __future__ import annotations
 
+import math
 import random
 import time
 
@@ -698,7 +699,59 @@ def test_estimator_prices_the_faced_bet(packs):
     for hole in (("7s", "5s"), ("6h", "4c")):
         folds = [dists[f, hole][ActionType.FOLD] for f in (0.5, 1.5, 3.0)]
         assert folds[0] < folds[1] < folds[2], f"{hole} fold response not monotone: {folds}"
-        assert folds[2] - folds[0] > 0.2, f"{hole} price response is cosmetic: {folds}"
+        # SIZE OF THE RESPONSE, in log-odds rather than in probability points
+        # (S3-T2 — improvement slice 3, ticket 2, the calling-dial retune —
+        # 2026-08-22, after a theory review and under owner ruling 11 of that
+        # date). The original form asked for 0.20 of PROBABILITY span on BOTH
+        # holes, and the air leg SATURATES: at a three-times-pot bet the air
+        # hand already folds 0.965, so under 0.035 of room is left above it,
+        # and anything that makes the TAG fold more at the SMALL price eats the
+        # margin without weakening the price response at all. Measured across
+        # the TAG's plausible calling-dial range, the air probability span
+        # falls 0.2698 at a dial of 0.60 to 0.2100 at 0.42 to 0.1948 at the
+        # 0.38 this slice ships, crossing the old 0.20 threshold on the way —
+        # so that threshold was measuring how close the ceiling was, not how
+        # much the bot cares about the price.
+        #
+        # LOG-ODDS IS THE SCALE THE RESPONSE ACTUALLY LIVES ON, and the leg
+        # REDUCES TO THE FOLD SIDE'S PRICE-FACTOR RATIO — which is why it is
+        # invariant to the calling dial AND to the hand's strength bucket by a
+        # model property rather than by luck. At a facing node the fold merit is
+        # `_FOLD_BASE[bucket] * _price_factor(f, e)` and the continue side is
+        # `L * K` with `K` price-free, so
+        #     logit(fold) = ln _FOLD_BASE[bucket] + ln _price_factor(f, e)
+        #                   - ln L - ln K
+        # and every term except `_price_factor` is identical at both prices.
+        # The bucket constant and the dial both cancel in the span, leaving a
+        # closed form:
+        #     span = e * ln(alpha_OVERBET / alpha_MEDIUM)
+        #            + _PRICE_TAIL_K * ln(3.0 / _PRICE_TAIL_ANCHOR)
+        #          = 2.375199 * ln(0.60 / 0.375) + 2 * ln(2)
+        #          = 2.502646
+        # at the TAG's price exponent 2.375199 (`_PRICE_SENSITIVITY *
+        # stickiness ** -_PRICE_STICKINESS_DAMP`, the un-opted-in branch). The
+        # measured span is 2.502646490 and the closed form is 2.5026464895 —
+        # the same number, and it reads the same at every dial from 0.60 to
+        # 0.30 and on both holes. So the threshold of 2.0 has a fixed 0.50 of
+        # margin no retune can spend.
+        # THREE PROBES SAY THE THRESHOLD IS DOING WORK. An estimator that
+        # ignores the price makes all three distributions identical: 0.0. A
+        # price response weakened twentyfold (the bucket-alpha exponent divided
+        # by 20, tail term untouched) reads 1.442, which is RED. And no calling
+        # dial reads anything but 2.502646.
+        lo = [math.log(x / (1.0 - x)) for x in folds]
+        assert lo[2] - lo[0] > 2.0, (
+            f"{hole} price response is cosmetic: folds {folds}, log-odds span "
+            f"{lo[2] - lo[0]:.3f} (the price-blind defect this test was written "
+            f"for reads 0.0)"
+        )
+    # The probability-span form is KEPT on the middle-pair hole alone, which is
+    # the leg that does not saturate: at the shipped 0.38 dial it folds 0.309
+    # at a half-pot bet and 0.845 at three-times-pot, a span of 0.536 with 0.15
+    # of room still above it. Dropping the probability form entirely would give
+    # up a check anyone can read straight off the numbers without a transform.
+    mid = [dists[f, ("7s", "5s")][ActionType.FOLD] for f in (0.5, 1.5, 3.0)]
+    assert mid[2] - mid[0] > 0.2, f"middle-pair price response is cosmetic: {mid}"
 
 
 def test_estimator_prices_a_self_reraise_by_the_increment_not_the_bet_to(packs):

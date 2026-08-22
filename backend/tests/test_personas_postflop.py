@@ -1578,7 +1578,19 @@ def test_elasticity_split_faithful_decomposition_byte_identical():
     normalized distribution vs the unset pack. call_looseness = stickiness reproduces
     the flat call scaling; size_elasticity = stickiness**(-DAMP) makes the DIRECT
     exponent (SENS * elasticity) equal the legacy inverse exponent (SENS * s**-DAMP)."""
-    base = _pack("tag")  # an UNSET persona (station/fish now opt into the levers)
+    # THE BASE ARM IS CONSTRUCTED UNSET, not borrowed from whichever persona
+    # happens not to author the levers this month (S3-T2, 2026-08-22). It used
+    # to read `_pack("tag")` and rely on the tag's authored `call_looseness`
+    # being equal to its `stickiness`, which was true by coincidence until this
+    # slice re-tuned the tag to 0.38 — at which point the "unset" arm was
+    # silently a SET arm at a different value and the test failed for a reason
+    # that had nothing to do with the decomposition it checks. Clearing both
+    # fields makes the fallback the thing under test.
+    shipped = _pack("tag")
+    base = shipped.model_copy(deep=True)
+    base.postflop = shipped.postflop.model_copy(
+        update={"call_looseness": None, "size_elasticity": None}
+    )
     s = base.postflop.stickiness
     equiv_elasticity = s ** (-personas_postflop._PRICE_STICKINESS_DAMP)
     opted = base.model_copy(deep=True)
@@ -2869,14 +2881,14 @@ BANDS = {
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.68)),  # WTSD: Stage-0 interim (AF frozen)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.67)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
     # be as low as ~40 ⇒ 3σ ≈ ±0.19, so the floor must sit well below center).
     # P2a: ftc floor 0.05 → 0.0 (measured 0.152 at n=33 ⇒ CI floor < 0) and
     # WTSD (0.52,0.79) → (0.41,0.65) (river polarization, see block above).
-    "tag": ((1.4, 3.6), (0.0, 0.55), (0.25, 0.65)),  # WTSD: Stage-0 interim (ftc frozen)
+    "tag": ((1.4, 3.6), (0.0, 0.55), (0.25, 0.59)),  # WTSD: Stage-0 interim (ftc frozen)
     "lag": ((1.5, 4.5), (0.12, 0.64), (0.26, 0.59)),  # WTSD: Stage-0 interim (AF/ftc frozen)
     # maniac AF top re-anchored (F3, RES-D §4 measure-then-anchor): the F1
     # band's 999 (∞) top was a saturation artifact — with aggression=15
@@ -4161,12 +4173,33 @@ _GOLDEN_STATS_N200 = {
     # Exact tripwire re-record; the went-to-showdown ceilings are re-examined
     # under A4.2 item 2 in `test_persona_postflop_bands`' docstring, where this
     # tip's arithmetic is recorded and no ceiling moves.
-    "calling_station": (0.27469135802469136, 0.25, 0.6654929577464789),
-    "lag": (2.3, None, 0.5882352941176471),
-    "maniac": (3.7169811320754715, 0.37777777777777777, 0.5492957746478874),
-    "nit": (None, None, 0.5769230769230769),
-    "passive_fish": (0.753968253968254, 0.41935483870967744, 0.5879396984924623),
-    "tag": (1.9545454545454546, None, 0.6785714285714286),
+    # RE-RECORDED for S3-T2 (improvement slice 3, 2026-08-22, slice-authorized):
+    # the nit's `call_looseness` 0.45 -> 0.32 and the tag's 0.6 -> 0.38, so both
+    # continue less often at every facing node, hands end differently and the
+    # shared rng stream displaces from the first changed decision onward. Every
+    # row moves — including the four personas whose own packs are untouched,
+    # which is the stream displacement rather than a change in their play.
+    # Values immediately before it:
+    #   calling_station (0.27469135802469136, 0.25, 0.6654929577464789)
+    #   lag             (2.3, None, 0.5882352941176471)
+    #   maniac          (3.7169811320754715, 0.37777777777777777, 0.5492957746478874)
+    #   nit             (None, None, 0.5769230769230769)
+    #   passive_fish    (0.753968253968254, 0.41935483870967744, 0.5879396984924623)
+    #   tag             (1.9545454545454546, None, 0.6785714285714286)
+    # READ THESE AS A TRIPWIRE, NOT AS EVIDENCE ABOUT THE ROSTER: n=200 is far
+    # too small for a level — the nit's and the tag's AF and FtC are None here
+    # because their denominators sit under the 30-observation floor, and the
+    # nit's WTSD reads 0.6154 against 0.6173 on the 4,000-hand harness by
+    # coincidence of sample rather than agreement. The population claims live in
+    # `BANDS`. ATTRIBUTION PROVEN, not assumed: with the two pack files reverted
+    # and every other edit in this branch left in place, this test passes
+    # untouched at the old values; restoring the packs reproduces the new ones.
+    "calling_station": (0.3333333333333333, 0.22033898305084745, 0.6714801444043321),
+    "lag": (2.4363636363636365, None, 0.5877862595419847),
+    "maniac": (3.7169811320754715, 0.36363636363636365, 0.5607476635514018),
+    "nit": (None, None, 0.6153846153846154),
+    "passive_fish": (0.7946428571428571, 0.46875, 0.5297029702970297),
+    "tag": (2.088235294117647, None, 0.6470588235294118),
 }
 
 
@@ -4571,10 +4604,30 @@ def test_preflop_node_occupancy_arrival_grid():
     # concealed it then). New centre 0.305 per the pooled 21-seed evidence,
     # same +/-0.03 half-width and the same purpose (the only watch on the
     # UTG1/UTG2/LJ middle region).
-    assert 0.275 <= roster_wide_unopened <= 0.335, (
+    # RE-CENTRED at S3-T2 (improvement slice 3, 2026-08-22), by the SAME method
+    # W5-b4 used and for the same reason: the centre had gone stale, not the
+    # statistic. `call_looseness` is read only by `sample_postflop_decision`, so
+    # a calling-dial retune cannot change a single preflop decision's POLICY; it
+    # reaches this number only by displacing the shared rng stream, the same way
+    # the limper belt's pre-M3 fire counts move. A 12-seed PAIRED sweep
+    # (identical seeds on both arms, only the nit's and the tag's
+    # `call_looseness` differing) confirms that: paired delta -0.0016, sd
+    # 0.0096, t = -0.58 — no effect.
+    #   base arm  mean 0.3256  sd 0.0112   new arm  mean 0.3240  sd 0.0070
+    # What the same sweep shows is that the 0.305 centre recalibrated on
+    # 2026-07-31 no longer describes this roster: three weeks of unrelated
+    # slices have carried the statistic to about 0.325, and the BASELINE arm
+    # alone reads 0.3534 on one of the twelve seeds — outside the old band with
+    # no S3-T2 in it at all. The pinned seed sat at 0.3243 before this ticket
+    # and 0.3361 after, which is 1.2 of the sweep's own standard deviations and
+    # is what a stale centre looks like when a displacement nudges it.
+    # New centre 0.325 = the pooled mean of both arms; SAME +/-0.03 half-width,
+    # same purpose. This is a re-centring on fresh paired evidence, NOT a
+    # widening — the band is exactly as tight as it was.
+    assert 0.295 <= roster_wide_unopened <= 0.355, (
         f"roster-wide unopened arrival {roster_wide_unopened:.4f} outside "
-        f"[0.275, 0.335] (recalibrated 0.305 at W5-b4; slice-neutral cell) -- "
-        f"read the provenance comment above before re-centring: this is the "
+        f"[0.295, 0.355] (re-centred 0.325 at S3-T2 on a 12-seed paired sweep) "
+        f"-- read the provenance comment above before re-centring: this is the "
         f"only check watching the middle positions (UTG1/UTG2/LJ){report}"
     )
 
@@ -6701,6 +6754,91 @@ def test_persona_postflop_bands(persona, budget):
     decision function is bitwise unchanged (dial 4.0, above the branch's
     predicate) and its opponents' is not.
 
+    ── THE FOURTH RATCHET, S3-T2 (improvement slice 3, ticket 2 — the
+    calling-dial retune — 2026-08-22). Two calling dials move for the first
+    time in this slice: the nit's `call_looseness` 0.45 -> 0.32 and the tag's
+    0.6 -> 0.38. The LAG's is deliberately LEFT ALONE at 0.55, on owner ruling 11
+    of 2026-08-22: its floor was WITHDRAWN and filed. NOT because its dial is
+    inert — from the own-dial base (the LAG at 0.55 with the nit and tag already
+    shipped, 0.5769) a cut to 0.48 reads -1.43pp and one to 0.42 reads -3.82pp —
+    but because that effect depends on where the companions sit and is partly
+    paid for by them, so no floor could be registered against it. The table with
+    both comparison bases labelled is in the pre-registration §5.
+
+    Neither shipped value is set by this band table. The
+    nit's comes from the α fold-ceiling, which admits no dial below about 0.31
+    (headroom 0.0197 at 0.32, 0.0021 at 0.31, a breach at 0.30); the tag's from
+    the deterministic 1,728-cell nit-versus-tag sweep (G-SWEEP-b), whose margin
+    count with the nit at 0.32 reads 668 at a tag dial of 0.38 and falls
+    through its floor of 650 to 628 at 0.37 — the tag stops where it stops so
+    it does not collapse onto the nit. Derivation, provenance triples and the
+    reduction floor this ticket pre-registered before the packs were touched:
+    `docs/ai-dlc/research/slice3-calldown/t2-preregistration.md`. A4.2 item 2
+    orders the ceiling re-derived after any slice that moves showdown frequency,
+    so the arithmetic is redone here on the same harness, the same pinned seed
+    and the same `_WTSD_ORDER_N` = 4000 hands. `n` is each persona's flop-seen
+    count in that sample; `sd = sqrt(p * (1 - p) / n)`:
+
+    "Before" is this same harness at the tip this ticket branches from
+    (`aaaee50`, S3-T1b merged), not at the S3-T1 tip the third ratchet used —
+    T1b landed in between and moved every row a little.
+
+        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
+        nit              0.6353    0.6173    972  0.046770  0.664054 -> 0.67
+        tag              0.6144    0.5528   1637  0.036866  0.589707 -> 0.59
+        lag              0.5664    0.5769   2418  0.030141  0.607064 -> 0.61
+        maniac           0.5887    0.5945   3961  0.023404  0.617950 -> 0.62
+        calling_station  0.7060    0.7010   5622  0.018318  0.719314 -> 0.72
+        passive_fish     0.5324    0.5204   4189  0.023157  0.543567 -> 0.55
+
+        persona          incumbent  ratchet  INSTALLED  what happened
+        nit                  0.68     0.67     0.67     tightens by 1 point
+        tag                  0.65     0.59     0.59     tightens by 6 points
+        lag                  0.59     0.61     0.59     capped by the incumbent
+        maniac               0.62     0.62     0.62     unchanged
+        calling_station      0.72     0.72     0.72     unchanged
+        passive_fish         0.55     0.55     0.55     unchanged
+
+    THE LAG AND THE MANIAC BOTH MOVED UP, by 0.0105 and 0.0058, and the reason
+    is one mechanism worth stating once. The calling dial scales the WHOLE
+    continue side of a facing node — RAISE included, through the `rscale`
+    coupling — so a tighter nit and a tighter tag also RAISE less often at the
+    nodes they face. Every other persona therefore meets less aggression, folds
+    less in response, and rides more hands to showdown. Neither rise is a
+    stop-and-report: A4.2 item 3 is about a MEASUREMENT crossing its ceiling,
+    and the LAG reads 0.5769 against 0.59 while the maniac reads 0.5945 against
+    0.62. The ratchet does not apply to a persona that moved up, and the
+    arithmetic is shown anyway so a reader can see it was computed rather than
+    skipped. The maniac remains the row with the least ceiling headroom on the
+    roster.
+
+    THE NIT MOVED LESS THAN ITS OWN DIAL SUGGESTS, and that is measured rather
+    than shrugged at. Its dial fell by 29% and its showdown rate by 1.80 points,
+    against a first-order prediction of 2.52. Its flop-seen sample here is the
+    roster's smallest at 972 hands, so one binomial standard deviation is about
+    1.5 points and the two numbers are not distinguishable on this instrument;
+    the pre-registered floor was set at 1.0 for exactly that reason. Nearly half
+    the nit's showdown hands (47.7%) never face a wager at all, so the dial
+    cannot reach them.
+
+    THE POOLED 50,000-HAND EXPORT AGREES ON DIRECTION AND DISAGREES ON THE LAG,
+    which is worth knowing before anyone reads one instrument as the truth. On
+    the ratified nine-seat lineup at seed 20260817 the export reads, before ->
+    after: nit 58.9 -> 57.9, tag 53.9 -> 50.0, lag 52.1 -> 51.1, maniac
+    53.4 -> 52.6, calling_station 66.4 -> 66.3, passive_fish 48.8 -> 47.6, pool
+    54.9 -> 53.4. The LAG falls a point there while it rises a point here. The
+    two instruments play different tables — the export plays the ratified
+    lineup, this harness plays six persona-weighted lineups at its own pinned
+    seed — so a composition effect of this size is free to differ in sign
+    between them. This harness is the gating instrument; the export is
+    diagnostic.
+
+    THE CALLING STATION moved (0.7060 -> 0.7010) with its own decisions bitwise
+    unchanged — its dial is 4.0, above the strong-draw split's `looseness < 1.0`
+    predicate, and `test_nd_t4_calling_station_byte_identical_on_strong_draw`
+    still passes untouched. Its opponents changed, so the hands it is dealt into
+    are not the same hands.
+
     THE FLOORS all drop to the §5 grounded floor: nit 0.37 -> 0.20, tag 0.41 ->
     0.25, lag 0.37 -> 0.26, maniac 0.34 -> 0.30, calling_station 0.66 -> 0.38,
     passive_fish 0.50 -> 0.33. The station's is the consequential one: the
@@ -6714,10 +6852,18 @@ def test_persona_postflop_bands(persona, budget):
     `test_persona_wtsd_ordering_invariants` below, whose legs are split three
     permanent and two transition-scoped — see that test's own docstring.
 
-    NO ENGINE FILE, PERSONA PACK OR BASELINE ARTIFACT WAS TOUCHED to install
-    this. The numbers above are a measurement of the unchanged bot; the regime
-    is a gate on levels, not a licence on mechanisms, and a slice whose only
-    argument is "this lands inside the interim band" has not made an argument.
+    NO ENGINE FILE OR BASELINE ARTIFACT WAS TOUCHED to install the regime
+    itself, and none has been touched since. Two PERSONA PACKS have: S3-T2
+    moved the nit's and the tag's `call_looseness`, which is what the fourth
+    ratchet above measures. The sentence that used to stand here — that the
+    numbers were a measurement of an unchanged bot — was true of the first three
+    ratchets and is not true of the fourth, so it is corrected rather than left
+    to mislead. What has not changed is the point it was making: the regime is a
+    gate on levels, not a licence on mechanisms, and a slice whose only argument
+    is "this lands inside the interim band" has not made an argument. S3-T2's
+    argument is the contract's grounded fold-to-continuation-bet row and the α
+    fold-ceiling, both written down where a reader can check them against the
+    poker rather than against this table.
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]
@@ -6866,10 +7012,10 @@ def test_persona_wtsd_ordering_invariants(budget):
     STATED PLAINLY, BECAUSE IT IS THE GAP A READER WOULD OTHERWISE MISS: the
     nit appears in NONE of the five legs below, and its floor just dropped 17
     points (0.37 -> 0.20). Nothing in this test constrains it. The nit is held
-    only by its own ratcheted ceiling (0.69) and by the de-robotization gate's
-    archetype separation floor, which is archetype-wide and does not depend on
-    any one statistic's direction. A slice that moves the nit should read the
-    separation gate, not this test.
+    only by its own ratcheted ceiling (0.67 since S3-T2) and by the
+    de-robotization gate's archetype separation floor, which is archetype-wide
+    and does not depend on any one statistic's direction. A slice that moves
+    the nit should read the separation gate, not this test.
 
     The five legs are NOT all of the same kind, and treating them as one block
     would rebuild the veto the interim regime exists to remove, so amendment
@@ -7430,9 +7576,22 @@ def _w3r6_assert_bucket(hole, board, bucket, draw):
 # Measured normalized P(RAISE), status quo -> damped (facing a raise), damp 0.35:
 #   tag    MIDDLE_PAIR  0.187 -> 0.075   TOP_PAIR  0.308 -> 0.135
 #   maniac MIDDLE_PAIR  0.360 -> 0.165   TOP_PAIR  0.528 -> 0.281
+# RE-RECORDED for S3-T2 (improvement slice 3, 2026-08-22, slice-authorized):
+# the tag's `call_looseness` moves 0.6 -> 0.38. These are NORMALIZED raise
+# shares at a facing node, so a smaller CALL merit re-weights the whole vector
+# and the tag's two rows move even though nothing about the damp changed
+# (mid 0.1871 -> 0.1573 status quo, 0.0745 -> 0.0613 damped; top 0.3078 ->
+# 0.2922 and 0.1347 -> 0.1262). The maniac's two rows are BYTE-IDENTICAL — its
+# pack is untouched and this is a single-node unit fixture with no shared rng
+# stream to displace, which is the control that says the move is the tag's dial
+# and nothing else. The RATIO the damp is really about is unchanged to three
+# decimals on both tag rows (0.398 -> 0.390 mid, 0.438 -> 0.432 top): the damp
+# is 0.35 on the raise merit and the residual is the re-normalization.
+# Tolerances are UNCHANGED at 5e-4. ATTRIBUTION PROVEN: with the two pack files
+# reverted this fixture reproduces the old four rows exactly.
 _W3R6_RAISE_DROP = {
-    ("tag", "mid"): (0.1871, 0.0745),
-    ("tag", "top"): (0.3078, 0.1347),
+    ("tag", "mid"): (0.1573, 0.0613),
+    ("tag", "top"): (0.2922, 0.1262),
     ("maniac", "mid"): (0.3604, 0.1647),
     ("maniac", "top"): (0.5276, 0.2811),
 }
@@ -11982,9 +12141,21 @@ def _nd_nit_at(looseness: float, continue_ref: float | None = -1.0):
 # ulp or two; N2 exists precisely because that class of mutant has to be made
 # to diverge MATERIALLY before an output-space instrument can see it.
 
-# nit: call_looseness 0.45, continue_ref 0.60 → the literal expression is 0.75.
-_ND_LO_LOOSENESS = 0.45
-_ND_HI_LOOSENESS = 0.60
+# nit: the shipped `call_looseness` against the frozen `continue_ref` anchor.
+# READ FROM THE PACK, NOT TRANSCRIBED (S3-T2, improvement slice 3,
+# 2026-08-22). These two numbers used to be literals, 0.45 and 0.60, copied
+# from `content/personas/nit.json`. `continue_ref` is frozen by design and
+# never moves, but `call_looseness` is the dial improvement slice 3 exists to
+# re-tune, so a transcription of it turns every gate below into an assertion
+# that the nit's dial has not changed — which is not what any of them is about,
+# and is how this file greeted the retune with a failure whose message named the
+# coupling rather than the dial. Reading the pack keeps every claim intact
+# (the low arm is still the shipped dial, the high arm is still the anchor, and
+# the sweep between them is still a real sweep) and removes a whole class of
+# false failure. At the shipped values 0.32 / 0.60 the literal expression is
+# 0.5333; it was 0.75 before this slice.
+_ND_LO_LOOSENESS = _pack("nit").postflop.call_looseness
+_ND_HI_LOOSENESS = _pack("nit").postflop.continue_ref
 _ND_LITERAL_RSCALE = _ND_LO_LOOSENESS / _ND_HI_LOOSENESS
 # The equality legs' tolerance, and the margin the STRONG leg must clear.
 _ND_RSCALE_EQ_TOL = 1e-12
@@ -13125,18 +13296,28 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
 # (owner ruling R3, 2026-08-22). The table above names about zero as the right
 # fold frequency at this node and then reports 0.2608 and 0.2451 as the good
 # outcome. Both are true and they are 25 to 26 POINTS APART. What this ticket
-# fixed is that the CALLING DIAL no longer decides those readings; the level
-# itself is a FOLD-side quantity and no lever in this ticket reaches it —
-# `_FOLD_BASE[bucket] * _price_factor(...)` does not consult the draw at all, so
-# a 15-out combo draw and a naked ace-high fold alike at the same price.
+# fixed is that the CALLING DIAL no longer decides the strong-draw BONUS at this
+# node; the level itself is a FOLD-side quantity and no lever in this ticket
+# reaches it — `_FOLD_BASE[bucket] * _price_factor(...)` does not consult the
+# draw at all, so a 15-out combo draw and a naked ace-high fold alike at the
+# same price.
 # THE RESIDUAL IS FILED, not absorbed: it belongs to `N-DRAWEQUITY`, the owed
 # draw-bonus equity gate of theory contract §4 row P6/F7 and §9 ledger item 2,
 # and its evidence is the node_trace row for `flop_facing_bet_strong_draw`
 # (JhTh on 9h 8c 2h facing 4 into a live pot of 10, prescription "semi-bluff
-# raise / call, few folds") with ~0 as the target. S3-T2 carries it as a WATCH
-# rather than a target — that ticket tightens calling dials, and a dial cannot
-# move a number it no longer reaches, so judging S3-T2 on this reading would be
-# judging it on the wrong lever.
+# raise / call, few folds") with ~0 as the target.
+#
+# ⚠️ CORRECTED BY S3-T2 (2026-08-22). This block used to say the calling dial
+# "no longer reaches" this reading. IT DOES REACH IT: the split protects the
+# BONUS term, but the bucket's base call merit is still `call_base * L` and the
+# fold merit does not depend on the dial at all, so a lower dial folds this draw
+# slightly MORE. Measured across S3-T2's retune, the nit's reading here goes
+# 0.2608 at a dial of 0.45 to 0.2642 at the shipped 0.32. S3-T2 still carries it
+# as a WATCH rather than a target — the residual is a fold-side LEVEL that
+# `N-DRAWEQUITY` owns and that no calling dial can drive to ~0 — but "the dial
+# cannot move it" was wrong, and a gate was built on that wrong sentence (see
+# `test_s3t1b_trace_node_folds_no_more_than_the_protected_engine_did`, whose
+# frozen constants S3-T2 had to replace with a computed comparator).
 #
 # ── THE MEASUREMENT. `_nd_priced_dist` again — same instrument, same priced
 # nodes, no new engine surface. Five nodes across two classes:
@@ -13267,6 +13448,15 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
 # mutant here except M3, which is what "these gates were written against a
 # different claim" looks like in a table — they are kept because they bound
 # things this family does not, not because they cover it.
+#
+# ⚠️ THE `trace` COLUMN WAS RE-VERIFIED AFTER S3-T2 REWROTE THAT GATE
+# (2026-08-22). It now compares the live engine against the floored engine at
+# the SAME dial rather than against six frozen constants, so its column above
+# still reads the same on M1-M7 — but it is now non-vacuous for the right
+# reason. Measured in-process: a share of 0.99 at D1 reds it (the old constant
+# form could not see that at all), and a calling-dial cut leaves it green (the
+# old form failed on a cut of one thousandth). See that test's docstring for
+# why the constants were a construction artifact.
 #
 # ── INDEPENDENCE. Every other gate in this file can be green while this one is
 # red: G-DRAW's cap and its price-mandate leg are both about the 0.45-vs-0.60
@@ -13495,40 +13685,77 @@ def test_s3t1b_trace_node_folds_no_more_than_the_protected_engine_did():
 
     At D1 — the node_trace spot `flop_facing_bet_strong_draw`, a 15-out combo
     draw facing 4 into a live pot of 10, i.e. 2.5-to-1 against a hand that needs
-    28.6% — no persona may fold MORE often than it did under the fully protected
-    engine. Every archetype's correct fold frequency here is about zero, so any
-    upward movement is a defect whichever direction a calling dial is being
-    tuned.
+    28.6% — no persona may fold MORE often than the fully protected engine
+    would at THAT PERSONA'S OWN DIAL. The comparison is the split against the
+    floor it replaced, and nothing else.
 
-    The pins are the pre-S3-T1 readings, harvested at eb34e60 and re-measured at
-    this tip. RED at the S3-T1 tip for all five dialled personas (nit 0.2945,
-    tag 0.1918, lag 0.1642, maniac 0.1188, passive_fish 0.2797) — that is the
-    defect the theory review found and this ticket fixes. The calling station is
-    in the table because its 4.0 dial never takes the branch, so its row is
-    unchanged in both directions and would move only if the branch predicate
-    did.
+    ⚠️ THE COMPARATOR IS COMPUTED LIVE, and the reason is the whole point of
+    this revision (S3-T2, 2026-08-22, after a theory review reproduced it).
+    This test used to compare against six FROZEN CONSTANTS harvested at the
+    dials of the day, with a 1e-12 tolerance. That made it a gate on the
+    CALLING DIAL rather than on the protection mechanism, and an absolute one:
+    at D1 the price mandates the whole call bonus (the share clamps at 1.0,
+    asserted immediately above), so the bonus term is dial-independent while
+    `call_base * L` is not and the fold merit does not depend on the dial at
+    all. The fold frequency therefore rises for ANY dial below the pinned one —
+    measured, a cut of one thousandth breached it for all three personas
+    improvement slice 3 set out to retune. The engine the constants were
+    supposed to represent, `call_base * L + bonus * max(L, 1.0)`, is itself
+    dial-sensitive through its first term, so it would have failed a dial cut
+    in exactly the same way; the constants were a construction artifact of
+    freezing it at one dial, not a statement of poker. Re-recording them at new
+    dials would have been fitting the gate to the change it exists to judge.
 
-    ⚠️ NOT AN EQUALITY. The claim is a CEILING, deliberately: `N-DRAWEQUITY` and
-    `N-DRAWTURN` are filed and are expected to make equity-aware draws continue
-    MORE, which moves these readings DOWN. A gate written as `==` would fail
-    them for succeeding. Whether a future slice may raise them is exactly the
-    question this test exists to force back to the owner.
+    WHAT THE LIVE FORM STILL CATCHES, and it is the claim S3-T1b actually
+    makes: a protected share that comes back below 1.0 at a node whose price
+    mandates the whole bonus. Any such regression makes the live engine fold
+    more than the floored one at the same dial and reds here (measured: a share
+    of 0.99 reds it for all five dialled personas). What it no longer pretends
+    to catch is a persona being tuned tighter, which is a different question
+    with its own gates (the α fold-ceiling above, the went-to-showdown ceilings,
+    the de-robotization separation floor).
+
+    ⚠️ THIS IS A RE-SCOPING, NOT A STRENGTHENING, AND AT D1 IT IS PARTLY
+    REDUNDANT. Say both plainly rather than let a reader infer coverage that is
+    not here. GIVEN UP: the absolute LEVEL those six constants pinned at the
+    dials of the day — this gate no longer asserts that the nit folds 0.2608
+    here, only that the split has not withdrawn any of a mandated bonus.
+    REDUNDANT: the assertion immediately above already checks that the protected
+    share is exactly 1.0 at D1, and the two engines' agreement follows from
+    that, so this gate's independent force at THIS node is small. What it still
+    adds is that it reads the full normalized (FOLD, CALL, RAISE) distribution
+    rather than the share alone, and that it is written to survive the panel
+    being extended to nodes where the share does NOT clamp — which is where its
+    real force will live.
+
+    THE READINGS AT THE S3-T1b TIP, kept because they are the measurement that
+    ticket was accepted on and because they are the level a reader should know:
+    nit 0.2608 · tag 0.1743 · lag 0.1467 · maniac 0.1055 · passive_fish 0.2451
+    · calling_station 0.0915. RED at the S3-T1 tip for all five dialled
+    personas (nit 0.2945, tag 0.1918, lag 0.1642, maniac 0.1188, passive_fish
+    0.2797) — that is the defect the theory review found and S3-T1b fixed. The
+    calling station never takes the branch at all (dial 4.0), so its two sides
+    are identical by construction rather than by arithmetic.
+
+    ⚠️ NOT AN EQUALITY IN GENERAL. At D1 the two engines agree exactly, because
+    the share clamps; the assertion is written as a CEILING because
+    `N-DRAWEQUITY` and `N-DRAWTURN` are filed and are expected to make
+    equity-aware draws continue MORE, which would move the live side DOWN.
     """
-    protected = {
-        "nit": 0.2607718689636141,
-        "tag": 0.17430738177927912,
-        "lag": 0.14672415858186608,
-        "maniac": 0.10548523206751052,
-        "passive_fish": 0.24508190144388992,
-        "calling_station": 0.09154315605928508,
-    }
-    for persona, ceiling in sorted(protected.items()):
-        fold = _nd_priced_dist(_pack(persona), _ND_DRAW_PANEL[0])[ActionType.FOLD]
-        assert fold <= ceiling + 1e-12, (
-            f"{persona} folds the trace node's 15-out combo draw {fold:.4f} of the time, "
-            f"above the {ceiling:.4f} the fully protected engine read. This draw is "
-            "getting 2.5-to-1 and needs 28.6% — the price mandates the whole call and "
-            "no persona may be folding it more often than before"
+    for persona in sorted(ALL_PERSONAS):
+        pack = _pack(persona)
+        real = personas_postflop._strong_draw_protected_share
+        try:
+            live = _nd_priced_dist(pack, _ND_DRAW_PANEL[0])[ActionType.FOLD]
+            personas_postflop._strong_draw_protected_share = _s3t1b_floored_share
+            floored = _nd_priced_dist(pack, _ND_DRAW_PANEL[0])[ActionType.FOLD]
+        finally:
+            personas_postflop._strong_draw_protected_share = real
+        assert live <= floored + 1e-12, (
+            f"{persona} folds the trace node's 15-out combo draw {live:.4f} of the time, "
+            f"above the {floored:.4f} the fully protected engine reads at the same dial. "
+            "This draw is getting 2.5-to-1 and needs 28.6% — the price mandates the whole "
+            "call and the split may not withdraw any of it"
         )
 
 
@@ -13565,22 +13792,52 @@ _ND_C5_NODES = (
     _ND_T2_UNCOUPLED[2],  # W1 gutshot, flop, 2/3-pot (WEAK)
     _ND_MADE_CONTROLS[0],  # M1 middle pair, flop, pot (draw NONE)
 )
+# RE-RECORDED for S3-T2 (improvement slice 3, ticket 2 — the calling-dial
+# retune, 2026-08-22, slice-authorized under owner ruling 4 of that date). The
+# nit's `call_looseness` moves 0.45 -> 0.32 and the tag's 0.6 -> 0.38. These
+# vectors are the BASE ENGINE's own output, and the base engine reads the dial
+# at every node: `call_base * L` is the call merit off the strong-draw branch
+# just as much as on it. So a dial change moves them by construction, and the
+# pins have to be re-harvested at the new dials or they stop asserting "the
+# split engine equals the base engine" and start asserting "the nit's dial is
+# still 0.45" — a claim this test does not make and improvement slice 3 exists
+# to falsify.
+#
+# THE CONTROL IS IN THE TABLE ITSELF, and it is why a re-record is safe here:
+# re-harvesting all twelve cells moved EXACTLY FOUR — the nit's and the tag's
+# two rows, the two personas whose packs this ticket edits — and left the other
+# eight byte-identical, including both draw-NONE rows for the four untouched
+# personas. A change that had reached `call_base`, the fold merit or the price
+# factor would have moved rows it does not own.
+#
+# THE MUTATION KILL IS UNAFFECTED. The re-association mutant moves W1 by one
+# ulp at whatever dial it is evaluated at; the pins are exact `==` against a
+# fresh harvest at the shipped dials, so the ulp still reds this test.
+# ATTRIBUTION PROVEN, not assumed: with `content/personas/nit.json` and
+# `content/personas/tag.json` reverted and every other edit on this branch left
+# in place, the four old vectors below reproduce exactly and this test passes
+# untouched; restoring the packs reproduces the four new ones.
+# Values immediately before this re-record:
+#   W1 nit (0.6249999999999999, 0.3000000000000001, 0.075)
+#   W1 tag (0.4385964912280701, 0.2807017543859649, 0.2807017543859649)
+#   M1 nit (0.4495022841911032, 0.5022084424923269, 0.04828927331656988)
+#   M1 tag (0.3265174276144593, 0.4864040800562238, 0.18707849232931686)
 _ND_C5_BASE_VECTORS = {
     "W1": {
         "calling_station": (0.18518518518518515, 0.7901234567901235, 0.02469135802469136),
         "lag": (0.4098360655737704, 0.24043715846994537, 0.34972677595628415),
         "maniac": (0.3246753246753246, 0.19047619047619052, 0.48484848484848486),
-        "nit": (0.6249999999999999, 0.3000000000000001, 0.075),
+        "nit": (0.7009345794392523, 0.2392523364485982, 0.05981308411214954),
         "passive_fish": (0.6218905472636815, 0.2786069651741294, 0.09950248756218907),
-        "tag": (0.4385964912280701, 0.2807017543859649, 0.2807017543859649),
+        "tag": (0.5522827687776141, 0.22385861561119294, 0.22385861561119297),
     },
     "M1": {
         "calling_station": (0.0710458693521161, 0.9179214212577664, 0.011032709390117384),
         "lag": (0.32107712394019394, 0.4353630998948532, 0.2435597761649529),
         "maniac": (0.2714850038608301, 0.3681188849749163, 0.36039611116425363),
-        "nit": (0.4495022841911032, 0.5022084424923269, 0.04828927331656988),
+        "nit": (0.5345062406149657, 0.4246609734740664, 0.040832785910967916),
         "passive_fish": (0.4847241936073794, 0.4530444288089708, 0.06223137758364983),
-        "tag": (0.3265174276144593, 0.4864040800562238, 0.18707849232931686),
+        "tag": (0.433589611476678, 0.40907416948906583, 0.1573362190342561),
     },
 }
 
