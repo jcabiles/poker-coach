@@ -96,6 +96,15 @@ new floor's correctness rather than react to the diff.
 
 ## S3-T2 — Tune the calling dials toward grounded went-to-showdown, per persona
 
+**status: BUILT (fix round, 2026-08-22) — awaiting review.** The first attempt
+was BLOCKED and shipped documents only (pull request #213). The fix round
+repaired the two guards that were measuring the calling dial rather than their
+own claim, retuned the nit (0.45 → 0.32) and the TAG (0.6 → 0.38), and withdrew
+the LAG's floor on owner ruling 11 of 2026-08-22 because the dial is not that
+archetype's lever. Registered floors MET on the band harness: nit −1.80
+percentage points against a floor of 1.0, TAG −6.15 against 3.5. Report:
+`../research/slice3-calldown/t2-fix-round-report.md`.
+
 **Goal:** move nit, tag, and lag's went-to-showdown rate down toward their
 research-grounded bands by retuning `call_looseness` pack values, without
 breaching any HARD ordering constraint between personas.
