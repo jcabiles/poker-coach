@@ -253,6 +253,25 @@ postflop module and its test file — see hotspot note above.
 
 ## S3-T4 — α-guard extension over ACE_HIGH, plus conditional damp re-derivation
 
+**status: BUILT (2026-08-22) — awaiting review. The guard extension shipped
+ALONE; the conditional damp re-derivation did NOT fire and is filed.** The α fold
+ceiling now covers naked ace-high on the heads-up river for all six personas, and
+it ships as a STRICT EXPECTED FAILURE — a one-way compliance tripwire, which
+cannot detect the breach widening — because all 24 cells breach α by +0.2695 to
++0.6391 — a finding for owner ruling, not something to tune around (ledger filed
+item 9). Its non-vacuity is proved in both directions on the same assertion body:
+the guard trips at a scratch river-call damp of 2.5 and passes at 5.0. **The
+theory review then found the obligation itself may be mis-specified** — α bounds
+the defender's whole RANGE, not any one bucket — filed as ledger item 10, which
+would DELETE this test rather than fix it if the owner re-rules. Owner ruling 7
+of 2026-08-22 (`local/session-2026-08-22/rulings.md`): its headroom condition was
+measured and MISSED — the calling station is
+0.95 percentage points down against a 5.00 requirement (4.05 short) and the LAG
+is 0.41 points UP (5.41 short) — so `_ACE_HIGH_RIVER_CALL_DAMP` stays at 0.06 and
+the re-derivation is filed as ledger item 8. No engine logic changed; the only
+engine diff is the correction of the stale comment the 2026-08-19 ruling made
+false. Report: `../research/slice3-calldown/t4-report.md`.
+
 **Goal:** extend the existing α fold-ceiling guard (a poker-theoretic upper
 bound on how often a hand class should fold) to cover the ACE_HIGH bucket
 (naked ace-high, no pair or draw) on the river call leg, honoring the
