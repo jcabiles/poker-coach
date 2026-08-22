@@ -91,3 +91,45 @@ percentage point, the honest report is that the defect is below the size of the
 lever's own side effects. In that case the lever still ships — the ticket asks
 for the value side to stop being a constant — but at a conservative floor, with
 the measured smallness recorded as the headline rather than buried.
+
+---
+
+## Postscript, 2026-08-22 — the registered text above is unedited, and the lever it registers was withdrawn
+
+**Nothing above this line has been changed.** A pre-registration that is edited
+after the result is not a pre-registration, so the record stands as written,
+including the parts the measurement and the review went on to contradict.
+
+**What happened.** Every registered direction in §2 was measured and every one of
+items 1 through 5 held. The lever was still WITHDRAWN, on a design flaw none of
+those directions could have caught, because §2 registered only whether the lever
+would move the statistic it was aimed at — never whether moving that statistic
+was the right thing to do to a poker bot.
+
+**The three things this pre-registration got wrong, recorded so the next one does
+better:**
+
+1. **It registered a direction for the statistic, not for the POKER.** Damping
+   made-hand betting as the stack shortens makes a bot bet marginal made hands
+   less often exactly when commitment says it should bet them more. §2 item 7
+   sized the effect and §3 listed the guards that could stop it; neither asked
+   whether the sign was right. A registered direction should include the
+   behavioural claim, not only the metric claim.
+2. **It took the target's shortfall at face value.** The registered premise was
+   the design dossier's finding that capped decisions sit below the roster's
+   bluff-share calibration. That reading was RAW — not normalised by
+   `s/(1+2s)` at the size the wager was actually made at — and capped wagers are
+   smaller by construction, so part of the shortfall is what the identity asks
+   for rather than a defect. **A pre-registration that inherits a target from a
+   prior document must re-derive that target before registering against it.**
+3. **§4's "if the defect is small, ship at a conservative value" was an escape
+   hatch.** It pre-authorized shipping regardless of what the measurement said,
+   which is the opposite of what pre-registration is for. The honest form names
+   the finding that would make the lever NOT ship — and here that finding
+   existed: the value side's betting frequency being flat in stack depth is
+   evidence for a commitment SLOPE, and evidence against a damp.
+
+**Where the outcome is recorded:** `t3-report.md` (measurements, the reviewers'
+merit-vector finding, and the withdrawal), theory contract §3 amendment A8
+(the limits, and the open item this turned up), and
+`../../ledger/flywheel-slice3-calldown.md` filed items 5 to 7.

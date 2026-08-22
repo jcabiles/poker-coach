@@ -1,419 +1,288 @@
-# S3-T3 — the stack-to-pot value lever, built and measured
+# S3-T3 — the instrument and the contract limits ship; the lever was withdrawn
 
-**Bottom line. The lever ships, all five acceptance criteria pass, and the
-headline is a measurement rather than a win: the composition defect the ticket
-was aimed at is 5.45 percentage points wide, and the whole of this lever moves
-0.10 of it. The reason is now measured rather than argued — the gap is mostly
-ARRIVAL, not policy. Bots reach stack-capped decisions holding stronger hands
-(they went there to get all in), and no multiplier at the merit layer can change
-who arrives. What the lever does buy is real but narrow: the value side of the
-bluff-share formula is no longer a constant in stack depth, made-hand betting
-falls 0.84 points at capped decisions, the bluff side does not move by a single
-bit anywhere, and every decision at or above a persona's `spr_commit` is
-bit-identical over 266,776 measured nodes. The five-seed de-robotization gate
-passes 5 of 5, the LAG's went-to-showdown ceiling holds with 1.13 points of
-headroom, and three stream-displacement fixtures were re-recorded, each with an
-attribution check that reproduces its old value.**
+**Bottom line. S3-T3 ships a measuring instrument and a contract amendment. The
+stack-to-pot damp the ticket named was built, measured, reviewed and WITHDRAWN —
+it passed all five of its own acceptance criteria and should still not ship,
+because three reviewers converged on a design flaw rather than an implementation
+flaw: the damp points the wrong way for the buckets where it has leverage. It
+made bots bet top pair and middle pair LESS often as their stacks shortened,
+which is exactly when commitment says they should bet those hands MORE. Its
+premise was also a raw reading: capped wagers are smaller by construction, and
+the identity `s/(1+2s)` says a smaller wager warrants a smaller bluff share, so
+part of the shortfall the lever was aimed at is what the theory ASKS for. The
+engine is now byte-identical to `4f653ef`, every re-recorded fixture and both
+ceiling ratchets are reverted, and what remains is the thing this ticket was
+actually missing: an instrument, honest limits in the contract, and one new
+finding — made-value betting is FLAT in stack depth, so the mechanism the engine
+lacks is a commitment SLOPE, the opposite of what was built.**
 
 S3-T3 is ticket 3 of improvement slice 3 (the calldown slice) of the bot-realism
 flywheel. "Stack-to-pot ratio" (SPR) is a seat's remaining stack divided by the
 pot. A "capped" or "cap-exposed" decision is one where the seat cannot wager its
-own largest authored bet size, because its stack is smaller than that size. "Went
-to showdown" is the share of hands a persona takes to showdown out of the hands
-where it saw the flop.
+own largest authored bet size. "The identity" is the theory contract §3
+bluff-share formula `s / (1 + 2s)`, the share of a bettor's betting range that
+should be bluffs at a wager of `s` times the pot.
 
-Companion documents: the directions this ticket registered before the multiplier
-existed are in `t3-preregistration.md` beside this file; the contract map is
-`../../contracts/flywheel-slice3-t3-valueside.md`; what was filed rather than
-fixed is in `../../ledger/flywheel-slice3-calldown.md`.
+Companion documents: `t3-preregistration.md` beside this file (unedited, with a
+dated postscript on what pre-registration failed to catch); the contract map
+`../../contracts/flywheel-slice3-t3-valueside.md`; the adjudication and the two
+findings, `../../ledger/flywheel-slice3-calldown.md` filed items 5 to 7.
 
 Branch `feat/slice3-t3-spr-value`, based on `4f653ef` (the merge of S3-T2, pull
-request #215).
+request #215). The withdrawn lever remains in this branch's git history for
+provenance; it is not in the tip.
 
-## 1. What shipped
+## 1. What ships, and what does not
 
 | file | change |
 |---|---|
-| `backend/app/domain/personas_postflop.py` | `_value_spr_mult` + `_VALUE_SPR_FLOOR` (0.88) + `_VALUE_SPR_BUCKETS`; one multiplication on the unopened made-value BET merit |
-| `backend/tools/capped_composition_probe.py` | NEW — the instrument acceptance criterion 1 needed and did not have |
-| `backend/tests/test_personas_postflop.py` | four new tests; `_GOLDEN_STATS_N200` re-recorded; two went-to-showdown ceilings ratcheted |
-| `backend/tests/test_limper_coverage_belt.py` | `_PRE_M3_FIRES` re-recorded |
-| `backend/tests/test_coverage_baseline.py` + its data fixture | coverage baseline re-recorded |
-| `docs/ai-dlc/contracts/persona-realism-theory-contract.md` | §3 amendment A8 — the bluff-share formula's limits |
+| `backend/tools/capped_composition_probe.py` | **NEW** — the instrument criterion 1 needed and this repository did not have, reporting BOTH the raw and the target-normalised composition |
+| `backend/tests/test_capped_composition_probe.py` | **NEW** — structural guard on the instrument |
+| `docs/ai-dlc/contracts/persona-realism-theory-contract.md` | §3 amendment **A8**, limits only |
+| `backend/app/domain/personas_postflop.py` | **no change** — byte-identical to `4f653ef` |
 
-**No persona pack changed.** Every one of `content/personas/*.json` is
-byte-identical to `4f653ef`.
+**Nothing else in the backend moved.** `git diff 4f653ef -- backend/app
+backend/tests content` is empty except for the two new probe files. In
+particular:
 
-**The lever, in one paragraph.** `_value_spr_mult(spr, spr_commit)` returns
-exactly 1.0 at and above the pack's `spr_commit` and falls linearly to
-`_VALUE_SPR_FLOOR` at a stack-to-pot ratio of zero — the same ramp shape the
-existing below-commitment draw damp already uses, so the module's two
-stack-keyed damps read the same geometry. It multiplies the made-value
-aggressive merit on the unopened BET arm, for middle pair and better only. It
-reads `stack_bb` and `pot_bb` and nothing else.
+- **`_value_spr_mult`, `_VALUE_SPR_FLOOR` and `_VALUE_SPR_BUCKETS` are gone**,
+  along with the multiplication they fed.
+- **Every re-record is reverted** — `_GOLDEN_STATS_N200`, `_PRE_M3_FIRES` and
+  the coverage baseline are back to their pre-ticket values, restored rather
+  than re-measured, and the full suite passes against them. **With no lever
+  there is no stream displacement, so there is nothing to record.**
+- **Both went-to-showdown ceiling ratchets are reverted**: the nit returns to
+  0.67 and the passive fish to 0.55. The ratchet fires on a slice that MOVES a
+  persona's showdown frequency down; this slice moves nothing, so tightening a
+  ceiling on it would have pinned the roster against a wall no change had
+  earned.
+- **The four `s3t3` tests are deleted.** All four asserted properties of the
+  removed function, so none of them still asserts something true.
 
-### The three scope decisions, stated rather than assumed
+## 2. What the reviewers measured, and why it was decisive
 
-**BET only, not RAISE.** The binding rules allow the raising arm only on a
-measurement that capped RAISE nodes carry most of the defect. **That
-measurement was taken and says the opposite**: the probe finds the whole facing
-population — every hand class, every action, capped and uncapped — moves by
-exactly 0.0 under this lever, and the unopened BET population carries the entire
-effect. BET-only also matches the precedent the two neighbouring multipliers set
-(`pos_mult` and the multiway value damp are both BET-only on this arm), and a
-raise's realised pot-fraction is not `stack_bb / pot_bb` — recovering it needs
-the seat's street investment, which is not in this ticket.
+The refuter PASSED the build — every number reproduced, the report was honest.
+The theory reviewer returned NEEDS-WORK with two HIGH findings and the
+cross-family reviewer returned FAIL with one BLOCKER. **They converged.**
 
-**Made-value buckets only.** Middle pair and better. An air or ace-high hand
-holding a draw also reaches this branch, and damping it would put the lever on
-the semi-bluff side, which is not what "made-value aggression" means.
+### 2.1 Made-value betting is FLAT in stack depth — reproduced here
 
-**Position in the sequence: after the multiway damp, before the texture damps,
-and well before `pos_mult`, which stays last.** No existing multiplier moved.
-Among pure multipliers the order is arithmetically irrelevant, so this is a
-readability choice with one hard constraint behind it: everything further down
-the block is either a texture term or a river floor that ZEROES the merit, and a
-damp applied after a floor of 0.0 would be dead code. The design seed said
-"before position and multiway"; the code already applies multiway inside this
-block, so that instruction could not be followed literally and the position was
-chosen explicitly instead.
+The reviewers' central measurement, re-run independently at the reverted tip on
+the merit vectors themselves, so there is no sampling variance in it. K-9-3
+rainbow flop, pot 10 big blinds, stack swept to give stack-to-pot ratios from 10
+down to 0.3, probability of betting:
 
-## 2. Criterion 1 had no instrument, so this ticket built one
+| bucket | TAG | LAG | maniac | nit | passive_fish | calling_station | responds to stack? |
+|---|---|---|---|---|---|---|---|
+| top pair | 0.7458 | 0.7964 | 0.8725 | 0.4231 | 0.4231 | 0.3793 | **no — identical to 12 decimal places at every ratio** |
+| middle pair | 0.4355 | 0.5070 | 0.6429 | 0.1617 | 0.1617 | 0.1385 | **no** |
+| overpair+ | 0.8485→0.9438 | 0.8819→0.9573 | 0.9289→0.9751 | 0.5833→0.8077 | 0.5833→0.8077 | 0.5385→0.7778 | one step at `spr_commit` |
 
-**No fixture, test or tool in this repository measured capped-versus-uncapped
-composition.** The contract map searched for one and found nothing; the only
-prior implementation lived in a design dossier that modified no repository file.
+**This is the finding, and it points the opposite way to the lever.** As the
+stack shortens a made hand is progressively more committed, and the poker says
+its betting frequency should rise toward 1. The engine holds it flat, and the
+commit block's single 3.0× step reaches only overpairs and better. The mechanism
+the engine is missing is a commitment SLOPE over top pair and middle pair — and
+the withdrawn lever was a DAMP over exactly those buckets, taking already-flat
+frequencies down further: TAG top pair 0.746 → 0.724, nit 0.423 → 0.400, middle
+pair down 2.5 to 2.9 percentage points. It also partly counteracts the commit
+block that theory contract §4 row P6 blesses.
 
-`backend/tools/capped_composition_probe.py` is the replacement, and its design
-decision is that **the primary comparison carries zero sampling variance**. At
-every postflop decision of a seeded playout it reads the sampler's normalized
-action-probability vector twice — once with `_VALUE_SPR_FLOOR` forced to 1.0
-(which is the pre-S3-T3 engine exactly, because multiplying by 1.0 is the
-identity in floating point) and once at the shipped floor — using the capture-rng
-pattern from `backend/tests/node_trace.py`, which records the weights of the
-action draw without disturbing it. Both readings are taken at the SAME node on a
-throwaway RNG, so the live playout is unchanged by being measured and the
-difference between the two vectors is the policy's exact response rather than a
-sample of it.
+### 2.2 The premise was a raw reading of a size-warranted difference
 
-What still carries noise is WHICH nodes appear, which is why every figure below
-is pooled over three seeds and the per-seed spread is shown.
+The lever was aimed at a shortfall in capped-node bluff share. That shortfall was
+measured RAW — the bluff-cell share of the betting range, never divided by the
+identity's own target at the size each wager was actually made at. **The identity
+says a smaller wager warrants a smaller bluff share**, and a capped wager is
+smaller by construction. §3 now measures how much of the gap that accounts for:
+**44 percent of it.**
+
+### 2.3 The withdrawn report's "the gap is mostly arrival" claim was unsupported
+
+It is retracted, from this report and from the contract. The probe computed a raw
+share and the paired toggle could not separate arrival from policy; "the facing
+cells move by exactly 0.0" was an artefact of gating the lever to the BET arm,
+not evidence that the scope was right. §3.3 now says explicitly what is not
+measured.
+
+## 3. The instrument, and what it measures at the shipped tip
+
+`backend/tools/capped_composition_probe.py`. No fixture, test or tool in this
+repository measured capped-versus-uncapped composition; the only prior
+implementation lived in a design dossier that modified no repository file.
 
     PYTHONPATH=. .venv/bin/python -m tools.capped_composition_probe \
         --hands 20000 --seeds 601,20260817,20260818
 
-## 3. The probe, before and after — 60,000 hands, ratified lineup
+Two statistics, and the second is the one to quote. The **raw** bluff-cell share
+of the realised betting range, and the **normalised** share — `realised ÷
+target`, where the target is the identity evaluated at the pot-fraction each
+wager was actually made at. It also reports the exact action-probability vector
+at every node, read with the capture-rng pattern from
+`backend/tests/node_trace.py`, which carries zero sampling variance.
 
-### 3.1 The action mix, paired at each node
+### 3.1 Pooled over 60,000 hands, three seeds, ratified nine-seat lineup
 
-Expected probability of BET at unopened decisions, by hand class. Every figure is
-an average over the stated node count of an exact per-node probability.
+| | capped | uncapped |
+|---|---|---|
+| realised wagers | 19,076 | 74,413 |
+| **raw** bluff-cell share | 0.0824 | 0.1356 |
+| identity target at the realised size | 0.2054 | 0.2645 |
+| **normalised** (realised ÷ target) | **0.4009** | **0.5128** |
 
-| population | nodes | P(bet) before | P(bet) after | change |
+| statistic | capped ÷ uncapped |
+|---|---|
+| raw ratio | 0.6072 |
+| **normalised ratio** | **0.7817** |
+
+**Normalising for the size actually wagered explains 44.4 percent of the raw
+gap.** That is the reviewers' point, measured: capped wagers really are smaller
+(target 0.2054 against 0.2645), and the identity really does ask for a lower
+bluff share there. A residual of 21.8 percent below the uncapped norm survives.
+
+Per seed, because a single seed cannot carry this statistic:
+
+| seed | raw ratio | normalised ratio | capped normalised | uncapped normalised |
 |---|---|---|---|---|
-| **capped, made value** | 13,211 | 0.57984 | 0.57148 | **−0.836pp** |
-| capped, bluff cell | 3,942 | 0.17515 | 0.17515 | **0.000** |
-| capped, draw cell | 1,340 | 0.44706 | 0.44706 | **0.000** |
+| 601 | 0.6294 | 0.8066 | 0.4155 | 0.5152 |
+| 20260817 | 0.6361 | 0.8254 | 0.4224 | 0.5118 |
+| 20260818 | 0.5555 | 0.7126 | 0.3644 | 0.5114 |
+
+The uncapped normalised figure is stable across seeds (0.5114 to 0.5152) and
+**independently corroborates the design dossier's uncapped reading of 0.5156 and
+0.5168**, which is the check that says this instrument and that one are measuring
+the same thing. The capped figure is the noisy one, spread 0.3644 to 0.4224 —
+which is exactly why the ticket's own criterion could never have been read on one
+seed. It is lower than the dossier's capped reading of about 0.48 because the two
+use different predicates: this probe classifies a NODE as cap-exposed when the
+seat could not have made its largest authored size, the dossier classified a
+WAGER as capped when it landed on the bracket maximum. **The two populations are
+not the same and their numbers should not be compared directly.**
+
+### 3.2 Composition of the two betting ranges
+
+| | capped | uncapped |
+|---|---|---|
+| bluff cell | 0.0824 | 0.1356 |
+| draw cell | 0.1053 | 0.1590 |
+| made value | 0.8124 | 0.7053 |
+
+### 3.3 What this does NOT measure — the load-bearing caveat
+
+**The 21.8 percent residual is a gap, not a defect.** Three things could produce
+it and this repository separates none of them: the size the wager was made at
+(which the normalisation handles), **arrival** — which hands the seat actually
+holds at a capped decision, the `π` term in both halves of the identity, a
+property of how the hand got there rather than of any policy — and **policy**,
+the conditional probability of betting given the hand. Separating arrival from
+policy needs a `π`-by-node table that does not exist. §3.2's composition
+difference is consistent with an arrival story and does not establish one.
+
+**The rule this puts on future slices**, now theory contract §3 amendment A8 item
+3: no slice may cite a gap on this instrument as evidence that a policy is wrong
+until the decomposition is built.
+
+## 4. The record of what the withdrawn lever did
+
+Kept because a withdrawal that deletes its own evidence cannot be reviewed. All
+figures are from the lever's own branch state, now superseded.
+
+**Paired action mix at unopened decisions**, expected probability of BET, zero
+sampling variance:
+
+| population | nodes | before | after | change |
+|---|---|---|---|---|
+| capped, made value | 13,211 | 0.57984 | 0.57148 | **−0.836pp** |
+| capped, bluff cell | 3,942 | 0.17515 | 0.17515 | 0.000 |
 | uncapped, made value | 102,686 | 0.43481 | 0.43448 | −0.033pp |
-| uncapped, bluff cell | 65,605 | 0.12483 | 0.12483 | **0.000** |
-| uncapped, draw cell | 36,008 | 0.26096 | 0.26096 | **0.000** |
+| uncapped, bluff cell | 65,605 | 0.12483 | 0.12483 | 0.000 |
 
-The freed mass goes to CHECK and nowhere else: at every row the CHECK delta is
-the exact negative of the BET delta.
+**The floor constant's derivation was falsified, and the withdrawn report did not
+say so.** `_VALUE_SPR_FLOOR = 0.88` was taken from the design dossier, which
+sized it to deliver a **4.4 percent** cut in capped-node value wagers. Measured,
+it delivered **1.44 percent** (0.57984 → 0.57148). The constant was carried
+forward as "the design seed, unchanged" and presented as discipline — not tuning
+to the result — which was true but incomplete: its stated derivation had already
+failed by a factor of three, and a reader of that report could not have known.
+**Recorded here as a reporting failure of the withdrawn round.**
 
-**The facing population does not move at all.** All six facing cells — bluff,
-draw and made value, capped and uncapped, 119,543 nodes — read a delta of exactly
-0.0 on every one of BET, RAISE, CHECK, CALL and FOLD. That is the BET-only scope
-confirmed on the population rather than argued from the code.
+Went-to-showdown under the lever moved by less than either instrument could sign
+(harness: four personas down, two up; 50,000-hand export: five up, one down;
+pooled export 53.4% → 53.6%, about 1.3 standard errors). The five-seed gate
+passed 5 of 5 with LAG–TAG binding on every seed. None of it is load-bearing now.
 
-**The uncapped made-value row moving by 0.033pp is the pre-registered side
-effect, not a leak.** The ramp is keyed on `spr_commit` (1.2 to 3.3 across the
-six packs) while a decision is cap-exposed only below the largest authored size
-(1.0 for five packs, 1.5 for the maniac), so the lever fires on a superset of
-capped decisions. Pre-registration §2 item 5 registered exactly this. It is 25
-times smaller than the effect at the decisions the lever is aimed at, which is
-the number that says the targeting is sound.
+## 5. Acceptance criteria, as adjudicated
 
-### 3.2 The composition statistic criterion 1 asks about
-
-The bluff cell's share of the expected unopened betting range:
-
-| population | before | after | change |
-|---|---|---|---|
-| capped | 0.0771 | 0.0781 | **+0.0010** |
-| uncapped | 0.1316 | 0.1317 | +0.0001 |
-| **ratio capped ÷ uncapped** | **0.5863** | **0.5933** | **+0.0070** |
-
-Per seed, so the reader can see the sign is not one seed's luck:
-
-| seed | ratio before | ratio after | change |
-|---|---|---|---|
-| 601 | 0.5953 | 0.6022 | +0.0069 |
-| 20260817 | 0.5790 | 0.5858 | +0.0068 |
-| 20260818 | 0.5847 | 0.5919 | +0.0072 |
-
-**Three of three seeds move in the registered direction, and the spread between
-them is 0.0004 against an effect of 0.0070** — the paired design is why that
-ratio is 17 to 1 rather than the other way round. On unpaired realized counts at
-this sample the effect would be invisible.
-
-### 3.3 The finding that matters more than the lever
-
-**The capped-versus-uncapped gap is 5.45 percentage points and this lever closes
-0.10 of it — under two percent.** That is not a failure of the lever's strength;
-it is what the gap is made of. Paired at the same node, the policy's whole
-response is 0.0010. Everything else is composition: capped decisions are reached
-by stronger ranges, because hands go to a capped decision in order to get all in.
-`π`, how often a seat actually holds each hand class at a node, is arrival, and
-the merit layer cannot see arrival at all.
-
-**Consequence for future work, and it is the reason contract §3 was amended:** a
-merit-layer lever moves this statistic toward calibration on a POOLED population
-and can never satisfy the identity at a node. Anyone who reads "the value side
-has a lever now" and retries the bluff-side repricing PR #199 withdrew will find
-the same wall — roughly 25 percent of capped-node value betting would have to go,
-against about 10 percent of total available motion.
-
-## 4. Went-to-showdown, on both instruments
-
-The band harness is the gating instrument (its own pinned seed, `_WTSD_ORDER_N` =
-4,000 hands). The 50,000-hand pooled export at seed 20260817 on the ratified
-nine-seat lineup is diagnostic.
-
-| persona | harness before | harness after | change | ceiling | export before | export after | change |
-|---|---|---|---|---|---|---|---|
-| nit | 0.6173 | 0.6030 | −1.43pp | 0.65 | 57.9% | 58.4% | +0.5pp |
-| tag | 0.5528 | 0.5545 | +0.17pp | 0.59 | 50.0% | 50.1% | +0.1pp |
-| **lag** | **0.5769** | **0.5787** | **+0.18pp** | **0.59** | 51.1% | 51.5% | +0.4pp |
-| maniac | 0.5945 | 0.5988 | +0.43pp | 0.62 | 52.6% | 52.2% | −0.4pp |
-| calling_station | 0.7010 | 0.6916 | −0.94pp | 0.72 | 66.3% | 66.7% | +0.4pp |
-| passive_fish | 0.5204 | 0.5098 | −1.06pp | 0.54 | 47.6% | 47.9% | +0.3pp |
-| **pool** | — | — | — | — | **53.4%** | **53.6%** | **+0.2pp** |
-
-**The two instruments disagree about the sign and this report says so rather than
-quoting the one that flatters it.** The harness has four personas falling and two
-rising; the export has five rising and one falling. The ticket pre-registered
-that showdown frequency would RISE — a bet that becomes a check leaves more hands
-alive — so the export agrees with the registration and the harness does not.
-Both movements are small: the largest on either instrument is 1.4 points, and the
-export's pooled +0.2pp is about 1.3 standard errors at 107,933 flop-seen
-seat-hands. **The honest reading is that the effect on showdown frequency is too
-small for either instrument to sign at these sample sizes.** No ceiling was moved
-on the strength of a rise, which is what the regime requires anyway.
-
-**The export's "before" arm reproduces S3-T2's shipped export numbers exactly,
-persona for persona and on the pool** (nit 57.9, tag 50.0, lag 51.1, maniac 52.6,
-station 66.3, fish 47.6, pool 53.4). That is not a coincidence to note in passing:
-it is the proof that setting `_VALUE_SPR_FLOOR` to 1.0 recovers the pre-ticket
-engine bit for bit, which is what every attribution check in §7 rests on.
-
-### The LAG, the named risk
-
-**The LAG holds, with 1.13 points of headroom against its 0.59 ceiling** — 0.5769
-to 0.5787 on the harness. It was the ticket's registered risk for two reasons:
-it had the least headroom on the roster after S3-T2 ratcheted its companions, and
-its `spr_commit` of 3.0 is the second-widest ramp, so the lever fires at more of
-its decisions than at any persona except the maniac. Its rise is 0.18 of one
-binomial standard deviation at its own sample. **The ceiling was not moved and
-the lever's floor was not weakened**, because neither was needed; the
-pre-registration named raising the floor toward 1.0 as the response if it had
-been.
-
-## 5. Ordering legs and bands
-
-No leg is breached and no transition-scoped leg needed its one authorized move.
-
-| leg | kind | reading after | verdict |
-|---|---|---|---|
-| station > tag | HARD | 0.6916 > 0.5545 | holds |
-| station > lag | HARD | 0.6916 > 0.5787 | holds |
-| maniac < station | HARD | 0.5988 < 0.6916 | holds |
-| fish < tag | transition-scoped | 0.5098 < 0.5545 | holds, not moved |
-| station − fish > 0.10 | transition-scoped | 0.1818 | holds, not moved |
-
-Every aggression-factor and fold-to-continuation-bet reading stays inside its
-band, and no aggression-factor or fold-to-continuation-bet edge was touched:
-
-| persona | AF before → after | AF band | fold-to-c-bet before → after | its band |
-|---|---|---|---|---|
-| nit | 1.4614 → 1.6390 | (0.6, 2.4) | 0.4350 → 0.4419 | (0.10, 0.90) |
-| tag | 2.3829 → 2.5117 | (1.4, 3.6) | 0.3258 → 0.3669 | (0.0, 0.55) |
-| lag | 2.6287 → 2.4552 | (1.5, 4.5) | 0.3189 → 0.3252 | (0.12, 0.64) |
-| maniac | 3.1469 → 3.0946 | (2.4, 5.1) | 0.3256 → 0.3196 | (0.0, 0.61) |
-| calling_station | 0.3177 → 0.3323 | (0.0, 1.056) | 0.1755 → 0.1728 | (0.0, 0.424) |
-| passive_fish | 0.9120 → 0.9049 | (0.0, 1.560) | 0.4457 → 0.4273 | (0.0, 0.549) |
-
-## 6. The ceiling ratchet
-
-The interim regime (theory contract §5, amendment A4.2 item 2) moves a ceiling
-after any slice that lowers a persona's showdown frequency, to the measurement
-plus three binomial standard deviations, rounded outward to the nearest
-hundredth, never above the incumbent. Three personas moved down, so three are
-ratcheted; the other three are shown so a reader can see the arithmetic was
-computed rather than skipped.
-
-| persona | measured | n | 3 sd | p + 3sd | ratchet | incumbent | INSTALLED | what happened |
-|---|---|---|---|---|---|---|---|---|
-| nit | 0.6030 | 1010 | 0.046187 | 0.649157 | 0.65 | 0.67 | **0.65** | tightens 2 points |
-| passive_fish | 0.5098 | 4166 | 0.023235 | 0.533077 | 0.54 | 0.55 | **0.54** | tightens 1 point |
-| calling_station | 0.6916 | 5587 | 0.018536 | 0.710141 | 0.72 | 0.72 | 0.72 | unchanged |
-| tag | 0.5545 | 1670 | 0.036487 | 0.590978 | — | 0.59 | 0.59 | moved up; no ratchet |
-| lag | 0.5787 | 2440 | 0.029988 | 0.608677 | — | 0.59 | 0.59 | moved up; no ratchet |
-| maniac | 0.5988 | 3993 | 0.023270 | 0.622068 | — | 0.62 | 0.62 | moved up; no ratchet |
-
-**No persona ships above its ratcheted ceiling.** The tightest headroom on the
-roster after this install is the maniac at 0.5988 against 0.62, then the LAG at
-0.5787 against 0.59.
-
-## 7. The five-seed de-robotization gate
-
-`PYTHONPATH=. .venv/bin/python -m tools.derobo_gate --check --all-seeds` —
-**GATE PASS, 5 of 5**, baseline artifact `a5baseline-98abd160f03a501b`, candidate
-configuration hash `c4debe87dfeb7` on every seed (unchanged from S3-T2, because
-no persona pack moved).
-
-| seed | min pairwise distance | required | labels | determinism |
-|---|---|---|---|---|
-| 601 | 2.052617 | 1.254429 | 6/6 | pass |
-| 602 | 1.778670 | 1.254429 | 6/6 | pass |
-| 603 | **1.743322** (tightest) | 1.254429 | 6/6 | pass |
-| 604 | 2.208862 | 1.254429 | 6/6 | pass |
-| 605 | 1.861133 | 1.254429 | 6/6 | pass |
-
-**The binding pair is LAG–TAG on all five seeds**, and that is evidence rather
-than an assumption. The gate's JSON does not name the pair, so it was recomputed
-from each seed's own per-persona measured vectors and the frozen baseline
-artifact's mean and standard-deviation scales
-(`a5_baseline_z.json`, ten stats, population standard deviation). **Every one of
-the five recomputations reproduces the gate's reported minimum to the last
-decimal it prints**, which is what makes the pair name checkable:
-
-| seed | recomputed minimum | pair | second-tightest | pair | S3-T2's reading |
-|---|---|---|---|---|---|
-| 601 | 2.052617 | LAG–TAG | 2.282436 | nit–TAG | 1.853360 |
-| 602 | 1.778670 | LAG–TAG | 2.410719 | nit–TAG | 1.792393 |
-| 603 | 1.743322 | LAG–TAG | 2.273652 | nit–TAG | 1.765554 |
-| 604 | 2.208862 | LAG–TAG | 2.344474 | nit–TAG | 2.008972 |
-| 605 | 1.861133 | LAG–TAG | 2.563007 | nit–TAG | 1.958660 |
-
-Three seeds tightened slightly and two loosened; the tightest reading moved from
-1.765554 to 1.743322, a 1.3 percent change against a floor 39 percent below it.
-
-**The separation floor never came close to binding** — the tightest seed sits 39
-percent above it — so ruling 3's stop-and-report did not fire.
-
-## 8. Every re-record, with provenance and attribution
-
-**The attribution check is one experiment covering all three, and it is stronger
-than a file revert.** Setting `_VALUE_SPR_FLOOR` to 1.0 makes the ramp return
-exactly 1.0 at every stack depth, and multiplying by exactly 1.0 is the identity
-in IEEE-754 — so that setting is the pre-S3-T3 engine bit for bit, with every
-other edit on this branch left in place. Under it, each quantity below recomputes
-to its OLD value; restoring 0.88 reproduces the NEW one. **No tolerance was
-widened anywhere and no band edge was loosened.**
-
-| fixture | file | old → new | why it moved |
-|---|---|---|---|
-| `_GOLDEN_STATS_N200` | `test_personas_postflop.py` | 4 of 6 rows move | n=200 stream-displacement tripwire |
-| `_PRE_M3_FIRES` | `test_limper_coverage_belt.py` | all nine pairs move | production `bot_decision`; different actions displace the shared stream |
-| coverage baseline | `tests/data/coverage_baseline.json` | total 1239→1210, graded 337→343 | same displacement, different sweep |
-| went-to-showdown ceilings | `test_personas_postflop.py` `BANDS` | nit 0.67→0.65, fish 0.55→0.54 | the ratchet of §6, not a re-record |
-
-**Two controls inside the re-records say the cause is this lever and nothing
-else.** In `_GOLDEN_STATS_N200` the maniac's and the passive fish's rows are
-BYTE-IDENTICAL while the other four move — their n=200 samples reach no unopened
-made-value BET below `spr_commit`, so a lever confined to that cell cannot touch
-them, and a lever that touched them would be out of its scope. And
-`HEAD_VECTORS` in `backend/tests/test_price_tail.py` **did not move**, which the
-design seed named as the specific test of whether the lever has leaked onto the
-bluff path: its probes run at a stack-to-pot ratio of 10.0 on air and ace-high
-fixtures, and both conditions independently keep it out of the lever's reach.
-The four export digests in `backend/tests/test_buyin_spread.py` also did not
-move, for the reason that fixture's own comments already record for a previous
-ticket: at 25 hands and seed 777 the stream reaches no changed cell.
-
-### The graded-coverage re-record, against the immutable snapshot
-
-| tip | total decision points | graded | graded share |
-|---|---|---|---|
-| `coverage_baseline.persona-realism-start.json` (immutable) | 1233 | 349 | 28.31% |
-| before this ticket (`4f653ef`) | 1239 | 337 | 27.20% |
-| **after this ticket** | 1210 | **343** | **28.35%** |
-
-**Graded coverage rose by 6 decision points and its SHARE is at the immutable
-snapshot for the first time in this chain** — but the share moved partly because
-the total fell by 29, so this ticket does not claim to have closed the level.
-The absolute graded count is still 6 short of the snapshot's 349. The item that
-owns the level is `T-cover`, whose measured root cause is the heads-up
-single-raised-pot gate in `grade_map_postflop.py`, and it is blocked behind the
-flywheel's phase-3 verdict — nothing here pre-empts it.
-
-## 9. The contract §3 amendment
-
-Amendment **A8**, dated 2026-08-22 and citing this ticket, sits inside §3 after
-the bluff-share formula. It records four things, in this order of importance:
-
-1. **The bluff-share formula prices only one side.** Until this ticket the engine
-   had no lever at all that made value betting respond to bet size or stack
-   depth; the only stack response on the value side was the commit block's single
-   flat step on overpairs and better.
-2. **The withdrawn repricing cannot be offset from the value side, and this
-   lever does not change that** — about 25 percent of capped-node value betting
-   would have to go, against roughly 10 percent of available motion, and that 10
-   already includes deleting the commit boost outright.
-3. **The formula is a property of a betting RANGE, not of a decision.** A
-   per-node acceptance criterion of that shape is unsatisfiable by construction
-   and must be rejected at review; a pooled one must be measured across seeds or
-   paired.
-4. **Most of the capped-versus-uncapped gap is arrival, not policy** — §3.3's
-   numbers, so a future reader does not mistake the residual for an unfixed
-   defect.
-
-The amendment is confined to §3, as the ticket scopes it. It deliberately does
-NOT add a row to §4's lever table: the ticket authorizes a §3 amendment only, and
-the code comments cite §3 A8 rather than inventing a §4 row that no ratification
-covers.
-
-## 10. Acceptance criteria
+The ticket's five criteria all PASSED on the withdrawn lever and are moot; the
+adjudication replaces them with what the ticket actually delivers.
 
 | # | criterion | verdict |
 |---|---|---|
-| 1 | pooled capped-node composition moves toward the uncapped norm, in the pre-registered direction, pooled or paired — never one seed | **PASS on direction, with the magnitude reported as the headline finding.** Capped bluff share 0.0771 → 0.0781; ratio to uncapped 0.5863 → 0.5933; 3 of 3 seeds, paired at 222,792 unopened nodes. §3.3 states plainly that this is under 2 percent of a 5.45pp gap and why the rest is unreachable from the merit layer. |
-| 2 | LAG went-to-showdown ceiling watched explicitly | **PASS** — 0.5769 → 0.5787 against 0.59, 1.13 points of headroom. Ceiling unchanged; §4. |
-| 3 | five-seed de-robotization gate green | **PASS** — 5/5, tightest 1.743322 against 1.254429; §7. |
-| 4 | byte-identity preserved wherever the stack does not bind | **PASS, and measured rather than argued** — 266,776 probe nodes at or above `spr_commit` with a maximum absolute probability delta of exactly 0.0, plus a per-persona test at each pack's own threshold. |
-| 5 | contract §3 amendment lands in the same pull request | **PASS** — amendment A8; §9. |
-| — | done-condition: a targeted test showing the multiplier firing shallow and not deep | **PASS** — `test_s3t3_made_value_bet_is_damped_shallow_and_bit_identical_deep`, which asserts the EXACT damped probability from a closed form, not an inequality. |
+| 1 | pooled capped-node composition moves toward the uncapped norm | **MOOT — lever withdrawn.** What ships instead is the instrument the criterion needed and lacked, now reporting the target-normalised figure the reviewers asked for. §3. |
+| 2 | LAG went-to-showdown ceiling watched explicitly | **N/A — nothing moves.** The engine is byte-identical to `4f653ef`; both ratchets are reverted. |
+| 3 | five-seed de-robotization gate green | **PASS**, and it reproduces `4f653ef` — §6. |
+| 4 | byte-identity preserved wherever the stack does not bind | **SUPERSEDED by total byte-identity.** The withdrawn lever's claim was also imprecise and is corrected here: it held at and above `spr_commit`, NOT at every uncapped node — uncapped made-value betting moved −0.033pp, because the ramp keyed on `spr_commit` (1.2 to 3.3) fired on a superset of capped decisions (below 1.0, or 1.5 for the maniac). |
+| 5 | contract §3 amendment lands in the same pull request | **PASS** — amendment A8, rewritten as limits only. §7. |
 
-## 11. Checks
+## 6. Checks
 
 | command | result |
 |---|---|
-| `./scripts/verify.sh` | **BACKEND VERIFY OK** (2191 passed, 2 skipped — the two skips are the S6 detection probe, which needs a local artifact and is unrelated) |
+| `./scripts/verify.sh` | **BACKEND VERIFY OK** (2185 passed, 2 skipped — the two skips are the S6 detection probe, which needs a local artifact and is unrelated) |
 | `cd backend && ruff check .` | clean |
-| `python -m tools.derobo_gate --check --all-seeds` | GATE PASS (5/5) |
-| `pytest -k "persona_postflop_bands or wtsd_ordering or spr"` | green |
-| full backend suite | green |
+| `python -m tools.derobo_gate --check --all-seeds` | **GATE PASS 5/5**, and every seed reproduces S3-T2's reading exactly — see §6.1 |
+| `pytest -k "persona_postflop_bands or wtsd_ordering or spr or capped"` | 38 passed |
 
-## 12. What a reviewer should press on
+### 6.1 The gate is the proof that the engine really did go back
 
-- **The headline is a smallness, and it should be checked rather than taken.**
-  §3.3 claims the capped-versus-uncapped gap is mostly arrival. The evidence is
-  that the paired per-node policy delta is 0.0010 against a 0.0545 gap; the probe
-  is 250 lines and the claim is falsifiable by running it.
-- **The two showdown instruments disagree about the SIGN of this change.** §4
-  reports both and argues neither is resolvable at these samples. A reviewer who
-  thinks the harness's four falls are real should say what would distinguish them
-  from displacement.
-- **The floor of 0.88 was NOT tuned to the measurement.** It is the design seed,
-  carried unchanged. The pre-registration registered only the weakening path
-  (raise the floor if a guard fires); choosing a STRONGER floor after seeing that
-  the effect was small would have been fitting to the result, and was declined.
-  A reviewer may reasonably argue the opposite — that a 0.10pp movement does not
-  earn its blast radius — and that argument is available on this evidence.
-- **The BET-only scope rests on a measurement, not on precedent alone.** §1 gives
-  it: every facing cell moves by exactly 0.0. If a reviewer believes capped RAISE
-  nodes carry the defect, the probe already reports that population.
-- **Two ceilings were tightened and none loosened**, but the ratchet also means
-  S3-T4 inherits a nit ceiling of 0.65 and a fish ceiling of 0.54. That is the
-  regime working as designed; it is worth knowing before the next ticket starts.
+The five-seed de-robotization gate does not merely pass — **every seed returns
+the identical separation distance S3-T2 recorded at `4f653ef`**, to the last
+decimal the gate prints:
+
+| seed | this tip | S3-T2's reading at `4f653ef` | under the withdrawn lever |
+|---|---|---|---|
+| 601 | 1.853360 | 1.853360 | 2.052617 |
+| 602 | 1.792393 | 1.792393 | 1.778670 |
+| 603 | 1.765554 | 1.765554 | 1.743322 |
+| 604 | 2.008972 | 2.008972 | 2.208862 |
+| 605 | 1.958660 | 1.958660 | 1.861133 |
+
+Each figure is a statistic over 50,000 simulated hands per seed, so five exact
+matches is not a coincidence that a residual code difference could survive. Taken
+with the empty `git diff 4f653ef -- backend/app backend/tests content` and the
+restored-not-re-measured fixtures, the engine's behaviour is back to its
+pre-ticket state on three independent checks.
+
+## 7. The contract amendment
+
+Amendment **A8** in §3, dated 2026-08-22, is now **limits only**. It records:
+(1) the value side has no lever and no size or stack term — with §2.1's flatness
+measurement as the evidence; (2) what was measured about capped decisions, raw
+and normalised, with the warning that the raw figure is not readable alone;
+(3) **what was NOT measured** — the residual is not decomposed into
+size-warranted, arrival and policy, stated explicitly so no slice cites it as a
+policy defect; (4) the identity is a range property, not a per-node one;
+(5) the **OPEN ITEM** — a commitment slope over top pair and middle pair, for
+the re-anchor slice, needing an owner decision; and (6) that the damp was built,
+measured and withdrawn, with the instruction not to rebuild it.
+
+The wording error a reviewer caught is fixed: the arm is the **unopened BET
+arm**, not the "matched-with-option BET arm" — the matched-with-option arm is a
+RAISE.
+
+## 8. What a reviewer should press on
+
+- **The withdrawal is the claim.** §2.1's flatness table is reproducible in a
+  few seconds on the merit vectors and is the whole argument; if top pair is not
+  flat in stack depth, the finding is wrong and so is the withdrawal.
+- **The normalised statistic is new code and its target must be checked.**
+  `identity_target` is `s/(1+2s)` and is unit-tested against the contract's own
+  reference values; the inversion from a realised `size_bb` back to a
+  pot-fraction mirrors the sampler's two sizing formulas and is the place an
+  error would hide.
+- **The 44 percent figure is a ratio of ratios** and depends on the cap-exposure
+  predicate. §3.1 states plainly that this probe's predicate differs from the
+  dossier's and that the two capped numbers are not comparable.
+- **Nothing in the engine changed, so nothing in the population should have.**
+  The reverted fixtures are the check: they were restored to their pre-ticket
+  values rather than re-measured, and the suite passes against them.

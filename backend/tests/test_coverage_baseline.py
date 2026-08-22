@@ -511,31 +511,6 @@ this paragraph said it rose, which was true of T1 and is not true of T3. The
 fall is the third-deepest in the chain, is attributed to displacement on the
 evidence set out in the T3 entry above, and is reported rather than claimed as
 compliance.
-
-RE-RECORDED for S3-T3 (improvement slice 3, 2026-08-22, slice-authorized): the
-stack-to-pot damp on made-value betting (`_value_spr_mult`, theory contract §3
-amendment A8) makes a bot bet a made hand slightly less often when its stack no
-longer covers its own biggest bet size, so hands end at different points and the
-set of decision points the hero reaches is a different set. Total 1239 -> 1210,
-graded 337 -> 343.
-
-GRADED COVERAGE ROSE, AND ITS SHARE IS NOW AT THE IMMUTABLE SNAPSHOT FOR THE
-FIRST TIME IN THIS CHAIN: 337/1239 = 27.20% -> 343/1210 = 28.35%, against
-`coverage_baseline.persona-realism-start.json`'s 349/1233 = 28.31%. That is
-+1.15pp on the slice and +0.04pp against the snapshot. The absolute graded count
-is still 6 short of the snapshot's 349 and this ticket does not claim to have
-closed the level: a smaller total is most of why the share moved, and the item
-that owns the level is `T-cover`, blocked behind the flywheel's phase-3 verdict.
-
-ATTRIBUTION PROVEN, not assumed: with `_VALUE_SPR_FLOOR` set back to 1.0 — the
-ramp's identity value, which is the pre-S3-T3 engine exactly — and every other
-edit on this branch left in place, `_measure()` returns total 1239 / graded 337,
-the fixture's old contents; restoring 0.88 returns 1210 / 343.
-
-Note on the base: the 1239/337 this entry moves FROM was recorded by S3-T2,
-which re-recorded the fixture without adding an entry here. The gap in the
-history is S3-T2's; this entry states the base it actually found rather than the
-1228/318 the previous paragraph ends on.
 """
 
 from __future__ import annotations

@@ -2877,11 +2877,11 @@ def budget():
 BANDS = {
     # (fish/station AF + fold-to-c-bet are still the W3R-2 tuples — see the
     # block above; their WTSD tuples are Stage-0 interim values)
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.54)),  # WTSD: Stage-0 interim
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.55)),  # WTSD: Stage-0 interim
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.65)),  # WTSD: Stage-0 interim (AF frozen)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.67)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
@@ -4194,27 +4194,12 @@ _GOLDEN_STATS_N200 = {
     # `BANDS`. ATTRIBUTION PROVEN, not assumed: with the two pack files reverted
     # and every other edit in this branch left in place, this test passes
     # untouched at the old values; restoring the packs reproduces the new ones.
-    # RE-RECORDED for S3-T3 (2026-08-22, slice-authorized): the stack-to-pot
-    # damp on made-value betting (`_value_spr_mult`, theory contract §3 amendment
-    # A8). Four of the six rows move; maniac and passive_fish are BYTE-
-    # IDENTICAL, which is the control — their n=200 samples reach no unopened
-    # made-value BET below `spr_commit`, so a lever that only touches that cell
-    # cannot move them, and a lever that moved them would be out of its scope.
-    # ATTRIBUTION: with `_VALUE_SPR_FLOOR` set back to 1.0 (the ramp's identity
-    # value, which is exactly the pre-S3-T3 engine) and every other edit on this
-    # branch left in place, all six rows reproduce their OLD values exactly —
-    # calling_station (0.3333333333333333, 0.22033898305084745,
-    # 0.6714801444043321), lag (2.4363636363636365, None, 0.5877862595419847),
-    # nit (None, None, 0.6153846153846154), tag (2.088235294117647, None,
-    # 0.6470588235294118). This is a stream-displacement tripwire at a tiny
-    # sample, not a behavioural reading: the population bands below are the
-    # instrument that gates behaviour, and none of them moved out of range.
-    "calling_station": (0.31297709923664124, 0.17307692307692307, 0.6423357664233577),
-    "lag": (2.161764705882353, None, 0.616),
+    "calling_station": (0.3333333333333333, 0.22033898305084745, 0.6714801444043321),
+    "lag": (2.4363636363636365, None, 0.5877862595419847),
     "maniac": (3.7169811320754715, 0.36363636363636365, 0.5607476635514018),
-    "nit": (None, None, 0.6511627906976745),
+    "nit": (None, None, 0.6153846153846154),
     "passive_fish": (0.7946428571428571, 0.46875, 0.5297029702970297),
-    "tag": (1.7272727272727273, None, 0.6206896551724138),
+    "tag": (2.088235294117647, None, 0.6470588235294118),
 }
 
 
@@ -6879,53 +6864,6 @@ def test_persona_postflop_bands(persona, budget):
     argument is the contract's grounded fold-to-continuation-bet row and the α
     fold-ceiling, both written down where a reader can check them against the
     poker rather than against this table.
-
-    ── THE FIFTH RATCHET, S3-T3 (improvement slice 3, ticket 3 — the
-    stack-to-pot damp on made-value betting — 2026-08-22). `_value_spr_mult`
-    makes a bot bet a made hand slightly less often as its stack stops covering
-    its own biggest bet size. No persona pack changed; this is an engine edit,
-    and the only one in this slice so far. Three personas move DOWN, so A4.2
-    item 2's ratchet applies to them; three move up and are shown anyway so a
-    reader can see the arithmetic was computed rather than skipped. Same
-    harness, same pinned seed, same `_WTSD_ORDER_N` = 4000 hands; `n` is each
-    persona's flop-seen count in that sample and `sd = sqrt(p * (1 - p) / n)`.
-
-        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
-        nit              0.6173    0.6030   1010  0.046187  0.649157 -> 0.65
-        tag              0.5528    0.5545   1670  0.036487  0.590978 -> 0.60
-        lag              0.5769    0.5787   2440  0.029988  0.608677 -> 0.61
-        maniac           0.5945    0.5988   3993  0.023270  0.622068 -> 0.63
-        calling_station  0.7010    0.6916   5587  0.018536  0.710141 -> 0.72
-        passive_fish     0.5204    0.5098   4166  0.023235  0.533077 -> 0.54
-
-        persona          incumbent  ratchet  INSTALLED  what happened
-        nit                  0.67     0.65     0.65     tightens by 2 points
-        tag                  0.59      —       0.59     moved up; no ratchet
-        lag                  0.59      —       0.59     moved up; no ratchet
-        maniac               0.62      —       0.62     moved up; no ratchet
-        calling_station      0.72     0.72     0.72     unchanged
-        passive_fish         0.55     0.54     0.54     tightens by 1 point
-
-    THE THREE RISES ARE ALL INSIDE ONE STANDARD DEVIATION and none is a
-    stop-and-report: A4.2 item 3 fires on a MEASUREMENT crossing its ceiling,
-    and the LAG reads 0.5787 against 0.59 (1.13 points of headroom, 1.1 of its
-    own standard deviations), the maniac 0.5988 against 0.62 and the tag 0.5545
-    against 0.59. The LAG was the ticket's pre-registered risk — damping a bet
-    into a check sends hands to showdown — and it is the row to watch in S3-T4.
-
-    THE TWO INSTRUMENTS DISAGREE ABOUT THE SIGN, and this ticket says so rather
-    than reporting the one that flatters it. Here, four personas fall and two
-    rise. On the 50,000-hand pooled export at seed 20260817 on the ratified
-    lineup, FIVE rise and one falls: nit 57.9 -> 58.4, tag 50.0 -> 50.1, lag
-    51.1 -> 51.5, maniac 52.6 -> 52.2, calling_station 66.3 -> 66.7,
-    passive_fish 47.6 -> 47.9, pool 53.4 -> 53.6. The export's direction is the
-    one the ticket pre-registered; this harness's is not. Both are small — the
-    largest move on either instrument is 1.4 points — and the two instruments
-    play different tables, so a composition effect is free to differ in sign, as
-    it already did for the LAG in the fourth ratchet above. This harness gates;
-    the export is diagnostic. The honest reading is that the effect on showdown
-    frequency is too small for either instrument to sign at this sample size,
-    which is also why no ceiling was moved on the strength of a rise.
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]
@@ -13923,163 +13861,3 @@ def test_nd_c5_non_strong_nodes_are_bitwise_identical_to_the_base_engine():
                 "cell as bitwise unchanged; a one-ulp move here means the untouched "
                 "expression was re-associated or otherwise rewritten"
             )
-
-
-# ---------------------------------------------------------------------------
-# S3-T3 — the stack-to-pot damp on made-value betting.
-#
-# S3-T3 is ticket 3 of improvement slice 3 (the calldown slice) of the bot-
-# realism flywheel. It adds `_value_spr_mult`: the made-value BET merit is
-# damped as the seat's stack-to-pot ratio falls below the persona's
-# `spr_commit`, so that the value side of the theory contract's bluff-share
-# identity stops being flat in stack depth (theory contract §3 amendment A8).
-#
-# These tests are the ticket's required demonstration — "the multiplier firing
-# at a shallow stack and not firing at a deep one" — plus the byte-identity
-# proof the slice's binding rules ask for. They assert the EXACT post-damp
-# probability from a closed form rather than an inequality, so a lever that
-# fired in the right direction by the wrong amount still fails.
-# ---------------------------------------------------------------------------
-
-_S3T3_BOARD = ["Kc", "9s", "3h"]
-_S3T3_MADE_HOLE = ("Kd", "Qc")  # top pair, no draw
-_S3T3_BLUFF_HOLE = ("7d", "2c")  # air, no draw — the exact-frequency bluff cell
-
-
-def _s3t3_probs(pack, hole, legal, pot_bb, stack_bb, *, floor, **kw):
-    """The sampler's normalized action-probability vector at one node, with
-    `_VALUE_SPR_FLOOR` forced to `floor`. A floor of 1.0 makes the ramp the
-    identity, which is the pre-S3-T3 engine exactly."""
-    saved = personas_postflop._VALUE_SPR_FLOOR
-    personas_postflop._VALUE_SPR_FLOOR = floor
-    try:
-        cap = _CaptureWeights()
-        sample_postflop_decision(
-            pack, hole, _S3T3_BOARD, legal, pot_bb, stack_bb, 1, cap, **kw
-        )
-    finally:
-        personas_postflop._VALUE_SPR_FLOOR = saved
-    return cap.dist
-
-
-def test_s3t3_value_spr_ramp_is_the_identity_at_and_above_spr_commit():
-    """The ramp returns EXACTLY 1.0 from `spr_commit` upward, falls linearly
-    below it, and bottoms out at `_VALUE_SPR_FLOOR` — never below, never a step.
-
-    Exactness matters and is not pedantry: multiplying by exactly 1.0 is the
-    identity in IEEE-754 for every finite value, so "returns 1.0" is what makes
-    every deep-stack decision in the engine bit-identical. `pytest.approx` would
-    not carry that claim.
-    """
-    mult = personas_postflop._value_spr_mult
-    floor = personas_postflop._VALUE_SPR_FLOOR
-    for commit in (1.2, 1.4, 1.5, 2.5, 3.0, 3.3):
-        assert mult(commit, commit) == 1.0
-        for spr in (commit, commit + 0.01, commit * 2, 1e6):
-            assert mult(spr, commit) == 1.0, (spr, commit)
-        assert mult(0.0, commit) == pytest.approx(floor, abs=1e-12)
-        # Continuous and strictly decreasing below the threshold — a STEP here
-        # is exactly the shape the de-robotization determinism guard exists to
-        # catch, and the SPR-commit block already puts one at this same ratio.
-        below = [mult(commit * k / 20.0, commit) for k in range(21)]
-        assert below == sorted(below)
-        assert below[0] == pytest.approx(floor, abs=1e-12)
-        assert below[-1] == 1.0
-        assert max(b - a for a, b in zip(below, below[1:], strict=False)) < 0.01
-
-
-def test_s3t3_made_value_bet_is_damped_shallow_and_bit_identical_deep():
-    """The ticket's demonstration: fires at a shallow stack, not at a deep one.
-
-    The shallow leg asserts the EXACT damped probability. Under the softmax the
-    only two candidates are BET and CHECK, so if the undamped odds are
-    `r = P(bet)/P(check)`, a weight multiplier `m` on the BET side gives
-    `P'(bet) = m·r / (m·r + 1)` — a closed form with no fitted constant in it.
-    """
-    pack = _pack("tag")
-    commit = pack.postflop.spr_commit
-    bucket, draw = strength_bucket(_S3T3_MADE_HOLE, _S3T3_BOARD)
-    assert bucket is StrengthBucket.TOP_PAIR and draw is DrawCategory.NONE
-    pot = 10.0
-    shipped = personas_postflop._VALUE_SPR_FLOOR
-
-    # DEEP: stack-to-pot 10.0, four times this persona's `spr_commit` of 2.5.
-    deep_stack = 100.0
-    assert deep_stack / pot > commit
-    legal_deep = [personas_postflop_legal_check(),
-                  personas_postflop_legal_bet(0.5, deep_stack)]
-    before_deep = _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_deep, pot, deep_stack, floor=1.0)
-    after_deep = _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_deep, pot, deep_stack, floor=shipped)
-    assert after_deep == before_deep, "deep-stack decision is not bit-identical"
-
-    # SHALLOW: stack-to-pot 0.5, well below `spr_commit`.
-    shallow_stack = 5.0
-    assert shallow_stack / pot < commit
-    legal_shallow = [personas_postflop_legal_check(),
-                     personas_postflop_legal_bet(0.5, shallow_stack)]
-    before = _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_shallow, pot, shallow_stack, floor=1.0)
-    after = _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_shallow, pot, shallow_stack, floor=shipped)
-
-    m = personas_postflop._value_spr_mult(shallow_stack / pot, commit)
-    assert 0.0 < m < 1.0
-    r = before[ActionType.BET] / before[ActionType.CHECK]
-    assert after[ActionType.BET] == pytest.approx(m * r / (m * r + 1.0), abs=1e-12)
-    assert after[ActionType.CHECK] == pytest.approx(1.0 / (m * r + 1.0), abs=1e-12)
-    # The freed mass goes to CHECK and nowhere else.
-    assert after[ActionType.BET] < before[ActionType.BET]
-    assert (after[ActionType.CHECK] - before[ActionType.CHECK]) == pytest.approx(
-        before[ActionType.BET] - after[ActionType.BET], abs=1e-12
-    )
-
-
-def test_s3t3_spr_damp_reaches_neither_the_bluff_cell_nor_a_facing_node():
-    """Scope: BET-only, made-value-only. Three populations must be bit-identical
-    at a stack-to-pot ratio where the lever is at its strongest.
-
-    (1) The bluff cell — an air hand with no draw takes the sampler's exact-
-    frequency branch and never reads the made-value table, so if this moves the
-    lever has reached the bluff side and the scope is wrong. (2) A facing node,
-    whose aggressive candidate is the RAISE arm, deliberately left out of scope
-    for the same reason `pos_mult` and the multiway value damp leave it out.
-    (3) The matched-with-option check-RAISE, out of scope for the same reason.
-    """
-    pack = _pack("tag")
-    pot, stack = 10.0, 5.0
-    shipped = personas_postflop._VALUE_SPR_FLOOR
-    assert stack / pot < pack.postflop.spr_commit
-
-    bucket, draw = strength_bucket(_S3T3_BLUFF_HOLE, _S3T3_BOARD)
-    assert bucket is StrengthBucket.AIR and draw is DrawCategory.NONE
-    legal_bet = [personas_postflop_legal_check(), personas_postflop_legal_bet(0.5, stack)]
-    assert _s3t3_probs(pack, _S3T3_BLUFF_HOLE, legal_bet, pot, stack, floor=shipped) == \
-        _s3t3_probs(pack, _S3T3_BLUFF_HOLE, legal_bet, pot, stack, floor=1.0), \
-        "the bluff cell moved — the lever is reaching the bluff path"
-
-    legal_facing = [personas_postflop_legal_fold(), personas_postflop_legal_call(3.0),
-                    personas_postflop_legal_raise(6.0, stack)]
-    assert _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_facing, pot, stack,
-                       floor=shipped, current_bet_to=3.0) == \
-        _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_facing, pot, stack,
-                    floor=1.0, current_bet_to=3.0)
-
-    legal_option = [personas_postflop_legal_check(), personas_postflop_legal_raise(2.0, stack)]
-    assert _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_option, pot, stack, floor=shipped) == \
-        _s3t3_probs(pack, _S3T3_MADE_HOLE, legal_option, pot, stack, floor=1.0)
-
-
-@pytest.mark.parametrize("persona", ALL_PERSONAS)
-def test_s3t3_every_persona_is_bit_identical_at_its_own_spr_commit(persona):
-    """Each pack authors its own `spr_commit` (1.2 to 3.3), so "deep enough" is
-    per-persona. At and just above its own threshold every persona's whole
-    action vector must be unchanged, on the made-value cell the lever targets.
-    """
-    pack = _pack(persona)
-    commit = pack.postflop.spr_commit
-    pot = 10.0
-    shipped = personas_postflop._VALUE_SPR_FLOOR
-    for spr in (commit, commit * 1.001, commit + 1.0, commit * 10):
-        stack = spr * pot
-        legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(0.5, stack)]
-        assert _s3t3_probs(pack, _S3T3_MADE_HOLE, legal, pot, stack, floor=shipped) == \
-            _s3t3_probs(pack, _S3T3_MADE_HOLE, legal, pot, stack, floor=1.0), \
-            f"{persona} moved at spr={spr} (its spr_commit is {commit})"
