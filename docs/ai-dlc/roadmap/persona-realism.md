@@ -1,5 +1,13 @@
 # Persona Realism — Roadmap (created 2026-07-23)
 
+> ⏸️ **PAUSED (owner ruling, 2026-08-05): no further persona-fix slices from this roadmap until
+> the bot-realism-flywheel phase-3 ceiling verdict.** Governing initiative:
+> `bot-realism-flywheel.md` (+ PRD `../prd/bot-realism-flywheel.md`). Context: the 2026-08-05
+> re-measure (local, gitignored: `../research/persona-realism-artifacts/remeasure-2026-08-05/SYNTHESIS.md`) scored
+> the roster 4.8/10 after the R8–R10/N-* program; the owner redirected to a
+> measure-the-ceiling-first flywheel. This file stays authoritative for its completed waves,
+> contracts, and lessons — do NOT resume its NOW lane from here.
+
 > Living, pass/fail, resumable. A fresh context reads this + the two source docs and knows exactly what's left.
 > **Engine contract map (READ FIRST):** `docs/research/12-persona-engine-and-realism-fixes.md`
 > — every lever, merit table, formula, line anchor, and INVARIANT. This roadmap is the *decomposition*.
@@ -359,7 +367,191 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
 
 ---
 
-### ✅ DONE
+### R10 — 756-hand review + roadmap correction pass (2026-07-29)
+
+A third independent measurement of the live roster: **756 hands**, session `8c04aa55…`, graded by 8 sealed
+Codex lanes + 2 themed specialist lanes, verified by 2 adversarial Opus audits + a blind cross-check of the
+final reports (every rate below re-derived 2–3× by independent implementations). This R10 pass itself was then
+triple-reviewed (Codex Sol guardrail + Codex Sol plan-challenge + Claude refuter, 2026-07-29) and corrected —
+see the ledger. Artifacts (local, gitignored):
+`docs/ai-dlc/research/persona-realism-artifacts/playstyle-research/report-bot-realism.md` (+
+`report-hero-play.md`, `stats_756.txt`, `lane-reports/`). Ledger: `docs/ai-dlc/ledger/persona-hand-review.md`.
+**R10 CORROBORATES the R8/R9 diagnosis on every overlapping claim and adds one genuinely new instrument
+finding (R10-1). It does NOT contradict R9-4's order** — see R10-8.
+
+#### R10-1 — THE NEW CENTRAL FINDING: preflop archetype collapse, measured first-in
+
+Measured first-in raise rate (raise legs only, per R9-c5 — never `1 − fold`), all 756 hands, Wilson 95% CIs:
+
+```
+persona   RFI      n     95% CI          open-limp
+nit       23.1%   268   [18.5, 28.5]      1.1%
+tag       24.2%   517   [20.7, 28.1]      0.0%
+maniac    27.2%   320   [22.6, 32.3]      0.0%
+lag       31.0%   284   [25.9, 36.6]      0.0%
+station    1.6%   307   [ 0.7,  3.8]     40.4%
+fish       3.5%   541   [ 2.3,  5.4]     32.7%
+```
+
+**Pairwise z-tests on the aggregate: nit-vs-maniac z = −1.13 — statistically indistinguishable.** Only LAG
+separates from nit/tag, barely (|z| ≈ 2.1). ⚠️ The aggregate pools seats, and opportunity mixes differ
+per persona (limpy upstream neighbors kill late first-in chances) — so the honest instrument is the
+**stratified** view, which SHARPENS the finding where the data is thickest:
+
+```
+first-in raise, stratified   EP (UTG..UTG2)      MP (LJ,HJ)        LATE (CO,BTN)
+nit                          21.6% (42/194)      23.7% (14/59)     45.5% (5/11)
+tag                          19.0% (76/400)      36.9% (31/84)     52.0% (13/25)
+maniac                       18.3% (38/208)      46.2% (36/78)     47.6% (10/21)
+lag                          27.1% (57/210)      52.1% (25/48)     20.0% (5/25)
+(opportunity mix: 65–77% of every persona's first-in chances are EP at this limp-heavy table)
+```
+
+**In early position — two-thirds of all first-in spots — the maniac is the TIGHTEST of the four** (18.3%,
+n=208) and the nit is LOOSER than the TAG. MP shows partial separation (the maniac differentiates; the nit
+fails to stay tight); LATE cells are n≤25, directional only. This is the cross-persona-separation
+counterpart of `R9-SEATMETRIC` (within-persona seat inversion passes every gate): **neither the seat axis
+NOR the persona axis of preflop identity is expressed where the table actually plays.**
+
+**Authored-ladder attribution (computed from the packs, deterministic — not sampled; levels ±1pp — two
+independent parsers differ ≤0.8pp on one cell due to overlapping combo classes in some nodes; ORDERING
+claims agree exactly):**
+
+```
+authored RFI%   UTG  UTG1  UTG2   LJ    HJ    CO    BTN   SB
+lag            25.1  27.5  33.7  37.6  47.7  53.2  66.1  52.0
+maniac         15.9  20.6  25.6  34.3  42.4  49.1  48.0  44.0   ← below LAG at EVERY seat
+tag            17.2  18.7  21.4  27.9  36.3  48.7  58.4  46.6
+nit (authored) 13.6 [29.1 wildcard for ALL other seats — looser than TAG at UTG1/UTG2/LJ]
+```
+
+Three authored mechanisms, all verified at HEAD: (a) the maniac's ladder sits **below the LAG's at every
+seat**, and below even the TAG's at UTG/BTN/SB (`N-maniac`'s #119 regression, now quantified end-to-end);
+(b) the maniac's premium unopened classes carry **`fold 0.15–0.30`** (varies by seat; the h318 AK-fold node
+is `raise 0.80 / fold 0.20`, BTN is `0.70/0.30`) — the literal mechanism of the minimal-repro exhibits
+(h318 AK unopened UTG2; h713 JJ LJ; h714 77; h302 KTo; h743 A4o); (c) the **nit's `unopened` node is
+UTG-only + a 29.1% wildcard for every other seat** — the nit opens like a loose player from UTG1 onward,
+which is why measured nit EP (21.6%) exceeds the TAG's. Measured corroboration: nit-vs-3-bet fold **20/20,
+CI [83.9, 100]** — and the 20 holdings are on record: they include **QQ, AKs, AKo ×3, TT — all folded**
+(the authored `vs_3bet` node continues AA/KK ONLY; the earlier research claim "nit folds KK 100%" is STALE
+at HEAD — KK is authored `call 1.0`; the artifact is the missing QQ/JJ/AK tier, one notch down).
+
+**This is JSON-side (pack authoring), not spine-side** — hence the R10 preflop-lane proposal in R10-8.
+**Framing note (plan-challenge accepted):** R8's "arrival, not policy" diagnosis and R10-1 are compatible
+but distinct — **arrival and node policy are SEPARABLE defects**: conditional on arriving first-in (arrival
+held fixed), the authored node policy still collapses the archetypes.
+
+#### R10-2 — call-down tail: the station has no absolute-size floor (degree defect, not a red-flag defect)
+
+229 multi-street call-downs extracted deterministically; station supplies 104/229, fish 68/229 (75.1%
+combined). Station tail: **30/104 (28.8%, CI [21.0, 38.2]) ended air / ace-high / busted-draw**, including
+audit-verified calls of 1.45×-, 1.50×- and **2.33×-pot** raises with no pair and no draw (h579, h81/h385,
+h588). Station flop fold-vs-bet **13.1% (26/198, CI [9.1, 18.5])**; river **42.3% (41/97)** — late-street
+discipline exists, flop/turn has no floor. **Mechanism is UNATTRIBUTED (corrected on triple-review): the
+station's live `size_elasticity` is `0.55` at HEAD — W3R-2 changed it from W2-a's 0.0 on 2026-07-24, so
+the measured tail happened DESPITE nonzero elasticity.** Candidate contributors to separate before any
+mechanism is chosen: `call_looseness = 4.0`, facing-node normalization (`N-logit`), the raise-vs-bet
+paths, the SPR commit gate, and the elasticity curve's shape above OVERBET. **W3R-2 annotation: its dials
+passed their bands honestly, but OVERBET-tail behavior was outside its acceptance surface — that tail is
+REOPENED as `R10-TAIL`'s subject.** Formal-precedence note kept honest: only **1/229** call-downs breaks
+a persona's own single-hand red-flag list (h336 TAG), and the specialist's per-persona adjudication
+REFUTED the claim for the maniac (0/15 — wide resistance calls are persona-correct). The defect is the
+loose personas' missing **tail** behavior, not their baseline looseness. → filed as the **`R10-TAIL`
+design item** (NEXT), a SIBLING of `R9-DEFENCE`, not inside it — a first-bet overbet call with air is an
+absolute-price defect, not a sustained-aggression response; ⛔ NOT a standalone dial ticket — a naive
+air-call cut re-triggers the `N-logit` raise-inflation pathology R10-4 just re-confirmed live, and the
+no-fold-floor law (fold-merit SHAPE, never an asserted floor — W3R-5/W5-a4/contract) applies.
+
+#### R10-3 — scare-card blindness: live acceptance evidence for W3R-5 (+ W5-c2)
+
+109 draw-completing turn/river cards extracted; in the 69 with a bot prior-street aggressor, the aggressor
+**barrelled through 53/69 (76.8%, CI [65.6, 85.2])**. Callers facing bets after the scare card continued
+123/167; on rivers holding one-pair-or-worse (no future equity), **25/48 continued** (station 11/18,
+fish 7/14; small-n on the rest). Counter-evidence exists (16/69 genuine slowdowns — h88's TAG check-fold
+on the 3rd spade is the model line), so fear is *rare*, not absent. **Disposition: this is W3R-5's
+(defense-side scare brake) and W5-c2's (street-aware texture) evidence base — both already in NOW.
+R10 adds fit-seed data, not new items.** The aggressor half (h473: nit raises 4.8× a donk on the
+3rd-spade turn holding no spade) also feeds W3R-5's bet-side sibling noted there.
+
+#### R10-4 — fish value-light raises: the N-logit pathology observed at scale in live play
+
+~28 audit-surviving hard failures of the fish's own "value-light raise" red flag across 756 hands
+(clean exemplars h127, h639, h259, h286, h492, h497, h514 — air/underpair check-raises and raises,
+several then folding to a re-raise; the station's h615 raise-then-fold is the same shape). This is the
+**live, at-scale corroboration of `N-logit`** (freed/misallocated mass reaching RAISE because nothing
+scales `_RAISE_BASE`) and of W3R-6's gap (its one-pair raise damp fires facing a RAISE only, never facing
+a first bet). **Disposition: strengthens N-logit's standing as prerequisite of `R9-LOOSEFIT` +
+`R9-DEFENCE`; no new item.**
+
+#### R10-5 — multiway non-filtering (design-pass input)
+
+Audit-verified pile-ups where several bots continue vs heavy multiway action with hands that beat nothing
+represented: h697 (five-way all-in on Q72; fish calls 90.6bb with 33), h726 (station 44 + fish 99 call a
+1.37×-pot shove on a paired board), h217, h129. The multiway damps shipped (W1-c) act on VALUE BETS;
+nothing raises the multiway CONTINUE threshold vs raises/jams. → added as design input to `R9-DEFENCE`
+question 3 (bet vs raise vs jam scope). No new item; ⚠️ the SPR commit gate's fold-zero (R9-1 confounder
+warning) is implicated in several of these — attribute before fitting, per R9-DEFENCE question 5.
+
+#### R10-6 — instrument corrections + second corpus
+
+- **Station WTSD|sawflop measured 47.3%** — inside the research band (36–48) and far below the engine's
+  pinned 66–72 band, which is hereby re-confirmed WRONG (band-correction program already owns this; W4-b
+  is the single re-anchor — do not touch bands now).
+- The review's aggregate layer (`stats_756.txt` + `compute_stats.py`) is a second measured corpus
+  (n=756, both DB-derived and CI'd) available to W-ARR baselining and W4-b — **REPORTED, not gated**,
+  per R9-SHAPEGATE.
+- **Positive controls to protect** (regression list for every future facing-policy slice): AF ordering
+  maniac 3.89 > lag 2.84 > tag 2.02 > nit 1.83 > fish 0.90 > station 0.34 (correct); WTSD ordering
+  correct; station river fold 42.3% exists; TAG scare check-folds exist (h88, h586); LAG river discipline
+  (folded 3/5 weak rivers).
+- Hero-side (seam, `professional-teacher-rework`): 470/1102 decisions unmappable with the identical
+  no-node signature; fresh review found mistakes there at **4–8× the covered-zone rate** — live
+  corroboration for `N-cover`/`T-cover`; filed as a corroboration line, not a new item.
+
+#### R10-7 — re-audit of standing items against R10 evidence (deep-pass disposition)
+
+| Item | R10 disposition |
+|---|---|
+| **W5-b4** (maniac vs_limpers/cold-call reopen) | **Runs inside the R10 preflop lane as its OWN slice** (after R10-PRE2; the triple review rejected bundling — different causal surface than the ladder work). R10-1's authored table is its baseline. |
+| **W5-b3 / W5-b3b** | Corroborated; R10 supplies measured per-persona RFI + limp baselines with CIs. Gate-design defect (R9-3 #2) still stands — fix the check when filing. |
+| **W3R-5, W5-c2** | Corroborated with acceptance evidence (R10-3). Priority unchanged (post-T-STICKY per R9-4). |
+| **N-logit, R9-LOOSEFIT, R9-DEFENCE** | Corroborated (R10-4, R10-2, R10-5); R9-DEFENCE gains a grid-instrument pin on question 5; the size-tail + multiway questions file as the SIBLING design item `R10-TAIL`. Order unchanged. |
+| **N-maniac** | Quantified end-to-end (authored ladder table in R10-1); its build lands via R10-PRE1/PRE2 + W5-b4 in the preflop lane. **Corpus version note:** its "25.4% VPIP / roster's largest violation" figures are the 250-hand corpus; the 756-hand corpus measures maniac VPIP 33.5% and identifies conditional first-in raise separation as the cleaner instrument — keep both, labeled by corpus. |
+| **W3R-2** | Its dials passed their bands honestly, but the OVERBET-tail was outside its acceptance surface — tail REOPENED as `R10-TAIL` (see R10-2). Not a W3R-2 defect. |
+| **R9-N2 (fish-is-correct no-go)** | **Qualified, not revoked:** protection applies to the fish's `call_looseness`/elasticity SLOPE (still verified in-band). R10-4's fish air-RAISES are a different lever surface (raise-path normalization, `N-logit`), and the OVERBET tail is `R10-TAIL` — neither licenses touching the fish's call-side dials. |
+| **N-riverair** | **Unchanged** — R10 neither confirms nor contradicts (its exhibits are flop/turn air calls; the review's river data is one-pair-or-worse, a different class). |
+| **N-donk** | Untested by R10 (no donk-rate measurement taken). Unchanged. |
+| **W4-a, M6** | Stack-off exhibits corroborate the problem class; sequencing (LAST) unchanged — R9-3 #1's cannot-fail gate defect still stands. |
+| **R9-c1/c2/c4 rejections; ADAPT items** | **Not re-opened.** Nothing in R10 revives them. |
+| **R9-4 order** | **UPHELD** — see R10-8. |
+
+#### R10-8 — sequencing verdict + the preflop lane (owner-approved to PROPOSE; REVISED after triple review, 2026-07-29)
+
+R10's spine-side findings all corroborate the R9 diagnosis, so the R9-4 order stands untouched:
+**T-ANCHOR → T-STICKY → R9-DEFENCE design pass → fitting waves.** The new element: R10-1 is **pack-JSON +
+instrument work disjoint from the `personas_postflop.py` spine**. Proposal (owner decides at the gate):
+
+```
+spine lane (unchanged):  T-ANCHOR (alone) → T-STICKY → R9-DEFENCE + R10-TAIL design passes → fitting waves
+preflop lane (NEW):                                    R10-COUNT → R10-PRE1 → R10-PRE2 → W5-b4 → R10-3BET
+                                                       (opens AFTER T-STICKY LANDS; runs ∥ the design passes)
+```
+
+- **Why after T-STICKY (revised — the original "after T-ANCHOR" was rejected on review):** T-STICKY owns
+  `backend/tests/test_personas_postflop.py` and needs a clean before/after proof on a quiet tip; the lane's
+  shape assertions also add test code, and the roadmap's own #118/#119 incident shows "disjoint" branches
+  can still produce a red fan-in when one branch's assertions are calibrated against the other's old packs.
+  T-STICKY is a small capture slice — running it to completion first costs little and removes the whole
+  collision class. The lane then overlaps only the DESIGN passes (read-only analysis; their attribution
+  grids are pinned to the direct constructed-policy grid at a fixed commit, so pack changes cannot move
+  their evidence — see R9-DEFENCE question 5's pin).
+- **Fixture ownership (explicit):** while the lane is open, the lane is the SOLE re-recorder of the
+  sim-level fixtures (golden / coverage_baseline / limper belt), one slice at a time, owner-authorized per
+  re-record; the design passes record no fixtures. Any fitting-wave slice that needs a re-record waits for
+  the lane to close or the lane pauses — one canonical fixture owner at any moment.
+- **Instrumentation (corrected):** `W-ARR-a` counts node occupancy, NOT the action taken there — it does
+  not by itself clear the lane's D7 exit. `R10-COUNT` (the lane's first slice) adds the conditional
+  action-at-node counters and cross-validates them against the R10 corpus before any pack edit lands.
 
 - [x] **P1 — Correctness patch (fold-aces, open-limps, oversized 3bet, air-calls, dead-mix guard).** ✅ 2026-07-23
       Branch `feat/persona-realism-p1` (#83). Station no longer folds AA/KK/AKs unopened; maniac/LAG non-SB
@@ -1099,7 +1291,17 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
       into the pass/fail.** **No population band re-anchor — deferred to W4-b** (§5/§11 item 7: measure and report,
       never commit as a CI gate). **Appetite:** ~1 large slice.
 
-- [ ] **W5-b3 — E1-c: position-aware `unopened`. RE-SCOPED TO NIT ONLY (R9, 2026-07-26).** *ICE 7·8·2.*
+- [x] **W5-b3 — E1-c: position-aware `unopened`. RE-SCOPED TO NIT ONLY (R9, 2026-07-26).** *ICE 7·8·2.*
+      ✅ 2026-07-31 (**PR #145**) — hand-authored nine-seat ladder (owner chose hand-write now / RR-EMIT
+      later): 7.54 UTG → 21.42 BTN (SB 16.59, BB 12.52), smooth-edge two-tier cliff, W5-b1 limp mixes
+      byte-identical-first, nit.json v1.2.0. All three red-first gates flipped (strict increase; UTG
+      DIRECTIONAL 10% ceiling; + Codex-fold nine-singleton-node coverage gate). W5-b3b shipped in the
+      same slice (station/fish flatness guard, EXEMPT-preservation). Bands: nit authored-width rows
+      re-anchored to exact 14.19/13.12 ±2.0pp (file convention). REPORTED residuals → W4-b/R9-SEATPROV:
+      VPIP 7.5/PFR 5.1 below dossier envelope (W-ARR arrival confound); cliff ratio 2.84 vs dossier
+      candidate 3.2–5.25; composition follow-up filed (nit never open-raises 22-66 anywhere / 77 only
+      UTG — locked by W5-b1 limp preservation; convert pair FOLD mass to raise at CO/BTN in a later
+      pass, limp weight untouched).
       **Problem (CORRECTED R9 — the old text was stale):** the old problem statement said *"a nit opens a flat
       **8.0%** from UTG1 through BB"*. **At HEAD the nit opens 13.6% UTG and 29.1% at every other seat** — it is
       already not flat, and both numbers are far too wide for the archetype. The real defect is (a) only ONE step
@@ -1391,6 +1593,10 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
 
 - [ ] **W4-b — Single combined band re-anchor (D11) + coaching seam batch handoff (`track-F1`).** *ICE 8·8·6 — the ONE authoritative re-anchor.*
       **Problem:** mid-spine re-anchors aren't final (population coupling); coaching seams must be handed off coherently.
+      **Now carries TWO deferred WTSD assertions** (band VALUES untouched, skips in `test_persona_postflop_bands`):
+      the maniac (W2-b, 0.50-ceiling straddle) and **passive_fish (R10-3BET, 2026-07-31: 0.5104 → 0.4873 vs the
+      frozen 0.50 floor — measured cross-persona composition from the roster-wide vs_3bet rewrite, NOT a fish-node
+      defect; attribution in the slice ledger)** — reconcile both here.
       **Solution:** the ONE authoritative combined WTSD/AF population-band re-anchor + coverage re-record after the whole
       spine converges — **now absorbing all W3R lever moves too**, and using the **W3R-0 arrival-range FtC harness** so
       the fish/station absolute-band re-anchor is measured, not seeded; report the cumulative graded-coverage delta vs
@@ -1424,6 +1630,178 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
 
 > Direction is *indicated* (these are triaged, grounded problems) but NOT locked — the mechanic, magnitudes, and
 > pass/fail belong to `/ai-dlc` slice planning when each is promoted to NOW. Treat the solution sketches as leads.
+
+- **Design-pass adjudication (Director, 2026-07-31): `R9-DEFENCE` + `R10-TAIL` are ANSWERED and ACCEPTED.**
+  Both reports (`docs/ai-dlc/reports/{r9-defence,r10-tail}-design.md`, local) answered every enumerated
+  question with measured attribution at pinned commit `803e9dc`; the design-question ⛔ on both items is
+  LIFTED. The prerequisites hold at HEAD: `R9-SIGNAL` shipped (#141) WITH the report's three amendment pins
+  (postflop-only line, run-length derivation, flat sampler kwarg — `personas_postflop.py:658`). Accepted
+  ready-to-file builds (specs live in the reports — promote via `/ai-org:spec`, serialize the two
+  `personas_postflop.py` spine slices):
+  - **`R9-DEFENCE-a`** ✅ **BUILT (2026-08-03)** — line-keyed continue log-odds shift, raise-neutral by
+    construction; new bounded pack lever `line_sensitivity` (`le=2.0`, seeds nit 0.60 / tag 0.50 /
+    lag 0.35 / passive_fish 0.35 / maniac 0.20 / calling_station 0.10). Suite 1386 → **1416 passed**.
+    Measured at the reference node: `ΔP(fold)` nit **+0.1312** (design predicted +0.1312), tag +0.0977,
+    lag +0.0650, fish +0.0814, maniac +0.0312, station +0.0054; raise-share drift `1.11e-16`. In organic
+    population play at barrel nodes: nit **+0.1463**, tag +0.0856, fish +0.0410, lag +0.0369,
+    maniac +0.0346, station +0.0041. Spec `docs/ai-dlc/specs/r9-defence-a.md` rev 2 + build corrections;
+    full adjudication in `docs/ai-dlc/ledger/r9-defence-a.md`.
+    **Three things this slice hands forward, all recorded rather than discovered later:**
+    (1) the mechanism is ratio-neutral, so **absolute** raise frequency FALLS — maniac AIR 0.2853 → 0.2513,
+    lag 0.1793 → 0.1385, and on the river polar cell it is a pure bluff-raise suppressor. `R9-DEFENCE-b`
+    (stage-2, pre-registered) inherits those numbers; the maniac's 0.20 is a floor minimising a wrong-signed
+    side effect, **not** a fitted contest rate.
+    (2) **W4-b precondition:** the banded population run stays line-blind while production opts in, so the
+    Wave-4 re-measure MUST run with `context_aware=True` AND `line_aware=True` or it re-anchors onto a
+    counterfactual bot. Two default-off harness levers now — a third must not be added silently.
+    (3) **arrival inverts against the ladder** — nit (largest λ) reaches 41 in-scope barrel nodes per 8,000
+    hands vs the station's 1,619, so roster-level gain is dominated by the persona with the smallest λ.
+    An arrival-class datum for `T-ARR`/`W-ARR`; do not read this slice's population effect size as evidence
+    about the POLICY.
+    *(Superseded planning note: `N-logit` was the blocker and is BUILT 2026-08-02.)* — it attaches at the same seam in the same function
+    (`sample_postflop_decision`, immediately before the single normalization), so it must serialize AFTER
+    N-logit lands rather than run beside it. Two things N-logit's build learned that this design should
+    absorb: the facing-node scale is applied last, so a second facing-node multiplier needs a stated
+    composition order; and on SPR-committed nodes the fold merit is zeroed, so any mechanism that works by
+    moving continue-vs-fold odds has **no reach there** (ledger B-10). `R9-DEFENCE-b` stays pre-registered,
+    do-not-build.
+  - **`R10-TAIL-a1`** ✅ **PR #146** (2026-07-31) — additive-exponent piecewise price ladder above OVERBET in
+    `_price_factor` (mechanic-only, no pack edits; K=2.0, anchor 1.5 w/ staleness guard; K=0 = HEAD
+    byte-identity). Owner gate decision: simple `f>1.5` (D4) — consequence: R10-2 exhibits h579 (1.45×) +
+    h81/h385 (1.50×) re-assigned to **W4-b** as §A6 plateau-HEIGHT defects; only h588 (2.33×) is fixed here.
+    Landing: fish FtC adjudicated INSIDE band at stable n (0.4635, n=274 — review 0.57 was n=44 contention
+    noise); band test now escalates FtC to stable-n before failing; fixtures re-recorded (cumulative coverage
+    25.7%, −2.6pp). Filed: estimator to_call ticket now includes f>1.5 tail parity; fish deep value-fold
+    collateral on the W4-b watch list. Triple-reviewed; ledger `persona-realism-wave-rrholes-w5b3-tail.md`.
+  - **`R10-TAIL-b1`** ✅ **PR #147** (2026-07-31, rebased onto merged #146, tip 450288d) — `TOP_PAIR` added to `_MW_CATCH_BUCKETS` (base 1.15
+    unchanged, directional); 46-test harness w/ red-first defect gates, HU byte-identity, sub-spr_commit
+    confounder, TPTK/2PP non-coverage byte-identity (owner stays W4-a/P6). Reviews: refuter PASS ·
+    theory PASS · Codex PASS-WITH-ISSUES (C-1 illegal-raise-node probe FIXED at SPR 1.19; C-2
+    draw-carrying TOP_PAIR accepted-documented; C-3 stale contract comment fixed). W4-b carries: base
+    magnitude fit (station 4-way call 0.9715→0.9599 — imperceptible at 1.15; §B5 sweep rows measured)
+    + draw-carrying observation. Ledger `persona-realism-wave-rrholes-w5b3-tail.md`.
+- **`N-3BSTRATA`** ✅ **PR #149** (2026-07-31) — SHIPPED: optional `role: opener|cold` on preflop response
+  nodes (untagged = both, four packs proven draw-for-draw identical), `is_opener` (first preflop raise)
+  plumbed live + estimator (per-street parity-tested), maniac/lag 1.2.0 opener tables. Production-blend
+  gate (seeded, opener incl. ISO raises — a Codex HIGH caught the unopened-only proxy under-measuring):
+  maniac opener fold-to-3bet 0.63→**0.2801** [0.25,0.35], lag 0.82→**0.4735** [0.43,0.53]; lag opener
+  4-bet 4.00% ∈ [3.0,5.5]. Gap gate + frozen bands held; lint inventory byte-identical. Triple-reviewed;
+  ledger `persona-realism-wave2-rremit-3bstrata-seatprov.md`. **Follow-up filed → `N-LAGLADDER`** (theory
+  HIGH, arrival-class): lag's opening ladder is uniformly too wide for its 21–27 VPIP identity, forcing
+  3-bet-defense call mass onto dominated offsuit; tighten early-seat offsuit opens (RR-EMIT territory),
+  then re-check the opener table composition against the band. Original filing below for provenance.
+  **— vs_3bet arrival-strata split: the opener over-fold (R10-3BET theory review R-1, 2026-07-31;
+  owner-adjudicated ACCEPT-AND-FILE).** The single `positions: null` wildcard `vs_3bet` node serves TWO arrival
+  strata — the OPENER re-entering after its raise got 3-bet, and a COLD facer against open + 3-bet — and one
+  weight table cannot fold cold junk without also over-folding the opener stratum. Measured by the slice's own
+  stratified instrument (opener = `all_hits − first_hits`, Wilson 95% CIs): **maniac opener fold 0.630
+  [0.486, 0.755] vs dossier ~0.30**; **lag 0.821 [0.644, 0.921] vs dossier 0.43–0.53** (lag dossier: "a rate
+  above 60% makes light 3-betting insufficiently defended"). Root constraint: the W5-b4 VPIP−PFR gap ≤ 10 gate
+  binds the cold-call mass, dragging the opener stratum with it — measured, not hypothesized. **Fix shape:**
+  split the response by arrival role (opener vs cold) — a schema + sampler-plumbing change in the same family
+  as **E1-b** (contract §9 #5); do NOT re-tune the shared table (the compensating-lever trap). The nit/tag
+  opener strata measure INSIDE their dossier bands — this is an aggressive-archetype defect only. Also carries
+  theory R-4 (LOW): lag's authored 4-bet share 2.33% sits under its 3.0–5.5% dossier band; nudge inside the
+  ordering headroom when the strata split lands. Station/fish opener readings are contaminated by limp-caller
+  re-entrants (the ≈opener approximation) — re-examine only once role tracking exists.
+
+- **Wave-3 filings (2026-07-31, from the N-LAGLADDER + T-M2/T-F3 triple reviews — ledger
+  `persona-realism-wave3-lagladder-nitpairs-flagrows.md`):**
+  - **⚠️ N-LAGLADDER PREMISE CORRECTION (builder-measured, refuter-verified):** the filing's "uniformly
+    too wide for its 21–27 VPIP identity" was HALF WRONG — pre-slice measured population VPIP was
+    already 23.5 (in band) and PFR sat exactly ON the §5 floor (17.32 vs 17-23), so **no width tighten
+    has headroom** (first build attempt proved it: −4pp RFI → PFR 15.77, 3.7σ under floor). The real
+    defect was COMPOSITION (offsuit-heavy), and that is what shipped: constant-width offsuit→suited
+    swap (arrival-weighted offsuit RFI 16.43→~10.7, dominated-tier 3-bet-flat mass 20.9%→14.9%,
+    lag offsuit ≥ tag at all 9 seats). **Any future lag width tighten is BLOCKED on the §5
+    joint-consistency contract filing below** (VPIP/PFR/gap trio infeasible at band edges).
+  - **`N-M4BET`** (theory HIGH, lane B T-R2) — the maniac's `vs_4bet` node, weighted by its own arriving
+    3-bet mass, responds **fold 0.814 / shove 0.140 / call 0.046** vs its dossier's 25/35/40, because
+    ~73.6% of arriving combos (AQo, KQo, ATo, AJs, 44-22, …) have NO mix and fold 1.0. The wave-3
+    99/88/77 fix was the symptom RR-LINT could see (pair rows are contiguity-checkable); the
+    offsuit-broadway coverage gap is the disease. Fit the node's arrival-weighted AGGREGATE to the
+    dossier triple, not per-class ordering alone.
+  - **`N-TAGCOMP`** (theory MED, lane A T-M2) — the tag's suited/offsuit opening composition is inverted
+    vs solver shape (BTN: tag plays 70% of suited / 62% of offsuit; the corrected lag plays 97% / ~50%).
+    Re-author tag's ladder composition (RR-EMIT territory); lane A's per-seat offsuit lag≥tag gate at
+    LJ-BTN inherits meaning from this.
+  - **W-ARR annotation** (theory HIGH, lane B T-R1) — nit `unopened` ARRIVAL measured: CO **0.122**,
+    BTN **0.061** (roster unopened 0.3150, n=3597 first-decisions). T-M2's pair opens move measured nit
+    PFR **+0.011pp** — the nit's remaining PFR gap (5.7 vs §5's 8-12) is ARRIVAL, not width; nit authored
+    RFI already exceeds its dossier per-seat band at 6 of 7 opening seats. ⛔ Standing: no further nit
+    authored-RFI widening until arrival is instrumented.
+  - **Verbatim-limp law scoping question** (theory MED, lane B T-R4, owner decision when next touched) —
+    the W5-b1 law pins CO 55 to limp 0.4 > raise 0.3, contradicting the nit dossier's CO "55+" RFI row
+    (aggregate open-limp still in band, 1.07%). Proposal on file: scope the law to early seats.
+  - **Contract filing** (theory HIGH, lane A T-M1, §11 item 15 family — owner of the next contract pass) —
+    §5's LAG VPIP/PFR/gap trio is not jointly satisfiable across full band edges post-ledger-#14 (gap row
+    left format-invariant while VPIP/PFR scaled ~0.75×). Recommendation: rule VPIP+gap primary, PFR
+    derived/DIRECTIONAL, or restate LAG PFR 16-23.
+  - **F18 example** (lane A T-L1) — lag AQo zero-fold applies uniformly incl. vs-UTG and from SB (vs_rfi
+    node opener/position-blind by construction); add AQo-vs-EP to E1-b/F18's motivating examples.
+
+- **Wave-4 filings (2026-08-01, from the N-M4BET + N-TAGCOMP triple reviews — ledger
+  `persona-realism-wave4-m4bet-tagcomp.md`):**
+  - **`N-TAGWIDTH`** (theory HIGH, arrival-class) — the tag's authored per-seat RFI sits OVER its
+    dossier envelope at 7 of 8 opening seats (CO 48.4 vs 25-29, BTN 58.2 vs 42-48 — the button opens
+    K5o/Q7o/J7o because a 58% total forces offsuit surplus once suited saturates). Measured arrival
+    (UTG 1.000 … CO 0.120, BTN 0.066, SB 0.026) makes aggregate PFR ~85% an EP statistic — the
+    dossier-ward late-seat trim costs only ~0.5pp PFR (lands ~12.4, inside §5 12-17), so it is
+    AFFORDABLE and was previously ruled out on an arrival-blind aggregate. The N-TAGCOMP width pin
+    is deliberately one-sided (rise-ceiling) so this trim deletes no gate.
+  - **`N-LAGCOMP2`** (convergent MED) — the LAG's late-seat suited coverage is now BELOW the tag's
+    (CO/BTN/SB) while its total is wider: its width sits in offsuit — the same shape T-M2 condemned.
+    Raise lag late-seat suited toward ~superset of the tag's; extend `_LAG_SUITED_FLOOR` to
+    CO/BTN/SB. Do NOT cap the tag (re-opens T-M2).
+  - **Contract filing (extends the wave-3 §5 filing):** §5 has no per-seat RFI row and metric #3's
+    aggregate is arrival-blind — the contract needs either a dossier-sourced per-seat RFI row or an
+    explicit rule that authored per-seat width is governed by the persona dossiers. The nit's W-ARR
+    no-authored-widening standing order now covers the TAG too.
+  - **Instrument note:** `_STATS_EXT_CACHE` keys on (persona, n) only — in-process before/after
+    sweeps silently reuse the first reading; add pack-identity to the key (rides with the
+    estimator/instrument ticket).
+
+- **Wave-5 filings (2026-07-31, from the N-TAGWIDTH + N-LAGCOMP2 triple reviews — ledger
+  `persona-realism-wave5-tagwidth-lagcomp2.md`):**
+  - [x] **`N-LAGWIDTH`** ✅ **SHIPPED 2026-08-01** (branch `feat/persona-realism-n-lagwidth`; spec/tickets/
+    ledger `docs/ai-dlc/{specs,tickets,ledger}/n-lagwidth.md`) — lag late-seat OFFSUIT-ONLY trim via
+    RR-EMIT: CO 53.12→48.60, BTN 65.97→57.83, SB 51.86→46.43 (spec 1.3.0 / pack 1.5.0, corpus 135→127,
+    dropped {97o J5o J6o K2o K3o Q4o Q5o T6o} + BTN/SB row-depth cuts). New one-sided ceiling gate
+    (red-first proof 53.122>49 / 65.973>58 / 51.855>47; provenance anchor cited [UNVERIFIED]).
+    Population: VPIP 23.74→23.27 in-band, gap ~unchanged, **PFR 17.49→17.11 — stayed ABOVE the floor**
+    (the accepted dip never materialized; thin margin → W4-b watch below). Opener blend 0.4914→0.4722
+    in [0.43,0.53] — **no vs_3bet retune needed**; component pin re-pinned 0.6166→0.6012 (update-the-pin
+    law, theory MED folded). Fixtures: station N200 golden row + limper belt (8/9) re-recorded;
+    coverage_baseline byte-unchanged (cumulative delta unchanged); turn-river organic-fire budget
+    1200→2300 (first hit 911→1746, disclosed ripple). Dual spec review (Sonnet refuter + Codex Terra,
+    5 folds + 1 rejected) + fan-in refuter PASS + theory GO-WITH-ISSUES (2 MED folded/filed). T0
+    prerequisite shipped separately: **PR #159** (main was RED — wave-6 squash chain lost 2 re-records).
+    **Follow-up filed → `N-LAGHJ`** (theory MED, relocated-defect class): the trim floors CO on the
+    untouched HJ, manufacturing a near-plateau HJ 47.63 → CO 48.60 (+0.97pp between two +9pp steps);
+    lag HJ/early seats remain over-wide (UTG 24.9 vs folklore 15–18 [UNVERIFIED]) — an HJ(+early) trim
+    slice would give CO a real step back and reopen the cliff-inversion close-out. Also carries the
+    SB/BTN To-row inversion cosmetic (SB opens T8o+ full-weight, BTN only T9o — restore BTN To depth
+    when next editing). Blocked on the same §5 per-seat-RFI contract filing + population-floor tension
+    (lag PFR margin now ~0.11pp).
+  - **Lag cliff inversion** (wave-5 lane-1 reviews, measured) — lag BTN/UTG cliff 2.6318 < tag 3.0632,
+    inverting `rfi-seat-provenance.md`'s directional `cliff(LAG) ≥ cliff(TAG)`. Pre-dates N-TAGWIDTH
+    (pre-slice tag 3.4159). Lag-lane owned — next lag slice inherits (ties to R9-SEATMETRIC's
+    lag 25% UTG / 66% BTN finding). Report-only cliff row ships in N-TAGWIDTH.
+  - **Early-ladder owner escalation (tag)** — the provenance envelope (UTG 9–13 … HJ 14–19) is
+    jointly unreachable with the DIRECTIONAL §5 tag PFR edge of 12 (cascade costs 0.7–2.1pp vs
+    measured 12.05): fixing UTG1/UTG2/LJ/HJ needs the owner to answer BOTH (a) may tag PFR run
+    below 12 pre-W4-b, and (b) may the LJ/HJ/CO ~1.4pp plateau (CO÷LJ 1.10 vs sources 1.27–1.85)
+    ship in the interim. Filed, not taken.
+  - **W4-b watch list additions:** tag PFR straddles 12 (mean 12.05, 95% CI [11.88, 12.23], 4/10
+    seeds below — DIRECTIONAL pre-W4-b, unwatched by CI since metric #3 is never compared to §5);
+    joins fish + maniac WTSD deferrals. **N-LAGWIDTH adds (2026-08-01): lag PFR 17.11 vs floor 17
+    (margin ~0.11pp, derived-DIRECTIONAL per #154 — any further lag narrowing crosses it); lag
+    N-3BSTRATA component pin now 0.6012 after two consecutive downward re-pins (0.6034→0.6166→0.6012)
+    — trending band consumption, re-source at W4-b.** Cliff-ratio report: lag BTN/UTG fell further
+    below tag's with the BTN trim (accepted side effect, owner 2026-08-01; close-out rides `N-LAGHJ`).
+  - **Contract filing (extends waves 3–4):** `rfi-seat-provenance.md` committed to the tree (was
+    untracked while CI gates cited it — Codex/theory HIGH); §5 still needs the per-seat RFI row or
+    an explicit dossier-governance rule.
 
 - **Villain-range rung (a) — coarse static preflop-range-by-position lookup (G1-a) — COMMITTED.** Give the engine a
   cheap, static, per-position preflop range *lookup* (data, not a solver — stays no-solver-compliant). Unlocks the
@@ -1599,24 +1977,69 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
   under the "serialize per pack" rule, so it **is** W5-B work rather than a parallel wave; and it **cannot close
   under D7 until `W-ARR-a` exists**. **Cut `vs_rfi` from scope** — actor position is not opener position, and
   shipping it risks a false "`audit-F18` done" signal.
-- **N-logit — nested logit on the facing node.** Split the single normalization in two: stage 1
-  `P(continue)` = defend vs fold, stage 2 `P(raise | continue)`. Then `call_looseness` drives stage 1 only and
-  `aggression` stage 2 only — **orthogonal by construction**, mapping one-to-one onto fold-to-c-bet and
-  raise-share. **~10 lines** around `:744-824`. Directly fixes the measured `passive_fish` pathology where
-  cutting `call_looseness` to 0.42 to reduce over-calling sent the removed mass to **RAISE** (monster raise
-  44.3% → **72.6%**) instead of FOLD, because nothing scales `_RAISE_BASE`. **Cost:** re-anchors every
-  facing-node band once — so sequence with W4-b, not against it.
-- **N-vecfit — make the fit loop vector-valued for the two identity levers.** Measured lever reach:
-  `call_looseness` **76.3%** of cells and `aggression` **59.8%** (both broad-spectrum, all five actions) vs
-  `size_elasticity` 42.2%, `bluff_freq` 5.3%, `position_sensitivity` **4.8%** (CHECK/BET only),
-  `multiway_bluff_damp` 2.3%. The lever set is **block-triangular, not dense** — `∂CBet/∂ln(call_looseness) =
-  0.000000` exactly, in all tested mixes, because the facing-side levers cannot reach unopened-node stats. The
-  2×2 Jacobian of the two identity levers is **well-conditioned (cond ≈ 2–3)**, so cross-talk is real but
-  jointly fittable in a few iterations. The defect is that `persona-realism-fit-loop.md` steps 2–4 specify a
-  **scalar** loop — coordinate descent on a non-diagonal system, which zig-zags. **Keep D11**; it guards the
-  residual *arrival* coupling that none of this removes. Caveat: cond(J) = **14.3** for the station on an
-  air-heavy range, so pair targets whose Jacobian rows are not parallel (FtC + CBet separates; FtC +
-  RaiseShare does not).
+- ✅ **N-logit — nested logit on the facing node. BUILT 2026-08-02** (branch
+  `feat/persona-realism-n-logit`, `f365082` + `891683a` off `origin/main` `3bac7d2`; spec rev 3, ledger
+  `docs/ai-dlc/ledger/n-logit.md`). **The shipped shape is NOT the two-stage split described below** — revs 1
+  and 2 of that design were rejected (rev 1's re-parameterisation cancelled algebraically and was a measured
+  no-op that passed 8 of its own 10 gates; rev 2 was correct but broke 6 frozen exact-equality vectors with a
+  1-ulp residue). What shipped is the refuter's single-raise-scale reformulation: each pack authors
+  **`continue_ref`**, a FROZEN copy of its effective `call_looseness`, and the engine scales the RAISE merit
+  by `looseness / continue_ref` immediately before the existing single normalization. `L` cancels from
+  `P(raise | continue)`, so the calling lever controls WHETHER the bot continues and the raise-side
+  calibration controls HOW.
+  - **Two lines + a runtime guard.** One normalization, one action draw — C1 preserved by construction.
+  - **NO band re-anchor** — the cost line above is void. At the authored anchor the scale is exactly `1.0`,
+    so play is **bit-identical**: 30,000 random facing cells, 0 bitwise mismatches; every seeded fixture,
+    frozen vector, golden and `BANDS` entry untouched. The graded-coverage delta is **zero**.
+  - **Two disclosed reach changes, both gated.** GAINED on the river polar-bluff cell, where the call merit
+    is hard-zeroed so the lever now moves the bluff-raise rate (largest on ACE_HIGH at a small price: lag
+    0.104 → 0.651 across ×0.25…×4). LOST on SPR-committed nodes, where `_commit_transform` zeroes the fold
+    merit so `L` cancels from the whole distribution and the lever is **inert** — it was dominant there at
+    HEAD. **`R9-LOOSEFIT` therefore has no reach over committed nodes, and must re-measure AF rather than
+    assume the raise side is inert.**
+  - **Q1 RULED by the owner (2026-08-02): ship as-is; the river polar-bluff overlap is handed to
+    `N-riverair`.** The carve-out the theory reviewer recommended was declined — the anomaly is that node's
+    hard-coded zero CALL weight, which `N-riverair` already exists to replace with a frequency; once it does,
+    the node stops being degenerate and the overlap dissolves. ⚠️ **`N-riverair` now carries this question —
+    its builder must read spec §3.4 and ledger Q1.** Accepted cost meanwhile: a persona tuned to call more
+    also bluff-raises rivers more, backwards for `calling_station`.
+  - **Fan-in:** refuter FAIL · Codex Sol 2 MED/2 LOW · theory NEEDS-WORK — **no HIGH in the mechanism from
+    any of the three**; every finding was a gate-set or disclosure hole, all nine reproduced before
+    adjudication (ledger B-8…B-15 + Q1).
+- **N-vecfit — reshaped to a fit-loop doc amendment; the vector-tool premise is unsupported where tested.**
+  A pre-spec measurement (`docs/ai-dlc/reports/n-vecfit-premise.md`, incl. its Post-review corrections)
+  tested the claim below that the scalar loop "zig-zags" and needs a vector-valued fitting tool. **Scope
+  qualifier (verbatim from the report):** this refutes the expensive-zig-zag claim **for tag on the (FtC, AF)
+  pair, near and far targets, context-aware/line-blind posture, with local Jacobian corroboration for nit**
+  — it does not measure lag, station, maniac, other stat pairs, or the line-aware posture. Within that scope,
+  scalar coordinate descent **converged** (6 calls near target, 7 far target, consistently-accounted) while
+  the vector tool's fixed-Jacobian Newton arm **failed to converge** on the far target (5-call cap, damped
+  alternation, ~1.45× far-field slope drift) — scalar is competitive-to-cheaper; its own error sequence is
+  damped alternation contracting 5.5×/48× per round, i.e. the claimed zig-zag exists in sign but not in cost. **Owner
+  reshape (2026-08-03): the tool is dropped; the slice ships as a doc amendment to
+  `persona-realism-fit-loop.md`** (see its "Multi-lever fitting — measured rules" section) instead. Confirmed
+  facts kept (provenance: the original filing's design-pass measurement, pre-reshape — retained, not
+  re-measured): measured lever reach `call_looseness` **76.3%** of cells and `aggression` **59.8%** (both
+  broad-spectrum, all five actions) vs `size_elasticity` 42.2%, `bluff_freq` 5.3%, `position_sensitivity`
+  **4.8%** (CHECK/BET only), `multiway_bluff_damp` 2.3%. The lever set is **block-triangular, not dense** —
+  `∂CBet/∂ln(call_looseness) = 0.000000` exactly, in all tested mixes, because the facing-side levers cannot
+  reach unopened-node stats. **Keep D11**; it guards the residual *arrival* coupling that none of this
+  removes. Caveat: cond(J) = **14.3** for the station on an air-heavy range, so pair targets whose Jacobian
+  rows are not parallel (FtC + CBet separates; FtC + RaiseShare does not).
+  Because "unblocks `R9-LOOSEFIT`" was the premise's overclaim, `R9-LOOSEFIT` still owns four items this
+  slice does not solve:
+  1. **Fold-share/raise-share metrics do not exist** — `_persona_stats` returns AF/FtC/WTSD only; the counts
+     are computed internally but not surfaced. `R9-LOOSEFIT`'s spec must add the derived stats (test-harness
+     code, in ITS scope).
+  2. **Cross-persona joint fitting was NOT measured.** The premise study covered within-persona lever coupling
+     only. `R9-LOOSEFIT`'s "fit nit/tag/lag jointly + pairwise nit-vs-tag separation gate" is a different
+     problem; its design pass must define the separation targets and decide its own procedure (the fit-loop
+     rules apply per-fit; they do not answer the across-persona question).
+  3. **Its own Rule-1 check:** measure ρ + row-conditioning for ITS personas × ITS stat pair before fitting
+     (station cond 14.3 and maniac's missing `call_looseness`/stickiness-fallback surface are the known
+     dangers).
+  4. **Posture decision:** line-blind vs line-aware measurement; if production-faithful, add the `line_aware`
+     passthrough to `_persona_stats` first.
 - **N-maniac — the maniac is ~20 points below its VPIP band** (**25.4%** observed vs a 45–60 target) — by that
   measure the **roster's largest single band violation**, larger than the routing defect above. Cause: `930eb20`
   (#119) widened the `unopened` ladders for nit/tag/lag and **did not touch `maniac.json`**, leaving the
@@ -1702,6 +2125,13 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
   5. **Attribution — do this BEFORE fitting anything.** Re-run R9-1's matched grid across price × bucket ×
      headcount × stack-to-pot ratio to separate the line effect from price growth, the commit gate, and taxonomy
      defects. **Fitting a mechanism over an unattributed aggregate is how you bake in a compensating error.**
+     **Grid-instrument pin (R10, 2026-07-29):** the attribution grid is the DIRECT constructed-policy grid
+     (fixed cards/price/legal set/context) evaluated at a pinned commit — never a simulator-derived or
+     live-corpus grid, whose inputs shift whenever preflop packs change. Live-corpus results are post-merge
+     validation, not design evidence.
+  *(R10 note: the OVERBET-tail and multiway-continue questions live in the separate sibling item `R10-TAIL`
+  below — a first-bet overbet call is an absolute-price defect, not a line response. R10-5's multiway
+  pile-up evidence still informs question 3's bet/raise/jam scope split.)*
   **Acceptance harness when it is finally filed:** use R9-1's grid, extended — hold bucket / draw / price /
   headcount / stack-to-pot / legal set constant and vary the **line**, not the street. The flop-versus-turn
   byte-identity in R9-1 must **break**, in the archetype-appropriate direction.
@@ -1729,11 +2159,18 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
   **⚠️ FILE COLLISION:** T-ANCHOR owns `personas_postflop.py` **lines 825–871** — the non-facing `if bluff_cell:`
   branch, which is exactly where a c-bet term lives. **Serialize behind T-ANCHOR.**
 
-- **`R9-SEATPROV` — source RFI-by-seat provenance (research slice).** *Blocks the numeric half of W5-b3's ceiling
-  and of the §5 seat axis.* Two unsourced seat ladders are in circulation and **neither may become a gate**.
-  Establish a 9-max full-ring, low-mid-stakes provenance row for opening frequency by seat, with the same
-  `(format, pool, source)` triple discipline §5a already requires. Until it lands, seat-axis work asserts
-  **shape** (strict increase, ceiling exists) and never **level**.
+- **`R9-SEATPROV` — source RFI-by-seat provenance (research slice).** ✅ **DONE 2026-07-31 (PARTIAL)** —
+  `docs/ai-dlc/research/rfi-seat-provenance.md` (local). Solver-chart provenance ESTABLISHED for 9-max
+  full-ring at coarse seat granularity — strongest triple: (9-max full-ring cash 100bb, solver-derived
+  simplified charts, Preflop Wizard 2026, verified by fetch): UTG ~11 / MP-bucket ~13 / HJ ~17 / CO ~24 /
+  BTN ~40 / SB ~30. Measured-POPULATION provenance NOT established (no public pool study retrievable;
+  population cells remain [UNVERIFIED]). UTG1/UTG2/LJ have NO individually sourced level anywhere (bucket
+  collapse). **Verdicts:** W5-b3 cliff 2.84 UNRESOLVED (baseline cliffs 3.64–4.23; low for a pool baseline,
+  plausible for a nit); candidate band 3.2–5.25 supported as a baseline-pool bracket, NOT as an archetype
+  gate; the ~6.5 derivation UNSUPPORTED — **retired** (likely cross-format arithmetic). **Standing law:**
+  seat-axis gating stays SHAPE-only (strict increase; SB between CO and BTN — held in every source); first
+  safe instrument = ordinal cross-persona cliff comparison (nit < tag ≈3.5 ≤ lag, maniac EXCLUDED —
+  top-compressed). DO-NOT: import 6-max ladders (15/19/27/43, 18/22/28/43) or the retired ~6.5 into gates.
 
 - **`R9-SEATMETRIC` — the §5 target table needs a SEAT AXIS, or an inverted bot passes every gate.**
   **Measured, and this is the sharpest instrument finding in R9:** `lag` posts VPIP **21.4** / PFR **18.1** —
@@ -1753,18 +2190,123 @@ composition — it may not be expressed by conditioning `bluff_freq`.** See the 
   independently sourced and powered. Several R9-2 cells are n=6–15 and are labelled directional in this file.
   **Do not let W-ARR-a's arrival counter quietly become a W4-b gate.**
 
-- **`R9-LOOSEFIT` — fit `call_looseness` for nit / tag / lag jointly. ⛔ ORDER MATTERS AND IS COUNTERINTUITIVE.**
-  **Problem:** **nit and tag both sit at `call_looseness = 0.6`** — identical. Two archetypes that should defend
-  very differently share the dial that decides defending. That equality *is* the defect.
-  **⛔ Do NOT lower `call_looseness` before the normalisation repair.** Freed call mass currently flows to
-  **RAISE**, not FOLD — the `N-logit` pathology, observed live when the fish was cut to 0.42. Tightening a bot
-  this way makes it *wilder*. **Correct order: `N-logit` → `N-vecfit` → this item → W4-b.**
-  **Fit fold-share and raise-share JOINTLY, not persona-by-persona against one aggregate band** — fitting nit and
-  tag separately against the same band can *erase* archetype separation rather than restore it.
-  **Add an explicit pairwise nit-versus-tag separation gate.**
-  > **⚠️ Re-grep before filing.** The claim that no filed slice already lowers `call_looseness` for these three
-  > after W5-a4 is an absence-of-evidence claim over a 1700-line file, flagged as its own author's weakest.
-  > **Verify it is still true before spending a slice on it.**
+- **`R9-LOOSEFIT`** ✅ **BUILT (2026-08-04)** — nit-only, `call_looseness` 0.6 → 0.45, gated pairwise
+  against tag. Rev-4 build. Only `content/personas/nit.json`'s `call_looseness` moved (0.6 → 0.45,
+  `continue_ref` and `stickiness` untouched); nothing else on any pack changed. Two gates ship:
+  a five-node panel of correctly-priced constructed nodes (self-difference — nit against itself at
+  the old value — measured +0.0697/+0.0717/+0.0718/+0.0595/+0.0707, binding node at 1.49× the
+  0.040 floor), and a population sweep over the re-priced 970-cell canonical grid, on which **nit
+  now folds more than tag at every non-degenerate cell (970/970, up from 384/970 at HEAD)**.
+  A self-difference ceiling was derived and verified (analytically and numerically, to 1e-16):
+  because the lever scales the CALL and RAISE merits by the same factor, the maximum possible
+  self-difference is **0.071797**, so no threshold at or above 0.072 could ever be met by this
+  lever. Suite: 1416 → **1419 passed, 1 skipped, 0 failed**; `ruff` clean. Two pre-existing fixtures
+  re-recorded under protocol (`_GOLDEN_STATS_N200`, `_PRE_M3_FIRES`), attribution proven by revert.
+  ⚠️ **What this did NOT achieve, measured at the theory fan-in (ledger TH-1…TH-4) — read before
+  citing this slice:** (a) the nit is **NOT the roster's tightest defender** and this slice does not
+  claim to make it one — `passive_fish` still outfolds it in 540 of 692 cells, aggregate
+  Fold-to-C-bet **fish 0.489 vs nit 0.359**, because fish is authored at `call_looseness` 0.42 and
+  the R9-DEFENCE-a ladder floors the nit at ≈0.42; (b) the closed-loop stat moved
+  **0.259 → 0.359** against a §5 target of 60–75, i.e. the right direction and still far short —
+  and the target is **unreachable on this lever** (it needs ≈0.225, below both the ladder floor and
+  the α ceiling), which is evidence about the target and is routed to `W5-a2-f`; (c) **the lever is
+  flat over the whole continue mass, so the nit now folds STRONG DRAWS more than any other
+  persona** (0.3535 → **0.4217** at the trace node, above passive_fish 0.4173) — a −EV fold that
+  neither shipped gate can see, since both read only non-draw nodes. Filed as `N-DRAWLOOSE`.
+  Roster Fold-to-C-bet after this slice: fish 0.489 > nit 0.359 > maniac 0.345 > tag 0.303 >
+  lag 0.301 > station 0.161. Cumulative graded coverage vs the immutable snapshot: **unchanged**.
+  Full numbers, the mutant kill table, and the "what still passes while being wrong" list:
+  `docs/ai-dlc/reports/r9-loosefit-rev4-measurement.md`. Spec `docs/ai-dlc/specs/r9-loosefit-rev4.md`;
+  full adjudication history in `docs/ai-dlc/ledger/r9-loosefit.md`.
+  **The claim is pairwise: the nit folds more than tag.** Every gate this slice ships compares the
+  nit against tag only, and all of them can pass while the nit folds less than lag, passive_fish,
+  maniac or the calling station at some nodes — nothing here measures that.
+  **Problem this slice addressed:** **nit and tag both sat at `call_looseness = 0.6`** — identical.
+  Two archetypes that should defend very differently shared the dial that decides defending.
+  **Order followed:** `N-logit` → `N-vecfit` (fit-loop rules only, its vector-fitting tool
+  prerequisite having been refuted where tested) → this item.
+  **Five follow-ups filed, none built here** (see the "Filings" table in
+  `docs/ai-dlc/specs/r9-loosefit-rev4.md` for the full text):
+  - **`N-LADDER-PREMISE`** — R9-DEFENCE-a's ladder gate requires the nit to show the largest rise in
+    folding under a sustained barrel, which floors this lever at ≈0.42. **THEORY REVIEWER RULED UNSOUND, OWNER RULED
+    (2026-08-04, ledger TH-2): RE-EXPRESS THE POPULATION LADDER IN LOG-ODDS.** Disposition settled —
+    a buildable slice now, not an open question. Assert `Δ ln(p/(1−p)) ≈ λ` at in-scope barrel
+    nodes, copying the pattern
+    `test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie` already uses correctly
+    at a fixed node: base-rate-invariant, no ceiling, and the exact prediction rather than a
+    compressed image of it. Touches `test_r9d_s5_fold_rate_rise_follows_the_defensible_ladder`
+    (`:9475`) and `_R9D_S5_ORDER` (`:9270`). **Unblocks `call_looseness` below 0.42 and is the
+    prerequisite for the nit ever outfolding passive_fish.** Decisive evidence: moving `call_looseness` across six values with `line_sensitivity`
+    **held constant at 0.60** flips the gate PASS → FAIL, so it does not measure the parameter it
+    claims to order. ΔP(fold) is a compressed, non-monotone image of λ (inverted-U in the base fold
+    rate; the whole nit-over-tag window is 2.45 fold-points wide), and the nit reaches only **30–41
+    in-scope barrel nodes per 8,000 hands** — 1–5 binary flips, 3σ ≈ ±0.26. Measured cost of leaving
+    it: its ≈0.42 floor is **exactly** passive_fish's authored `call_looseness`, so the gate
+    structurally forbids the nit from ever being tighter than the fish. Recommended: re-express the
+    population ladder in **log-odds** (base-rate-invariant, no ceiling — as
+    `test_r9d_s4_ordering_is_strict_between_tiers_and_equal_within_the_tie` already does at a fixed
+    node), or demote S-5(c) to report-only per the N-TAGWIDTH precedent. Either unblocks the lever
+    below 0.42 and is the prerequisite for the nit ever outfolding the fish.
+  - **`N-DRAWLOOSE`** ✅ **BUILT 2026-08-05 on `feat/n-drawloose`** (base `b0a6a4e`, ten commits;
+    suite **1430 passed / 1 skipped / 0 failed**, ruff clean, `BACKEND VERIFY OK`).
+    Owner-prioritised ahead of the rest of the queue because every future archetype tightening
+    made it worse. Origin: theory fan-in TH-1.
+    📄 `docs/ai-dlc/specs/n-drawloose.md` (**rev 3 — read this, not rev 1 or 2**),
+    `docs/ai-dlc/ledger/n-drawloose.md` (three-reviewer fan-in, adjudicated),
+    `docs/ai-dlc/reports/n-drawloose-build-state.md` (build record and traps),
+    `docs/ai-dlc/contracts/n-drawloose.md`.
+    **What shipped.** For `DrawCategory.STRONG` **and `looseness < 1.0`**, the archetype calling
+    dial is floored at 1.0 where it multiplies `_DRAW_CALL_BONUS`; the reference merit is computed
+    **UNFLOORED**, so the N-LOGIT raise scale carries the floor's growth to the RAISE leg as well.
+    Effect: bots stop folding hands nobody folds (nit's fold on a 15-out combo draw 0.4217 →
+    **0.2608**, the roster's worst reading gone) **without** becoming passive — `P(raise∣continue)`
+    matches the base engine to `1.11e-16`. Any dial ≥ 1 falls through to the untouched original
+    expression, so `calling_station`'s bit-identity is structural rather than a power-of-two
+    accident. Graded coverage share **rises** 26.01 % → 27.53 %.
+    ⚠️ **Rev 1 and rev 2 are both withdrawn; do not cite either.** Rev 1's claim that the N-LOGIT
+    raise-share invariance is unrecoverable on draw nodes is **FALSE**. Rev 2 was approved at
+    Gate 2, built, and then **failed by all three fan-in reviewers**: it floored the reference,
+    which cancelled the floor's growth out of the ratio and made every aggressive persona stop
+    semi-bluff raising big draws (lag 0.4718 → 0.3884), and its "structural, not arithmetical"
+    claim was false — `max(L, 1.0)` returns `L`, so it silently re-associated on the dial ≥ 1 side.
+    ⚠️ **FIVE personas' policy changes, not one.** The floor binds for every persona with a dial
+    below 1.0 — nit, tag, lag, maniac, passive_fish. Only `calling_station` is inert. The
+    "only the nit changed, the rest is shared-shuffle displacement" story was written into three
+    documents before all three reviewers independently refuted it.
+    **Owner rulings, both revised at fan-in.** The `passive_fish` ⅓-pot band is now **report-only**
+    (the theory contract marks that target directional-only, so it may bound a regression but may
+    not define a pass); the 80,000-deal escalation that first rescued it is deleted. The coverage
+    baseline was re-recorded, `total` 1288 → 1195, with the graded **share** disclosed as the
+    honest metric. `N-FISHFLOOR` remains filed.
+    New filing `N-DRAWEQUITY`: `_draw_equity` gives every STRONG draw a flat nine-out proxy, so a
+    15-out combo draw reads 0.18 on the turn when the hand actually holds ≈32.6 %. `call_looseness` is a flat scalar over the
+    **entire** continue mass, so tightening an archetype also tightens it against hands nobody
+    folds. Measured: the nit now folds a 15-out combo draw facing a ⅔-pot bet **0.3535 → 0.4217**,
+    the highest of all six personas, against that spot's own committed prescription ("semi-bluff
+    raise / call, few folds") and a ~50 % equity hand needing 28.6 %. Neither R9-LOOSEFIT gate can
+    see it — both read only `DrawCategory.NONE` nodes. Fix is engine work: exempt or floor the
+    draw-bearing continue merit from `call_looseness`, leaving `_DRAW_CALL_BONUS` on a price/equity
+    gate (the §4 P6/F7 lever's natural home). Also carries the raise-shape question (TH-5): the
+    lever scales RAISE and CALL by the same factor, holding raise:call exactly constant, whereas a
+    real player tightening a defence drops the weakest calls and keeps every value raise.
+  - **`N-NLOGITPRICE`** — `_NLOGIT_PRICES` (`backend/tests/test_personas_postflop.py:7005`) yields
+    engine faced fractions of 0.5, 2.0, **600.0 and 1200.0** while its own comment claims "1/3 pot
+    … 2x pot"; half the canonical grid tests bets that cannot occur. **Filed, not blocking** — this
+    build proved N-LOGIT's G1 gate discriminates equally at correct prices, so nothing depends on
+    the broken half.
+  - **`N-ANCHORSTALE`** — 41 `model_copy(update=` sites in the test tree may share the "author the
+    value on the probe copy, so the shipped value is never read" idiom that silently goes stale.
+    The five known instances were fixed in this slice; the wider audit remains.
+  - **`N-TAGPIN`** — tag's `call_looseness` is immovable until
+    `test_elasticity_split_faithful_decomposition_byte_identical` (`:1321`) is re-scoped onto a
+    **fully synthetic** pack (repointing at another shipped pack only moves the pin) — prerequisite
+    for ever authoring `size_elasticity` on tag. Carries four exact raise pins at `:6260` with no
+    documented re-record protocol.
+  - **`N-SIMFLAKE`** — `backend/app/services/sim_session.py:16-18` seeds from unseeded `secrets.randbits`,
+    making two tests genuinely flaky: `test_sim_session_buyin_cap.py::test_every_hand_starts_every_seat_inside_the_buyin_band`
+    and `test_sim_session.py::test_reveal_unavailable_on_live_hand_and_unknown_scope` (measured 2
+    failures in 400 runs) — a non-deterministic test in a suite whose whole discipline is
+    determinism.
 
 - **`R9-TAXONOMY` — an under-pocket-pair class. ⚠️ WEAKEST ITEM IN R9 — STATE THE SEMANTICS OR DROP IT.**
   > **This item is what remains after two errors were removed. Do not restore either.**
@@ -1794,17 +2336,156 @@ already exist in this file.**
 | **`N-cbet` — ⚠️ TWO DISTINCT ENTRIES SHARE THIS LABEL** (the audit entry and the R8 entry) | **Merge both under `R9-CBET`.** **Reject** the R8 entry's proposal to promote `cbet_flop` to a HARD gate — §5a forbids it while UNVERIFIED. The audit entry re-levels damps on **made-hand** cells and never reaches the AIR cell (`if bluff_cell:` short-circuits first), so **it does not cover the c-bet defect** despite appearing to. |
 | **`N-anchor`** | Same subject as T-ANCHOR and resolved by R9-5. **Reconcile, do not duplicate.** |
 | **`N-logit`** | **PROMOTED to a prerequisite** of `R9-LOOSEFIT` and `R9-DEFENCE` (was a sibling). It is the normalisation repair both depend on, and without it both make bots wilder while appearing to tighten them. |
-| **`N-vecfit`** | **Prerequisite of `R9-LOOSEFIT`** — the two identity levers must be fit jointly, not one at a time. |
+| **`N-vecfit`** | Contributes **fit-loop rules; the vector-tool prerequisite was refuted** where tested — `R9-LOOSEFIT` owns its own joint-fit design (see the N-vecfit entry's 4-item handoff). |
 | **`N-riverair`** | Its river half is correct and stands. ⚠️ **Its instruction to "adjudicate the fish lever first" is SUPERSEDED** — see NO-GO N2 below: the fish is the persona that is *correct*. Marked superseded in place. |
 | **`N-maniac`** | **Fold into W5-b4**, retaining open width as a **diagnostic**. See NO-GO N9. |
 | **`N-limp`** | Its `vs_rfi` cut is **superseded by W5-b2** (which keeps `vs_rfi` and cuts only the opener axis — the right call). Its "only nit/tag/lag" scoping should be **reconsidered for the BLIND SEATS specifically**: measured station BB VPIP is **28.6%**, its *second-tightest* seat, when a station closing the action for 2bb should be at its **loosest**. **Scope blinds for all six packs; leave open-position tiers to nit/tag/lag.** |
 | **`N-oppo`** | **Do NOT absorb into the opponent-modelling fork.** It is **grader/coaching-side** opponent modelling — a different consumer from bot decision-making. Two different problems that share a word. |
 | **`N-raise`, `N-d8gate`, `N-cat`, `N-blind`, `N-stale`** | **Unchanged by R9. Do not touch.** |
 
----
+### NEW NEXT items (2026-07-29, 756-hand review — R10; restructured same day after triple review)
+
+> Source: R10 pass above. The build items are **pack-JSON + instrument work** in the proposed preflop lane
+> (R10-8); pack edits obey W5-B's "serialize per pack, one owner per JSON file" rule inside the lane.
+> **Lane opens only after T-STICKY lands** (triple-review correction — see R10-8). The three build slices
+> are deliberately SPLIT (one causal change per acceptance event — anti-laundering discipline; the original
+> single `R10-PRESEP` bundle is superseded by R10-COUNT/PRE1/PRE2 + the un-absorbed W5-b4).
+
+- **`R10-COUNT` — conditional action-at-node counters (lane instrument; runs FIRST).** *ICE 8·8·2.*
+  **Problem (triple-review):** `W-ARR-a` counts node OCCUPANCY, not the action chosen there; `ExtStats.pfr`
+  is all-hand PFR. Nothing in-repo measures `P(raise | first-in, persona, seat)` or
+  `P(fold/call/4bet | vs_3bet)` — the lane's D7 exit needs exactly those conditionals.
+  **Build:** persona × position × facing-node × action counters with separate first-decision and
+  all-decision denominators, alongside the existing W-ARR counters (same instrument surface; verify file
+  ownership vs the spine at spec time — instruments must not touch `personas_postflop.py`).
+  **Pass/fail:** counters reproduce the R10 corpus numbers on a seeded run (e.g. maniac first-in raise
+  ≈27% aggregate, EP-stratified ≈18%) — a real cross-validation against an external derivation, then the
+  live instrument for PRE1/PRE2/3BET. Byte-identical bot behavior (measurement only).
+- **`R10-PRE1` — premium unopened no-fold correction (small correctness fix).** *ICE 9·9·1.*
+  **Problem (R10-1b):** maniac premium unopened classes authored `fold 0.15–0.30` → folds AK/JJ unopened
+  (h318/h713 minimal repros).
+  **Pass/fail:** deterministic authored-shape assertion — premium-class (enumerate exactly: `TT+, AK, AQs`)
+  unopened fold weight **= 0 for maniac** (currently 0.15–0.30 → FAILS at HEAD, verified). LAG's premium
+  fold weight is ALREADY 0 → recorded as a PRESERVATION check, not a defect gate (R9-3 rule respected).
+  Fixture re-record: owner-authorized, small blast radius.
+- **`R10-PRE2` — maniac ladder separation (first-in identity).** *ICE 8·7·3.*
+  **Problem (R10-1a):** maniac's authored ladder sits below LAG's at every seat and below TAG's at
+  UTG/BTN/SB; measured EP first-in: maniac 18.3% = tightest of the four.
+  **Pass/fail:** ① deterministic: authored per-seat RFI **maniac > lag at every seat tier** — currently
+  FAILS at every seat (verified). **Justification for the hard ordering: the roster's DEFINITIONAL
+  archetype ordering** (theory contract §1 idealized-distinct caricatures; same basis as the pinned
+  cross-persona `bluff_freq` ordering test) — NOT the dossier seat bands, which stay soft/refuter-flagged
+  and are used as directional fit seeds only (level targets: rubric band UTG ≈32–45 → CO/BTN ≈52–82,
+  DIRECTIONAL). ② sampled first-in rates via `R10-COUNT`, **REPORTED not gated** until `R9-SEATPROV`.
+  **⚠️ The full `nit < tag < lag < maniac` chain is NOT this slice's gate** — the nit>tag inversion at
+  UTG1/UTG2/LJ (authored 29.1 wildcard vs tag 18.7–27.9) belongs to **W5-b3** (nit-scoped, already in
+  NOW), which this slice does not edit. The four-way chain becomes assertable only after W5-b3 lands —
+  record it there as a cross-slice exit check.
+  **Measure-and-remeasure note (corrected):** the preflop sampler is **categorical with an implicit-fold
+  remainder — there is NO softmax there**; authored weight ≠ observed frequency because of arrival/seat
+  mixing and first-match node selection, so certify via `R10-COUNT` measurements, never via JSON diffs.
+  **R9-N5/N9 compliance:** widening maniac's `unopened` fixes that node's OWN measured stat (first-in
+  identity), not arrival (N5's trap) and not a compensating lever for `vs_rfi` (N9's trap — the
+  73%-flat-call `vs_rfi` defect stays in W5-b4 at its own node).
+- **`W5-b4` (existing NOW slice) — runs in this lane, UN-absorbed.** The triple review rejected bundling
+  it with the ladder work: `vs_limpers`/`vs_rfi` repair moves iso/cold-call/3-bet mix and table texture but
+  not the first-in denominator — different causal surface, own acceptance event, after PRE2.
+- [x] **`R10-3BET` — vs-3-bet response differentiation.** ✅ 2026-07-31 (**PR #143**) — *ICE 7·7·3 — JSON + provenance.*
+  All six packs' `vs_3bet` nodes rewritten (versions → 1.1.0); gate ① flipped (nit QQ/AKs/AKo continue > 0);
+  ② preserved (authored 4-bet share ordering 15.16/2.33/1.81/0.41% — maniac's figure includes its deliberate
+  junk catch-all 4-bet-bluff mass); NEW deterministic freeze gates (station zero 4-bet; fish exactly AA@0.5);
+  ③ shipped as the stratified report-only grid (cold=`first_hits`, opener=`all_hits−first_hits`, Wilson CIs).
+  RR-LINT burn-down: 4 vs_3bet interleavings + lag As gap fixed; tag As gap re-authored as a deliberate
+  polar-blocker exception. **Two owner adjudications:** (a) passive_fish WTSD 0.4873 vs the frozen 0.50 floor
+  DEFERRED to W4-b (cross-persona composition, not a fish-node defect — attribution in the skip comment +
+  slice ledger); (b) maniac/lag opener-stratum over-fold accepted as interim cost → NEXT item **`N-3BSTRATA`**.
+  Triple-reviewed (refuter + theory + Codex Sol); ledger `docs/ai-dlc/ledger/persona-realism-r10-3bet.md`.
+  **The R10 preflop lane is CLOSED** (COUNT → PRE1 → PRE2 → W5-b4 → 3BET all merged) — `RR-HOLES` unblocks.
+  **Original spec (for the record):**
+  **Problem (R10-1c/R9-c6):** every `vs_3bet` node in every pack is a `positions: null` wildcard; the nit's
+  node continues **AA/KK only** — measured 20/20 folds as opener facing a 3-bet (CI [83.9, 100]), with the
+  20 holdings on record including QQ, AKs, AKo ×3, TT, all folded. (The earlier research claim "nit folds
+  KK 100%" is STALE at HEAD — KK is authored `call 1.0`; the defect is the missing QQ/JJ/AK tier.)
+  **Scope:** author persona-differentiated `vs_3bet` continue/4-bet mixes. Positions stay wildcard
+  (opener-position axis is E1-b, LATER — do not sneak it in).
+  **Pass/fail:** ① deterministic DEFECT gate: nit's authored `vs_3bet` continue weight on **QQ / AKs / AKo**
+  each > 0 — currently 0 → FAILS at HEAD (verified against `nit.json`). ② PRESERVATION checks (already
+  passing, labeled as such per R9-3): KK/AA continue > 0; authored 4-bet share ordering
+  maniac > lag > tag > nit (combo-weighted, currently 7.5/3.2/1.7/0.2%). ③ sampled fold-to-3-bet per
+  persona via `R10-COUNT`, REPORTED with CIs (n≈20–40/persona per 756 hands — underpowered for gating).
+  **⚠️ Vs-3-bet targets must be conditional on the ARRIVAL range** — the 84–99% uniform-over-169-classes
+  figures are refuter-flagged (wrong denominator); use dossier continue-range descriptions.
+- **`R10-TAIL` — absolute-price tail + multiway continue thresholds. ⛔ DESIGN QUESTIONS, NOT A TICKET.**
+  Sibling of `R9-DEFENCE` (deliberately NOT inside it — a first-bet overbet call with air is an
+  absolute-price defect, not a line response). Two severable sub-questions sharing prerequisites
+  (`N-logit`; attribution-before-fitting; T-STICKY precedence for any facing-policy change):
+  **(a) OVERBET tail:** the station called 1.45×–2.33×-pot raises with air (R10-2) **despite live
+  `size_elasticity = 0.55`** — attribute FIRST (sweep price on the direct constructed grid at a pinned
+  commit, holding bucket/line/headcount/SPR/legal set fixed; separate `call_looseness=4.0`, normalization,
+  raise-path, commit-gate contributions), THEN choose a mechanism. Candidate shape: piecewise
+  size-sensitive fold-merit above OVERBET. ⛔ no asserted fold-probability floor (no-fold-floor law);
+  ⛔ no flat multiplier (softmax law); any call-mass cut must route to FOLD, not RAISE (`N-logit`).
+  **(b) multiway continue:** nothing raises the continue threshold vs raises/jams as headcount grows
+  (h697/h726 pile-ups; W1-c damps VALUE BETS only). Scope interacts with `R9-DEFENCE` question 3 — decide
+  the bet/raise/jam split jointly, build separately. ⚠️ SPR-commit-gate fold-zero is a confounder in the
+  worst exhibits — attribute before design, per R9-1's warning.
+
+### Range-representation decisions (owner-adjudicated 2026-07-30 — the RR set)
+
+> Source: triple-reviewed design debate (reports in `docs/ai-dlc/reports/range-representation-{research,
+> refuter,theory,design}.md`, local). Findings that forced the decision: eyeball review demonstrably missed
+> the R10-1a/1b/W5-b3 defect classes through dual-reviewed PRs; the `unopened` membership layer measured
+> 99.6%+ pure floor-ladder with SEVEN typo-holes and zero intentional texture; response nodes (`vs_rfi`/
+> `vs_3bet`/`vs_4bet`) are the opposite (up to ~23% deliberately non-prefix polar/blocker content) and stay
+> authored. Owner also adopted the SMOOTH-EDGE model: real players' open probability declines smoothly with
+> hand strength, so the emitter authors multi-tier weight ladders (e.g. 1.0/.85/.6/.35/.15) approximating a
+> per-persona curve, with edge-DISCIPLINE (slope) a new identity lever (nit cliff-like, station/fish long
+> shallow tail). Emitted JSON is committed; runtime sampler/schema untouched; certification stays via
+> `R10-COUNT` measurements, never JSON diffs.
+
+- **`RR-LINT` — pack lint belt (tests-only; buildable NOW, parallel to the lane).** Contiguity linter
+  (every range-string row top-anchored contiguous), dead-token linter (no combo shadowed into inertness by
+  an earlier mix), tier-order linter. Ships with an EXPLICIT loudly-marked allowlist of the defects live at
+  HEAD (7 holes / known shadowed sets) so it fails on any NEW instance; the allowlist is burned down by
+  `RR-HOLES` and the lane slices. Zero pack edits, zero fixture impact.
+- [x] **`RR-HOLES` — cross-pack typo-hole + dead-token cleanup.** ✅ 2026-07-31 (**PR #144**, merged).
+  All unopened holes + tag's inert vs_rfi tokens fixed (station/fish/tag/lag packs → 1.1.1);
+  `_INERT_TOKENS` emptied. Triple-reviewed; theory F1 (HIGH) folded at fan-in: tag AQs went into the
+  3bet-0.8 mix (exact width 6.91% is INSIDE the old (6,7) band — only Monte Carlo noise trips the pin;
+  band re-tolerated to (6,8), T3 precedent, range never carved). Two vs_4bet As-row gaps DECLARED
+  INTENTIONAL (wheel-ace blockers); two rows stay FLAGGED for later slices: maniac vs_4bet pair gap
+  (99/88/77 dead between call and shove tiers — EV-scale) and nit vs_limpers pair gap. Theory also
+  filed: lag folding AQo 40% vs one raise is nitty for the archetype (headroom to 3bet-1.0 exists
+  inside the (8,12) pin) — future vs_rfi pass. Coverage delta adjudicated in-file (28.3%→26.3%
+  cumulative, mapper-track dip).
+- **`RR-EMIT`** ✅ **PR #148** (2026-07-31) — shipped: `backend/tools/rr_emit.py` + runtime-invisible curve
+  spec `content/personas/ladders/nit.unopened.json` (tail/core/slope tiers over a 25-row lattice, no
+  width/percentile parameter by design). Proving run PASSED first-run — re-emitted the shipped W5-b3 nit
+  ladder semantically identically (token spelling even byte-identical, unasserted). Dual-reviewed (refuter +
+  Codex); convergent MED validator gap FIXED (hardened `_validate`, unopened-only fence, PersonaNode
+  round-trip, `emits` linkage audited). Ledger `persona-realism-wave2-rremit-3bstrata-seatprov.md`. Original
+  filing below for provenance.
+  **— first-in range emitter (gated on its first consumer = `W5-b3`, the nit per-seat rebuild).**
+  Build-time tool (`backend/tools/`, never imported by `app/domain/`) mapping per-(persona, seat) band
+  floors + curve params → the existing `unopened` combos strings + multi-tier weights; parameters committed
+  under `content/` (one ladder file per persona). First emission = semantic-identity gate (recompute
+  authored per-seat RFI unchanged) with any mechanical normalization as its own commit. **Owner decision
+  2026-07-31: W5-b3 was hand-written (PR #145); RR-EMIT's proving run is now to RE-EMIT that shipped
+  nit ladder semantic-identically**, then adopt for future ladder edits. Scope is `unopened` ONLY — response nodes and
+  `vs_limpers` stay authored (owner decision; the polar/blocker content is unrepresentable in floors).
+  Cross-persona ordering gates (maniac>lag, nit<tag, four-way chain, premiums-never-fold, monotone ladders)
+  STAY as tests regardless.
 
 ## LATER — bets (problem · confidence · assumption to test) — the deferred / architecture tail
 
+- **`T-TILT` — session-state tilt/mood modulation (owner-filed 2026-07-30, deliberately MUCH LATER).**
+  Problem: bot decisions are i.i.d. draws from fixed frequencies; real players' frequencies DRIFT and
+  correlate (loosen after a bad beat, tilt after getting stacked ≥2 times, spite-call when card-dead).
+  Shape: a per-bot session state (trigger events → temporary multiplier on looseness/aggression levers,
+  decaying over hands). **Confidence: med on realism value, low on cost.** Assumption to test: whether
+  hidden session state is worth its price — seeded sims/fixtures gain a state dimension, and grading
+  ("was that fold right?") gets murkier when villain mood is part of the answer. Do not start before the
+  RR set and the R10/R9 remediation waves land.
 - **Villain-range rungs (b) + (c) (G1-b/c).** (b) persona-conditional range prior updated by the betting line — medium;
   (c) full equity-vs-range estimator — the only NO-GO-ADJACENT rung vs "no solver tables". **Confidence: med/low.** Assumption:
   whether rung (a) realism is enough, or the barrel-more/exploit payoff justifies climbing. Decide the rung at promotion.
@@ -1952,7 +2633,8 @@ already exist in this file.**
   > (a frequency), and since `_PREV_STREET[FLOP] = PREFLOP` it **is literally the c-bet predicate**, already shipped
   > and unit-tested~~ **← ⚠️ THIS REFUTATION IS ITSELF WRONG. REVERSED BY R9 (2026-07-26) — see the box below**;
   > *levers aren't independent* — **partly false**, the lever set is block-triangular and
-  > well-conditioned (cond ≈ 2–3), fixable with a vector-valued fit loop (`N-vecfit`) plus ~10 lines of nested logit
+  > well-conditioned (cond ≈ 2–3), fixable with a vector-valued fit loop (`N-vecfit`)
+  > [premise later refuted where tested — see ../reports/n-vecfit-premise.md] plus ~10 lines of nested logit
   > (`N-logit`); *invert the model to author target frequencies* — **intractable or isomorphic**, 774,144 conditioning
   > cells per persona raw, ~36,000 across six after aggressive pruning, against 8 numbers per pack today, and any
   > tractable authoring scheme must factor as base-table × context-multipliers, i.e. **the current architecture with
@@ -2005,12 +2687,25 @@ realistic, not more.
 | **R9-N10** | **Do not treat R9-2's street profile, or any arrival census cell, as a gate** | n=6–15 on several cells. REPORTED, never committed as CI. `R9-SHAPEGATE`. |
 
 ---
-*Handoff: **SUPERSEDED BY R9-4 (2026-07-26).** The next item is **Wave A wave 2 — T-ANCHOR**, which runs **alone**
+*Handoff: **SUPERSEDED BY R9-4 (2026-07-26); R10 (2026-07-29) upholds it and adds a proposed parallel lane.**
+> **Superseded 2026-08-05, dated note: this whole handoff's "next item" is stale.** This roadmap
+> PAUSED 2026-08-05 (see the banner at the top of this file) and no next item below resumes from
+> here; governing work moved to `bot-realism-flywheel.md` slice 3 (calldown).
+The next item is **Wave A wave 2 — T-ANCHOR**, which runs **alone**
 (it is its wave's sole fixture re-recorder), then **wave 3 — T-STICKY**, then the **`R9-DEFENCE` design pass** (a
-design pass, NOT a build), and only then the fitting waves. Within the fitting waves the prior ordering still
+design pass, NOT a build; now 6 questions — R10 added the absolute-size tail), and only then the fitting waves.
+**The R10 preflop lane is CLOSED (2026-07-31)** — `R10-COUNT` → `R10-PRE1` → `R10-PRE2` → `W5-b4` →
+`R10-3BET` all merged (#136/#137/#138/#142/#143); `RR-HOLES` is unblocked, and the lane's exit filed
+NEXT item `N-3BSTRATA` (opener-stratum over-fold, arrival-strata split, E1-b family). The `R9-DEFENCE` +
+`R10-TAIL` design passes were answered in local reports (`docs/ai-dlc/reports/{r9-defence,r10-tail}-design.md`)
+awaiting Director adjudication. Within the fitting waves the prior ordering still
 holds: the R3 wave-order correction sequences **W5-A + W5-C before the W3R tail**, so W5-a1 → W5-a2 →
 W5-a3-i/ii/iii → W5-a4 and W5-c2 → W5-c3 land first where a W3R-tail slice depends on them; the top unchecked
 fitting slice is **W3R-4b**. **W4-a is BLOCKED on two contract amendments** and **W4-b stays LAST** (single
 authoritative band re-anchor).
+> **Superseded 2026-08-21, dated note:** the two W4-a contract amendments (blocks A1–A3) were
+> ratified 2026-08-21. `W4-a` itself is now DEFERRED past the bot-realism-flywheel phase-3
+> finale, with a reopening trigger tied to slice 3 (calldown) — see the owner ruling in
+> `bot-realism-flywheel.md`.
 One slice at a time; re-read pass/fail state between slices (agents falsely mark work done); fresh `refuter` at
 each fan-in, plus the `persona-realism-theory-reviewer` on every persona-realism slice.*

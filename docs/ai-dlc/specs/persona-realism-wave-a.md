@@ -93,7 +93,8 @@ its last) so the run proves this rather than trusting it. Owner-approved 2026-07
 - Every Wave B realism defect: `vs_limpers` positional scoping (`N-limp`), maniac range width
   (`N-maniac`), the D8 assertion surface (`N-d8gate`), the `cbet_flop` band (`N-cbet`).
 - Every W4-cluster item: river-air calling (`N-riverair`), nested logit (`N-logit`), vector-valued fit
-  loop (`N-vecfit`). All are band-movers gated on the single re-anchor.
+  loop (`N-vecfit`) [premise later refuted where tested — see ../reports/n-vecfit-premise.md]. All are
+  band-movers gated on the single re-anchor.
 - **Widening any mapper.** T-REJECT ships counters only; widening is `T-cover` in
   `professional-teacher-rework.md`, blocked behind this work.
 - **Converting `stickiness` → `size_elasticity` for nit/tag/lag/maniac.** Band-moving; deferred.

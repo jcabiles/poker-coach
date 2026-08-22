@@ -3,6 +3,24 @@
 status: approved (owner, 2026-08-07 — Gate 2 + build go-gate cleared; no Fable; re-cost
 4–5 days approved; Terra pilot skipped, zero eligible candidates)
 
+**SCOPE FROZEN 2026-08-09 (owner ruling).** Adding a clone-table-versus-varied-table
+comparison to this pilot was considered and REJECTED. The engine's policy core is already
+seat-keyed and CAN vary same-persona seats (`backend/app/domain/table/play.py:291,313`) —
+the correction the roadmap made 2026-08-13 to an earlier, wrong claim here. What is missing
+sits in the caller and config layer, not the engine: the export tools bind packs by persona
+name (`backend/tools/export_analytics.py:329`), a seat has nowhere to persist a variant
+identity, and the counterfactual override document is persona-keyed rather than seat-keyed.
+Building that means editing tooling/config outside this pilot's scope, which the roadmap's
+global no-gos freeze until the phase-3 gate. The question now sits with the phase-3 gate
+item as a configuration/persistence gap — see `bot-realism-flywheel.md`'s NEXT entry
+"Within-archetype variation." Do not re-open it here — if a later session proposes it again,
+this paragraph is the answer.
+
+**Phase-3 gate status (added, dated):** the phase-3 gate was decided 2026-08-15 (ruling A —
+fix bots, one finale, play-test is the product verdict); this S6 pilot itself ran as a
+protocol shakedown on 2026-08-14, terminated at the control pre-screen rather than completing
+a measurement. See `bot-realism-flywheel.md`'s S6 entry for the full record.
+
 Spec: `../specs/flywheel-s6.md` (rev 2). All tickets honor the spec's Design rules;
 hotspots: none of the profile hotspot files are touched. `export_analytics.py` is
 single-owner (T2). `detection_corpus.py` is single-owner (T4); the renderer lives in its
