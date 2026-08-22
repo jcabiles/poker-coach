@@ -4,11 +4,11 @@
 went-to-showdown rate must fall by at least 1.0 percentage point and the TAG's
 by at least 3.5, measured on the band harness. The LAG's floor is WITHDRAWN: its
 dial cannot lower its showdown rate at all, which is a measurement rather than a
-concession. The dial values that follow are the nit at 0.32 and the TAG at 0.37,
+concession. The dial values that follow are the nit at 0.32 and the TAG at 0.38,
 and both are set by external evidence and then capped by a poker law — the nit
 by the α fold-ceiling, which admits no dial below about 0.305, and the TAG by
-the point at which the roster's fold-to-continuation-bet ordering matches the
-one the theory contract's grounded bands give.**
+the deterministic 1,728-cell sweep that keeps it from collapsing onto the
+nit.**
 
 "Went to showdown" is the share of hands a persona takes to showdown out of the
 hands where it saw the flop. The "band harness" is the pinned population inside
@@ -118,12 +118,36 @@ pinned at 0.32 and the LAG unchanged:
     tag dial   nit FtC   tag FtC   lag FtC   order nit > tag > lag?
     0.45        0.389     0.307     0.328    no  (tag still under lag)
     0.40        0.410     0.311     0.323    no
-    0.37        0.435     0.350     0.325    YES
+    0.38        0.435     0.326     0.319    yes, by 0.007
+    0.37        0.435     0.350     0.325    yes, by 0.025
     0.34        0.429     0.419     0.301    yes, but tag is now level with nit
 
-**0.37 is the largest dial at which the grounded ordering is restored**, and it
-is where this ticket stops. Going further would start collapsing the TAG onto
-the nit, which trades one archetype defect for another.
+**That table is too noisy to set a dial on, and saying so is the point.** The
+harness gives the TAG about 310 fold-to-c-bet opportunities and the LAG about
+460 at this sample size, so one standard error on their difference is around
+0.033 — larger than either restored margin. The direction is consistent across
+the sweep; the exact crossing point is not resolvable here.
+
+**What sets the TAG's dial is a deterministic instrument instead.** The
+1,728-cell nit-versus-tag enumeration (`G-SWEEP`, the cross-persona gate the
+R9-LOOSEFIT slice shipped) requires the nit to fold more than the TAG by over
+0.02 in at least 650 non-degenerate cells. It has no sampling error. With the
+nit pinned at 0.32 it reads:
+
+    tag dial   0.60   0.50   0.45   0.42   0.40   0.39   0.38   0.37
+    margin     910    898    826    788    730    696    668    628   (floor 650)
+    strict     982    982    980    978    974    972    984    984   (floor 800)
+
+**0.38 is the deepest dial that keeps the two archetypes separated**, and it is
+where this ticket stops. Tightening to 0.37 would put the TAG's fold behaviour
+inside 0.02 of the nit's in more cells than that gate allows — collapsing one
+archetype onto another, which trades a defect for a defect.
+
+⚠️ REVISION 3 (2026-08-22). Revision 2 of this document set the TAG at 0.37 on
+the noisy fold-to-c-bet table alone, and the full suite then red on G-SWEEP-b.
+The dial moved to 0.38; the registered floors below did NOT change, and the
+measured fall at 0.38 is larger than at 0.37 (6.15 points against 5.19), which
+is a composition effect rather than a contradiction.
 
 ## 3. How much of a dial change reaches the merit vector
 
@@ -170,14 +194,14 @@ Multiplying through at the dial cuts §2 arrives at:
 
     persona  WTSD    decisions  sensitivity  dial          r       predicted fall
     nit      0.6353   0.8086      0.1699     0.45 -> 0.32  0.2889    2.52pp
-    tag      0.6144   0.9395      0.1624     0.60 -> 0.37  0.3833    3.59pp
+    tag      0.6144   0.9395      0.1624     0.60 -> 0.38  0.3667    3.44pp
 
 ## 5. The registered floors
 
 **nit: at least 1.0 percentage point. TAG: at least 3.5 percentage points. LAG:
 withdrawn.**
 
-The TAG's floor is the §4 point estimate rounded down. The nit's is not, and the
+The TAG's floor is the §4 point estimate rounded down (3.44 predicted). The nit's is not, and the
 gap needs saying plainly: the nit's flop-seen sample on the harness is the
 smallest on the roster (about 980 hands of the 4,000), so one binomial standard
 deviation on its went-to-showdown reading is about 1.5 points. A floor of 2.5
