@@ -1,11 +1,25 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-19 (rev 4)
+# Bot-Realism Flywheel Roadmap — updated 2026-08-21 (rev 5)
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
 passing.)* Two edits on 2026-08-17: the improvement-phase block was added to the NOW lane,
 and the same day's audit and owner ruling were recorded against it. One edit on 2026-08-19:
 slice 2's ticket-merge status recorded (T1 #198, T2 #199, T3 #200 all merged) — the slice
-itself stays OPEN, since the owner's blind play session, not a ticket count, is what closes it.
+itself stays OPEN, since the owner's blind play session, not a ticket count, is what closes it
+(superseded by the next sentence: the play session has since happened and slice 2 is CLOSED).
+**Four owner rulings recorded 2026-08-21 (rev 5):** slice 2 (invest-then-fold, the second
+improvement slice — bots giving up on a hand for no visible reason) is now **CLOSED** on the
+owner's blind play-session acceptance; the scope-valve contradiction between the improvement-
+phase block header and slice 3's entry is **RULED** — slice 3 (calldown, the third improvement
+slice — how often a bot keeps calling instead of folding) is core scope, not the cut-first
+valve; the Stage-1 stack-commitment brake (`W4-a`, a persona-realism-roadmap slice that lets a
+bot fold a made hand when the call size is huge relative to its remaining stack) is **DEFERRED**
+past the phase-3 finale as a named post-finale slice, with a reopening trigger; and the
+Stage-0 interim went-to-showdown band regime (grounded floors, a one-way downward ceiling
+ratchet, and the maniac's went-to-showdown assertion restored at a ratcheted ceiling — it has
+been skipped since 2026-08-01) is **RATIFIED**, landing
+in a parallel PR to the theory contract. See the NOW banner, the improvement-phase block
+header, and the slice 2 and slice 3 entries below for where each lands.
 
 ## Bottom line
 
@@ -70,14 +84,17 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > supporting judge-bias probe evidence attached; protocol changes consolidated and
 > ratified as estimand-contract §g.5 (2026-08-15-A). The active work is now the
 > improvement phase that ruling defines: de-robotization first, then invest-then-fold
-> lines, calldown as the scope valve; engine/stack work excluded; 2–3 weeks appetite;
+> lines, ~~calldown as the scope valve~~ *(superseded 2026-08-21, calldown ruled core scope —
+> see the improvement-phase block below)*; engine/stack work excluded; 2–3 weeks appetite;
 > one finale detection run at the end under the new rule-breaker control, plus the
 > preregistered owner blind play-test as product acceptance.
 > **Slice-by-slice state for that phase is the improvement-phase block at the END of this
-> lane (added 2026-08-17, updated 2026-08-19): slice 1 de-robotization is CLOSED, slice 2's
-> three tickets are all merged (T1 #198, T2 #199, T3 #200) but the slice itself stays OPEN —
-> acceptance is the owner's blind play session, not a ticket count — slice 3 is unspec'd.
-> Resume there, not from this banner.**
+> lane (added 2026-08-17, updated 2026-08-19, updated 2026-08-21): slice 1 de-robotization
+> is CLOSED, slice 2 (invest-then-fold) is **CLOSED 2026-08-21** — all three tickets merged
+> (T1 #198, T2 #199, T3 #200) and the owner's blind play session, the primary acceptance
+> evidence under the 2026-08-17 ruling, returned an acceptance verdict: the bots felt
+> plausibly human at the table, nothing stood out as robotic — slice 3 (calldown) is core
+> scope, ruled 2026-08-21, and still unspec'd. Resume there, not from this banner.**
 > *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
 > NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
@@ -153,20 +170,33 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 
 S6, the only planned measurement of it, is built but deferred — it now sits in NEXT.
 
-### Improvement phase (ruling A) — three slices in order, one closed
+### Improvement phase (ruling A) — three slices in order, two closed
 
 > **Why this block exists (added 2026-08-17).** Ruling A defines three improvement slices and
 > the NOW lane had entries for none of them: the order lived in
 > `../specs/phase3-decision-matrix.md` §4 and in the STATE banner at the top of this lane, but
 > not as slices a fresh session could resume from — which is what the boot checklist in
 > `.claude/CLAUDE.md` tells that session to do. The order is **(1) de-robotization →
-> (2) invest-then-fold → (3) calldown**, calldown being the declared scope valve, cut first if
-> the appetite runs out. Engine/stack work is cut from this phase entirely. Appetite: 2–3 weeks
-> part-time, running since the ruling on 2026-08-15. Exactly ONE finale detection run at the
-> end; a second requires a recorded amendment written before it fires. The
+> (2) invest-then-fold → (3) calldown**. ~~calldown being the declared scope valve, cut first
+> if the appetite runs out.~~ **Superseded 2026-08-21 — see the scope-valve ruling below;
+> calldown is core scope, not a valve.** Engine/stack work is cut from this phase entirely.
+> Appetite: 2–3 weeks part-time, running since the ruling on 2026-08-15. Exactly ONE finale
+> detection run at the end; a second requires a recorded amendment written before it fires. The
 > ⚠️ warning above applies to everything here — **none of the numbers below is a detection
 > number.** They come from the two statistical gates and from purpose-built tell statistics,
 > which measure whether a specific mechanical signature is gone, not whether anyone was fooled.
+>
+> **OWNER RULING 2026-08-21 — the scope-valve contradiction is resolved: calldown (slice 3) is
+> core scope, not the scope valve.** This block's own header, written 2026-08-17, called
+> calldown "the declared scope valve, cut first if the appetite runs out"; slice 3's entry
+> below had said since the same day that it was "no longer the first thing to cut" — a
+> contradiction the entry flagged and left for the owner. Deciding fact: slice 3 is the only
+> one of the three improvement slices that lowers the pool's went-to-showdown statistic (the
+> share of hands reaching a showdown, the roster's worst-measured statistic against the theory
+> contract's grounded targets), and slice 2's T3 ticket (the river-call-zero fix inside
+> invest-then-fold) raised that same statistic by roughly one point. Cutting slice 3 for
+> appetite would therefore ship the improvement phase with a net increase in the roster's worst
+> statistic. If the appetite runs out, something else gets cut instead — not slice 3.
 
 - [x] **Slice 1 — De-robotization of deterministic tells — CLOSED 2026-08-17** — problem: the
       roster's tells were mechanical rather than stylistic — every persona opened one fixed
@@ -255,10 +285,15 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > measurement slice was rejected as the same failure mode repeating. The blind play-test is
 > now the primary acceptance evidence, not a supplement to a detection number.
 
-- [ ] **Slice 2 — Invest-then-fold lines — SPEC'D + REVIEWED 2026-08-18; all three tickets
-      merged 2026-08-19 (T1 #198, T2 #199, T3 #200). The slice stays OPEN**: under the
-      2026-08-17 ruling the owner's blind play session is the primary acceptance evidence, and
-      no play session has run yet — a merged ticket count is not a close condition. Spec
+- [x] **Slice 2 — Invest-then-fold lines — CLOSED 2026-08-21.** SPEC'D + REVIEWED 2026-08-18;
+      all three tickets merged 2026-08-19 (T1 #198, T2 #199, T3 #200); the six close-out pull
+      requests (#201–#206) are also merged. **What closes it: the owner played the blind play
+      session and the verdict was acceptance** — the bots felt plausibly human at the table,
+      nothing stood out as robotic. Under the 2026-08-17 ruling the owner's table impressions
+      at that session are the primary acceptance evidence for this phase, outranking the two
+      statistical gates rather than supplementing them, so this play-session verdict is what
+      closes the slice, not the merged ticket count on its own. Close-out record:
+      `../ledger/phase3-invest-then-fold.md`. Spec
       `../specs/phase3-invest-then-fold.md` · tickets · ledger · contract map
       `../contracts/phase3-invest-then-fold.md` · evidence `../research/slice2-invest-then-fold/`.
       **The problem statement this entry used to carry was wrong.** It said bots abandon pots
@@ -301,9 +336,13 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       arithmetic derived, because a further owner ruling on 2026-08-19 capped it inside two
       frozen went-to-showdown bands. Measured: invest-then-fold events 1,084 → 1,015, pool
       went-to-showdown +0.94 points (54.14 → 55.09), inside the spec's 3.78-point bound.
-- [ ] **Slice 3 — Calldown — KEPT, and its headline number was wrong** *(corrected
-      2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended cutting it; that was
-      withdrawn under review. **Not yet spec'd.**
+- [ ] **Slice 3 — Calldown — CORE SCOPE (owner-ruled 2026-08-21), and its headline number was
+      wrong** *(corrected 2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended
+      cutting it; that was withdrawn under review, and the scope-valve question the withdrawal
+      left open is now settled — see the ruling below. **Not yet spec'd.** Slice 3 will be
+      spec'd and measured against the Stage-0 interim went-to-showdown band regime (the
+      grounded floors and one-way ceiling ratchet ratified 2026-08-21, landing in the parallel
+      theory-contract PR), not the old frozen bands T3 above was capped inside of.
       ⚠️ **CORRECTION: this entry said the roster's went-to-showdown was "near 45". It is
       54.85.** The 44.92 figure came from the S5 close-out, where it is a *counterfactual* —
       the pool with the maniac's showdown rate driven to zero, constructed to prove no
@@ -329,13 +368,17 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       calldown because they happen to calling personas": the conditional rate is flat across
       all six, and slice 2's own T1 already reduces those personas. The boundary is drawn on
       the defect, not the persona.
-      ⚠️ **Scope-valve status needs an owner decision.** The block header above still calls
-      calldown "the declared scope valve, cut first if the appetite runs out", while this
-      entry has said since 2026-08-17 that it is "no longer the first thing to cut". Those
-      contradict. The fact that should settle it: **slice 3 is the only slice on this roadmap
-      that lowers pooled went-to-showdown, and slice 2's T3 raises it by up to 3.78 points.
-      Cut slice 3 and the improvement phase ships a net increase in the roster's worst
-      statistic.**
+      ⚠️ **Scope-valve contradiction — RULED 2026-08-21, kept for provenance.** *(Superseded
+      text, kept because it is the record of the open question.)* ~~Scope-valve status needs
+      an owner decision. The block header above still calls calldown "the declared scope
+      valve, cut first if the appetite runs out", while this entry has said since 2026-08-17
+      that it is "no longer the first thing to cut". Those contradict.~~ **Owner ruling:
+      calldown (slice 3) is core scope, not the scope valve.** Deciding fact: slice 3 is the
+      only slice on this roadmap that lowers pooled went-to-showdown, and slice 2's T3 raised
+      it by roughly one point (54.14 → 55.09, see the slice 2 entry above). Cutting slice 3 for
+      appetite would ship the improvement phase with a net increase in the roster's worst
+      statistic. If the appetite runs out, something else gets cut instead — not slice 3. See
+      the same ruling recorded in full at the improvement-phase block header above.
       **Before it can be spec'd** it needs a post-T1/T2/T3 baseline on the ratified lineup, a
       defect definition sharper than "went-to-showdown is high", named code nodes, and the
       draw-floor decision below — which is a prerequisite, not a sibling, because that floor
@@ -354,6 +397,27 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       node and self-declares uncalibrated, and the same predicate recurs at `:1128` and
       `:1351` · **the design question is open; ticket this before building** ·
       `../tickets/phase3-derobotization.md` records the related owner-filed items.
+
+> **OWNER RULING 2026-08-21 — Stage-1 stack-commitment brake (`W4-a`) is DEFERRED past the
+> phase-3 finale, as a named post-finale slice.** `W4-a` is a slice from the persona-realism
+> roadmap (paused 2026-08-05 in favour of this flywheel initiative; see the top of this file)
+> that would let a bot fold a made hand when the call it faces is huge relative to its
+> remaining stack — the mechanism this file elsewhere calls the "commit-gated pots" gap. Its
+> contract definitions, amendment blocks A1–A3, were ratified 2026-08-21 and are being
+> committed to the theory contract in a parallel pull request; the mechanism itself stays out
+> of this phase's engine/stack freeze. **Reopening trigger, attached to the ruling rather than
+> left implicit:** if slice 3 (calldown) work stalls with any persona clearly outside its
+> grounded went-to-showdown band and the residual is attributable to commit-gated pots, the
+> scope question reopens at that moment rather than being re-argued from scratch.
+>
+> **OWNER RULING 2026-08-21 — Stage-0 interim went-to-showdown band regime is RATIFIED.** The
+> interim regime has three components: grounded floors, a one-way downward ceiling ratchet
+> (bands may only tighten, never loosen, as the roster improves), and the maniac's
+> went-to-showdown assertion restored at a ratcheted ceiling — it has been skipped since
+> 2026-08-01. It replaces the old frozen went-to-showdown bands that capped slice 2's T3 ticket
+> above. It lands in the same parallel theory-contract pull request as the `W4-a` amendment
+> blocks. Slice 3 (calldown) will be spec'd and measured against this interim regime, not the
+> old frozen bands; see the slice 3 entry above.
 
 **Scope valves (appetite is a cap — cut scope, not quality):** S5 confirmatory study deferred
 unless the pilot is ambiguous · S2b commercial lane is the first research cut · S6 pilot may
