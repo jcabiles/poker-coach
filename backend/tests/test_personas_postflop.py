@@ -13268,6 +13268,15 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
 # different claim" looks like in a table — they are kept because they bound
 # things this family does not, not because they cover it.
 #
+# ⚠️ THE `trace` COLUMN WAS RE-VERIFIED AFTER S3-T2 REWROTE THAT GATE
+# (2026-08-22). It now compares the live engine against the floored engine at
+# the SAME dial rather than against six frozen constants, so its column above
+# still reads the same on M1-M7 — but it is now non-vacuous for the right
+# reason. Measured in-process: a share of 0.99 at D1 reds it (the old constant
+# form could not see that at all), and a calling-dial cut leaves it green (the
+# old form failed on a cut of one thousandth). See that test's docstring for
+# why the constants were a construction artifact.
+#
 # ── INDEPENDENCE. Every other gate in this file can be green while this one is
 # red: G-DRAW's cap and its price-mandate leg are both about the 0.45-vs-0.60
 # SELF-difference of one persona at nodes this sweep does not all share, and
@@ -13495,40 +13504,63 @@ def test_s3t1b_trace_node_folds_no_more_than_the_protected_engine_did():
 
     At D1 — the node_trace spot `flop_facing_bet_strong_draw`, a 15-out combo
     draw facing 4 into a live pot of 10, i.e. 2.5-to-1 against a hand that needs
-    28.6% — no persona may fold MORE often than it did under the fully protected
-    engine. Every archetype's correct fold frequency here is about zero, so any
-    upward movement is a defect whichever direction a calling dial is being
-    tuned.
+    28.6% — no persona may fold MORE often than the fully protected engine
+    would at THAT PERSONA'S OWN DIAL. The comparison is the split against the
+    floor it replaced, and nothing else.
 
-    The pins are the pre-S3-T1 readings, harvested at eb34e60 and re-measured at
-    this tip. RED at the S3-T1 tip for all five dialled personas (nit 0.2945,
-    tag 0.1918, lag 0.1642, maniac 0.1188, passive_fish 0.2797) — that is the
-    defect the theory review found and this ticket fixes. The calling station is
-    in the table because its 4.0 dial never takes the branch, so its row is
-    unchanged in both directions and would move only if the branch predicate
-    did.
+    ⚠️ THE COMPARATOR IS COMPUTED LIVE, and the reason is the whole point of
+    this revision (S3-T2, 2026-08-22, after a theory review reproduced it).
+    This test used to compare against six FROZEN CONSTANTS harvested at the
+    dials of the day, with a 1e-12 tolerance. That made it a gate on the
+    CALLING DIAL rather than on the protection mechanism, and an absolute one:
+    at D1 the price mandates the whole call bonus (the share clamps at 1.0,
+    asserted immediately above), so the bonus term is dial-independent while
+    `call_base * L` is not and the fold merit does not depend on the dial at
+    all. The fold frequency therefore rises for ANY dial below the pinned one —
+    measured, a cut of one thousandth breached it for all three personas
+    improvement slice 3 set out to retune. The engine the constants were
+    supposed to represent, `call_base * L + bonus * max(L, 1.0)`, is itself
+    dial-sensitive through its first term, so it would have failed a dial cut
+    in exactly the same way; the constants were a construction artifact of
+    freezing it at one dial, not a statement of poker. Re-recording them at new
+    dials would have been fitting the gate to the change it exists to judge.
 
-    ⚠️ NOT AN EQUALITY. The claim is a CEILING, deliberately: `N-DRAWEQUITY` and
-    `N-DRAWTURN` are filed and are expected to make equity-aware draws continue
-    MORE, which moves these readings DOWN. A gate written as `==` would fail
-    them for succeeding. Whether a future slice may raise them is exactly the
-    question this test exists to force back to the owner.
+    WHAT THE LIVE FORM STILL CATCHES, and it is the claim S3-T1b actually
+    makes: a protected share that comes back below 1.0 at a node whose price
+    mandates the whole bonus. Any such regression makes the live engine fold
+    more than the floored one at the same dial and reds here. What it no longer
+    pretends to catch is a persona being tuned tighter, which is a different
+    question with its own gates (the α fold-ceiling above, the went-to-showdown
+    ceilings, the de-robotization separation floor).
+
+    THE READINGS AT THE S3-T1b TIP, kept because they are the measurement that
+    ticket was accepted on and because they are the level a reader should know:
+    nit 0.2608 · tag 0.1743 · lag 0.1467 · maniac 0.1055 · passive_fish 0.2451
+    · calling_station 0.0915. RED at the S3-T1 tip for all five dialled
+    personas (nit 0.2945, tag 0.1918, lag 0.1642, maniac 0.1188, passive_fish
+    0.2797) — that is the defect the theory review found and S3-T1b fixed. The
+    calling station never takes the branch at all (dial 4.0), so its two sides
+    are identical by construction rather than by arithmetic.
+
+    ⚠️ NOT AN EQUALITY IN GENERAL. At D1 the two engines agree exactly, because
+    the share clamps; the assertion is written as a CEILING because
+    `N-DRAWEQUITY` and `N-DRAWTURN` are filed and are expected to make
+    equity-aware draws continue MORE, which would move the live side DOWN.
     """
-    protected = {
-        "nit": 0.2607718689636141,
-        "tag": 0.17430738177927912,
-        "lag": 0.14672415858186608,
-        "maniac": 0.10548523206751052,
-        "passive_fish": 0.24508190144388992,
-        "calling_station": 0.09154315605928508,
-    }
-    for persona, ceiling in sorted(protected.items()):
-        fold = _nd_priced_dist(_pack(persona), _ND_DRAW_PANEL[0])[ActionType.FOLD]
-        assert fold <= ceiling + 1e-12, (
-            f"{persona} folds the trace node's 15-out combo draw {fold:.4f} of the time, "
-            f"above the {ceiling:.4f} the fully protected engine read. This draw is "
-            "getting 2.5-to-1 and needs 28.6% — the price mandates the whole call and "
-            "no persona may be folding it more often than before"
+    for persona in sorted(ALL_PERSONAS):
+        pack = _pack(persona)
+        real = personas_postflop._strong_draw_protected_share
+        try:
+            live = _nd_priced_dist(pack, _ND_DRAW_PANEL[0])[ActionType.FOLD]
+            personas_postflop._strong_draw_protected_share = _s3t1b_floored_share
+            floored = _nd_priced_dist(pack, _ND_DRAW_PANEL[0])[ActionType.FOLD]
+        finally:
+            personas_postflop._strong_draw_protected_share = real
+        assert live <= floored + 1e-12, (
+            f"{persona} folds the trace node's 15-out combo draw {live:.4f} of the time, "
+            f"above the {floored:.4f} the fully protected engine reads at the same dial. "
+            "This draw is getting 2.5-to-1 and needs 28.6% — the price mandates the whole "
+            "call and the split may not withdraw any of it"
         )
 
 

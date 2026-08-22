@@ -6,6 +6,7 @@ Spec: docs/ai-dlc/specs/simulate-villain-range.md.
 
 from __future__ import annotations
 
+import math
 import random
 import time
 
@@ -698,7 +699,37 @@ def test_estimator_prices_the_faced_bet(packs):
     for hole in (("7s", "5s"), ("6h", "4c")):
         folds = [dists[f, hole][ActionType.FOLD] for f in (0.5, 1.5, 3.0)]
         assert folds[0] < folds[1] < folds[2], f"{hole} fold response not monotone: {folds}"
-        assert folds[2] - folds[0] > 0.2, f"{hole} price response is cosmetic: {folds}"
+        # SIZE OF THE RESPONSE, in log-odds rather than in probability points
+        # (S3-T2, improvement slice 3, 2026-08-22, after a theory review).
+        # The original form asked for 0.20 of probability span on BOTH holes,
+        # and that leg SATURATES: at a three-times-pot bet the air hand already
+        # folds 0.965, so the span has less than 0.035 of room left above it,
+        # and any change that makes the TAG fold more at the small price eats
+        # the margin without weakening the price response at all. Measured
+        # across the TAG's plausible calling-dial range (0.60 down to 0.37) the
+        # air span falls 0.2698 -> 0.1909 and crosses the old threshold, while
+        # the RESPONSE ITSELF is unchanged — in log-odds it reads 2.967 at 0.60
+        # and 2.488 at 0.37. So the threshold was measuring how close the
+        # ceiling was, not how much the bot cares about the price.
+        # Log-odds is the scale the response actually lives on, and it does not
+        # saturate: the defect this test was written for (an estimator that
+        # built CALL with no price, so all three distributions were identical)
+        # reads EXACTLY 0.0 here, and no amount of tightening moves a genuine
+        # response toward 0. Measured range over that same dial sweep: middle
+        # pair 2.502 -> 2.504, air 2.967 -> 2.488, so 2.0 leaves real margin on
+        # both and still sits an order of magnitude above the defect.
+        lo = [math.log(x / (1.0 - x)) for x in folds]
+        assert lo[2] - lo[0] > 2.0, (
+            f"{hole} price response is cosmetic: folds {folds}, log-odds span "
+            f"{lo[2] - lo[0]:.3f} (the price-blind defect this test was written "
+            f"for reads 0.0)"
+        )
+    # The probability-span form is KEPT on the middle-pair hole alone, which is
+    # the leg that does not saturate (0.221 -> 0.776 at the shipped dial, with
+    # 0.22 of room still above it). Dropping it entirely would give up a check
+    # anyone can read off the numbers without a transform.
+    mid = [dists[f, ("7s", "5s")][ActionType.FOLD] for f in (0.5, 1.5, 3.0)]
+    assert mid[2] - mid[0] > 0.2, f"middle-pair price response is cosmetic: {mid}"
 
 
 def test_estimator_prices_a_self_reraise_by_the_increment_not_the_bet_to(packs):
