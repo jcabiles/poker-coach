@@ -1,7 +1,13 @@
 # Ledger — improvement slice 3 (calldown) of the bot-realism flywheel
 
-**Bottom line. Four things are filed here and none of them is fixed by this
-slice. (1) The calling dial is hand-strength-blind, so it cannot close the
+**Bottom line. Six things are filed here and none of them is fixed by this
+slice. The most consequential is the last-but-one: at decisions where the stack
+caps the bet, most of the betting range's composition is set by which hands
+ARRIVE there rather than by policy, so the theory contract's bluff-share formula
+is not reachable at those decisions by any multiplier the merit layer has —
+measured, not argued (filed 5).
+
+The six in order. (1) The calling dial is hand-strength-blind, so it cannot close the
 fold-to-continuation-bet gap: it moves air, which already folds almost always,
 by the same odds factor as the marginal pairs where the gap actually lives —
 that needs a bucket-aware fold lever, which is an ENGINE-LEVER DEFECT at MEDIUM.
@@ -13,7 +19,12 @@ dial DOES move the LAG, but through cross-persona coupling its effect depends on
 where the other personas are set; the reduction floor was withdrawn on the
 owner's ruling and whether to tune it is filed as an owner decision. (4) The
 `_DRAW_FREE_RIVER_PROB` constant stays at 0.30 rather than the roughly 0.50 the
-arithmetic suggests, filed against the contract row that owns it.**
+arithmetic suggests, filed against the contract row that owns it. (5) The
+capped-decision composition gap is 5.45 percentage points and the strongest
+merit-layer lever available moves 0.10 of it, because the rest is arrival — now
+theory contract §3 amendment A8. (6) The two went-to-showdown instruments
+disagree about the SIGN of a sub-point change, so no future ticket should
+register a showdown floor below the instrument's resolution.**
 
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
@@ -21,7 +32,8 @@ Contract map: `../contracts/flywheel-slice3-calldown.md` ·
 Theory contract: `../contracts/persona-realism-theory-contract.md`.
 
 This file is chronological within each entry. "S3-T2" is ticket 2 of this slice:
-the retune of the per-persona `call_looseness` calling dials.
+the retune of the per-persona `call_looseness` calling dials. "S3-T3" is ticket
+3: the stack-to-pot multiplier on made-value betting.
 
 ---
 
@@ -174,3 +186,81 @@ equity gate** — "a SEPARATE lever from the fold-side brake: gate
 DIRECTIONAL. Any slice that re-derives this constant re-derives it against that
 row, and against the went-to-showdown statistic the constant's own comment names
 as the thing it serves.
+
+---
+
+## Filed 5 — CONTRACT DEFECT (HIGH): most of the capped-node composition gap is arrival, and no merit-layer lever can reach it
+
+**Filed by S3-T3, 2026-08-22.** S3-T3 is ticket 3 of this slice: the stack-to-pot
+multiplier on made-value betting.
+
+**The defect.** The theory contract's bluff-share formula — `s / (1 + 2s)`, the
+share of a bettor's betting range that should be bluffs at a bet of `s` times the
+pot — is written as a target the engine can be tuned toward. At decisions where
+the stack caps the bet, **it cannot be**, and the reason is not that the lever is
+too weak. It is that the statistic is dominated by a quantity the merit layer
+never sees.
+
+**Measured, on an instrument this ticket had to build** (no fixture, test or tool
+in this repository measured capped-versus-uncapped composition before
+`backend/tools/capped_composition_probe.py`). Pooled over 60,000 hands on the
+ratified nine-seat lineup, three seeds, with each node's action-probability
+vector read twice — lever off and lever on — so the comparison carries zero
+sampling variance:
+
+| statistic | value |
+|---|---|
+| bluff-cell share of the unopened betting range, capped decisions | 0.0771 |
+| the same, uncapped decisions | 0.1316 |
+| the gap | **0.0545** |
+| the whole of S3-T3's lever, paired at the same decisions | **0.0010** |
+
+**The lever closes under two percent of the gap.** The remainder is arrival: a
+seat gets to a capped decision by having put its stack in, so the range that bets
+there is already stronger. In the formula's own terms the realised bluff share is
+`Σ_bluff π(cell)·P(bet | cell) ÷ Σ_all π(cell)·P(bet | cell)`, and `π` — how
+often the seat actually holds each cell at that node — is arrival. `P(bet | cell)`
+is all the merit layer controls.
+
+**Two things follow, and both are now in the theory contract as amendment A8**
+(§3, 2026-08-22, the sibling amendment this ticket was required to land):
+
+1. **An acceptance criterion of the form "this decision's composition equals
+   `s/(1+2s)`" is unsatisfiable by construction** and must be rejected at review.
+   The honest form is a pooled population statistic, measured across seeds or
+   paired, with the calibration constant stated.
+2. **The bluff-side repricing PR #199 withdrew still cannot be offset from the
+   value side.** Roughly 25 percent of capped-node value betting would have to
+   go; the total motion available at the merit layer is about 10 percent, and
+   that figure already includes deleting the commit block's 3.0× boost outright,
+   which is bad poker and not on offer.
+
+**What would fix it, and why it is not this slice's to build.** Only a mechanism
+that changes which hands ARRIVE at a capped decision can move the composition
+materially — that is a range-construction and bet-sizing-ecology question, not a
+merit multiplier. Nothing in the current lever map owns it. **The contract row
+that owns the statistic** is §3's bluff-share paragraph as amended by A8; a slice
+that wants to move capped-node composition further must re-open the target
+against that row rather than reach for a stronger value damp.
+
+## Filed 6 — the went-to-showdown instruments disagree about the SIGN of a small change
+
+**Filed by S3-T3, 2026-08-22, as a measurement caveat rather than a defect.**
+
+S3-T3's effect on showdown frequency is small enough that the two instruments
+this slice uses do not agree on its direction. The band harness (its own pinned
+seed, 4,000 hands) reads four personas falling and two rising; the 50,000-hand
+pooled export on the ratified lineup reads five rising and one falling. The
+ticket pre-registered a RISE, so the export agrees with the registration and the
+harness does not. The largest movement on either instrument is 1.4 points, and
+the export's pooled +0.2 points is about 1.3 standard errors.
+
+**Why this is filed rather than resolved.** The two instruments play different
+tables, so a composition effect is free to differ in sign between them — S3-T2
+recorded the same disagreement about the LAG one ticket earlier. What is new is
+that it now applies to the whole roster rather than one persona, which means
+**neither instrument can sign a sub-point change in showdown frequency at its
+current sample size.** Any future ticket registering a showdown floor smaller
+than about 1.5 points should either raise the sample or register on a paired
+design; a floor below the instrument's resolution cannot be honestly graded.
+No band, ceiling or tolerance was moved on the strength of either reading.

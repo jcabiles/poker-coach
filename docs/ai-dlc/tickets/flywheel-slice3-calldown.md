@@ -161,6 +161,19 @@ makes the strong-draw weight tunable at all).
 
 ## S3-T3 — Value-side lever: stack-to-pot multiplier on made-value aggression
 
+**status: BUILT (2026-08-22) — awaiting review.** All five acceptance criteria
+pass. The lever ships as `_value_spr_mult`, no persona pack changed, and the
+theory contract gained amendment A8 in the same branch. **Read the report's
+headline before the criteria table:** the composition defect the ticket aimed at
+is 5.45 percentage points wide and this lever moves 0.10 of it, because the gap
+is mostly ARRIVAL — capped decisions are reached by stronger ranges — which no
+merit-layer lever can touch. That finding, and the reason the withdrawn
+bluff-side repricing still cannot be offset from the value side, are what
+amendment A8 exists to carry forward. The instrument criterion 1 needed did not
+exist and was built here: `backend/tools/capped_composition_probe.py`. Report:
+`../research/slice3-calldown/t3-report.md`; the directions registered before the
+multiplier was written: `../research/slice3-calldown/t3-preregistration.md`.
+
 **Goal:** add the one approved new lever from the slice-2 reviews — a
 minimal stack-to-pot ratio multiplier on made-value aggression — closing the
 missing value-hand side of the theory contract's bluff-share identity (the

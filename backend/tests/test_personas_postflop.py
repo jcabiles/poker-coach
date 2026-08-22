@@ -2877,11 +2877,11 @@ def budget():
 BANDS = {
     # (fish/station AF + fold-to-c-bet are still the W3R-2 tuples — see the
     # block above; their WTSD tuples are Stage-0 interim values)
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.55)),  # WTSD: Stage-0 interim
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.54)),  # WTSD: Stage-0 interim
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.67)),  # WTSD: Stage-0 interim (AF frozen)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.65)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
@@ -6879,6 +6879,53 @@ def test_persona_postflop_bands(persona, budget):
     argument is the contract's grounded fold-to-continuation-bet row and the α
     fold-ceiling, both written down where a reader can check them against the
     poker rather than against this table.
+
+    ── THE FIFTH RATCHET, S3-T3 (improvement slice 3, ticket 3 — the
+    stack-to-pot damp on made-value betting — 2026-08-22). `_value_spr_mult`
+    makes a bot bet a made hand slightly less often as its stack stops covering
+    its own biggest bet size. No persona pack changed; this is an engine edit,
+    and the only one in this slice so far. Three personas move DOWN, so A4.2
+    item 2's ratchet applies to them; three move up and are shown anyway so a
+    reader can see the arithmetic was computed rather than skipped. Same
+    harness, same pinned seed, same `_WTSD_ORDER_N` = 4000 hands; `n` is each
+    persona's flop-seen count in that sample and `sd = sqrt(p * (1 - p) / n)`.
+
+        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
+        nit              0.6173    0.6030   1010  0.046187  0.649157 -> 0.65
+        tag              0.5528    0.5545   1670  0.036487  0.590978 -> 0.60
+        lag              0.5769    0.5787   2440  0.029988  0.608677 -> 0.61
+        maniac           0.5945    0.5988   3993  0.023270  0.622068 -> 0.63
+        calling_station  0.7010    0.6916   5587  0.018536  0.710141 -> 0.72
+        passive_fish     0.5204    0.5098   4166  0.023235  0.533077 -> 0.54
+
+        persona          incumbent  ratchet  INSTALLED  what happened
+        nit                  0.67     0.65     0.65     tightens by 2 points
+        tag                  0.59      —       0.59     moved up; no ratchet
+        lag                  0.59      —       0.59     moved up; no ratchet
+        maniac               0.62      —       0.62     moved up; no ratchet
+        calling_station      0.72     0.72     0.72     unchanged
+        passive_fish         0.55     0.54     0.54     tightens by 1 point
+
+    THE THREE RISES ARE ALL INSIDE ONE STANDARD DEVIATION and none is a
+    stop-and-report: A4.2 item 3 fires on a MEASUREMENT crossing its ceiling,
+    and the LAG reads 0.5787 against 0.59 (1.13 points of headroom, 1.1 of its
+    own standard deviations), the maniac 0.5988 against 0.62 and the tag 0.5545
+    against 0.59. The LAG was the ticket's pre-registered risk — damping a bet
+    into a check sends hands to showdown — and it is the row to watch in S3-T4.
+
+    THE TWO INSTRUMENTS DISAGREE ABOUT THE SIGN, and this ticket says so rather
+    than reporting the one that flatters it. Here, four personas fall and two
+    rise. On the 50,000-hand pooled export at seed 20260817 on the ratified
+    lineup, FIVE rise and one falls: nit 57.9 -> 58.4, tag 50.0 -> 50.1, lag
+    51.1 -> 51.5, maniac 52.6 -> 52.2, calling_station 66.3 -> 66.7,
+    passive_fish 47.6 -> 47.9, pool 53.4 -> 53.6. The export's direction is the
+    one the ticket pre-registered; this harness's is not. Both are small — the
+    largest move on either instrument is 1.4 points — and the two instruments
+    play different tables, so a composition effect is free to differ in sign, as
+    it already did for the LAG in the fourth ratchet above. This harness gates;
+    the export is diagnostic. The honest reading is that the effect on showdown
+    frequency is too small for either instrument to sign at this sample size,
+    which is also why no ceiling was moved on the strength of a rise.
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]
