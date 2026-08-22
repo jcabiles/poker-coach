@@ -108,6 +108,19 @@ cd $ANALYTICS && make gen-waves MASTER_SEED=20260809 STAGE=3 \
   POOLS_FILE=<path to per-persona top-decile-pools JSON> N_COMBOS=20
 ```
 
+**`OUT_ROOT` must be unique per wave — one folder per persona, not one folder for the
+stage.** The sweep runner writes its `sweep_manifest.json` (the record of which runs
+succeeded, plus the determinism re-run check) to the top of `out_root` and overwrites any
+file already there, with no guard. Six persona waves sharing `.../stage1` therefore leave
+only the last wave's manifest on disk and silently destroy the other five, which are the
+evidence the post-wave verification step reads. `gen-waves` forwards a single `OUT_ROOT`
+verbatim into every spec it generates, so it cannot produce per-persona roots on its own:
+after generating, set each spec's `out_root` to `<stage root>/<persona>` before launching.
+Batch directories themselves never collide (they are keyed by config hash, which is unique
+across personas) — the manifest is the only casualty, which is what makes the loss quiet.
+Stage-1 specs were corrected this way on 2026-08-09 and re-validated through the real
+`load_spec`/`validate_configs`/`build_items` path: 730/730 configs, 0 duplicate hashes.
+
 **Confirmation** has no `gen-waves` support (its generator only takes `--stage 1|2|3`) —
 hand-author the 10-finalist, 5-fresh-seed sweep-spec JSON per §a.6/§g.4 instead; the
 orchestrator will produce it against the current frozen sha and current finalist list.
@@ -123,6 +136,134 @@ Parquet; without it the runner deletes raw data immediately after scoring and th
 nothing left to check. Every generated spec already pins `workers: 2` (the ruled worker
 count — 3 workers measured 341–345 hands/sec, under the 350 floor; 2 workers measured
 399–400, clears it) and the ratified 9-seat lineup; do not edit either by hand.
+
+### 3.1 One overnight run for all remaining waves (owner ruling, 2026-08-09, rev 2)
+
+> **Superseded 2026-08-11 (owner ruling): S5 (the reachability study this runbook drives) is CLOSED, stopped early.** Stage 1 alone falsified the space; stage 2, stage 3, and confirmation below never ran. Kept for provenance only — see `bot-realism-flywheel.md`'s S5 close-out.
+
+**All remaining waves run back to back in a single invocation** — roughly 13 hours from
+cold for all six. One command, always the same:
+
+```
+bash ~/Documents/Github/poker-coach/scripts/owner-run.sh
+```
+
+Order and sizes: tag (130 configs), lag (130), nit (120), maniac (110), passive_fish (120),
+calling_station (120) — 730 configs plus one determinism re-run per wave, 736 runs charged
+to the budget. Each wave runs end to end on its own: budget gate, sweep, a5 check on every
+batch, budget record, raw-Parquet retirement, completion marker. Then the loop takes the
+next persona.
+
+**Which stage runs is set by `STAGE`, and an unknown stage is refused rather than run.**
+The per-persona config counts live in the runner's `STAGE_NCONFIGS` table, one row per
+stage, and the config runs are charged to the budget stage of the same name. A stage with
+no row exits immediately with an error: falling back to a default count would assert the
+wrong wave size and could mark a short wave complete. Determinism-dup arms always book to
+`rerun_checks` whatever the stage, so a dup arm is never counted twice under two names.
+The `continue_ref` mechanism probe runs as `STAGE=probes bash …` with 6 configs per
+persona.
+
+*Ruling history: this was briefly one-wave-per-invocation (2026-08-09) when the owner could
+not keep the machine awake for long blocks. That constraint lifted the same day. The
+per-wave behaviour is unchanged and is still the unit of work — only the loop around it is
+new, and `ONE=1 bash …` still stops after a single wave when only a couple of hours are
+available.*
+
+**The script is restartable, not resumable.** Re-running the same command after any
+interruption picks up at the next unfinished wave, because completion is recorded per wave
+on disk. But there is no resume point *inside* a wave: the sweep runner has no
+skip-completed-configs logic, so an interrupted wave restarts from its first config. Batch
+directories left behind by an interrupted attempt are orphans — unscored, in no manifest,
+and never charged — so the script deletes them before re-sweeping rather than risk a stale
+`_SUCCESS` from the old attempt being read as fresh output.
+
+**A blocked wave does not end the night.** If a wave cannot finish, it is marked
+`.WAVE_BLOCKED` and the loop moves to the next persona, so one bad wave cannot waste the
+remaining ten hours. Two conditions do stop the night, because they make every later wave
+untrustworthy or unaccountable: the engine identity changing mid-run (every batch produced
+after that point is attributed to an engine revision that did not produce it), and a budget
+charge of unknown status (further waves would be charged on top of bookkeeping nobody can
+trust). Everything else — a partial sweep, an a5 refusal, a failed quality gate, a
+determinism-check failure — blocks only its own wave.
+
+The run ends with a summary: waves complete, waves blocked with their reasons, and the
+running budget total against the 1,500 cap.
+
+**Ground-truth rule (from the 2026-08-09 code review of the script): success is read from
+the manifest and the a5 verdicts, never inferred from a file existing.** Two traps make
+file-existence tests actively wrong here. `sweep_runner.main()` writes `sweep_manifest.json`
+on its failure paths too — both the `sweep_status: "partial"` path and the `_crash_manifest`
+path — before exiting non-zero, so the manifest's presence says only that the runner ran, not
+that it worked. And `poker-analytics:scorer/constraints.py:main` writes its `--out` file and exits 0 even when
+`a5_pass` is false, so an `a5.json` on disk may be a recorded *failure*. A script that keys on
+either would charge the budget for a truncated wave, delete the raw Parquet that is the only
+evidence for diagnosing the failures, and stamp the wave complete. Read
+`canonical.sweep_status`, every `canonical.runs[].run_status`, `canonical.producer_rerun_check.passed`,
+and each batch's `a5_pass` — and treat anything unexpected as a stop, not a warning.
+
+Per-wave state lives in four markers inside each persona folder:
+
+- `.WAVE_COMPLETE` — the wave finished cleanly. Written last, and only after every expected
+  batch carries a passing a5 result.
+- `.BUDGET_RECORDED` / `.BUDGET_IN_FLIGHT` — a two-marker pair, because the budget charge
+  mutates `budget-manifest.json` before any single marker could be written. `IN_FLIGHT` goes
+  down first; `RECORDED` replaces it after the write lands. Finding `IN_FLIGHT` without
+  `RECORDED` means a kill landed inside that window, so the charge is of unknown status: the
+  script stops and asks for the manifest to be checked by hand rather than risk a second charge.
+- `.WAVE_BLOCKED` — the wave hit something needing a decision. It holds the reason on line 1.
+  Blocked waves are skipped by the wave picker so the remaining waves can still run, are
+  reported prominently at the top of every subsequent invocation, and prevent the script from
+  ever announcing that stage 1 is done.
+
+**The budget is charged from the manifest's own run list, as early as possible, and exactly
+once.** Runs are spent the moment the exporter executes them — §4.2 above says the seeds of
+failed runs "are already spent against the budget" — so the charge happens as soon as the run
+list is readable, *before* any quality verdict. A wave that sweeps cleanly but stumbles in the
+a5 check is still charged; otherwise real spend would silently accumulate outside the 1,500
+cap. The count comes from `len(canonical.runs)` plus the rerun-dup arm inferred from
+`volatile.producer_rerun_check.dup_dir` — never from the config count in the spec.
+
+If a run dies after the sweep but before the follow-up steps, the next invocation sees the
+existing `sweep_manifest.json` and resumes from the a5 check instead of re-sweeping —
+re-sweeping would spend the wave's runs a second time against the 1,500 cap.
+
+**Engine identity is checked before AND after the sweep.** `export_analytics._git_sha()`
+stamps `engine_git_sha` from `HEAD` with no dirty-tree probe and no `-dirty` suffix, so an
+uncommitted edit under `backend/` or `content/` would be recorded as the frozen sha — and this
+working tree is shared with other agent sessions. The script therefore requires both
+`HEAD == <frozen sha>` and a clean `git status --porcelain -- backend content` at launch, and
+re-checks both after the sweep; a change during the wave blocks it, because every batch just
+produced is attributed to an engine revision that did not produce it. Residual gap worth
+knowing: a dirty state that appears and is reverted entirely within the wave still slips
+through, since only the endpoints are sampled.
+
+**Splitting does not touch the §f escalation clause, and must not be read as if it
+did.** §f's escalation trigger ("past 6 worst-bound nights" → the §a.3 emulator fallback
+activates) counts *compute*, not calendar: a "night" there is an 8-hour owner-capped block
+derated by 0.8, i.e. 28,800 s × 0.8 = 23,040 s = 6.4 compute-hours of usable throughput.
+That is the divisor §f itself uses (`28,800 × 0.8 / 56.93 ≈ 404.7 configs/night`), and it
+is why §f can state a run count as a fraction of a night. Chopping the same 736 stage-1 runs into six 2.5-hour sittings
+spread across whatever days suit the owner changes zero compute, so the trigger cannot
+move. Do not later compare elapsed calendar days against the 6-night threshold and
+conclude escalation fired — that misreading would wrongly activate the emulator fallback
+and inject its error term into Σ*. Arithmetic at the ruled 2 workers (~400 hands/sec per
+batch, two batches concurrent ⇒ ~62.5 s/config): ~369 configs per compute-night, so
+stage 1 ≈ 2.0 nights and the full 1,500-run cap ≈ 4.1 nights — under 6, consistent with
+the ledger's ≈3.5–4 nights, and the source of the ~2.0–2.5h per-wave estimate above.
+
+**Operating rules for the machine, in priority order:**
+
+1. **Keep it plugged in.** A sleeping laptop that runs the battery flat kills the run.
+2. **Closing the lid is safe.** macOS suspends the processes rather than killing them, and
+   the throughput measurement is unaffected: the exporter times each batch with
+   `time.monotonic()`, which on macOS is `mach_absolute_time()` — a clock that stops while
+   the machine sleeps. Sleep time is invisible to the a5 rule-5 throughput floor, so no
+   batch is wrongly disqualified. The work simply pauses and resumes on wake.
+3. **Never Ctrl-C a wave.** There is no resume point inside a wave; the runner has no
+   skip-completed-configs logic, so an interrupt discards up to 2.5 hours and the restart
+   re-spends those runs.
+4. **Run it on an idle machine.** The 350 hands/sec floor fails under contention — the dry
+   run measured 72–123 hands/sec on a busy laptop versus 391–417 serial when idle.
 
 ## 4. Post-wave (per batch, after the sweep completes)
 
@@ -161,6 +302,24 @@ stage runs when appending to the manifest.
 
 ## 6. Stage 2 / stage 3 / confirmation flow
 
+- **Mechanism probes** (`STAGE=probes`) repeat steps 1–5 per persona and are the only
+  stage that unfreezes a frozen dial. Configs come from
+  `poker-analytics:analysis/gen_probe_configs.py` rather than from the sweep designer,
+  because a probe anchors on measured stage-1 results instead of on a fresh design. Two
+  rules are specific to this stage and neither is optional:
+  - **Every config that moves the frozen dial must carry its own `probe_declarations`
+    entry.** Without one the engine refuses the config outright. That refusal is the
+    mechanism by which a frozen axis is unfrozen *by declaration* rather than bypassed, so
+    a probe wave that loads without declarations is a bug, not a convenience.
+  - **A probe persona's config must never author both `postflop.continue_ref` and
+    `postflop.call_looseness`.** The engine rejects that pair for one persona regardless of
+    intent, because co-varying them pins their ratio and destroys the attribution the probe
+    exists to make. The generator drops `call_looseness` so it reverts to the shipped pack
+    default; the consequence is that a probe's anchor is not any stage-1 configuration and
+    its distance must be measured rather than looked up.
+  - The `continue_ref` probe is six waves of 6 configs each — 36 config runs charged to
+    the `probes` budget stage and 6 determinism-dup arms to `rerun_checks`, which will take
+    the study from 758 to 800 of the 1,500-run cap. **Not yet executed as of 2026-08-11.**
 - **Stage 2** repeats steps 1–5 per persona, generating from stage 1's top-decile box.
 - **Stage 3** repeats steps 1–5 for the 20 roster-combination configs.
 - **Confirmation is two-phase** (never a single sweep pass):
