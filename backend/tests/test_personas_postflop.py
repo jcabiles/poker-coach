@@ -3143,6 +3143,11 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
     tested persona repeated to guarantee representation), collect AF /
     fold-to-cbet / WTSD for the tested persona's seats only.
 
+    Returns `(af, ftc, wtsd, call_n, ftc_n, saw_flop_n, never_faced_wager)`.
+    The last element (S3-T5) is the share of the persona's showdown hands that
+    never met a wager on any postflop street; it is a DIRECTIONAL diagnostic
+    and must never be asserted as a HARD gate.
+
     Memoized per (persona, n, context_aware, pack-content fingerprint) within
     the process (see `_packs_fingerprint`): the band
     test and the ordering-invariant test both need every persona's stats at
@@ -3167,7 +3172,7 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
 
     bet_raise = call_count = 0
     folds_to_first_cbet = cbet_opportunities = 0
-    saw_flop_hands = showdown_hands = 0
+    saw_flop_hands = showdown_hands = never_faced_wager_hands = 0
 
     for i in range(n):
         hand_seed = rng.randrange(1_000_000_000)
@@ -3176,11 +3181,23 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
             rng, hand_seed, button_seat, persona_by_seat, packs, context_aware=context_aware
         )
         settlement, log, saw_flop = res.settlement, res.log, res.saw_flop
+        # S3-T5 phase A: which seats met chips at ANY postflop street this hand.
+        # `log` is postflop-only, so a FOLD/CALL/RAISE in it is a decision taken
+        # with a wager outstanding. This is the same event t2-preregistration.md
+        # §4 counted ("postflop folds, calls or raises per showdown hand"), kept
+        # deliberately identical so the new counter's baseline is comparable to
+        # the 47.7 / 44.1 / 41.6% figures that motivated this ticket. The one
+        # known impurity is the rare matched-with-option RAISE (a CHECK+RAISE
+        # node, where no wager is outstanding), which this counts as a faced
+        # wager exactly as the prose figure did.
+        faced_wager_seats = {s for s, _st, a in log if a in ("fold", "call", "raise")}
         for seat in tested_seats:
             if seat in saw_flop:
                 saw_flop_hands += 1
                 if seat in settlement.showdown_seats:
                     showdown_hands += 1
+                    if seat not in faced_wager_seats:
+                        never_faced_wager_hands += 1
 
         # AF: BET+RAISE / CALL, postflop only, tested seats.
         for seat, _street, action in log:
@@ -3211,7 +3228,22 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
     af = (bet_raise / call_count) if call_count >= 30 else None
     ftc = (folds_to_first_cbet / cbet_opportunities) if cbet_opportunities >= 30 else None
     wtsd = (showdown_hands / saw_flop_hands) if saw_flop_hands >= 30 else None
-    result = (af, ftc, wtsd, call_count, cbet_opportunities, saw_flop_hands)
+    # S3-T5: DIRECTIONAL diagnostic only, never a HARD gate (theory contract's
+    # three-HARD-statistics rule). Share of this persona's showdown hands that
+    # never met a wager on any postflop street — the population the slice-3
+    # calling dial cannot reach, and the one S3-T5's lever aims at.
+    never_faced_wager = (
+        (never_faced_wager_hands / showdown_hands) if showdown_hands >= 30 else None
+    )
+    result = (
+        af,
+        ftc,
+        wtsd,
+        call_count,
+        cbet_opportunities,
+        saw_flop_hands,
+        never_faced_wager,
+    )
     _STATS_CACHE[key] = result
     return result
 
@@ -7059,7 +7091,7 @@ def test_persona_postflop_bands(persona, budget):
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]
-    af, ftc, wtsd, call_n, ftc_n, wtsd_n = _persona_stats(packs, persona, per_persona_n)
+    af, ftc, wtsd, call_n, ftc_n, wtsd_n, _nfw = _persona_stats(packs, persona, per_persona_n)
 
     if af is not None and af_band is not None:
         lo, hi = af_band
@@ -7077,7 +7109,7 @@ def test_persona_postflop_bands(persona, budget):
         # power, not a band breach: the min-raise ping-pong wars were inflating
         # the BET+RAISE numerator at every n. Band VALUES untouched (frozen to
         # W4-b); the stable-n run is memoized and shared with the WTSD leg.
-        af_stable, _f3, _w3, call_stable_n, _fn3, _wn3 = _persona_stats(
+        af_stable, _f3, _w3, call_stable_n, _fn3, _wn3, *_ = _persona_stats(
             packs, persona, _WTSD_ORDER_N
         )
         assert af_stable is not None and lo <= af_stable <= hi, (
@@ -7096,7 +7128,7 @@ def test_persona_postflop_bands(persona, budget):
         # mid-band. Cheap throughput-n stays as the first pass; the band
         # VALUES are untouched (frozen to W4-b).
         if not (lo <= ftc <= hi):
-            _a2, ftc_stable, _w2, _c2, ftc_stable_n, _wn2 = _persona_stats(
+            _a2, ftc_stable, _w2, _c2, ftc_stable_n, _wn2, *_ = _persona_stats(
                 packs, persona, _WTSD_ORDER_N
             )
             assert ftc_stable is not None and lo <= ftc_stable <= hi, (
@@ -7174,7 +7206,7 @@ def test_persona_postflop_bands(persona, budget):
         # [0.37, 0.59] when this was written and is (0.26, 0.59) under the
         # Stage-0 interim regime (the ceiling, which is the edge the point is
         # about, is unchanged). AF/FtC keep the cheaper throughput-n.
-        _a, _f, wtsd_stable, _c, _fn, wtsd_stable_n = _persona_stats(
+        _a, _f, wtsd_stable, _c, _fn, wtsd_stable_n, *_ = _persona_stats(
             packs, persona, _WTSD_ORDER_N
         )
         lo, hi = wtsd_band
@@ -7263,7 +7295,7 @@ def test_persona_wtsd_ordering_invariants(budget):
     packs, _per_persona_n, _texture_n, _hands_per_s = budget
     wtsd = {}
     for persona in ("calling_station", "tag", "lag", "passive_fish", "maniac"):
-        _af, _ftc, w, _cn, _fn, wn = _persona_stats(packs, persona, _WTSD_ORDER_N)
+        _af, _ftc, w, _cn, _fn, wn, *_ = _persona_stats(packs, persona, _WTSD_ORDER_N)
         assert w is not None, f"{persona} WTSD unmeasurable at n={wn} (<30 floor)"
         wtsd[persona] = w
 
