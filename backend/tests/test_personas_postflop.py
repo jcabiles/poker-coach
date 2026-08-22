@@ -2829,6 +2829,14 @@ def budget():
 # N (fish AF .940/.951, ftc .411/.431; station AF .341/.337, ftc .158/.160) —
 # those tuples are KEPT unmoved.
 #
+# ⚠️ SUPERSEDED IN PART, 2026-08-21. The two WTSD bands this block derives —
+# fish (0.50, 0.57) and station (0.66, 0.72) — are RETIRED, together with the
+# W3R exception that authorized them, by the Stage-0 interim regime described
+# immediately below; the live values are the tuples in `BANDS`. The AF and
+# fold-to-c-bet halves of this block are untouched and still govern, and the
+# sentence above about every other row staying frozen to W4-b still holds for
+# AF and fold-to-c-bet. Kept as the derivation history it is.
+#
 # ---------------------------------------------------------------------------
 # STAGE-0 INTERIM WENT-TO-SHOWDOWN REGIME (owner-ratified 2026-08-21).
 #
@@ -2849,11 +2857,14 @@ def budget():
 # One retirement lands here: the 2026-07-24 W3R exception that moved the
 # station's WTSD floor UP to 0.66 — 18 points above that persona's own grounded
 # CEILING — is retired by A4.2 item 1. It was the single most binding obstacle
-# to lowering showdown frequency. Its AF/fold-to-c-bet half is untouched.
+# to lowering showdown frequency. The AF and fold-to-c-bet bands were never
+# part of that exception — W3R moved went-to-showdown only — so they are
+# unaffected by its retirement.
 # ---------------------------------------------------------------------------
 # persona -> (AF band or None, fold_to_cbet band, WTSD band), all fractions.
 BANDS = {
-    # (both W3R-2 lines: owner-authorized post-fit collision — see block above)
+    # (fish/station AF + fold-to-c-bet are still the W3R-2 tuples — see the
+    # block above; their WTSD tuples are Stage-0 interim values)
     "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.57)),  # WTSD: Stage-0 interim
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
@@ -6591,23 +6602,44 @@ def test_persona_postflop_bands(persona, budget):
         # 0.4912 — all within noise of each other, theory review R-3). That
         # attribution is unchanged and still on record; what changed is the
         # RULER. With the R-L2 preflop-sizing repair the fish's stable-n WTSD
-        # reads 0.5082 (n=4000) / 0.5093 (n=2000), measured in separate processes
-        # at seed 20260710 — INSIDE its frozen band, so there is nothing left to
-        # defer and a standing skip would hide a future regression. This is a
-        # strengthening (a skip becomes a live assertion), band VALUE untouched.
-        # The margin over the 0.50 floor is thin: ~0.008 is ~1.1 sigma of
-        # binomial sampling error at this n (delta-review: independent-stream
-        # probes at seed offsets 1/2/7 read 0.5049/0.5222/0.5072 — all pass,
-        # nearest ~0.65 sigma above the floor). Deterministic at the pinned
-        # seed, but an rng-STREAM shift with zero behavior change can flip this
-        # leg red — treat a red here as "re-measure at more seeds first", and a
-        # future slice that moves fish showdown rate DOWN will trip here first.
+        # read 0.5082 (4000 hands) / 0.5093 (2000 hands), measured in separate
+        # processes at seed 20260710 — INSIDE its frozen band, so there was
+        # nothing left to defer and a standing skip would have hidden a future
+        # regression. This was a strengthening (a skip becomes a live
+        # assertion), band VALUE untouched at the time.
+        #
+        # ⚠️ THOSE TWO FIGURES ARE DATED 2026-08-01 AND ARE NOT THE SAME
+        # MEASUREMENT as the 0.5403 pinned in this test's docstring. Same seed
+        # and same harness, different tip: roughly three weeks of persona and
+        # engine slices land between them, and the fish's stable-n reading
+        # moved 0.5082 -> 0.5403 over that span. Note also that the counts are
+        # not the same quantity — `n=4000` here is the HAND count
+        # (`_WTSD_ORDER_N`), whereas the docstring's `n=4107` is the flop-seen
+        # count that the binomial standard deviation is taken at.
+        # Everything above this line is PRE-2026-08-21 HISTORY, recorded
+        # against the frozen [0.50, 0.57] band. It said the margin over the
+        # 0.50 floor was thin (~0.008, about 1.1 sigma of binomial sampling
+        # error at that n; independent-stream probes at seed offsets 1/2/7
+        # read 0.5049/0.5222/0.5072), and concluded that a future slice moving
+        # fish showdown rate DOWN would trip here first. DO NOT ACT ON THAT
+        # CONCLUSION: it is precisely the veto A4.2 item 1 removes.
+        #
+        # THE INTERIM READING (2026-08-21 onward). The fish's floor is now the
+        # grounded 0.33, and the measured 0.5403 clears it by 21 points — on
+        # the order of 27 binomial sigma at this n, so the floor does not bind
+        # and cannot bind under any movement this project intends. Downward
+        # movement is LEGAL and is the direction the work must travel. The
+        # binding edge for the fish is now its CEILING (0.57, which the
+        # measurement clears by about 3.0 sigma), and that is the edge a red
+        # here would be about.
         #
         # W3-b/c/d: measure the WTSD-vs-band at the stable large-n (memoized,
         # shared with the ordering test). The throughput-n estimate breaches band
         # ceilings by under-sampling noise alone — lag's true WTSD 0.55 spikes to
-        # 0.59+ at n~247 despite sitting well inside its [0.37, 0.59] band. AF/FtC
-        # keep the cheaper throughput-n; the band VALUES are untouched (frozen).
+        # 0.59+ at n~247 despite sitting well inside its band, which was
+        # [0.37, 0.59] when this was written and is (0.26, 0.59) under the
+        # Stage-0 interim regime (the ceiling, which is the edge the point is
+        # about, is unchanged). AF/FtC keep the cheaper throughput-n.
         _a, _f, wtsd_stable, _c, _fn, wtsd_stable_n = _persona_stats(
             packs, persona, _WTSD_ORDER_N
         )
@@ -6618,8 +6650,10 @@ def test_persona_postflop_bands(persona, budget):
 
 
 def test_persona_wtsd_ordering_invariants(budget):
-    """Cross-persona WTSD ORDERING (lead-authorized, alongside the
-    engine-anchored absolute bands above): absolute WTSD bands can't catch a
+    """Cross-persona WTSD ORDERING (lead-authorized, alongside the absolute
+    bands above -- engine-anchored when this was written, and since 2026-08-21
+    grounded on the floor side and ratcheted on the ceiling side): absolute
+    WTSD bands can't catch a
     "persona-flattening" regression where every persona's WTSD converges to
     the same population-average value -- these relative comparisons are
     robustly true regardless of the engine's absolute showdown-rate ceiling,
@@ -6627,14 +6661,24 @@ def test_persona_wtsd_ordering_invariants(budget):
     discipline (station folds least -> highest WTSD; maniac folds most among
     the aggressive personas -> lowest WTSD relative to the calling personas).
 
-    THIS TEST IS NOW THE PRIMARY ANTI-FLATTENING GUARD. As of 2026-08-21 the
+    THIS TEST CARRIES MOST OF THE ANTI-FLATTENING JOB NOW -- TOGETHER WITH THE
+    DE-ROBOTIZATION GATE'S SEPARATION FLOOR, NOT ALONE. As of 2026-08-21 the
     went-to-showdown FLOORS in `BANDS` above are the contract's grounded floors
     rather than engine-anchored ones, so they no longer stop a persona drifting
-    toward the population average. The job passes here. But the five legs are
-    NOT all of the same kind, and treating them as one block would rebuild the
-    veto the interim regime exists to remove, so amendment A4.2 item 4
-    (owner-ratified 2026-08-21) splits them three-and-two. NO LEG VALUE CHANGES
-    IN THIS PULL REQUEST; only the classification below is new.
+    toward the population average. Most of that job passes here.
+
+    STATED PLAINLY, BECAUSE IT IS THE GAP A READER WOULD OTHERWISE MISS: the
+    nit appears in NONE of the five legs below, and its floor just dropped 17
+    points (0.37 -> 0.20). Nothing in this test constrains it. The nit is held
+    only by its own ratcheted ceiling (0.69) and by the de-robotization gate's
+    archetype separation floor, which is archetype-wide and does not depend on
+    any one statistic's direction. A slice that moves the nit should read the
+    separation gate, not this test.
+
+    The five legs are NOT all of the same kind, and treating them as one block
+    would rebuild the veto the interim regime exists to remove, so amendment
+    A4.2 item 4 (owner-ratified 2026-08-21) splits them three-and-two. NO LEG
+    VALUE CHANGES IN THIS PULL REQUEST; only the classification below is new.
 
     PERMANENT, AND HARD THROUGHOUT -- these three agree with the grounded
     endpoint, so no slice under the interim regime may weaken them:
