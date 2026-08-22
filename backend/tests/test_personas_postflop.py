@@ -977,6 +977,198 @@ def test_ace_high_alpha_holds_for_the_station_pre_river():
                     f"regressed; see alpha-acehigh-ruling.md"
                 )
 
+# ---- The RIVER leg of that ceiling, over the whole roster (S3-T4, 2026-08-22) --
+#
+# S3-T4 is ticket 4 of improvement slice 3 ("calldown") of the bot-realism
+# flywheel. It closes the half of the 2026-08-19 ruling that #204 left open.
+# #204 built `_measure_ace_high_fold_by_size` above and pinned only the part of
+# the ace-high surface that COMPLIES with the ruling — the calling station,
+# before the river — and asserted nothing whatever about the river. The ruling is
+# roster-wide and names no street, so the river is owed an assertion too, and the
+# only honest assertion available today is an EXPECTED FAILURE: measured at this
+# file's own alpha node, all 24 heads-up persona-and-price river cells exceed
+# alpha, by between +0.2695 (maniac facing a third of the pot) and +0.6391 (nit
+# facing a third of the pot).
+#
+# WHY AN EXPECTED-FAILURE MARK, when `alpha-acehigh-ruling.md` section 6 declined
+# one. That section gave two grounds: an expected-failure pin would entrench the
+# violation as the engine's specification, and a one-sided ratchet over sixty-odd
+# cells would be a re-record burden on every future slice. The shape below
+# answers both rather than arguing with them.
+#
+#   * The mark sits at TEST granularity, one leg per persona — six legs, not
+#     sixty cells — and it PINS NO NUMBER. Every cell may move as far as it
+#     likes, in either direction, with no re-record here. Only crossing a
+#     persona's whole river row into alpha compliance changes the verdict.
+#   * `strict=True` makes compliance LOUD. The day a persona's river row falls
+#     under alpha its leg XPASSes and the suite goes red, so a slice that fixes
+#     this cannot do it quietly. That is the opposite of entrenchment.
+#
+# So this is a ONE-WAY COMPLIANCE TRIPWIRE — "the river violates alpha, and we
+# will be told the moment it stops" — and not a specification of the violation.
+# Nothing about the engine changed to produce it; T3's `_ACE_HIGH_RIVER_CALL_DAMP`
+# stays at 0.06 and the mark is a statement about the measurement, not a licence.
+#
+# ONE-WAY MEANS ONE-WAY: THIS TEST CANNOT DETECT THE BREACH WIDENING. Every one
+# of the 24 cells could climb another twenty points and the mark would still
+# report a quiet XFAIL, exactly as it does today. The widening S3-T2 already
+# caused (nit +0.0440, TAG +0.0800 at a third of the pot) was caught by the
+# report's measurement, not by this test. Gating the widening needs a second,
+# level-pinning instrument, which this slice deliberately did not build — see the
+# per-range-versus-per-bucket contract defect at filed item 10 of
+# `docs/ai-dlc/ledger/flywheel-slice3-calldown.md`, which puts the whole
+# per-bucket obligation in question and would DELETE this test rather than fix it.
+#
+# HEADS-UP ONLY, ON PURPOSE. alpha = f/(1+f) is a HEADS-UP identity. In a
+# multiway pot the minimum-defence obligation is SHARED between defenders, so a
+# single defender's admissible fold rate is strictly ABOVE f/(1+f) and this
+# ceiling is not the correct bound there — the same multiway caveat that is
+# recorded with `_ACE_HIGH_RIVER_CALL_DAMP` in the engine. The station test above
+# asserts alpha at two and three opponents as well; that is conservative and it
+# happens to pass, but this leg does not need the conservatism and does not take
+# it.
+#
+# AIR IS NOT TOUCHED. The engine's river branch zeroes AIR's call merit outright
+# (`personas_postflop.py`, the `street is Street.RIVER and draw is
+# DrawCategory.NONE` branch). This ticket does not read, assert on, or move that
+# zero: the range filter here is `StrengthBucket.ACE_HIGH` only.
+def _ace_high_river_alpha_breaches(persona: str) -> list[str]:
+    """Every naked-ace-high RIVER cell for `persona` whose fold rate exceeds the
+    size-exact alpha = f/(1+f), heads-up, at this file's alpha node.
+
+    An empty list means the persona's whole river row is alpha-compliant. Shared
+    verbatim by the guard below and by its non-vacuity proof, so that "the guard
+    can pass" and "the guard trips" are statements about the SAME assertion."""
+    r = _measure_ace_high_fold_by_size(persona, Street.RIVER, 1)
+    breaches = []
+    for frac in PRICE_FRACS:
+        # Size-exact, and RAW: no tolerance. Owner ruling 10 of 2026-08-22 keeps
+        # the alpha assertion raw, and the A1 guardrail forbids a fold FLOOR, so
+        # this comparison is one-sided by law as well as by construction.
+        alpha = frac / (1 + frac)
+        if r[frac] > alpha:
+            breaches.append(
+                f"{persona} naked-ace-high river fold {r[frac]:.4f} vs a "
+                f"{frac}-pot bet exceeds alpha {alpha:.4f} by {r[frac] - alpha:+.4f}"
+            )
+    return breaches
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="KNOWN ENGINE DEFECT, filed for owner ruling: naked ace-high exceeds the "
+    "alpha fold ceiling at every heads-up river price for every persona (owner ruling "
+    "2026-08-19 made alpha binding on this bucket). Closing it needs an ace-high river "
+    "call merit roughly 60x the shipped one, which the frozen went-to-showdown bands "
+    "refuse. See docs/ai-dlc/research/slice3-calldown/t4-report.md.",
+)
+@pytest.mark.parametrize("persona", ALL_PERSONAS)
+def test_ace_high_river_alpha_ceiling(persona):
+    """alpha = f/(1+f) as a fold CEILING on naked ace-high at the RIVER, heads-up,
+    all four prices, all six personas — the leg the 2026-08-19 owner ruling
+    requires and #204 deliberately did not write. EXPECTED TO FAIL today; the
+    reasoning for the mark, its granularity and its scope is in the block above.
+
+    WHAT IS MEASURED AT THIS TIP (`_measure_ace_high_fold_by_size`, n=1250 naked
+    ace-high spots, deal seed 20260721, per-cell decision seed 20260721 +
+    100*persona_index + frac_index, heads-up, alpha = 0.2481 / 0.3333 / 0.5000 /
+    0.6000 at 1/3-pot / 1/2-pot / pot / 1.5x-pot):
+
+        persona           1/3-pot   1/2-pot      pot   1.5x-pot   worst margin
+        maniac             0.5176   0.7264   0.8336     0.9024        +0.2695
+        calling_station    0.5584   0.6520   0.7520     0.7936        +0.3187
+        lag                0.6392   0.8048   0.8848     0.9336        +0.4715
+        tag                0.7600   0.8928   0.9328     0.9664        +0.5595
+        passive_fish       0.7640   0.9072   0.9368     0.9648        +0.5739
+        nit                0.8872   0.9624   0.9736     0.9864        +0.6391
+
+    24 of 24 cells breach. The SMALLEST breach in the table is the maniac facing a
+    third of the pot at +26.95 percentage points, about 19 binomial standard
+    errors at this n, so no persona is anywhere near the wall and no reseed
+    changes the verdict.
+
+    TWO ROWS MOVED SINCE #204 MEASURED THEM, AND BOTH MOVED THE WRONG WAY. S3-T2
+    cut the nit's `call_looseness` 0.45 -> 0.32 and the TAG's 0.6 -> 0.38 to bring
+    their went-to-showdown rates down; a tighter calling dial also folds naked
+    ace-high more often, so the nit's 1/3-pot river fold rose 0.8432 -> 0.8872 and
+    the TAG's 0.6800 -> 0.7600. That is a real cost of the calldown slice, stated
+    here rather than left for a reader to diff, and it is why the constant that
+    would buy full compliance moved too (see the non-vacuity test below).
+
+    NOT A LICENCE AND NOT A FLOOR. No engine behaviour changed with this test and
+    none may change to make it pass. The A1 guardrail stands: alpha is a ceiling,
+    never a floor, and no lower bound on any fold rate exists in this file."""
+    breaches = _ace_high_river_alpha_breaches(persona)
+    assert not breaches, "; ".join(breaches)
+
+
+def test_ace_high_river_alpha_guard_is_not_vacuous(monkeypatch):
+    """The guard above is a real measurement of the engine, proved in BOTH
+    directions on the same assertion body — it can pass, and it trips.
+
+    WHY THIS TEST IS NEEDED AT ALL. A strict expected-failure mark is worthless if
+    the assertion under it could never pass for a reason unrelated to the defect
+    it claims to record — a mis-scoped fixture fails just as red as a broken
+    engine. So this test drives `_ACE_HIGH_RIVER_CALL_DAMP`, the one constant that
+    governs how much naked ace-high calls the river, to two scratch values and
+    reads the SAME `_ace_high_river_alpha_breaches` the guard reads.
+
+    A DIRECTION CORRECTION, because the ticket asks for the opposite one. S3-T4's
+    text asks for a non-vacuity proof by "deliberate damp INFLATION beyond what
+    alpha allows". Inflating this damp cannot breach alpha: the damp multiplies
+    the CALL merit, so raising it lowers the fold rate and moves the roster TOWARD
+    the ceiling's compliant side. alpha is a ceiling on folding and therefore
+    places no upper bound on calling at all. The substance the ticket wants —
+    "this guard is not passing, or failing, by construction" — is what is asserted
+    here, in the two directions that actually exist.
+
+      * DEFLATION IS WHAT ALPHA FORBIDS, and the guard catches it. At a damp of
+        2.5 the roster is close to compliant but not compliant: 6 of 24 cells are
+        still over, binding at the nit facing 1.5x-pot, 0.6704 against alpha
+        0.6000 (+0.0704, about 5.3 binomial standard errors at n=1250). The nit's
+        leg trips.
+      * THE GUARD CAN PASS. At a damp of 5.0 every one of the 24 cells is at or
+        under alpha, binding at the nit facing 1/2-pot with 0.2632 against 0.3333
+        (-0.0701 of headroom). Every persona's leg is clean, which is what makes
+        the expected failure at the shipped 0.06 a statement about the ENGINE
+        rather than about this fixture.
+
+    WHERE FULL COMPLIANCE ACTUALLY SITS, measured rather than inherited. The
+    roster crosses into 0-of-24 between damp 3.5 (1 cell over, the nit at 1/2-pot
+    by +0.0003) and 3.6 (0 over, -0.0069). `alpha-acehigh-ruling.md` put that
+    crossing near 3.0 before S3-T2; the nit's and the TAG's tighter calling dials
+    pushed it up. Either way the number is roughly sixty times the shipped 0.06,
+    and the frozen went-to-showdown bands already refused 0.45 — which is the
+    arithmetic of the ruling-versus-bands reconciliation, and it is the owner's.
+    The scratch values 2.5 and 5.0 are chosen to sit clear of that crossing on
+    each side, not adjacent to it, so this test does not become a pin on the
+    crossing point.
+
+    THE SHIPPED CONSTANT IS UNCHANGED, asserted at the end so a future edit to
+    the engine cannot make this proof quietly describe a different engine."""
+    monkeypatch.setattr(personas_postflop, "_ACE_HIGH_RIVER_CALL_DAMP", 2.5)
+    deflated = {p: _ace_high_river_alpha_breaches(p) for p in ALL_PERSONAS}
+    assert deflated["nit"], (
+        "non-vacuity leg 1 FAILED: at a river call damp of 2.5 the nit's "
+        "naked-ace-high river row is alpha-compliant, so the guard does not trip "
+        "on a damp deflection alpha forbids"
+    )
+
+    monkeypatch.setattr(personas_postflop, "_ACE_HIGH_RIVER_CALL_DAMP", 5.0)
+    compliant = {p: _ace_high_river_alpha_breaches(p) for p in ALL_PERSONAS}
+    assert not any(compliant.values()), (
+        "non-vacuity leg 2 FAILED: at a river call damp of 5.0 the guard STILL "
+        "reports breaches, so its expected failure at the shipped 0.06 is not "
+        "evidence about the engine: "
+        + "; ".join(m for ms in compliant.values() for m in ms)
+    )
+
+    monkeypatch.undo()
+    assert personas_postflop._ACE_HIGH_RIVER_CALL_DAMP == 0.06, (
+        "the shipped river call damp is no longer 0.06 — re-derive the two scratch "
+        "values above before trusting this proof"
+    )
+
 
 def test_fold_to_bet_persona_ordering_at_fixed_size(fold_by_size):
     """RES-D §2 invariant 2 at MEDIUM (½-pot), RE-DERIVED at W3R-2.

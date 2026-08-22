@@ -1,14 +1,18 @@
 # Ledger — improvement slice 3 (calldown) of the bot-realism flywheel
 
-**Bottom line. Seven things are filed here and none of them is fixed by this
-slice. The most consequential is filed 5: a bot's probability of betting a top
-pair or a middle pair does not respond to its stack depth AT ALL, when
-commitment says it should rise toward certainty as the stack shortens — so the
-mechanism the engine is missing on the value side is a commitment SLOPE. That
-finding came out of the review that WITHDREW ticket 3's lever, which was a damp
-pointing the other way (filed 7).
+**Bottom line. Ten things are filed here and none of them is fixed by this
+slice. Two compete for most consequential. Filed 5: a bot's probability of
+betting a top pair or a middle pair does not respond to its stack depth AT ALL,
+when commitment says it should rise toward certainty as the stack shortens — so
+the mechanism the engine is missing on the value side is a commitment SLOPE.
+That finding came out of the review that WITHDREW ticket 3's lever, which was a
+damp pointing the other way (filed 7). Filed 10: the α fold ceiling is a bound on
+the defender's WHOLE RANGE and not on any one hand class, so the 2026-08-19
+ruling that it bounds naked ace-high — and the test filed 9 built to enforce it —
+apply a range identity to a bucket, which measurement shows is wrong in both
+directions at once.
 
-The seven in order. (1) The calling dial is hand-strength-blind, so it cannot close the
+The ten in order. (1) The calling dial is hand-strength-blind, so it cannot close the
 fold-to-continuation-bet gap: it moves air, which already folds almost always,
 by the same odds factor as the marginal pairs where the gap actually lives —
 that needs a bucket-aware fold lever, which is an ENGINE-LEVER DEFECT at MEDIUM.
@@ -25,7 +29,14 @@ betting is flat in stack depth where it should slope upward — an OPEN ITEM for
 the re-anchor slice, needing an owner decision. (6) The capped-node bluff-share
 shortfall that seeded ticket 3 was read RAW, and part of it is warranted by the
 identity's own size term. (7) The adjudication that withdrew ticket 3's lever,
-recorded so it is not re-litigated from the code alone.**
+recorded so it is not re-litigated from the code alone. (8) The re-derivation of
+`_ACE_HIGH_RIVER_CALL_DAMP` did not fire — the headroom bar was missed by 4.05
+points on the calling station and 5.41 on the LAG — so the constant stays at 0.06
+and the re-derivation is filed for a future ticket. (9) Naked ace-high breaks the
+α fold ceiling at every one of the 24 heads-up river cells, filed at HIGH with a
+one-way compliance tripwire shipped in its place. (10) α is a per-RANGE bound and
+not a per-BUCKET one, which re-opens the provenance of the ruling behind (9) and
+reshapes (2).**
 
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
@@ -34,7 +45,10 @@ Theory contract: `../contracts/persona-realism-theory-contract.md`.
 
 This file is chronological within each entry. "S3-T2" is ticket 2 of this slice:
 the retune of the per-persona `call_looseness` calling dials. "S3-T3" is ticket
-3: the stack-to-pot multiplier on made-value betting.
+3: the stack-to-pot multiplier on made-value betting. "S3-T4" is ticket 4: the
+extension of the α fold ceiling over naked ace-high on the river, plus the
+conditional re-derivation of the one constant that governs how much naked
+ace-high calls there.
 
 ---
 
@@ -290,3 +304,173 @@ remains in this branch's git history for provenance.
 criteria were all met by a change that should not ship. Criteria that ask "did
 the lever move its statistic" cannot catch "moving that statistic is wrong"; the
 pre-registration's own postscript records the same lesson from the other end.
+
+---
+
+## Filed 8 — Re-derive `_ACE_HIGH_RIVER_CALL_DAMP` once the showdown headroom exists
+
+**Filed by S3-T4, 2026-08-22, under owner ruling 7 of 2026-08-22 and the ratified
+amendment draft's §III.2.** The ruling's source is the machine-local owner
+rulings file `local/session-2026-08-22/rulings.md` (gitignored, so it is quoted
+here in full rather than only cited): *"7. S3-T4 headroom condition: station AND
+lag each >=5pp down on band harness vs d351150 baseline (71.1 / 57.3)."*
+
+**What did not happen, and why.** S3-T4 carried a conditional second half: if
+S3-T2 had bought enough went-to-showdown headroom, re-derive
+`_ACE_HIGH_RIVER_CALL_DAMP` (`backend/app/domain/personas_postflop.py:684`, the
+one constant governing how much naked ace-high calls on the river) away from its
+shipped 0.06, against the then-current river price distribution. **The condition
+does not hold and the re-derivation was not attempted.** Measured at S3-T4's tip:
+
+| persona | `d351150` baseline | S3-T4 tip | change | shortfall against the 5.00pp bar |
+|---|---:|---:|---:|---:|
+| calling_station | 0.7105 | 0.7010 | −0.95pp | **4.05pp** |
+| lag | 0.5728 | 0.5769 | **+0.41pp (UP)** | **5.41pp** |
+
+**What the follow-up ticket must do**, per §III.2, and it may not be started
+before the bar above is cleared: re-measure the minimum-defence obligation (the
+game-theoretic floor on how often a defender must continue to stop bluffing being
+free) at the then-current tip; read the resulting river continue rate against that
+obligation; move the constant; and reapply the interim regime's ceiling ratchet
+afterwards, recording the arithmetic. §III.2 also records that its ratchet forbids
+upward movement past a ceiling, so ratifying the amendment did not by itself
+license raising this damp.
+
+**Two facts the follow-up should carry, both measured by S3-T4 rather than
+inherited.** First, the damp value at which the whole roster becomes α-compliant
+on the river MOVED AWAY this slice, from about 3.0 to **3.6** — roughly sixty
+times the shipped 0.06, against the 7.5 times that the frozen went-to-showdown
+bands already refused. Second, the reason it moved is S3-T2 itself: a tighter
+calling dial also folds naked ace-high more often, so the nit's ⅓-pot river fold
+rose 0.8432 → 0.8872 and the TAG's 0.6800 → 0.7600. The calldown slice bought
+part of its showdown reduction with α headroom on this bucket. Full arithmetic:
+`../research/slice3-calldown/t4-report.md`.
+
+**Read this item together with filed 10 below.** If the owner re-rules that α is
+not a per-bucket bound, this follow-up's target disappears with it — there would
+be no per-bucket obligation for the damp to be re-derived against.
+
+**Not a defect and not a blocker.** Nothing is red, the guard extension shipped
+without it, and the engine is behaviourally byte-identical.
+
+---
+
+## Filed 9 — FINDING (HIGH, for owner ruling): naked ace-high breaks α at every river cell
+
+**Filed by S3-T4, 2026-08-22.**
+
+**The finding.** Extending the α fold ceiling to naked ace-high on the river, as
+the 2026-08-19 owner ruling requires, produces a test that fails for **all six
+personas at all four prices — 24 of 24 heads-up cells** — by between +0.2695
+(the maniac facing a third of the pot) and +0.6391 (the nit facing a third of the
+pot). The smallest breach is about 19 binomial standard errors at n = 1,250, so
+this is not a seed artifact and there is nothing to tune around.
+
+**What shipped instead of a tuned pass.** The guard is marked
+`xfail(strict=True)`, which makes it a **one-way compliance tripwire**: it pins no
+number, so no cell movement re-records anything here, and it goes red only if the
+river becomes α-compliant, which is the event a fix wants announced. **State its
+one-way-ness honestly — it CANNOT detect the breach widening.** Every one of the
+24 cells could climb another twenty points and this test would still report a
+quiet XFAIL, exactly as it does today; the movement S3-T2 already caused (nit
++0.0440, TAG +0.0800) was caught by the measurement in the report, not by this
+test. Anyone who wants the widening gated needs a second, level-pinning
+instrument, and this slice deliberately did not build one because filed 10 puts
+the whole per-bucket obligation in question.
+
+Strictness was verified rather than assumed, by patching the engine constant to a
+compliant value and observing all six legs turn from XFAIL to FAILED.
+`test_ace_high_river_alpha_guard_is_not_vacuous` proves the same assertion body
+both trips (at a scratch damp of 2.5) and passes (at 5.0).
+
+**Why this is the owner's and not a slice's.** Closing the breach needs an
+ace-high river call merit near sixty times the shipped constant. The frozen
+went-to-showdown bands refused 7.5 times it, and this slice exists to push
+showdown frequency DOWN while calling more rivers pushes it UP. The ruling and
+the bands are in direct conflict on this bucket, and reconciling them is an owner
+decision. This entry does not resolve, and S3-T4 did not touch, the
+α-per-archetype contract defect at filed 2 — the α assertion stays RAW, with no
+tolerance, per owner ruling 10 of 2026-08-22.
+
+**Severity HIGH** because a ratified owner ruling is unmet across an entire
+street for the entire roster, and the gap widened this slice. **But see filed 10:**
+the theory review of this ticket argues the ruling itself is mis-specified, in
+which case the right response is to withdraw the obligation rather than to meet it.
+
+---
+
+## Filed 10 — CONTRACT DEFECT (MEDIUM): α is a per-RANGE bound, not a per-BUCKET bound
+
+**Filed by S3-T4, 2026-08-22, on the persona-realism theory reviewer's finding.
+File it beside filed 2 and resolve neither: this item RESHAPES that one.**
+
+**The defect.** `α = f/(1+f)` bounds how often the DEFENDER'S WHOLE RANGE may
+fold facing a bet of `f` times the pot. It says nothing whatever about how often
+any individual strength bucket inside that range may fold. The 2026-08-19 owner
+ruling — that α bounds the ACE_HIGH bucket — and the test S3-T4 built to enforce
+it both apply a range-level identity to one bucket, and **that is wrong in BOTH
+directions on this bucket**, not merely conservative.
+
+**Measured, so the claim is arithmetic rather than assertion.** A whole-range
+heads-up river probe on this file's own node (uniform deal, five-card board,
+n = 2,000, seed 20260721) gives the composition below. "Beats ace-high" is every
+strength bucket strictly above `ACE_HIGH`.
+
+| slice of the range | share |
+|---|---:|
+| beats ace-high (monster · two-pair-plus · overpair/top-pair-top-kicker · top pair · middle pair) | **0.5675** |
+| naked ace-high | 0.1280 |
+| air | 0.3045 |
+
+Minimum defence frequency is `1 − α`, so:
+
+| bet | α | range must continue | supplied by hands that beat ace-high alone | what α actually requires OF ACE-HIGH |
+|---|---:|---:|---:|---|
+| pot | 0.5000 | 0.5000 | 0.5675 | **nothing — ace-high may fold 100% and minimum defence still holds** |
+| 1.5×-pot | 0.6000 | 0.4000 | 0.5675 | nothing — same |
+| ½-pot | 0.3333 | 0.6667 | 0.5675 | about 77% of ace-high must continue |
+| ⅓-pot | 0.2481 | 0.7519 | 0.5675 | **about 100%, and even that is 5.6 points short — air must call too** |
+
+So the per-bucket reading is too STRICT at the large prices, where the test
+demands ace-high fold under 50% and 60% while the identity permits folding it
+outright, and too LOOSE at the small prices, where the test is satisfied by a
+24.81% fold rate while the identity demands ace-high continue essentially always.
+The existing one-pair catcher fixture escapes this only because a one-pair
+bluff-catcher sits AT the minimum-defence margin — the marginal hand the range's
+last continuing units come from — so its per-bucket rate happens to coincide with
+the range's. Ace-high does not sit at that margin, so the coincidence does not
+transfer, and `_CATCHER_BUCKETS`' original exclusion of ace-high was right for a
+better reason than the one written beside it.
+
+**Why this re-opens the ruling's provenance, not just the test.** The W3R-1 rule
+(theory contract §5a obligation 2) says that when a fit cannot reach a target
+using a legitimate range or lever, the slice STOPS and re-opens that TARGET's
+provenance — it does not widen the lever, widen the band, or re-scope the test.
+S3-T4 is exactly that case: compliance needs a river call damp near 3.6, sixty
+times the shipped 0.06, against 7.5 times that the went-to-showdown bands already
+refused. Under W3R-1 the infeasibility is evidence about the target, and the
+target here is the 2026-08-19 ruling.
+
+**What happens to the test if the owner re-rules.** `test_ace_high_river_alpha_
+ceiling` should then be **DELETED, not fixed**. It would not be a guard measuring
+the wrong number; it would be a guard measuring a quantity the contract does not
+bound, and softening or re-scoping it is the precise dodge W3R-1 exists to stop.
+
+**How this reshapes filed 2.** Filed 2 asks whether a tight archetype may sit
+closer to the α wall than a loose one, or cross it on purpose. That question
+presumes α is a per-bucket bound. The live question underneath it is prior:
+**is α a per-bucket bound at all?** Answer that first; filed 2's per-archetype
+question only survives if the answer is yes.
+
+**Cite the law's actual home.** α as a fold ceiling is the RES-D A1 guardrail,
+implemented on the grader side as `_calibrate_catcher_fold` and asserted on the
+bot side by `test_fold_to_bet_respects_alpha_ceiling` (RES-D §1c/§2 invariant 3).
+It is NOT theory contract §9 item 1 — that item is the separate 60% → 42.9%
+correction about the 3×-pot semi-bluff threshold, and citing it as the law's home
+has been corrected in this ticket's report.
+
+**Severity MEDIUM** and not higher: nothing is red, no gate is breached, and the
+tripwire shipped by filed 9 is harmless either way. It becomes the blocking item
+the moment a ticket is opened to CLOSE the ace-high river breach, because that
+ticket would be spending a 60× constant move to satisfy an obligation this entry
+says may not exist.
