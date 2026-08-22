@@ -3,13 +3,14 @@
 **Bottom line. This ticket registers two floors and withdraws a third. The nit's
 went-to-showdown rate must fall by at least 1.0 percentage point and the TAG's
 by at least 3.5, measured on the band harness. The LAG's floor is WITHDRAWN and
-FILED on owner ruling 11 of 2026-08-22: the calling dial is not that archetype's
-lever, and §5 records both the measurement that supports the withdrawal and the
-one that qualifies it. The dial values that follow are the nit at 0.32 and the
-TAG at 0.38, and both are set by external evidence and then capped by something
-outside this ticket's discretion — the nit by the α fold-ceiling, which admits
-no dial below about 0.31, and the TAG by the deterministic 1,728-cell sweep that
-keeps it from collapsing onto the nit.**
+FILED on owner ruling 11 of 2026-08-22, and the LAG stays at 0.55: its dial DOES
+move it, but through cross-persona coupling, so the size and the sign depend on
+where the other personas are set — §5 gives the table with both comparison bases
+labelled, and whether to tune it in a follow-up is an owner decision. The dial values that follow are the nit at 0.32 and the
+TAG at 0.38, and both are set by external evidence and then capped by a live
+test rather than by this ticket's discretion — the nit by the α fold-ceiling
+test, which at its pinned seed admits no dial below about 0.31, and the TAG by
+the deterministic 1,728-cell sweep that keeps it from collapsing onto the nit.**
 
 "Went to showdown" is the share of hands a persona takes to showdown out of the
 hands where it saw the flop. The "band harness" is the pinned population inside
@@ -107,14 +108,22 @@ draft imposed a three-sigma rule the test does not assert, which would have
 stopped the nit at 0.38 and is exactly the kind of self-imposed conservatism
 that reads as a measurement but is not one. The α test itself is untouched by
 this ticket: owner ruling 10 of 2026-08-22 keeps it RAW and forbids editing it
-in a fix round, and the archetype-level conflict it exposes — an over-folding
-archetype whose grounded fold-to-continuation-bet band sits above what α allows
-— is filed as a MEDIUM contract defect in
-`docs/ai-dlc/ledger/flywheel-slice3-calldown.md` for a future re-anchor slice.
+in a fix round. The question it raises — the ceiling is asserted roster-wide and
+says nothing about whether a tight archetype may sit against it on purpose,
+which is what a nit's defining leak actually is — is filed as a MEDIUM contract
+defect in `docs/ai-dlc/ledger/flywheel-slice3-calldown.md` for a future
+re-anchor slice. **Both gates are green at 0.32**; nothing here is a live
+contradiction, and the two are scoped to different opponent populations by
+design (see `test_fold_to_bet_respects_alpha_ceiling`'s own docstring).
 
-**The nit's own dial therefore cannot deliver the contract's fold-to-c-bet
-band.** At 0.32 the nit folds to continuation bets 43.5% of the time against a
-band floor of 60. The gap is not closable by this lever, and §5 records why.
+**The nit's own dial does not deliver the contract's fold-to-c-bet band.** At
+0.32 the nit folds to continuation bets 43.5% of the time against a band floor
+of 60. The reason is the lever's SHAPE, not the size of the retune: the dial
+scales the whole continue side regardless of what the bot holds, while the fold
+side never reads it, so it moves air — which already folds about 0.89 of the
+time at a half-pot bet — by the same odds factor as the marginal made hands
+where the gap actually lives. That is filed as an engine-lever defect in the
+same ledger, with a bucket-aware fold lever as the follow-up.
 
 **The TAG is not capped by α at any dial the roster would use** — it still
 holds 0.0637 of headroom at 0.31, more than the passive fish holds today
@@ -209,7 +218,7 @@ Multiplying through at the dial cuts §2 arrives at:
 **nit: at least 1.0 percentage point. TAG: at least 3.5 percentage points. LAG:
 withdrawn.**
 
-The TAG's floor is the §4 point estimate rounded down (3.44 predicted). The nit's is not, and the
+The TAG's floor is the §4 point estimate rounded UP to the nearest half-point (3.44 predicted, 3.5 registered) — a deliberately STRONGER registration than the estimate, so the ticket cannot pass by landing under its own prediction. The nit's is not, and the
 gap needs saying plainly: the nit's flop-seen sample on the harness is the
 smallest on the roster (about 980 hands of the 4,000), so one binomial standard
 deviation on its went-to-showdown reading is about 1.5 points. A floor of 2.5
@@ -217,43 +226,52 @@ would be registering a number the instrument cannot resolve. **1.0 is what can
 be honestly claimed**, and the shortfall against the point estimate is itself
 reportable rather than hidden.
 
-**The LAG's floor is WITHDRAWN AND FILED under owner ruling 11 of 2026-08-22:
-the calling dial is not that archetype's lever.** Its pack is left alone. The
-supporting measurement, and the measurement that qualifies it, are both below,
-because revision 2 of this document overstated the case and the correction
-belongs on the record rather than in a deleted paragraph.
+**The LAG's floor is WITHDRAWN AND FILED under owner ruling 11 of 2026-08-22.
+Its pack is left alone: `call_looseness` stays at 0.55.** The reason is COUPLING,
+not the absence of a lever — the dial does move the LAG, but how much and in
+which direction depends on where the other personas' dials are set, so a floor
+registered against it would be a floor on a quantity this ticket cannot control
+on its own. Revision 2 of this document said instead that the dial "is not the
+lever", which is false; the correction belongs on the record rather than in a
+deleted paragraph.
 
-**What revision 2 claimed, and why it was too strong.** It said every dial cut
-tried moved the LAG's showdown rate the WRONG WAY. That was true of the two
-configurations it had measured, and it does not generalize: the LAG's reading
-depends on where the nit and the TAG are set, so a claim about "the LAG's dial"
-taken at one pair of companion values is not a claim about the dial. Measured on
-the band harness at its pinned seed and `_WTSD_ORDER_N` = 4,000 hands, against
-the 0.5664 this branch's baseline reads:
+**Two comparison bases exist and quoting either alone misleads, so both are
+labelled everywhere.** The **all-baseline** base is the whole roster before this
+ticket (LAG 0.5664) and answers "what did this pull request do to the LAG". The
+**own-dial** base is the LAG at 0.55 with the nit and TAG already at their
+shipped values (LAG 0.5769) and answers "what would the LAG's own dial do from
+here". Measured on the band harness at its pinned seed and `_WTSD_ORDER_N` =
+4,000 hands:
 
-| nit / TAG / LAG dials | LAG went-to-showdown | change |
-|---|---|---|
-| 0.45 / 0.60 / 0.55 (baseline) | 0.5664 | — |
-| 0.32 / 0.38 / 0.55 (**shipped**) | 0.5769 | **+1.05pp** |
-| 0.38 / 0.42 / 0.48 (revision 2's evidence) | 0.5696 | +0.32pp |
-| 0.32 / 0.38 / 0.48 | 0.5626 | −0.38pp |
-| 0.32 / 0.38 / 0.42 | 0.5387 | −2.77pp |
+| nit / TAG / LAG dials | LAG went-to-showdown | vs own-dial 0.5769 | vs all-baseline 0.5664 |
+|---|---|---|---|
+| 0.45 / 0.60 / 0.55 (all-baseline) | 0.5664 | — | — |
+| 0.32 / 0.38 / 0.55 (**shipped**) | 0.5769 | — | +1.05pp |
+| 0.38 / 0.42 / 0.48 (revision 2's evidence) | 0.5696 | not comparable — different companions | +0.32pp |
+| 0.32 / 0.38 / 0.48 | 0.5626 | **−1.43pp** | −0.38pp |
+| 0.32 / 0.38 / 0.42 | 0.5387 | **−3.82pp** | −2.77pp |
 
-**So the LAG's dial does lower the LAG's showdown rate at the values this ticket
-ships — and the reduction is bought from the other two personas.** At a LAG dial
-of 0.42 the TAG's own reading goes back UP from 0.5528 to 0.5815, giving back
-2.87 of the 6.15 points the TAG's retune just won. That is the same mechanism
-the last two ceiling ratchets recorded, running in the other direction: the dial
-scales the whole continue side of a facing node, RAISE included through the
-`rscale` coupling, so a tighter LAG raises less, the TAG meets less aggression,
-folds less in response, and rides more hands to showdown.
+**Revision 2's claim, corrected.** It said every dial cut tried moved the LAG's
+showdown rate the wrong way. It had measured two configurations, quoted the
+all-baseline column, and generalized. Read against the own-dial base — the
+question a follow-up ticket would actually be asking — the LAG's dial moves its
+showdown rate DOWN by 1.43 points at 0.48 and 3.82 points at 0.42.
 
-**The honest statement is therefore about separability, not sign.** The LAG's
-showdown rate on this harness is not a function of the LAG's dial alone; it is a
+**What is really wrong with it as a registered target is that the reduction is
+bought from the other two personas.** At a LAG dial of 0.42 the TAG's own reading
+goes back UP from 0.5528 to 0.5815, handing back 2.87 of the 6.15 points the
+TAG's retune just won. That is the same mechanism the last two ceiling ratchets
+recorded, running in the other direction: the dial scales the whole continue side
+of a facing node, RAISE included through the `rscale` coupling, so a tighter LAG
+raises less, the TAG meets less aggression, folds less in response, and rides
+more hands to showdown.
+
+**So the honest statement is about coupling, not about the absence of a lever.**
+The LAG's showdown rate is not a function of the LAG's dial alone; it is a
 function of the whole roster's dials, and the cross-persona term is the same size
-as the own-dial term. A floor registered against it would be a floor on a
-quantity this ticket cannot control. The owner ruled the floor withdrawn on that
-basis, and the residual is filed with the LAG's own entry in
+as the own-dial term. The owner withdrew the floor on that basis and the LAG
+stays at 0.55 in this ticket. **Whether to tune it in a follow-up is filed as an
+owner decision** in the LAG's own entry in
 `docs/ai-dlc/ledger/flywheel-slice3-calldown.md`.
 
 ## 6. What this ticket does not claim
@@ -284,7 +302,12 @@ bands and their provenance triples are quoted from
 derived its targets from minimum-defence frequency read as a ceiling, which is
 wrong poker; §0 records that and withdraws every number it produced. Revision 2
 re-derived the targets from the contract's own rows and was committed BEFORE any
-pack value was touched — that is the commit the pre-registration claim rests on.
+pack value was touched — that is what the pre-registration claim rests on. Its
+original commit was rewritten when this branch was restructured, so the
+verifiable citation is **`34ef9e0`** on `feat/slice3-t2-fix-round`, which carries
+revisions 2 and 3 together and is the commit immediately BEFORE the retune
+(`974d962`) that changes the packs. Ordering, not authorship, is what the claim
+needs, and the ordering is checkable in the branch's own history.
 Revision 3 (this one) changes NO registered floor. It corrects the TAG's dial
 from 0.37 to 0.38 for a gate the 0.37 breached, corrects the α floor from 0.305
 to 0.31, and replaces revision 2's overstated LAG paragraph with the fuller

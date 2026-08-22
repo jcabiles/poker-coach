@@ -713,19 +713,32 @@ def test_estimator_prices_the_faced_bet(packs):
         # so that threshold was measuring how close the ceiling was, not how
         # much the bot cares about the price.
         #
-        # LOG-ODDS IS THE SCALE THE RESPONSE ACTUALLY LIVES ON, and on this
-        # node it is EXACTLY INVARIANT TO THE CALLING DIAL — which is the
-        # property that makes it the right assertion rather than merely a
-        # looser one. The dial multiplies the whole continue side of the merit
-        # vector, so the fold-versus-continue odds carry a factor of `L` that
-        # is common to every price and CANCELS in a span between two prices.
-        # Measured over dials 0.60 / 0.45 / 0.42 / 0.40 / 0.38 / 0.37 / 0.30
-        # the span reads 2.502646490 at every one of them, on both holes, to
-        # nine decimal places. The threshold of 2.0 therefore has a fixed 0.50
-        # of margin that no retune can spend.
-        # AND IT STILL CATCHES THE DEFECT THIS TEST WAS WRITTEN FOR: an
-        # estimator that builds CALL with no price makes all three
-        # distributions identical, which reads EXACTLY 0.0 here.
+        # LOG-ODDS IS THE SCALE THE RESPONSE ACTUALLY LIVES ON, and the leg
+        # REDUCES TO THE FOLD SIDE'S PRICE-FACTOR RATIO — which is why it is
+        # invariant to the calling dial AND to the hand's strength bucket by a
+        # model property rather than by luck. At a facing node the fold merit is
+        # `_FOLD_BASE[bucket] * _price_factor(f, e)` and the continue side is
+        # `L * K` with `K` price-free, so
+        #     logit(fold) = ln _FOLD_BASE[bucket] + ln _price_factor(f, e)
+        #                   - ln L - ln K
+        # and every term except `_price_factor` is identical at both prices.
+        # The bucket constant and the dial both cancel in the span, leaving a
+        # closed form:
+        #     span = e * ln(alpha_OVERBET / alpha_MEDIUM)
+        #            + _PRICE_TAIL_K * ln(3.0 / _PRICE_TAIL_ANCHOR)
+        #          = 2.375199 * ln(0.60 / 0.375) + 2 * ln(2)
+        #          = 2.502646
+        # at the TAG's price exponent 2.375199 (`_PRICE_SENSITIVITY *
+        # stickiness ** -_PRICE_STICKINESS_DAMP`, the un-opted-in branch). The
+        # measured span is 2.502646490 and the closed form is 2.5026464895 —
+        # the same number, and it reads the same at every dial from 0.60 to
+        # 0.30 and on both holes. So the threshold of 2.0 has a fixed 0.50 of
+        # margin no retune can spend.
+        # THREE PROBES SAY THE THRESHOLD IS DOING WORK. An estimator that
+        # ignores the price makes all three distributions identical: 0.0. A
+        # price response weakened twentyfold (the bucket-alpha exponent divided
+        # by 20, tail term untouched) reads 1.442, which is RED. And no calling
+        # dial reads anything but 2.502646.
         lo = [math.log(x / (1.0 - x)) for x in folds]
         assert lo[2] - lo[0] > 2.0, (
             f"{hole} price response is cosmetic: folds {folds}, log-odds span "

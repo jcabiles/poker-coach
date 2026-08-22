@@ -3,12 +3,13 @@
 **Bottom line. The retune ships. Both registered reduction floors are MET on the
 gating instrument: the nit's went-to-showdown rate falls 1.80 percentage points
 against a floor of 1.0, and the TAG's falls 6.15 against a floor of 3.5. The
-LAG's floor was withdrawn before building, on the owner's ruling, because its
-dial is not that archetype's lever. Two guards that were silently measuring the
-calling dial rather than their own claim were repaired first, and both are
-STRONGER afterwards, not weaker — one now fails a mechanism regression it could
-not previously see at all, and the other now asserts a quantity that is exactly
-invariant to the dial. The five-seed de-robotization gate passes 5 of 5 with the
+LAG's floor was withdrawn before building under owner ruling 11; the LAG stays at
+0.55 in this ticket. Two guards that were silently measuring the calling dial
+rather than their own claim were repaired first, and both are now CORRECTLY
+SCOPED — one catches the mechanism regression it was written for and drops an
+absolute level it was never really asserting, the other asserts a quantity that
+is invariant to the dial by a model property. The five-seed de-robotization gate
+passes 5 of 5 with the
 binding pair LAG–TAG at 1.765554 against a floor of 1.254429. Eight pinned
 fixtures were re-recorded, every one with an attribution check that reverts the
 two pack files and shows the old value returning.**
@@ -56,7 +57,7 @@ its stable sample (`_WTSD_ORDER_N` = 4,000 hands).
 |---|---|---|---|
 | nit | ≥ 1.0pp | **−1.80pp** (0.6353 → 0.6173) | **MET** |
 | tag | ≥ 3.5pp | **−6.15pp** (0.6144 → 0.5528) | **MET** |
-| lag | WITHDRAWN (owner ruling 11, 2026-08-22) | not tuned; +1.05pp as a composition effect | withdrawn, filed |
+| lag | WITHDRAWN (owner ruling 11, 2026-08-22) | not tuned; stays at 0.55, and reads +1.05pp against the all-baseline roster as a composition effect | withdrawn, filed |
 
 The dial values are not set by the reduction target. The nit's is set by the α
 fold-ceiling — `α = f/(1+f)` is how often a bluff-catcher may fold facing a bet
@@ -89,6 +90,13 @@ ratified lineup, the harness plays six persona-weighted lineups at its own
 pinned seed. A composition effect of one point is free to differ in sign between
 them. The harness is what the bands assert against, so the harness number is the
 one that governs; the export number is reported because the ticket asks for it.
+
+⚠️ **Read every LAG number in this report against its stated base.** Two bases
+exist and they answer different questions. The **all-baseline** base is the whole
+roster before this ticket (LAG 0.5664) and answers "what did this pull request
+do"; the **own-dial** base is the LAG at 0.55 with the nit and TAG already at
+their shipped values (LAG 0.5769) and answers "what would the LAG's own dial do
+from here". Every table below labels which one it uses.
 
 **Two personas whose packs were not touched moved anyway**, and the mechanism is
 worth stating once: the calling dial scales the WHOLE continue side of a facing
@@ -146,11 +154,19 @@ branch:
 | protected share regressed to 0.99 | RED | RED for all five dialled personas; the calling station is exempt by construction (dial 4.0 never takes the branch) |
 
 **The claim it keeps is the claim S3-T1b actually made** — that a protected share
-may not come back below 1.0 at a node whose price mandates the whole bonus — and
-it now catches that regression, which the constant form could not see at all.
-What it no longer pretends to catch is a persona being tuned tighter, which has
-its own gates: the α ceiling, the went-to-showdown ceilings, and the separation
-floor.
+may not come back below 1.0 at a node whose price mandates the whole bonus. The
+repair is a RE-SCOPING, and calling it "stronger" would overstate it. What it
+gained: the share-clamp regression above, which the constant form could not see.
+What it gave up, deliberately: the absolute LEVEL those constants pinned at the
+original dial — this guard no longer says the trace-node fold rate is 0.2608, it
+says only that the split has not withdrawn any of a mandated bonus. And at this
+node it is partly REDUNDANT: the assertion immediately above it already checks
+that the protected share is exactly 1.0 here, from which the two engines'
+agreement follows, so guard A's independent force at D1 is small and lives mainly
+in the fact that it reads the full normalized distribution rather than the share
+alone. The test's own docstring now says this. What the guard never claimed and
+still does not is that a persona may not be tuned tighter; that is held by the α
+ceiling, the went-to-showdown ceilings, and the separation floor.
 
 ### Guard C — the estimator's price response, now in log-odds
 
@@ -170,15 +186,29 @@ at the SMALL price eats the margin without weakening the price response at all.
 | 0.37 | 0.1909 | 2.502646490 |
 | 0.30 | 0.1619 | 2.502646490 |
 
-**The log-odds span is exactly invariant to the dial, to nine decimal places,
-and that is a fact about the mechanism rather than a lucky measurement.** The
-dial multiplies the whole continue side of the merit vector, so the
-fold-versus-continue odds carry a factor of `L` common to every price, and it
-cancels in a span between two prices. The threshold of 2.0 therefore has a fixed
-0.50 of margin no retune can spend, while the defect this test was written for —
-an estimator that builds CALL with no price, making all three distributions
-identical — still reads EXACTLY 0.0. The probability-span form is kept on the
-middle-pair hole, which does not saturate.
+**The log-odds span reduces to the fold side's price-factor ratio, and is
+therefore invariant to the dial AND to the hand's strength bucket by a model
+property rather than by luck.** At a facing node the fold merit is
+`_FOLD_BASE[bucket] * _price_factor(f, e)` and the continue side is `L * K` with
+`K` price-free, so the fold-versus-continue log-odds is
+`ln(_FOLD_BASE[bucket]) + ln(_price_factor(f, e)) − ln(L) − ln(K)`. Every term
+except `_price_factor` is the same at both prices, so all of them — the bucket
+constant and the dial alike — cancel in the span. What is left is closed form:
+
+    span = e · ln(α_OVERBET / α_MEDIUM) + K_tail · ln(3.0 / anchor)
+         = 2.375199 · ln(0.60 / 0.375) + 2 · ln(2)
+         = 2.502646
+
+at the TAG's price exponent of 2.375199 (`_PRICE_SENSITIVITY *
+stickiness ** -_PRICE_STICKINESS_DAMP`, the un-opted-in branch). The measured
+value is 2.502646490 and the closed form is 2.5026464895 — the same number.
+
+**Three probes say the threshold of 2.0 is doing work.** An estimator that
+ignores the price makes all three distributions identical and reads **0.0**. A
+price response weakened twentyfold — the bucket-α exponent divided by 20, tail
+term untouched — reads **1.442**, which is RED. And no calling-dial value reads
+anything but 2.502646, so no retune can ever spend the 0.50 of margin. The
+probability-span form is kept on the middle-pair hole, which does not saturate.
 
 ## 6. The ceiling ratchet
 
@@ -229,7 +259,9 @@ binding, so ruling 3's stop-and-report did not fire.
 `content/personas/nit.json` and `content/personas/tag.json` reverted to
 `aaaee50` and EVERY OTHER edit on this branch left in place, each quantity below
 recomputes to its OLD value; restoring the packs reproduces the NEW one. No
-tolerance was widened anywhere.
+tolerance was widened anywhere, with one disclosed exception: the roster-wide
+unopened-arrival watch band, whose re-centre is a one-sided relaxation at its
+upper edge and is set out in its own subsection below.
 
 | fixture | file | old → new | why it moved |
 |---|---|---|---|
@@ -252,51 +284,119 @@ displacement effect. The damp ratio that fixture is really about is unchanged to
 three decimals on both TAG rows (0.398 → 0.390 middle pair, 0.438 → 0.432 top
 pair): the residual is re-normalization, not a change in the damp.
 
-### One band was re-centred, and it is not a re-record
+### The graded-coverage re-record, against the immutable snapshot
 
+The coverage baseline is not just a pin that moved; it is one of the few numbers
+in this repository that tracks how much of a hand the GRADER can speak to, so it
+is reported against the frozen reference as well as against the previous value.
+`backend/tests/data/coverage_baseline.persona-realism-start.json` is that
+reference — an immutable snapshot taken at the start of the persona-realism work
+and never re-recorded.
+
+| tip | total decision points | graded | graded share |
+|---|---|---|---|
+| `coverage_baseline.persona-realism-start.json` (immutable) | 1233 | **349** | **28.3%** |
+| before this ticket (`aaaee50`) | 1228 | 318 | 25.9% |
+| **after this ticket** | 1239 | **337** | **27.2%** |
+
+**This slice moved coverage UP by 19 graded decision points (+1.3 points of
+share); the roster is still 12 short of the immutable snapshot (−1.1 points of
+share).** That residual is acceptable for this ticket and not something it can
+fix: the sweep is a deterministic 400-hand playout, so tighter bots end some
+hands earlier and the set of decision points the hero reaches is not the same
+set — this ticket's own effect on it is positive, and the accumulated shortfall
+against the snapshot is the sum of many slices' stream displacements, not a
+grader regression introduced here. **The follow-up that owns the level is
+`T-cover`** — the professional-teacher-rework item whose measured root cause is
+the heads-up single-raised-pot gate in `grade_map_postflop.py` rather than the
+turn and river graders — and it is currently blocked behind the flywheel's
+phase-3 ceiling verdict, so nothing in this slice may pre-empt it.
+
+### One band was re-centred — a one-sided relaxation, and it NEEDS OWNER ACKNOWLEDGEMENT
+
+⚠️ **Flagged for the owner as a stale-centre repair, not waved through.**
 `test_preflop_node_occupancy_arrival_grid`'s roster-wide unopened-arrival watch
-moved from `[0.275, 0.335]` to `[0.295, 0.355]` — **the same width, a new
-centre**. `call_looseness` is read only by `sample_postflop_decision`, so a
-calling-dial retune cannot change a single preflop decision's policy; it reaches
-this number only by displacing the shared random stream. A 12-seed PAIRED sweep
-(identical seeds on both arms, only the two dials differing) confirms that and
-also shows the old centre had gone stale:
+(`backend/tests/test_personas_postflop.py:4627`) moved from `[0.275, 0.335]` to
+`[0.295, 0.355]`. The width is unchanged at ±0.03 — but **the upper bound moved
+0.335 → 0.355, which is a one-sided relaxation** of the edge this ticket's
+measurement was pressing, and the floor tightened 0.275 → 0.295 in exchange.
+Calling it "not a widening" because the width is constant would be a technicality
+worth distrusting, so it is called what it is here and the pull request body
+carries the same flag.
 
-| arm | mean | sd | min | max |
-|---|---|---|---|---|
-| baseline dials | 0.3256 | 0.0112 | 0.3123 | **0.3534** |
-| shipped dials | 0.3240 | 0.0070 | 0.3170 | 0.3361 |
+**The case for it being a stale centre rather than a slice effect.**
+`call_looseness` is read only by `sample_postflop_decision`, so a calling-dial
+retune cannot change a single preflop decision's POLICY; it reaches this number
+only by displacing the shared random stream, the same way the limper belt's fire
+counts move. A 12-seed PAIRED sweep — identical seeds on both arms, only the
+nit's and the TAG's `call_looseness` differing — tests exactly that, and the full
+table is checked in here rather than summarized:
 
-Paired delta −0.0016, sd 0.0096, t = −0.58 — no effect. The BASELINE arm alone
-reads 0.3534 on one of the twelve seeds, outside the old band with none of this
-ticket in it. New centre 0.325, the pooled mean of both arms. This is the same
-method and the same justification the 2026-07-31 re-centring used.
+| seed | baseline arm | shipped arm | paired delta |
+|---|---|---|---|
+| 20260710 (the pinned seed) | 0.3243 | 0.3361 | +0.0118 |
+| 20260711 | 0.3265 | 0.3317 | +0.0052 |
+| 20260712 | 0.3215 | 0.3170 | −0.0045 |
+| 20260713 | 0.3139 | 0.3177 | +0.0038 |
+| 20260714 | 0.3123 | 0.3179 | +0.0056 |
+| 20260715 | 0.3356 | 0.3173 | −0.0183 |
+| 20260716 | 0.3219 | 0.3242 | +0.0023 |
+| 20260717 | 0.3200 | 0.3206 | +0.0006 |
+| 20260718 | 0.3251 | 0.3254 | +0.0004 |
+| 20260719 | **0.3534** | 0.3360 | −0.0173 |
+| 20260720 | 0.3346 | 0.3217 | −0.0129 |
+| 20260721 | 0.3179 | 0.3218 | +0.0039 |
+| **mean** | **0.3256** (sd 0.0112) | **0.3240** (sd 0.0070) | **−0.0016** (sd 0.0096) |
+
+**Paired t = −0.58 — no effect.** And the BASELINE arm alone reads 0.3534 at seed
+20260719, outside the old `[0.275, 0.335]` band with none of this ticket in it,
+which is what a stale centre looks like. The new centre 0.325 is the pooled mean
+of both arms (0.3248). This is the same method and the same justification the
+2026-07-31 re-centring used when it moved the centre the other way.
+
+**What would falsify it:** a 12-seed sweep on a later tip whose baseline arm sits
+back near 0.305. Nothing in this ticket would prevent that; the band would then
+be re-centred again by the same method.
 
 ## 9. What was filed rather than fixed
 
-All three are in `../../ledger/flywheel-slice3-calldown.md`.
+All four are in `../../ledger/flywheel-slice3-calldown.md`.
 
-1. **CONTRACT DEFECT (MEDIUM): α bounds an archetype the contract asks to
-   over-fold.** At the shipped 0.32 the nit folds to continuation bets 43.5
-   percent of the time against a grounded band floor of 60, and it cannot go
-   further: at a dial of 0.31 its α headroom is 0.0021 and at 0.30 it breaches.
-   The α test stays RAW and was not edited (owner ruling 10).
-2. **The LAG's floor, withdrawn.** Its showdown rate on this harness is not a
-   function of its own dial: the cross-persona term is the same size as the
-   own-dial term, and a LAG cut deep enough to matter hands nearly half of the
-   TAG's gain back. The measurements are in the pre-registration §5.
-3. **`_DRAW_FREE_RIVER_PROB` stays at 0.30**, filed against theory contract §4
+1. **ENGINE-LEVER DEFECT (MEDIUM): the calling dial is hand-strength-blind.**
+   It scales the whole continue side regardless of bucket, while the fold side
+   never reads it, so it moves air — which already folds 0.89 of the time at a
+   half-pot bet — by the same odds factor as the marginal pairs where the
+   fold-to-continuation-bet gap actually lives. The follow-up is a bucket-aware
+   fold lever, owned by theory contract §4 row P8.
+2. **CONTRACT DEFECT (MEDIUM): α is asserted roster-wide and is silent on
+   archetype.** The ceiling is raw on all six personas and says nothing about
+   whether a tight archetype may sit against it or past it — and a real nit's
+   defining leak IS over-folding bluff-catchers. This slice pinned the nit to
+   that wall (½-pot catcher fold 0.3136, headroom 0.0197). The re-anchor slice
+   decides: roster-wide law, or a balanced-bettor guardrail the tight archetypes
+   may exceed by a stated, sourced margin. The α test stays RAW and was not
+   edited (owner ruling 10).
+3. **The LAG's floor, withdrawn under owner ruling 11 — coupling, not absence of
+   a lever.** The dial DOES move the LAG: from the own-dial base of 0.5769 (the
+   LAG at 0.55 with the nit and TAG already shipped), cutting it to 0.48 reads
+   −1.43pp and to 0.42 reads −3.82pp. What makes it unfit for a registered floor
+   is that the effect depends on where the companions are set, and that a cut
+   deep enough to matter hands nearly half of the TAG's gain back. The LAG stays
+   at 0.55 in this ticket; whether to tune it in a follow-up is filed as an owner
+   decision.
+4. **`_DRAW_FREE_RIVER_PROB` stays at 0.30**, filed against theory contract §4
    row P6/F7 (the draw-bonus equity gate).
 
 ## 10. Acceptance criteria
 
 | # | criterion | verdict |
 |---|---|---|
-| 1 | went-to-showdown reduced by the pre-registered amount for nit, tag, lag | **PASS for nit and tag** (−1.80 against ≥1.0; −6.15 against ≥3.5). The LAG's floor was WITHDRAWN before building under owner ruling 11 and is filed. |
+| 1 | went-to-showdown reduced by the pre-registered amount for nit, tag, lag | **PASS for nit and tag** (−1.80 against ≥1.0; −6.15 against ≥3.5). The LAG's floor was WITHDRAWN before building under owner ruling 11 and is filed; the LAG stays at 0.55. Its dial is not inert — it reads −1.43pp at 0.48 and −3.82pp at 0.42 from the own-dial base — but its effect is companion-dependent, which is why no floor was registered against it. |
 | 2 | no aggression-factor or fold-to-continuation-bet leg leaves its band | **PASS** — `test_persona_postflop_bands` green for all six personas |
 | 3 | five-seed gate green, LAG–TAG reported explicitly | **PASS** — 5/5, LAG–TAG binding on every seed, tightest 1.765554 vs 1.254429 |
 | 4 | pooled export went-to-showdown reported before/after | **PASS** — §3, pool 54.9% → 53.4% |
 | 5 | any HARD ordering breach is a stop-and-report | **N/A, none breached** — §4 |
+| — | fold-to-continuation-bet ordering target nit > tag > lag (the pre-registration's §1 primary target) | **UNRESOLVED AT THIS SAMPLE SIZE, neither pass nor fail.** After the retune the readings are nit 0.435 > tag 0.326 > lag 0.319. The nit's lead is decisive; the TAG's lead over the LAG is **+0.007 against a standard error on that difference of about 0.033**, so the restored order is inside the instrument's noise. The direction is consistent across the whole dial sweep and the target is DIRECTIONAL by the contract's own grading, so this is recorded as movement in the right direction rather than claimed as a result. |
 
 ## 11. Checks
 
@@ -309,12 +409,13 @@ All three are in `../../ledger/flywheel-slice3-calldown.md`.
 
 ## 12. What a reviewer should press on
 
-- **Guard A's repair is the load-bearing judgement of this round.** It is a gate
-  whose comparator is now computed from the engine it guards. The argument that
-  this keeps force is in §5 and in the test's own docstring; the counter-argument
-  — that the two engines are identical by construction at this node, so the
-  guard's force against a dial change is gone deliberately — is stated there
-  too, because the owner's ruling says to state it rather than bury it.
+- **Guard A's repair is the load-bearing judgement of this round, and it is a
+  re-scoping rather than a strengthening.** It is a gate whose comparator is now
+  computed from the engine it guards. It gains the share-clamp regression, gives
+  up the absolute level the old constants pinned, and at this node is partly
+  redundant with the exact `share == 1.0` assertion beside it — all three are
+  stated in §5 and in the test's own docstring, because the owner's ruling says
+  to state the trade rather than bury it.
 - **The LAG moves in opposite directions on the two instruments.** §3 argues
   that is a composition effect and that the harness governs. Both numbers are
   reported so the claim can be checked rather than taken.
@@ -326,3 +427,11 @@ All three are in `../../ledger/flywheel-slice3-calldown.md`.
 - **`test_range_estimate.py` is outside the ticket's nominal file list.** It was
   edited because owner ruling 11 names guard C by test and mandates the log-odds
   re-expression; the change is confined to that one assertion.
+- **The unopened-arrival watch band is a one-sided relaxation and needs owner
+  acknowledgement.** Its upper edge moved 0.335 → 0.355. §8 gives the full
+  12-seed paired sweep so the stale-centre claim can be checked rather than
+  taken, and says plainly what would falsify it.
+- **The fold-to-continuation-bet ordering target is not resolved by this
+  ticket.** The TAG's restored lead over the LAG is +0.007 against a standard
+  error of about 0.033. §10 records it as neither pass nor fail rather than
+  claiming the pre-registration's primary target.

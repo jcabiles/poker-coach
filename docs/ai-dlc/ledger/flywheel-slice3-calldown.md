@@ -1,17 +1,19 @@
 # Ledger — improvement slice 3 (calldown) of the bot-realism flywheel
 
-**Bottom line. Three things are filed here and none of them is fixed by this
-slice. (1) A poker-theoretic ceiling and a research-grounded band contradict
-each other for the tightest archetypes: α says the nit may not fold a
-bluff-catcher more than about a third of the time at a half-pot bet, and the
-theory contract says a nit folds 60 to 75 percent of continuation bets. Both
-cannot be gates on the same roster. This is a MEDIUM contract defect for a
-future re-anchor slice. (2) The LAG's calling dial is not the LAG's lever for
-went-to-showdown; its reduction floor was withdrawn on the owner's ruling and is
-filed for a mechanism that reaches the checked-down path. (3) The
-`_DRAW_FREE_RIVER_PROB` constant, which decides how much of a turn draw's river
-equity the bot is allowed to count, stays at 0.30 rather than the ~0.50 the
-arithmetic suggests, and is filed against the contract row that owns it.**
+**Bottom line. Four things are filed here and none of them is fixed by this
+slice. (1) The calling dial is hand-strength-blind, so it cannot close the
+fold-to-continuation-bet gap: it moves air, which already folds almost always,
+by the same odds factor as the marginal pairs where the gap actually lives —
+that needs a bucket-aware fold lever, which is an ENGINE-LEVER DEFECT at MEDIUM.
+(2) The α fold-ceiling is asserted RAW on every persona and is silent on the
+question of whether a tight archetype is allowed to over-fold on purpose; this
+slice has pinned the nit close to that wall, which makes the question live — a
+CONTRACT DEFECT at MEDIUM for a future re-anchor slice. (3) The LAG's calling
+dial DOES move the LAG, but through cross-persona coupling its effect depends on
+where the other personas are set; the reduction floor was withdrawn on the
+owner's ruling and whether to tune it is filed as an owner decision. (4) The
+`_DRAW_FREE_RIVER_PROB` constant stays at 0.30 rather than the roughly 0.50 the
+arithmetic suggests, filed against the contract row that owns it.**
 
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
@@ -23,95 +25,133 @@ the retune of the per-persona `call_looseness` calling dials.
 
 ---
 
-## Filed 1 — CONTRACT DEFECT (MEDIUM): α bounds an archetype the contract asks to over-fold
+## Filed 1 — ENGINE-LEVER DEFECT (MEDIUM): the calling dial is hand-strength-blind
+
+**Filed by S3-T2, 2026-08-22.**
+
+**The defect.** `call_looseness` scales the whole continue side of a facing
+node's merit vector regardless of what the bot is holding
+(`backend/app/domain/personas_postflop.py:1384`), while the fold side is
+`_FOLD_BASE[bucket] * _price_factor(...)` (`:1461`) and does not read the dial at
+all. So lowering the dial multiplies the fold-versus-continue ODDS by the same
+factor in every strength bucket. That is not where the fold-to-continuation-bet
+gap lives.
+
+**Measured, at a flop facing node across the three prices this repository's
+price fixtures use** (the nit, before and after this ticket's retune):
+
+| hand | dial 0.45 (before) | dial 0.32 (shipped) | change at ½-pot |
+|---|---|---|---|
+| air | 0.8526 / 0.9464 / 0.9860 | 0.8906 / 0.9613 / 0.9900 | +3.8 points |
+| middle pair | 0.3232 / 0.5932 / 0.8537 | 0.4018 / 0.6722 / 0.8913 | +7.9 points |
+
+**Air already folds about 0.89 of the time at a half-pot bet, so there is almost
+nothing left there for the dial to win.** The aggregate gap is carried by the
+marginal made hands — and those are exactly the bluff-catchers the α ceiling
+binds, so pushing the dial far enough to move them drags the balanced-villain
+catcher node toward α. At the shipped 0.32 the nit's ½-pot catcher fold is
+0.3136 against α's 0.3333, and its aggregate fold-to-continuation-bet reading is
+0.435 against a grounded band floor of 60. **The dial runs out 16 points short,
+and the reason is the lever's shape, not the size of the retune.**
+
+**The follow-up: a bucket-aware fold lever.** The fold merit is the natural
+place for it, because it is already per-bucket (`_FOLD_BASE[bucket]`) and
+already price-aware, and because a lever there can raise folding on marginal
+made hands without touching air or the strong draws. Any such lever is owned by
+theory contract §4 row **P8 elasticity split** (`stickiness → call_looseness +
+size_elasticity`), which is the row that owns the calling dial itself; a third
+per-bucket term is an extension of that row and must be specified there before
+it is built.
+
+**Severity MEDIUM.** Nothing is red and no gate is breached; the defect binds
+only a slice that is tasked with closing the fold-to-continuation-bet gap. It
+becomes HIGH the moment such a slice is opened.
+
+---
+
+## Filed 2 — CONTRACT DEFECT (MEDIUM): α is asserted roster-wide and is silent on archetype
 
 **Filed by S3-T2, 2026-08-22, under owner ruling 10 of that date.**
 
-**The defect.** Two numbers this repository treats as authoritative cannot both
-be satisfied by the nit.
+**The defect.** `α = f/(1+f)` is the share of the time a bluff-catcher may fold
+facing a bet of `f` times the pot before a balanced bettor's bluffs become free
+money. `test_fold_to_bet_respects_alpha_ceiling` asserts it RAW — no tolerance —
+on every one of the six personas, and the contract carries it as a roster-wide
+law (theory contract §9 item 1, the RES-D A1 guardrail). **What neither the test
+nor the contract says is whether a tight archetype is allowed to sit closer to
+that wall than a loose one, or to cross it on purpose.**
 
-- **α = f/(1+f)** is the share of the time a bluff-catcher may fold facing a bet
-  of `f` times the pot before a balanced bettor's bluffs become free money. At
-  the half-pot bet it is 0.3333. `test_fold_to_bet_respects_alpha_ceiling`
-  asserts it RAW — no tolerance — on a pure bluff-catcher range of 1,250 hands,
-  and owner ruling 10 keeps it raw and forbids editing it inside a fix round.
-- **The theory contract's fold-to-continuation-bet row** (§5, `Fold-to-C-bet
-  aggregate`) puts a nit at 60 to 75 percent and a tight-aggressive persona at
-  50 to 60. Provenance triple per §5a: format **9-max full ring**, pool **online
-  micro-to-low no-limit cash, NL2–NL25**, sources **S1** (a full-ring
-  micro-stakes specialist publishing 6-max and full-ring values side by side,
-  fold-to-flop-c-bet 60 in both) and **S4** (the HM2 official forum's full-ring
-  "normal" band, 40–70), corroborated on level by **S3** (42–57) and **S5**
-  (~40). Status VERIFIED, confidence LOW, per-archetype band edges DIRECTIONAL.
-
-**The measurement that makes it live rather than theoretical.** Sweeping the
-nit's calling dial on the balanced-villain fixture, its half-pot bluff-catcher
-fold rate rises as the dial falls and the α headroom runs out:
+**Why that silence now matters.** A real nit's defining leak IS over-folding
+bluff-catchers — it is most of what the word means at the table. A roster that
+models a nit faithfully should therefore be pressing α, and this slice has
+pressed it: at the shipped dial the nit's half-pot bluff-catcher fold is 0.3136
+against α's 0.3333, headroom 0.0197, which is about 1.5 binomial standard errors
+on the 1,250-hand fixture. The next dial down (0.31) leaves 0.0021 and the one
+after (0.30) breaches.
 
 | nit `call_looseness` | fold at ½-pot | α headroom |
 |---|---|---|
 | 0.45 (before this slice) | 0.2680 | +0.0653 |
-| 0.38 | 0.2896 | +0.0437 |
-| **0.32 (shipped by S3-T2)** | **0.3136** | **+0.0197** |
+| **0.32 (shipped)** | **0.3136** | **+0.0197** |
 | 0.31 | 0.3312 | +0.0021 |
 | 0.30 | 0.3360 | **−0.0027 (breach)** |
 
-At the shipped 0.32 the nit's aggregate fold-to-continuation-bet reading is
-0.435 against a band floor of 0.60. **The dial runs out of admissible travel 16
-points short of the band**, so no retune of this lever can reach it.
+**The question for the re-anchor slice, stated as a choice.** Is α a
+**roster-wide law** — every persona is held to it, and an archetype that would
+exceed it is simply not modelled — or is it a **balanced-bettor guardrail that
+the tight archetypes may exceed by a stated, sourced margin**, in which case
+that margin needs a source and a written scope before any test admits it?
 
-**Why the two are not simply reconcilable by "different opponents".** The α test
-and the contract row are already scoped to different populations on purpose —
-α to a balanced bettor, the contract row to real pools that continuation-bet 55
-to 70 percent of flops — and the α test's own docstring says so. That
-reconciliation works at the LEVEL of a single node. What it does not resolve is
-that the same engine produces both readings from one merit vector: the calling
-dial is the only lever the roster has on either, and pushing it far enough to
-satisfy the contract row pushes the balanced-villain node through α.
-
-**Severity MEDIUM, and what would change it.** Nothing is currently breached and
-no gate is red; the conflict binds only a future slice that tries to close the
-fold-to-continuation-bet gap with this lever. It becomes HIGH if a slice is
-tasked with reaching the contract's band.
-
-**What a re-anchor slice has to decide.** Either the contract's per-archetype
-band edges are re-anchored for the tight archetypes (they are already recorded
-as DIRECTIONAL and LOW confidence, so this is admissible), or the roster gains a
-second lever that folds to continuation bets without moving the bluff-catcher
-node — the fold merit at a facing node is `_FOLD_BASE[bucket] *
-_price_factor(...)` and consults neither the draw nor the archetype's read of
-the bettor, which is where such a lever would live.
+**Not this slice's to resolve, and nothing was done to the test.** Owner ruling
+10 keeps the α assertion RAW and forbids editing it inside a fix round; S3-T2
+stopped at a dial the raw ceiling admits and filed the question rather than
+touching the guard.
 
 ---
 
-## Filed 2 — The LAG's went-to-showdown floor, withdrawn
+## Filed 3 — The LAG's dial: coupling, not absence of lever
 
 **Filed by S3-T2, 2026-08-22, under owner ruling 11 of that date.**
 
-**What was withdrawn.** S3-T2 pre-registered a reduction floor for the LAG and
-withdrew it before building. The LAG's pack is unchanged by this ticket.
+**What happened.** S3-T2 pre-registered a reduction floor for the LAG and
+withdrew it before building, on the owner's ruling. The LAG's pack is unchanged
+by this ticket: `call_looseness` stays at 0.55.
 
-**Why.** The LAG's went-to-showdown reading on the band harness is not a
-function of the LAG's own dial; it is a function of the whole roster's dials,
-and the cross-persona term is the same size as the own-dial term. Measured
-against this branch's 0.5664 baseline: tightening only the nit and the TAG moves
-the LAG UP 1.05 points; adding a LAG cut to 0.48 moves it 0.38 points DOWN;
-cutting the LAG to 0.42 moves it 2.77 points down but hands 2.87 points back to
-the TAG, which is nearly half of what the TAG's own retune just won. The
-mechanism is the `rscale` coupling: the dial scales the whole continue side of a
-facing node, RAISE included, so a tighter persona also raises less, and everyone
-it faces meets less aggression and folds less in response.
+**The claim that the dial "is not the LAG's lever" is FALSE and is corrected
+here.** At the dials this ticket ships, the LAG's own dial moves the LAG's
+went-to-showdown rate in the right direction and by a useful amount. Two
+comparison bases exist and both are given, because quoting either alone
+misleads: the **own-dial** base is the LAG at 0.55 with the nit and TAG already
+at their shipped values (0.5769), and the **all-baseline** base is the whole
+roster before this ticket (0.5664).
 
-**Where the reduction has to come from instead.** Per the pre-registration's §4
-measurement (`../research/slice3-calldown/t2-preregistration.md`, reproduced by
-the theory review), 41.6 percent of the LAG's showdown hands never face a wager
-at all, and the ones that do face about one. That is the checked-down path — how often a hand reaches
-the river with no bet in it — and no calling dial reaches it. It needs its own
-ticket and its own mechanism.
+| nit / TAG / LAG dials | LAG WTSD | vs own-dial base 0.5769 | vs all-baseline 0.5664 |
+|---|---|---|---|
+| 0.45 / 0.60 / 0.55 (all-baseline) | 0.5664 | — | — |
+| 0.32 / 0.38 / 0.55 (**shipped**) | 0.5769 | — | +1.05pp |
+| 0.32 / 0.38 / 0.48 | 0.5626 | **−1.43pp** | −0.38pp |
+| 0.32 / 0.38 / 0.42 | 0.5387 | **−3.82pp** | −2.77pp |
+
+**What is actually true is about coupling.** The dial scales the whole continue
+side of a facing node — RAISE included, through the `rscale` coupling — so a
+tighter persona also raises less, and everyone it faces meets less aggression
+and folds less in response. Two consequences follow. First, the LAG's reading
+depends on where its companions are set, which is why an earlier draft measured
+the sign as positive at one pair of companion dials and this table measures it
+as negative at another. Second, the reduction is partly paid for by the others:
+at a LAG dial of 0.42 the TAG's own reading goes back up from 0.5528 to 0.5815,
+handing back 2.87 of the 6.15 points the TAG's retune just won.
+
+**Filed for an owner decision:** whether to tune the LAG's dial in a follow-up
+ticket, knowing that its effect is real but companion-dependent and partly
+self-cancelling across the roster. Separately, per the pre-registration's §4
+measurement, 41.6 percent of the LAG's showdown hands never face a wager at all
+— the checked-down path, which no calling dial reaches and which needs its own
+mechanism.
 
 ---
 
-## Filed 3 — `_DRAW_FREE_RIVER_PROB` stays at 0.30
+## Filed 4 — `_DRAW_FREE_RIVER_PROB` stays at 0.30
 
 **Filed by S3-T2, 2026-08-22, under owner ruling 6 of that date.**
 
@@ -128,8 +168,8 @@ price-mandated protected share, so it asserts that the engine matches the poker
 the test states, and moving the constant means re-stating that poker rather than
 discovering a budget.
 
-**The contract row that owns it** is theory contract §4, row **P6/F7
-draw-bonus equity gate** — "a SEPARATE lever from the fold-side brake: gate
+**The contract row that owns it** is theory contract §4, row **P6/F7 draw-bonus
+equity gate** — "a SEPARATE lever from the fold-side brake: gate
 `_DRAW_CALL_BONUS` itself by commitment, equity and nutness at high `c`", status
 DIRECTIONAL. Any slice that re-derives this constant re-derives it against that
 row, and against the went-to-showdown statistic the constant's own comment names

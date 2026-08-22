@@ -6757,10 +6757,15 @@ def test_persona_postflop_bands(persona, budget):
     ── THE FOURTH RATCHET, S3-T2 (improvement slice 3, ticket 2 — the
     calling-dial retune — 2026-08-22). Two calling dials move for the first
     time in this slice: the nit's `call_looseness` 0.45 -> 0.32 and the tag's
-    0.6 -> 0.38. The LAG's is deliberately LEFT ALONE, on owner ruling 11 of
-    2026-08-22: its floor was WITHDRAWN and filed because the dial is not that
-    archetype's lever, and the measurements behind that are in the
-    pre-registration. Neither shipped value is set by this band table. The
+    0.6 -> 0.38. The LAG's is deliberately LEFT ALONE at 0.55, on owner ruling 11
+    of 2026-08-22: its floor was WITHDRAWN and filed. NOT because its dial is
+    inert — from the own-dial base (the LAG at 0.55 with the nit and tag already
+    shipped, 0.5769) a cut to 0.48 reads -1.43pp and one to 0.42 reads -3.82pp —
+    but because that effect depends on where the companions sit and is partly
+    paid for by them, so no floor could be registered against it. The table with
+    both comparison bases labelled is in the pre-registration §5.
+
+    Neither shipped value is set by this band table. The
     nit's comes from the α fold-ceiling, which admits no dial below about 0.31
     (headroom 0.0197 at 0.32, 0.0021 at 0.31, a breach at 0.30); the tag's from
     the deterministic 1,728-cell nit-versus-tag sweep (G-SWEEP-b), whose margin
@@ -13291,18 +13296,28 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
 # (owner ruling R3, 2026-08-22). The table above names about zero as the right
 # fold frequency at this node and then reports 0.2608 and 0.2451 as the good
 # outcome. Both are true and they are 25 to 26 POINTS APART. What this ticket
-# fixed is that the CALLING DIAL no longer decides those readings; the level
-# itself is a FOLD-side quantity and no lever in this ticket reaches it —
-# `_FOLD_BASE[bucket] * _price_factor(...)` does not consult the draw at all, so
-# a 15-out combo draw and a naked ace-high fold alike at the same price.
+# fixed is that the CALLING DIAL no longer decides the strong-draw BONUS at this
+# node; the level itself is a FOLD-side quantity and no lever in this ticket
+# reaches it — `_FOLD_BASE[bucket] * _price_factor(...)` does not consult the
+# draw at all, so a 15-out combo draw and a naked ace-high fold alike at the
+# same price.
 # THE RESIDUAL IS FILED, not absorbed: it belongs to `N-DRAWEQUITY`, the owed
 # draw-bonus equity gate of theory contract §4 row P6/F7 and §9 ledger item 2,
 # and its evidence is the node_trace row for `flop_facing_bet_strong_draw`
 # (JhTh on 9h 8c 2h facing 4 into a live pot of 10, prescription "semi-bluff
-# raise / call, few folds") with ~0 as the target. S3-T2 carries it as a WATCH
-# rather than a target — that ticket tightens calling dials, and a dial cannot
-# move a number it no longer reaches, so judging S3-T2 on this reading would be
-# judging it on the wrong lever.
+# raise / call, few folds") with ~0 as the target.
+#
+# ⚠️ CORRECTED BY S3-T2 (2026-08-22). This block used to say the calling dial
+# "no longer reaches" this reading. IT DOES REACH IT: the split protects the
+# BONUS term, but the bucket's base call merit is still `call_base * L` and the
+# fold merit does not depend on the dial at all, so a lower dial folds this draw
+# slightly MORE. Measured across S3-T2's retune, the nit's reading here goes
+# 0.2608 at a dial of 0.45 to 0.2642 at the shipped 0.32. S3-T2 still carries it
+# as a WATCH rather than a target — the residual is a fold-side LEVEL that
+# `N-DRAWEQUITY` owns and that no calling dial can drive to ~0 — but "the dial
+# cannot move it" was wrong, and a gate was built on that wrong sentence (see
+# `test_s3t1b_trace_node_folds_no_more_than_the_protected_engine_did`, whose
+# frozen constants S3-T2 had to replace with a computed comparator).
 #
 # ── THE MEASUREMENT. `_nd_priced_dist` again — same instrument, same priced
 # nodes, no new engine surface. Five nodes across two classes:
@@ -13694,10 +13709,24 @@ def test_s3t1b_trace_node_folds_no_more_than_the_protected_engine_did():
     WHAT THE LIVE FORM STILL CATCHES, and it is the claim S3-T1b actually
     makes: a protected share that comes back below 1.0 at a node whose price
     mandates the whole bonus. Any such regression makes the live engine fold
-    more than the floored one at the same dial and reds here. What it no longer
-    pretends to catch is a persona being tuned tighter, which is a different
-    question with its own gates (the α fold-ceiling above, the went-to-showdown
-    ceilings, the de-robotization separation floor).
+    more than the floored one at the same dial and reds here (measured: a share
+    of 0.99 reds it for all five dialled personas). What it no longer pretends
+    to catch is a persona being tuned tighter, which is a different question
+    with its own gates (the α fold-ceiling above, the went-to-showdown ceilings,
+    the de-robotization separation floor).
+
+    ⚠️ THIS IS A RE-SCOPING, NOT A STRENGTHENING, AND AT D1 IT IS PARTLY
+    REDUNDANT. Say both plainly rather than let a reader infer coverage that is
+    not here. GIVEN UP: the absolute LEVEL those six constants pinned at the
+    dials of the day — this gate no longer asserts that the nit folds 0.2608
+    here, only that the split has not withdrawn any of a mandated bonus.
+    REDUNDANT: the assertion immediately above already checks that the protected
+    share is exactly 1.0 at D1, and the two engines' agreement follows from
+    that, so this gate's independent force at THIS node is small. What it still
+    adds is that it reads the full normalized (FOLD, CALL, RAISE) distribution
+    rather than the share alone, and that it is written to survive the panel
+    being extended to nodes where the share does NOT clamp — which is where its
+    real force will live.
 
     THE READINGS AT THE S3-T1b TIP, kept because they are the measurement that
     ticket was accepted on and because they are the level a reader should know:

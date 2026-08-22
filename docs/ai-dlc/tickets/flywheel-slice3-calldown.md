@@ -100,8 +100,10 @@ new floor's correctness rather than react to the diff.
 was BLOCKED and shipped documents only (pull request #213). The fix round
 repaired the two guards that were measuring the calling dial rather than their
 own claim, retuned the nit (0.45 → 0.32) and the TAG (0.6 → 0.38), and withdrew
-the LAG's floor on owner ruling 11 of 2026-08-22 because the dial is not that
-archetype's lever. Registered floors MET on the band harness: nit −1.80
+the LAG's floor on owner ruling 11 of 2026-08-22, leaving the LAG at 0.55: its
+dial does move it, but through cross-persona coupling, so the effect depends on
+the companions' dials — filed for an owner decision on whether to tune it in a
+follow-up. Registered floors MET on the band harness: nit −1.80
 percentage points against a floor of 1.0, TAG −6.15 against 3.5. Report:
 `../research/slice3-calldown/t2-fix-round-report.md`.
 
