@@ -4100,16 +4100,24 @@ _GOLDEN_STATS_N200 = {
     # the same structural reason, and says explicitly that it was a property of
     # that sample rather than a second guarantee. This entry is that caveat
     # coming true.
-    # ATTRIBUTION PROVEN, not assumed, and by a cheaper method than a control
-    # worktree: `_DRAW_CALL_PROTECTED_SHARE = 1.0` makes
-    # `_strong_draw_call_dial(L)` return exactly 1.0 for every L, which IS the
-    # `max(looseness, 1.0)` the branch used to carry. Setting it to 1.0 at this
-    # tip and re-measuring reproduces all six PREVIOUS rows exactly (station
-    # 0.2972027972027972 / 0.2857142857142857 / 0.6617647058823529, lag 2.42 /
-    # None / 0.5819672131147541, maniac and tag as below, nit None / None /
-    # 0.5961538461538461, fish 0.8145161290322581 / None / 0.6146341463414634);
-    # restoring 0.7 reproduces the six rows below exactly. The split is the sole
-    # cause.
+    # ⚠️ HISTORICAL — THIS RECIPE NO LONGER RUNS AS WRITTEN (marked 2026-08-22,
+    # S3-T1b). It is kept because it records what S3-T1 proved at S3-T1's own
+    # tip; both names in it are gone. `_DRAW_CALL_PROTECTED_SHARE` was deleted
+    # and `_strong_draw_call_dial` takes two arguments now. THE CACHE-SAFE
+    # EQUIVALENT IS IN THE S3-T1b ENTRY BELOW — replace
+    # `_strong_draw_protected_share` with one returning 1.0, and clear
+    # `_STATS_CACHE` first. As written at the time: setting the constant to 1.0
+    # reproduced all six PREVIOUS rows exactly (station 0.2972027972027972 /
+    # 0.2857142857142857 / 0.6617647058823529, lag 2.42 / None /
+    # 0.5819672131147541, maniac and tag as below, nit None / None /
+    # 0.5961538461538461, fish 0.8145161290322581 / None / 0.6146341463414634),
+    # and restoring 0.7 reproduced THE SIX ROWS S3-T1 SHIPPED. ⚠️ That second
+    # half is a FORWARD REFERENCE and it no longer points at the rows below —
+    # those are S3-T1b's. Re-measured 2026-08-22: forcing a flat 0.7 at the
+    # current tip reproduces five of the six rows below, and the sixth,
+    # passive_fish, reads (0.7936507936507936, None, 0.6146341463414634) — the
+    # value S3-T1 shipped — against the (0.753968253968254,
+    # 0.41935483870967744, 0.5879396984924623) recorded below.
     # AT n=200 THESE ARE STILL MOSTLY NOISE — read the population numbers in
     # `test_persona_postflop_bands`' docstring, where the same change moves
     # went-to-showdown by -1.4pp (fish) to +0.4pp (tag) at n=4000. Exact
@@ -6413,7 +6421,18 @@ def test_n3bstrata_production_opener_blend_in_dossier_band():
     lag-tag is STILL the binding pair on the tightest seat, measured rather
     than assumed — the full pair table at seed 604 runs lag-tag 1.567513,
     nit-tag 2.393329, lag-maniac 3.542709, lag-nit 3.616597, and up from
-    there. The worst seat moves 1.580584 -> 1.567513, i.e. 1.25x the 1.254429
+    there.
+    ⚠️ HOW THE PAIR NAMES WERE OBTAINED, because the gate tool does not supply
+    them: `tools.derobo_gate` reports only the candidate's MINIMUM pairwise
+    distance and the baseline it is compared against — no pair labels — so a
+    claim about WHICH two personas are closest cannot come from its output.
+    These were measured OUTSIDE the tool: the seed-604 batch was retained with
+    `derobo_gate.gate(..., keep=...)`, and the frozen artifact's own mean and
+    standard deviation were applied to that batch's measured stat vectors to
+    rebuild the six z-vectors and enumerate all fifteen pairwise distances. The
+    minimum of that enumeration equals the 1.567513 the tool reported, which is
+    what ties the pair names to the gate's own number.
+    The worst seat moves 1.580584 -> 1.567513, i.e. 1.25x the 1.254429
     floor rather than 1.26x, so the budget a tag correction has to spend is
     back to roughly where the lag re-tune left it.
 
@@ -12202,7 +12221,12 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 #
 # ── WHERE THE CAP COMES FROM: A DERIVATION, PER PRICE CLASS (S3-T1b; the number
 # it replaces, a chosen budget of 0.030, is kept in the record at the end of
-# this block). PROPOSED, PENDING OWNER RATIFICATION IN THIS PULL REQUEST.
+# this block). ✅ RATIFIED BY THE OWNER AS PROPOSED, 2026-08-22 (ruling R1, on
+# the S3-T1b fan-in). The same ruling records the supersession stated at the top
+# of this block: G-DRAW's original claim, "the dial no longer decides strong
+# draws", is superseded by "the dial decides the CHASE share of a strong draw;
+# the price-mandated share is protected". Both are the governing text now; the
+# 0.030 budget below is history.
 #
 # Step 1 — the whole continue side is proportional to the CALL merit. FOLD does
 # not depend on the calling dial at all. CALL is C(L). RAISE is
@@ -12271,6 +12295,20 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 #     P1      0.031243     0.013093     2.39x      0.038017      0.014807
 #     R2      0.031243     0.013354     2.34x      0.038694      0.015099
 #     P2      0.037342     0.005434     6.87x      0.013353      0.006002
+#
+# ⚠️ READ THE HEADROOM COLUMN CORRECTLY — it is NOT margin against the share.
+# The cap is a maximum over every possible fold merit, and it is attained at one
+# particular fold probability: `k*C(0.60)/F = 1/sqrt(r)`, which puts P(fold) at
+# the 0.60 dial near 0.484 (0.4839 at D2, 0.4975 at D1). A node reads below its
+# cap in the proportion its own fold probability sits away from that maximiser,
+# and D2 — the tightest at 1.17x — sits at 0.2978. So a slice that moves the
+# FOLD-side LEVEL alone cannot breach these caps by moving the level: shifting
+# P(fold) toward 0.484 raises the reading and shifting it away lowers it, but
+# the dial's reach into the call merit is what the cap actually bounds and a
+# fold-side change does not touch it. The way to break BOTH legs of this gate is
+# to couple the FOLD merit to the calling dial, which nothing does today and
+# which S3-T2 must not introduce. That is the thing to check in S3-T2, rather
+# than the headroom number.
 #
 # The last column is the point of the ticket: a FLAT protected share of 0.7 —
 # what S3-T1 shipped and what this gate's 0.030 budget admitted — blows the
@@ -12360,12 +12398,10 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 #       on mutant M13 (floor withheld when facing a raise) via R2, and on the
 #       flat 0.7 share S3-T1 shipped, via D1/D3/D4.
 #   G-DRAW's price-mandate leg (the second test below) the same movement
-#       measured EXACTLY rather than bounded. It implies the cap wherever the
-#       continue side really is proportional to the call merit, and is stated
-#       as such rather than presented as an independent kill — what the CAP
-#       adds is that it survives a change to the vector's SHAPE (a damp reaching
-#       a strong-draw node, say) which would make the identity leg red for a
-#       reason that is not about the protected share at all.
+#       measured EXACTLY rather than bounded. ⚠️ THIS IS A NAMED EXCEPTION TO
+#       THE RULE THIS BLOCK ENFORCES — see the paragraph directly below, which
+#       the owner required be stated as an exception rather than left as an
+#       aside (ruling R1, 2026-08-22).
 #   G-NODE (above)                   a FLOOR on ΔP(fold) at draw-NONE nodes.
 #       Disjoint node class (a hand is in exactly one draw category, and the
 #       engine branches on precisely that predicate), so a build can satisfy
@@ -12401,6 +12437,31 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 #       stay green).
 # M1/M2 below are deliberately overlapping instrument-liveness controls and are
 # NOT part of this independence claim.
+#
+# ⚠️ ONE NAMED EXCEPTION TO THE INDEPENDENCE RULE — DELIBERATE, OWNER-RATIFIED
+# (ruling R1, 2026-08-22), AND THE ONLY ONE IN THIS FAMILY. The rule this block
+# enforces is that no gate may be one that "could not fail whenever its sibling
+# passed". G-DRAW's derived CAP is exactly that with respect to G-DRAW's
+# PRICE-MANDATE leg: the mandate leg asserts that the continue side scales by
+# exactly the predicted `r`, and the cap is the maximum fold movement that same
+# `r` permits, so wherever the mandate leg is green the cap is green by
+# arithmetic. MEASURED, over the seven-mutant matrix recorded in the S3-T1b
+# section below: no mutant turns the cap red while the mandate leg is green.
+# The redundancy is real and is not being explained away.
+#
+# BOTH ARE KEPT ANYWAY, for a reason that is about what each SURVIVES rather
+# than what each catches. The mandate leg's arithmetic depends on a property of
+# the vector's SHAPE — that FOLD does not move with the dial and the whole
+# continue side is proportional to the CALL merit, via `rscale`. That property
+# is true today and is not guaranteed forever: widen a damp to strong-draw
+# nodes, or give FOLD a dial term, and the mandate leg goes red for a reason
+# that has nothing to do with the protected share, while the reader is left
+# with no gate on the behavioural claim at all. The CAP holds for ANY vector
+# shape — it is a maximum over every possible fold merit — so it is the leg
+# that still says something true on the day the sharp one stops applying. The
+# exception is therefore "a precise gate plus a robust one over the same
+# claim", not "two names for one check", and it is written here so the next
+# reader does not delete the cap as dead weight.
 
 # The stated poker, per node: out count and cards-to-come. The PRICE is already
 # on the node (`faced_frac`) and is checked against the engine by
@@ -12414,9 +12475,10 @@ _ND_STATED_OUTS = {"D1": 15.0, "D2": 9.0, "D3": 15.0, "D4": 9.0,
 # The realization assumption, restated (engine: `_DRAW_FREE_RIVER_PROB`).
 _ND_FREE_RIVER_Q = 0.30
 _ND_MADE_CONTROL_FLOOR = 0.040
-# The retired flat budget, kept only so a reader meeting it in an older comment
-# can place it. Nothing asserts against it any more — see the section comment.
-_ND_RETIRED_FLAT_CAP = 0.030
+# The retired flat budget was 0.030. It is deliberately NOT bound to a name
+# here: nothing asserts against it any more, and a constant that is defined and
+# never read reads like a live threshold to the next person to open this file.
+# The number is kept in the section comment above, where its history belongs.
 
 
 def _nd_stated_mandated_share(node: _NDNode) -> float:
@@ -12546,8 +12608,8 @@ def test_nd_gdraw_dial_no_longer_decides_strong_draws():
     where r is the factor the whole continue side scales by, computed from the
     out count and the pot odds this test states independently of the engine. The
     full derivation, the stated poker per node, the readings and the retired
-    0.030 budget are in the section comment above. PROPOSED, PENDING OWNER
-    RATIFICATION.
+    0.030 budget are in the section comment above. RATIFIED BY THE OWNER AS
+    PROPOSED, 2026-08-22 (ruling R1).
 
     Red at the base commit b0a6a4e on all six pins (+0.068151 · +0.067787 ·
     +0.069256 · +0.062845 · +0.038017 · +0.038694) and red on the flat 0.7 share
@@ -13059,6 +13121,23 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
 # asserted below, and it is also what the whole D1 column of every older gate in
 # this file reads again.
 #
+# ⚠️ "RESTORED EXACTLY" IS NOT "CORRECT" — READ THE TWO SENTENCES TOGETHER
+# (owner ruling R3, 2026-08-22). The table above names about zero as the right
+# fold frequency at this node and then reports 0.2608 and 0.2451 as the good
+# outcome. Both are true and they are 25 to 26 POINTS APART. What this ticket
+# fixed is that the CALLING DIAL no longer decides those readings; the level
+# itself is a FOLD-side quantity and no lever in this ticket reaches it —
+# `_FOLD_BASE[bucket] * _price_factor(...)` does not consult the draw at all, so
+# a 15-out combo draw and a naked ace-high fold alike at the same price.
+# THE RESIDUAL IS FILED, not absorbed: it belongs to `N-DRAWEQUITY`, the owed
+# draw-bonus equity gate of theory contract §4 row P6/F7 and §9 ledger item 2,
+# and its evidence is the node_trace row for `flop_facing_bet_strong_draw`
+# (JhTh on 9h 8c 2h facing 4 into a live pot of 10, prescription "semi-bluff
+# raise / call, few folds") with ~0 as the target. S3-T2 carries it as a WATCH
+# rather than a target — that ticket tightens calling dials, and a dial cannot
+# move a number it no longer reaches, so judging S3-T2 on this reading would be
+# judging it on the wrong lever.
+#
 # ── THE MEASUREMENT. `_nd_priced_dist` again — same instrument, same priced
 # nodes, no new engine surface. Five nodes across two classes:
 #
@@ -13112,6 +13191,21 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
 # dial-scaled, so only the BONUS was ever untunable. That is why a monotonicity
 # assertion alone would be vacuous: the floored engine is monotone too. The
 # chase leg therefore asserts the RATIO, per cell.
+#
+# ── ✅ OWNER SIGN-OFF ON THE FLOOR MOVE, 2026-08-22 (ruling R2). This gate's
+# reach floor moves 1.35 -> 1.20, and a gate threshold moving DOWN in the same
+# pull request that changes the engine is exactly the shape of an edit that
+# should be refused by default, so it is recorded as a decision rather than as
+# an in-passing note. Two facts the owner accepted it on: (a) THE NODE SET
+# CHANGED — the ratio is no longer measured over the same cells, because D1 and
+# D3 moved out of this leg entirely (their price mandates the whole bonus, so
+# their honest ratio is exactly 1.000 and they are asserted as an equality
+# instead) and D5 moved in, so 1.35 and 1.20 are not two thresholds on one
+# measurement; (b) THE MUTANT THE FLOOR EXISTS FOR IS STILL CAUGHT — restoring
+# the hard floor drives every chase ratio to 1.000, which fails 1.20 exactly as
+# it failed 1.35, and the measured matrix below confirms it (M2 red on this
+# leg). The floor was not lowered to accommodate a reading; the readings it is
+# taken over are different readings.
 #
 # ── WHERE 1.20 COMES FROM, and the honest window. Observed chase ratios run
 # 1.312 (P1 nit) to 1.894 (D5 maniac); 1.20 sits 9.3% under the worst reading

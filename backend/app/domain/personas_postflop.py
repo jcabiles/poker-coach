@@ -385,16 +385,40 @@ _DRAW_CALL_BONUS = {DrawCategory.NONE: 0.0, DrawCategory.WEAK: 0.20, DrawCategor
 # (`_strong_draw_realized_equity`, which states the arithmetic, and
 # `_strong_draw_protected_share`, which states the poker).
 #
-# AN ASSUMPTION, NOT A FIT, and labelled as one. It is the share of turns that
+# AN UNFITTED ASSUMPTION, and labelled as one. It is the share of turns that
 # check through (or are checked to a draw that declines to bet) rather than
-# arriving with a second price on them. Heads-up on the flop, against a seat
-# that just c-bet, a barrel follows more often than not, so the free river is
-# the minority case; 0.30 is a plainly-stated mid-range value for it and no
-# measurement in this repository pins it. Both endpoints ARE wrong and that is
-# the whole reason a value in between is needed: at 1.0 the draw is priced as
-# if it were all-in (the comparison theory-contract CT-2 forbids at a node that
+# arriving with a second price on them. Both endpoints ARE wrong, which is the
+# whole reason a value between them is needed: at 1.0 the draw is priced as if
+# it were all-in (the comparison theory-contract CT-2 forbids at a node that
 # leaves postflop play), at 0.0 it is priced as if it were never given a free
 # card.
+#
+# ⚠️ WHAT THE ONE PIECE OF EVIDENCE IN THE CONTRACT ACTUALLY SAYS, and how 0.30
+# sits against it (corrected 2026-08-22 after review; an earlier draft of this
+# comment justified 0.30 by asserting that "a barrel follows more often than
+# not", which contradicts it). The theory contract's only turn-aggression row
+# is §5a's turn barrel: `9-max full ring | online micro-low NL cash (NL2-NL25) |
+# S1 only (side-by-side, turn c-bet FR 50 = 6-max 50); no second source splits
+# turn aggression by format | VERIFIED, conf LOW (single source), CONFIRMED
+# UNCHANGED, DIRECTIONAL-only`. S1 is a single full-ring practitioner and its
+# 50 is an IDEAL-REG TARGET rounded to 5-10 points, not a population average —
+# the contract is explicit that the row is a withheld correction rather than a
+# certified level, and §5a's single-author warning applies to it.
+# Read at face value that row implies a turn barrel around half the time, i.e.
+# a free river nearer q = 0.50 than 0.30. So 0.30 sits BELOW what the only
+# relevant evidence implies, and the direction of that error is worth stating:
+# a smaller q means less realized equity, a SMALLER protected share, and more
+# of the bonus handed to the calling dial — the error runs UNDER-protective,
+# toward the defect S3-T1b was written to fix rather than away from it.
+# Measured: at q = 0.50 a nine-out flush draw facing a pot-sized bet is
+# mandated 0.7614 of its bonus, against 0.6728 at q = 0.30.
+# MITIGATION, and why the conservative choice is defensible anyway: the nodes
+# where under-protection would matter most are the ones that clamp. A 15-out
+# combo draw at the trace node's price is mandated in FULL for ANY q >= 0
+# (0.30 of raw one-card equity already exceeds the 0.2857 the price needs), and
+# the same hand on the turn is mandated in full with q not entering at all. q
+# only moves the CHASE nodes, which is where a conservative value belongs.
+# THE FIT PATH is below rather than left to a future reader's judgement.
 #
 # ── WHAT WOULD JUSTIFY MOVING IT — the closed loop, stated so this constant is
 # not "bounded by whichever gate happens to be tightest" the way the flat 0.7 it
@@ -1060,6 +1084,13 @@ def _strong_draw_protected_share(
     cards to come and the out count, and the clamp at 1.0 says the thing that
     was true all along: when equity alone pays for the call, ALL of it is
     mandated and the dial gets none of it.
+    ⚠️ RETURNING THAT NODE TO 0.2608 IS NOT THE SAME AS MAKING IT RIGHT. 0.2608
+    is still about 26 points above the about-zero this paragraph names as
+    correct, because the LEVEL is fold-side and no lever here reaches it. That
+    residual is filed against `N-DRAWEQUITY`; the N-DRAWLOOSE block in
+    `sample_postflop_decision` carries the filing and the owner ruling behind it
+    (R3, 2026-08-22), so this paragraph cannot be read as claiming the node is
+    fixed.
 
     ── THE THREE OBJECTIONS THAT HELD THIS BACK, and what answers each. The
     flywheel roadmap recorded price-conditioning as "reviewed and found not
@@ -1489,6 +1520,38 @@ def sample_postflop_decision(
         # protection (`s` clamps at 1.0 and the branch reproduces the old floor
         # exactly) while a pot-sized bet into a bare draw rides the dial.
         #
+        # ⚠️ "RESTORED EXACTLY" IS NOT "CORRECT", AND THE RESIDUAL IS FILED
+        # (owner ruling R3, 2026-08-22). This ticket returns the trace node to
+        # 0.2608 for the nit and 0.2451 for the fish — which is where the fully
+        # protected engine had them, and roughly 26 and 25 points above the
+        # about-zero the paragraph above names as the right answer. What is
+        # fixed here is that the CALLING DIAL no longer moves those readings;
+        # what is left is a fold-side LEVEL, and no lever this ticket owns
+        # reaches it. The fold merit at a facing node is
+        # `_FOLD_BASE[bucket] * _price_factor(...)` and consults the draw not at
+        # all, so a 15-out combo draw and a naked ace-high fold alike at the
+        # same price. The residual is FILED AGAINST `N-DRAWEQUITY` — the owed
+        # draw-bonus equity gate of theory contract §4 row P6/F7 and §9 ledger
+        # item 2 — with the node_trace row for
+        # `flop_facing_bet_strong_draw` (JhTh on 9h 8c 2h facing 4 into 10,
+        # prescription "semi-bluff raise / call, few folds") as its evidence and
+        # ~0 as its target. S3-T2 carries it as a WATCH, not a target: that
+        # ticket tightens calling dials, which cannot move a number the dial no
+        # longer reaches, and must not be judged on it.
+        #
+        # THE POPULATION FIGURE S3-T2 MUST SIZE ITSELF OFF, measured over the
+        # band harness's own six-persona 4,000-hand population (2026-08-22): the
+        # share is evaluated 3,849 times, 32.63% of those clamp to 1.0 (the dial
+        # reaches nothing at all there), and the mean share is 0.8289. So the
+        # dial's mean reach into the draw bonus is 17.1%, against the flat 30%
+        # S3-T1 gave it — about 43% less aggregate reach. A reduction target
+        # pre-registered off S3-T1's sweep would be sized against reach this
+        # engine does not have.
+        #
+        # COVERAGE BASELINE unmoved by this slice: the cumulative graded-coverage
+        # ratio against the immutable `persona-realism-start` snapshot is
+        # unchanged, and `tests/test_coverage_baseline.py` passes UNEDITED.
+        #
         # THREE properties are load-bearing. Two come from the branch PREDICATE
         # carrying `looseness < 1.0` and survive the amendment unchanged:
         #  - the split is skipped entirely at any dial >= 1.0, so falling
@@ -1835,14 +1898,20 @@ def sample_postflop_decision(
     # cancels" is not something to assume. The split form is
     #     C(L) = call_base·L + bonus·(L + s·(1−L))
     #          = (call_base + bonus·(1−s))·L + bonus·s ,  s = the protected share
-    # i.e. still affine in L, with a smaller intercept than the old hard floor's
-    # `bonus·1`. NOTHING in the derivation above reads the intercept or the
-    # slope: it divides by whatever C(L) the branch produced, so the invariance
-    # holds unchanged and `rscale` needed no edit. Two things DID move and are
-    # stated rather than left implied: `rscale` is now SMALLER at every dial
-    # below 1.0 than it was under the floor (it tracks a smaller CALL), and it
-    # is smaller in exactly the proportion CALL shrank, which is the whole point
-    # — the raise leg must follow the call leg, not the floor. Continuity at
+    # i.e. still affine in L, with an intercept of `bonus·s` against the old hard
+    # floor's `bonus·1`. NOTHING in the derivation above reads the intercept or
+    # the slope: it divides by whatever C(L) the branch produced, so the
+    # invariance holds unchanged and `rscale` needed no edit. Two things DID
+    # move and are stated rather than left implied — both scoped to s < 1,
+    # which is the qualifier an earlier draft of this paragraph omitted:
+    # WHERE s < 1, `rscale` is SMALLER at every dial below 1.0 than it was under
+    # the floor (it tracks a smaller CALL), and it is smaller in exactly the
+    # proportion CALL shrank, which is the whole point — the raise leg must
+    # follow the call leg, not the floor. AT s = 1 the intercept is `bonus·1`
+    # and `rscale` EQUALS the floor's value, because the branch is then the
+    # floor; that is the same fact the S3-T1b paragraph below states about the
+    # `ref < 1` departure, and neither is an exception to the derivation.
+    # Continuity at
     # L = 1 survives too: `C(1⁻) = C0` because `_strong_draw_call_dial(1.0, s)`
     # is exactly 1.0 for EVERY s, so the coupled branch tends to `1/ref`, which
     # is what the fall-through computes at L = 1.

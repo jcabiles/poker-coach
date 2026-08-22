@@ -391,7 +391,12 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 - [x] **Draw-floor bug — bots cannot fold a strong draw at any dial setting** *(NEW
       2026-08-17; assigned to slice 3 as a PREREQUISITE, 2026-08-18; **BUILT** as S3-T1,
       PR #211, merged 2026-08-21, and **price-conditioned** as S3-T1b, 2026-08-22)* — the
-      floor is gone. S3-T1 replaced it with a split that protects a flat 0.7 of the bonus
+      floor is gone **as an unconditional floor**, which is the precise claim: at nodes
+      whose price the draw's own equity pays for — the protected share clamps to 1.0, which
+      is about 33% of strong-draw decisions in the band harness's organic population — the
+      branch still reproduces the old floor **bitwise, by design**, and that is the property
+      the original N-DRAWLOOSE fix existed for. What is gone is the floor applying at every
+      price regardless. S3-T1 replaced it with a split that protects a flat 0.7 of the bonus
       from the calling dial and hands 0.3 to it; theory review then measured that a FLAT
       share is anti-protective where protection matters most — at the trace node, a 15-out
       combo draw getting 2.5-to-1, the nit's fold rate rose 0.2608 → 0.2945 — so S3-T1b made

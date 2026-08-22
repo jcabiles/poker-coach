@@ -300,9 +300,21 @@ def _hash_manifest(manifest: dict) -> str:
 # `personas_postflop._strong_draw_protected_share`, and the four digests below
 # do not move. Recorded because it is the surprising direction: a real
 # behaviour change that this 25-hand seeded export cannot see, where the
-# smaller change before it moved all four. The sample simply contains no
-# strong-draw decision at a price where the two shares disagree. The
-# reproduction recipe in the entry above no longer runs as written — the
+# smaller change before it moved all four.
+# ⚠️ THE MECHANISM IS NOT "THE SAMPLE HAS NO STRONG DRAWS AT A DISAGREEING
+# PRICE" — an earlier draft of this entry said that and it is FALSE. MEASURED
+# by instrumenting the share over this exact export (25 hands, seed 777): it is
+# evaluated 5 times, and NONE of the five equals the 0.7 S3-T1 would have used
+# — they read 0.7476, 0.72, 1.0, 0.5733 and 0.8008. So the call merit really
+# does differ from S3-T1's at four of the five, and once at 1.0 it differs from
+# S3-T1's by the full 0.3 of the bonus. The digests are unchanged because none
+# of those merit shifts flipped a SAMPLED ACTION: the draw is taken against
+# normalized weights, and a weight can move without the outcome moving. Nothing
+# downstream of an unflipped action can differ, so the hands, the seat outcomes
+# and the decisions are byte-identical. Read this as a reminder of what a
+# seeded golden actually pins — sampled outcomes, not merits — rather than as
+# evidence that the engine did not change.
+# The reproduction recipe in the entry above no longer runs as written — the
 # constant it names is gone; the equivalent probe is to replace
 # `_strong_draw_protected_share` with one returning 1.0, which is the
 # `max(looseness, 1.0)` engine.
