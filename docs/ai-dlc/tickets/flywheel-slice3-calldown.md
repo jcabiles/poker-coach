@@ -2,7 +2,8 @@
 
 **status: approved**
 
-**Bottom line.** Four tickets, strictly serial (each depends on the one before
+**Bottom line.** Five tickets (four approved at slice open, a fifth admitted by
+owner ruling on 2026-08-22), strictly serial (each depends on the one before
 it landing), all touching the same two files: the villain-bot postflop policy
 module and its test file. S3-T1 (S3 = slice 3; T1 = ticket 1) makes the
 strong-draw calling floor tunable; S3-T2 does the bulk of the went-to-showdown
@@ -33,6 +34,7 @@ chain below. Do not open S3-T2 until S3-T1 has merged, and so on.
 ```
 S3-T1 (tunable strong-draw floor) ──> S3-T2 (per-persona dial retune)
    ──> S3-T3 (value-side stack/pot lever) ──> S3-T4 (α-guard extension + conditional damp re-derivation)
+   ──> S3-T5 (late-street bet lever — CONDITIONAL, added 2026-08-22)
 ```
 
 Strictly serial. S3-T4's damp re-derivation half is conditional on S3-T2
@@ -320,6 +322,65 @@ re-derivation half further depends on S3-T2's measured headroom.
 
 **Review tier:** persona-realism theory reviewer + refuter minimum; add
 Codex Sol (high reasoning effort) if the damp re-derivation fires.
+
+---
+
+## S3-T5 — The late-street bet lever (conditional fifth ticket)
+
+**status: added 2026-08-22 by owner ruling; built at commit `72322d0`
+(S3-T2/T3/T4 merged).** The ruling is the autonomous-run picker answer of that
+date — "spec AND build if budget remains; pack values plus ONE bounded engine
+lever, default = today's behaviour" — and the slice spec carries the matching
+scope amendment. Full spec:
+`docs/ai-dlc/specs/flywheel-slice3-t5-checkdown.md`; contract map:
+`docs/ai-dlc/contracts/flywheel-slice3-t5-checkdown.md`.
+
+**Goal.** Reach the showdown hands the calling dial cannot. About half the
+nit's showdown hands and 45% of the TAG's contain no calling decision at all,
+so S3-T2's dial retune had no lever on them. This ticket makes a persona more
+willing to bet an UNOPENED turn or river, so fewer hands drift to a showdown
+with no money in the middle.
+
+**Do.**
+1. Instrument first: add a `never_faced_wager` counter to the band harness and
+   record every persona's baseline before any engine change. It is a
+   DIRECTIONAL diagnostic, never a HARD gate.
+2. Add `late_street_bet`, an optional pack field on the postflop block, `[0,1]`,
+   default absent. On the non-bluff BET leg of an unopened turn or river only,
+   multiply the aggressive candidate's merit by
+   `1 + late_street_bet * _LATE_STREET_GAIN[street]`. No new random draw, no
+   sizing-bracket read, and it lives in the one function the live bot and the
+   villain-range estimator share.
+3. Sweep one persona at a time with the other five packs unedited, register the
+   floors from the sweep's reach before any pack value moves, then set values on
+   the nit, the TAG and the LAG only.
+
+**Acceptance criteria:**
+1. Went-to-showdown falls for the nit, the TAG and the LAG — the gate. The
+   never-faced-a-wager share falls by at least the registered floor for the nit
+   and the TAG — the diagnostic, reported rather than gated.
+2. All HARD bands green for all six personas; ordering legs intact; the interim
+   ceiling ratchet re-applied and recorded.
+3. Byte-identity with every pack unedited, plus the three named targeted tests.
+4. Five-seed de-robotization gate green, with the LAG–TAG pair reported.
+5. Estimator parity unchanged, plus a new unopened turn/river parity test.
+6. The 50,000-hand export's went-to-showdown reported before and after as
+   diagnostic context.
+7. The slice-spec amendment admitting this ticket lands in the same pull
+   request.
+
+**Done-condition:** the shared done-condition above, plus
+`pytest -k late_street`.
+
+**Owns:** `backend/app/domain/personas_postflop.py`,
+`backend/app/domain/content/models.py`, `content/schema/persona.schema.json`,
+`content/personas/{nit,tag,lag}.json`, `backend/tests/test_personas_postflop.py`,
+`backend/tests/test_range_estimate.py` (the new parity test only).
+
+**Dependencies:** S3-T4 merged (end of the serial chain).
+
+**Review tier:** persona-realism theory reviewer + refuter + Codex Sol (high
+reasoning effort), same as S3-T2 and S3-T3.
 
 ---
 

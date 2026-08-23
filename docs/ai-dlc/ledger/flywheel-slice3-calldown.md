@@ -1,6 +1,6 @@
 # Ledger — improvement slice 3 (calldown) of the bot-realism flywheel
 
-**Bottom line. Ten things are filed here and none of them is fixed by this
+**Bottom line. Twelve things are filed here and none of them is fixed by this
 slice. Two compete for most consequential. Filed 5: a bot's probability of
 betting a top pair or a middle pair does not respond to its stack depth AT ALL,
 when commitment says it should rise toward certainty as the stack shortens — so
@@ -12,7 +12,7 @@ ruling that it bounds naked ace-high — and the test filed 9 built to enforce i
 apply a range identity to a bucket, which measurement shows is wrong in both
 directions at once.
 
-The ten in order. (1) The calling dial is hand-strength-blind, so it cannot close the
+The twelve in order. (1) The calling dial is hand-strength-blind, so it cannot close the
 fold-to-continuation-bet gap: it moves air, which already folds almost always,
 by the same odds factor as the marginal pairs where the gap actually lives —
 that needs a bucket-aware fold lever, which is an ENGINE-LEVER DEFECT at MEDIUM.
@@ -36,7 +36,12 @@ and the re-derivation is filed for a future ticket. (9) Naked ace-high breaks th
 α fold ceiling at every one of the 24 heads-up river cells, filed at HIGH with a
 one-way compliance tripwire shipped in its place. (10) α is a per-RANGE bound and
 not a per-BUCKET one, which re-opens the provenance of the ruling behind (9) and
-reshapes (2).**
+reshapes (2). (11) The statistic the slice used to size the checked-down problem
+counts the wrong event — it cannot fall when the bot itself is the one betting —
+and ticket 5 measured the two disagreeing in sign on the same run. (12) Showdown
+frequency barely responds to how often the bots bet a late street, because a bet
+that is called makes a showdown just as a check-down does, so the remaining
+thirty-point gap will not close with another merit-layer dial.**
 
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
@@ -474,3 +479,69 @@ tripwire shipped by filed 9 is harmless either way. It becomes the blocking item
 the moment a ticket is opened to CLOSE the ace-high river breach, because that
 ticket would be spending a 60× constant move to satisfy an obligation this entry
 says may not exist.
+
+---
+
+## Filed 11 — MEASUREMENT DEFECT (MEDIUM): "never faced a wager" cannot see a bot that starts betting
+
+**The statistic this slice used to size the checked-down problem counts the
+wrong event, and S3-T5 measured it doing so.** "Share of showdown hands in which
+the persona never faced a wager" is what `t2-preregistration.md` §4 quoted at
+47.7 / 44.1 / 41.6% for the nit, the TAG and the LAG, and it is what S3-T5's
+first commit turned into a committed counter. It falls only when somebody wagers
+AT the persona. A persona that used to check a hand down and now bets it and
+gets called still never faced a wager, so the hand stays in the numerator — and
+converting check-downs into bet-and-called showdowns is exactly what S3-T5's
+lever does.
+
+**Measured, at the dial the TAG ships**: hands genuinely checked down fall 3.00
+points while the never-faced-a-wager share RISES 1.42 points, over 12,000 hands
+of the combined roster. The two statistics disagree in sign on the same run,
+which is the cleanest possible demonstration that they are not measuring the
+same thing.
+
+**What was done about it inside the ticket.** A second counter, `checked_down`
+(no seat wagered on any postflop street), was added to the same harness function
+during the sweep and before any pack value moved, and both are reported. The
+original counter was NOT retired: it is the statistic the ticket was written
+against, and dropping it after seeing its reading would be moving the goalposts.
+
+**What is left for a later slice.** Any future ticket that wants to reduce
+passive showdowns should gate on `checked_down`, not on `never_faced_wager`. The
+figures in `t2-preregistration.md` §4 and in S3-T5's spec §1 remain true as
+written but overstate the checked-down population by roughly 20 points for the
+nit (50.3% never faced a wager against 31.3% genuinely checked down at the
+pre-ticket tip), and anyone sizing a mechanism off them should use the second
+number.
+
+**Severity MEDIUM**: nothing shipped is wrong, no gate was breached, and the
+correction is already in the harness. It is filed because the wrong number is
+quoted in three approved documents and will be reused if nobody says so.
+
+---
+
+## Filed 12 — OPEN ITEM: went-to-showdown barely responds to how often the bots bet late
+
+**S3-T5 moved the checked-down share for all three tuned personas and moved
+went-to-showdown for only one of them, and the slice should not assume the next
+lever will do better.** Over 12,000 hands the TAG's checked-down share fell 3.0
+points and its showdown frequency fell 0.7 with a standard error of about 0.7;
+the LAG's fell 0.7 and 0.3. The nit is the exception at −3.7 points of showdown
+frequency.
+
+**The mechanism, measured rather than assumed.** Betting an unopened late street
+does two opposite things to showdown frequency at once: the bet sometimes takes
+the pot down, which removes a showdown, and it sometimes gets called by a field
+that contains a calling station and two passive fish, which creates one that a
+check-fold would not have produced. The gain scan in `t5-report.md` §4.1 shows
+the net effect saturating almost immediately — quadrupling the lever's strength
+made showdown frequency slightly WORSE, not better.
+
+**Consequence for the slice's north-star gap.** The nit still sits about 30
+points above its grounded went-to-showdown band after this ticket (0.5894
+against a target of 0.20-0.28). Across the whole slice, on the 4,000-hand
+harness, the nit has moved 0.6353 -> 0.6173 -> 0.5894 and the TAG 0.6144 ->
+0.5528 -> 0.5709: about 4.6 and 4.4 points net, from two shipped levers and one
+withdrawn. Whatever closes the remaining thirty is not a merit-layer dial on
+decisions the bots already mix, and the next slice should be scoped on that
+basis rather than on another dial.

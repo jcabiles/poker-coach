@@ -1,6 +1,6 @@
 # Spec — S3-T5: the checked-down path (improvement slice 3, ticket 5)
 
-**status: draft rev 2 — owner authorized spec + conditional build 2026-08-22; rev 1 FAILED blind review (refuter + Codex Sol, 2026-08-22) on four converging findings, all folded in below; confirmation pass PASS-WITH-FIXES (Sonnet refuter), fixes applied — READY, pending slice-3 spec amendment at build time**
+**status: approved (owner 2026-08-22) — BUILT at `72322d0`; outcome, criterion by criterion, in `../research/slice3-calldown/t5-report.md` (one criterion is PARTIAL: went-to-showdown falls for the nit and is not established for the TAG or the LAG). Slice-3 scope amendment landed. Rev history: draft rev 2 — rev 1 FAILED blind review (refuter + Codex Sol, 2026-08-22) on four converging findings, all folded in below; confirmation pass PASS-WITH-FIXES (Sonnet refuter), fixes applied — READY, pending slice-3 spec amendment at build time**
 
 **Bottom line.** Between 42% and 48% of the nit, TAG and LAG personas' showdown
 hands never face a wager at all — every street is checked through. The calling
