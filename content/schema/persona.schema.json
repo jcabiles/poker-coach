@@ -121,6 +121,20 @@
           "default": null,
           "title": "Continue Ref"
         },
+        "late_street_bet": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Late Street Bet"
+        },
         "line_sensitivity": {
           "anyOf": [
             {

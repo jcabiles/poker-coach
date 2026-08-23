@@ -383,6 +383,28 @@ class PersonaPostflop(BaseModel):
     # already cuts the continue-odds by >= 7x — far outside the fitted region,
     # which is what a bound is for.
     line_sensitivity: float | None = Field(default=None, ge=0.0, le=2.0)
+    # S3-T5: how willing this persona is to BET an unopened turn or river,
+    # rather than let the hand check through to a showdown with no money in.
+    # `personas_postflop` multiplies the aggressive candidate's merit by
+    # `1 + late_street_bet * _LATE_STREET_GAIN[street]` on the non-bluff BET leg
+    # of the unopened node, turn and river only. Absence (None) is the legacy
+    # opt-out and is byte-identical — the same default-off contract
+    # `position_sensitivity` and `line_sensitivity` above already use — so a
+    # pack that does not author it plays exactly as it did before this field
+    # existed. Bounded to [0, 1] because 1.0 is the SCHEMA AND CALIBRATION CAP —
+    # the point the gains were fitted at and the deepest dial anything has been
+    # measured over — NOT an aggression-factor limit. No persona is anywhere
+    # near an aggression ceiling at 1.0: the LAG, the only pack that authors
+    # this field, reads 2.725 against a band top of 4.5. The bound exists so a
+    # pack cannot ask for behaviour outside the fitted region, not because the
+    # bands would stop it.
+    #
+    # It is honestly named for what it moves — how often an unopened late
+    # street is bet, LEADS INCLUDED. It is NOT a stab lever: nothing in the
+    # decision's inputs records whether anyone acted earlier on the street, so
+    # the engine cannot tell a stab from a lead. A real "checked to me" signal
+    # is a later ticket, and it may re-scope this lever onto true stabs.
+    late_street_bet: float | None = Field(default=None, ge=0.0, le=1.0)
     bluff_freq: float = Field(ge=0.0, le=1.0)  # baseline bet/raise rate with air
     sizing: dict[str, float]  # pot-fraction str -> weight; weights sum to ~1
     # R2: optional per-node override, keyed by postflop node name (e.g.

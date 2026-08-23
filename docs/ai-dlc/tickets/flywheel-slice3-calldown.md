@@ -2,7 +2,8 @@
 
 **status: approved**
 
-**Bottom line.** Four tickets, strictly serial (each depends on the one before
+**Bottom line.** Five tickets (four approved at slice open, a fifth admitted by
+owner ruling on 2026-08-22), strictly serial (each depends on the one before
 it landing), all touching the same two files: the villain-bot postflop policy
 module and its test file. S3-T1 (S3 = slice 3; T1 = ticket 1) makes the
 strong-draw calling floor tunable; S3-T2 does the bulk of the went-to-showdown
@@ -33,6 +34,7 @@ chain below. Do not open S3-T2 until S3-T1 has merged, and so on.
 ```
 S3-T1 (tunable strong-draw floor) ──> S3-T2 (per-persona dial retune)
    ──> S3-T3 (value-side stack/pot lever) ──> S3-T4 (α-guard extension + conditional damp re-derivation)
+   ──> S3-T5 (late-street bet lever — CONDITIONAL, added 2026-08-22)
 ```
 
 Strictly serial. S3-T4's damp re-derivation half is conditional on S3-T2
@@ -320,6 +322,94 @@ re-derivation half further depends on S3-T2's measured headroom.
 
 **Review tier:** persona-realism theory reviewer + refuter minimum; add
 Codex Sol (high reasoning effort) if the damp re-derivation fires.
+
+---
+
+## S3-T5 — The late-street bet lever (conditional fifth ticket)
+
+**status: added 2026-08-22 by owner ruling; built at commit `72322d0`
+(S3-T2/T3/T4 merged).** The ruling is the autonomous-run picker answer of that
+date — "spec AND build if budget remains; pack values plus ONE bounded engine
+lever, default = today's behaviour" — and the slice spec carries the matching
+scope amendment. Full spec:
+`docs/ai-dlc/specs/flywheel-slice3-t5-checkdown.md`; contract map:
+`docs/ai-dlc/contracts/flywheel-slice3-t5-checkdown.md`.
+
+**Goal.** Reach the showdown hands the calling dial cannot. About half the
+nit's showdown hands and 45% of the TAG's contain no calling decision at all,
+so S3-T2's dial retune had no lever on them. This ticket makes a persona more
+willing to bet an UNOPENED turn or river, so fewer hands drift to a showdown
+with no money in the middle.
+
+**Do.**
+1. Instrument first: add a `never_faced_wager` counter to the band harness and
+   record every persona's baseline before any engine change. It is a
+   DIRECTIONAL diagnostic, never a HARD gate.
+2. Add `late_street_bet`, an optional pack field on the postflop block, `[0,1]`,
+   default absent. On the non-bluff BET leg of an unopened turn or river only,
+   multiply the aggressive candidate's merit by
+   `1 + late_street_bet * _LATE_STREET_GAIN[street]`. No new random draw, no
+   sizing-bracket read, and it lives in the one function the live bot and the
+   villain-range estimator share.
+3. Sweep one persona at a time with the other five packs unedited, register the
+   floors from the sweep's reach before any pack value moves, then set values on
+   the personas that clear the ship rule.
+
+**AMENDED 2026-08-22 after the build's triple review.** Three changes, all in
+the report and the pre-registration rev 2. (a) The lever gained a BLUFF-SIDE
+companion on the same pack dial: the value side alone made the unopened river
+bet value-pure, which is a worse tell than the passivity it removes. (b) The
+sweeps are re-done with a zero-variance paired probe for policy and five-seed
+pooling with a two-sample standard error for arrival — the band harness cannot
+be paired, and the first round's floors were inside its seed-to-seed spread.
+(c) A persona gets the lever ONLY if its went-to-showdown falls at the pinned
+seed AND the pooled estimate agrees in sign; the gate is not a floor and the
+owner's shortfall rule does not cover it. On that rule **only the LAG ships**:
+the TAG fails both halves in every configuration measured, and the nit's pooled
+sign is configuration-dependent and never distinguishable from zero.
+
+**Acceptance criteria:**
+1. **RESTATED 2026-08-22 (build).** The original — "went-to-showdown falls for
+   the nit, the TAG and the LAG" — presumed the ship list; it is replaced by the
+   PER-PERSONA ship rule registered before any pack value moved: a persona
+   authors `late_street_bet` only if its went-to-showdown falls at the harness's
+   pinned seed AND the five-seed pooled estimate agrees in sign, and otherwise
+   its field stays unset and the shortfall is recorded. Outcome: the LAG ships,
+   the nit and the TAG are withdrawn. The registered reduction floors are on
+   `checked_down` (showdown hands in which NO seat wagered), the statistic this
+   ticket is about; never-faced-a-wager is reported alongside as a disclosed
+   secondary.
+2. All HARD bands green for all six personas; ordering legs intact; the interim
+   ceiling ratchet re-applied and recorded.
+3. Byte-identity with every pack unedited, plus the three named targeted tests.
+4. Five-seed de-robotization gate green, with the LAG–TAG pair reported.
+5. Estimator parity unchanged, plus a new unopened turn/river parity test.
+6. The 50,000-hand export's went-to-showdown reported before and after as
+   diagnostic context.
+7. The slice-spec amendment admitting this ticket lands in the same pull
+   request.
+
+**Done-condition:** the shared done-condition above, plus
+`pytest -k late_street`.
+
+**Owns:** `backend/app/domain/personas_postflop.py`,
+`backend/app/domain/content/models.py`, `content/schema/persona.schema.json`,
+`content/personas/{nit,tag,lag}.json`, `backend/tests/test_personas_postflop.py`,
+`backend/tests/test_range_estimate.py` (the new parity test only),
+`backend/tools/late_street_probe.py` (NEW — the paired composition probe the
+rework added; see the report §5), and, for displaced seeded fixtures,
+`backend/tests/test_buyin_spread.py` and
+`backend/tests/test_limper_coverage_belt.py` — **those two are re-recorded**,
+each with provenance and a revert-to-prove-attribution check run in both
+directions, and no tolerance is widened. `backend/tests/test_coverage_baseline.py`
+and `backend/tests/data/coverage_baseline.json` were touched by the withdrawn
+first round and are **net unchanged** at the shipped tip: that fixture's stream
+does not move when only the LAG's pack changes, so it was left alone.
+
+**Dependencies:** S3-T4 merged (end of the serial chain).
+
+**Review tier:** persona-realism theory reviewer + refuter + Codex Sol (high
+reasoning effort), same as S3-T2 and S3-T3.
 
 ---
 

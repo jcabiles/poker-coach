@@ -25,6 +25,19 @@ trigger. Engine/stack work stays excluded except the two levers named here,
 both merit-layer (they change how a hand's strength and price are weighted,
 not the game's stakes or structure).
 
+**AMENDED 2026-08-22 — a conditional fifth ticket, S3-T5, is admitted.** The
+owner's answer to the autonomous-run picker that day was "spec AND build if
+budget remains; pack values plus ONE bounded engine lever, default = today's
+behaviour", which widens the sentence above by exactly one lever and no more.
+S3-T5 is that lever: `late_street_bet`, a pack field that raises how often a
+persona bets an unopened turn or river, so fewer hands check through to a
+showdown with no money in the middle. It is merit-layer like the other two, it
+is off unless a pack authors it, and anything wider than it returns to the
+owner. Its own spec is `flywheel-slice3-t5-checkdown.md`; the reason it exists
+is that ticket 2 of this slice fell short of its showdown target and the
+measurement showed why — about half of the nit's showdown hands contain no
+calling decision for a calling dial to reach.
+
 ## Evidence base (measured 2026-08-21 at tip d351150, ratified lineup, seed 20260817)
 
 `d351150` is the commit the roster was measured at; "ratified lineup" is the
