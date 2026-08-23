@@ -364,8 +364,9 @@ pooling with a two-sample standard error for arrival — the band harness cannot
 be paired, and the first round's floors were inside its seed-to-seed spread.
 (c) A persona gets the lever ONLY if its went-to-showdown falls at the pinned
 seed AND the pooled estimate agrees in sign; the gate is not a floor and the
-owner's shortfall rule does not cover it. On that rule the nit and the LAG ship
-and the TAG does not.
+owner's shortfall rule does not cover it. On that rule **only the LAG ships**:
+the TAG fails both halves in every configuration measured, and the nit's pooled
+sign is configuration-dependent and never distinguishable from zero.
 
 **Acceptance criteria:**
 1. Went-to-showdown falls for the nit, the TAG and the LAG — the gate. The

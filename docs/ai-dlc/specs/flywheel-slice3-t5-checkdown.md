@@ -143,6 +143,13 @@ personas the measurement names), values from the sweep, registered before
 tuning. Maniac, calling station and passive fish stay unauthored (off) — the
 station and fish are meant to check down; the maniac already bets.
 
+**OUTCOME, 2026-08-22 (build).** Of those three, **only the LAG ships**, at 1.0.
+The ship rule the pre-registration added — a persona gets the lever only if its
+went-to-showdown falls at the pinned seed AND the five-seed pooled estimate
+agrees in sign — is not cleared by the nit or the TAG, so their field stays
+unset and they are byte-identical to their pre-ticket selves. That the ticket's
+motivating persona is one of the two is recorded rather than worked around.
+
 **Known tell risk (Codex Sol, 2026-08-22):** the same odds boost applies across
 histories, blockers and range advantage, and top-pair/overpair thin value is
 boosted alongside strong hands (only middle pair is river-floored at
