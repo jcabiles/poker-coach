@@ -369,9 +369,16 @@ the TAG fails both halves in every configuration measured, and the nit's pooled
 sign is configuration-dependent and never distinguishable from zero.
 
 **Acceptance criteria:**
-1. Went-to-showdown falls for the nit, the TAG and the LAG — the gate. The
-   never-faced-a-wager share falls by at least the registered floor for the nit
-   and the TAG — the diagnostic, reported rather than gated.
+1. **RESTATED 2026-08-22 (build).** The original — "went-to-showdown falls for
+   the nit, the TAG and the LAG" — presumed the ship list; it is replaced by the
+   PER-PERSONA ship rule registered before any pack value moved: a persona
+   authors `late_street_bet` only if its went-to-showdown falls at the harness's
+   pinned seed AND the five-seed pooled estimate agrees in sign, and otherwise
+   its field stays unset and the shortfall is recorded. Outcome: the LAG ships,
+   the nit and the TAG are withdrawn. The registered reduction floors are on
+   `checked_down` (showdown hands in which NO seat wagered), the statistic this
+   ticket is about; never-faced-a-wager is reported alongside as a disclosed
+   secondary.
 2. All HARD bands green for all six personas; ordering legs intact; the interim
    ceiling ratchet re-applied and recorded.
 3. Byte-identity with every pack unedited, plus the three named targeted tests.
@@ -390,12 +397,14 @@ sign is configuration-dependent and never distinguishable from zero.
 `content/personas/{nit,tag,lag}.json`, `backend/tests/test_personas_postflop.py`,
 `backend/tests/test_range_estimate.py` (the new parity test only),
 `backend/tools/late_street_probe.py` (NEW — the paired composition probe the
-rework added; see the report §5), and, for displaced seeded fixtures only,
-`backend/tests/test_buyin_spread.py`, `backend/tests/test_coverage_baseline.py`,
-`backend/tests/data/coverage_baseline.json` and
-`backend/tests/test_limper_coverage_belt.py`. Every one of those four is a
-re-record with provenance and a revert-to-prove-attribution check; no tolerance
-is widened.
+rework added; see the report §5), and, for displaced seeded fixtures,
+`backend/tests/test_buyin_spread.py` and
+`backend/tests/test_limper_coverage_belt.py` — **those two are re-recorded**,
+each with provenance and a revert-to-prove-attribution check run in both
+directions, and no tolerance is widened. `backend/tests/test_coverage_baseline.py`
+and `backend/tests/data/coverage_baseline.json` were touched by the withdrawn
+first round and are **net unchanged** at the shipped tip: that fixture's stream
+does not move when only the LAG's pack changes, so it was left alone.
 
 **Dependencies:** S3-T4 merged (end of the serial chain).
 

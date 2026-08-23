@@ -71,7 +71,10 @@ HARD-today, asserted at the harness's pinned seed and 4,000 hands.
 - **Policy** — how often a bot bets a given node — by
   `backend/tools/late_street_probe.py`: the hands are played once and each arm
   is read off the SAME node with a capture rng, so a difference is the lever and
-  carries no sampling variance at all. Every composition and bluff-share figure
+  carries zero conditional action-sampling variance — the arms differ only by the
+  lever, never by which cards fell or which action was drawn. The node population
+  is still a finite sample, so the LEVELS carry ordinary sampling error and the
+  OFF-versus-ON comparison does not. Every composition and bluff-share figure
   below comes from it, at 4,000 hands × three seeds (601, 20260817, 20260818).
 - **Arrival** — went-to-showdown, `checked_down`, `never_faced_wager` — by the
   band harness pooled over FIVE seeds (20260710, the pinned one, plus 20260711
@@ -94,6 +97,22 @@ At the pinned seed alone the nit's checked-down share reads 31.33% and its
 went-to-showdown 0.6173; the five-seed pool is the number to quote.
 
 ## 3. The value gains, and why the smallest candidate pair
+
+**PROVENANCE FIRST, BECAUSE THE COMMIT HISTORY IS CHECKABLE AND WOULD OTHERWISE
+CONTRADICT A LOOSER CLAIM. Neither pair of gains was pre-registered.** The value
+pair (0.60, 1.00) was written into the engine when the lever was first built
+(`5bb0b1c`), before any scan existed. The bluff companion landed at (0.20, 0.20)
+with the rework (`9d4adc0`), and the scanner that fits it — together with the
+move to (0.24, 0.24) — landed after that (`3f8eca6`). **Both scans below are
+therefore post-hoc calibration of values already in the tree, not predictions
+tested against them**, and this document does not claim otherwise.
+
+What IS registered in advance, and what actually decides shipped behaviour, is
+the ship rule in §5: it landed in `3f8eca6` and the only pack value this ticket
+sets landed in `d646882`, after it. The scans are still worth reading — the
+value scan in particular rejects three of the four candidate pairs on a
+measured composition argument rather than on taste — but they are evidence for a
+choice already made.
 
 Four candidate pairs, read on the same node population by the paired probe at a
 dial of 1.0, with the bluff companion at its fitted value. Bet frequency is the
@@ -147,6 +166,13 @@ it one grid step and is what the constants are set from.
 
 ## 5. Which personas get the lever, and the registered floors
 
+**ONLY DIAL 1.0 WAS MEASURED ON ARRIVAL.** The five-seed pooled readings below
+exist for a dial of 1.0 and for nothing else; the four-dial ladder the ticket's
+spec §5.1 describes was run only in the withdrawn first round, on the unpaired
+instrument, and is not evidence. So this document registers no claim about the
+SHAPE of the dial response — whether it saturates, and where — and the ticket
+ships the only dial it measured.
+
 **The ship rule, fixed here before any pack value.** A persona's
 `late_street_bet` is set ONLY if BOTH hold at the deepest aggression-admissible
 dial: its went-to-showdown falls at the harness's pinned seed and 4,000 hands
@@ -156,9 +182,15 @@ the shortfall is recorded with the numbers. The gate is not a floor and the
 owner's shortfall rule does not cover it; a persona that does not clear it does
 not ship.
 
-Measured at dial 1.0, which is aggression-admissible for all three (nit 1.581
-against a band of (0.6, 2.4); tag 2.734 against (1.4, 3.6); lag 2.734 against
-(1.5, 4.5)). **The arm below has all three dialled together** — the pooled
+Measured at dial 1.0. **1.0 is the schema and calibration cap — the point the
+gains were fitted at and the deepest dial anything has been measured over — not
+an aggression-factor limit.** No persona is near an aggression ceiling there:
+in the all-three arm the nit reads 1.581 against a band of (0.6, 2.4) and the
+tag 2.734 against (1.4, 3.6), and in the configuration that actually ships the
+LAG reads 2.725 against (1.5, 4.5). The first two describe a configuration that
+was withdrawn; only the LAG's number is a property of anything shipped.
+
+**The arm below has all three dialled together** — the pooled
 harness runner sets every persona it is asked about, and calling that a
 "one persona at a time" sweep would be the same class of mislabelling this
 revision exists to fix. The joint arm is the right one to read the ship rule
@@ -203,8 +235,10 @@ two-sample standard error.
 
 Both LAG floors are registered off the all-three arm, which is the arm that was
 measured when they were written. The shipped configuration is the LAG alone, and
-it delivers LESS: 1.42pp of checked-down and 0.59pp of never-faced-a-wager. That
-is a **recorded shortfall against both floors** under the owner's rule of
+it delivers LESS: 1.42pp of checked-down and 0.59pp of never-faced-a-wager.
+**One floor is missed and one is cleared**: the checked-down floor of 1.9pp is
+missed by 0.5 points, and the never-faced-a-wager floor of 0.3pp is cleared with
+0.29 to spare. The miss is a recorded shortfall under the owner's rule of
 2026-08-22 — the admissible value ships and the miss is written down. It is not
 a surprise in hindsight and it is worth stating why: two of the three personas
 that were dialled when the floor was set are no longer dialled, and a

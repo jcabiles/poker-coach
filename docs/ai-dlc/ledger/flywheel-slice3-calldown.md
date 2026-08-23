@@ -43,7 +43,11 @@ frequency barely responds to how often the bots bet a late street, because a bet
 that is called makes a showdown just as a check-down does, so the remaining
 thirty-point gap will not close with another merit-layer dial. (13) No
 theory-contract row governs unopened late-street betting or what that betting
-range is made of, so ticket 5 had to invent a local composition rule. (14) The
+range is made of, so ticket 5 had to invent a local composition rule — and the
+measurement filed under it shows a LAG that bets 83-99% of its top-pair-and-
+better on an unopened river while its one-pair class is floored at zero, i.e. a
+river checking range nearly free of strong hands, which is a recalibration
+question for the owner and not a dial. (14) The
 engine's multiplier order on the aggressive path does not match the contract
 text — pre-existing, harmless while every factor is a plain multiply, filed
 before someone adds a bound to that chain. (15) Ticket 5 registered a reduction
@@ -544,8 +548,10 @@ will be reused.
 **S3-T5 raised three personas' unopened late-street betting by a fifth to a
 quarter and moved one persona's showdown frequency.** The lever's effect on
 policy is large, exact and reproducible: at the shipped gains the LAG bets an
-unopened turn 47.8% of the time instead of 55.0%, the nit 28.4% instead of
-34.2%, the TAG 41.0% instead of 47.7%. The effect on showdown frequency, pooled
+unopened turn 55.0% of the time where it used to bet 47.8%, the nit 34.2% where
+it used to bet 28.4%, the TAG 47.7% where it used to bet 41.0% — the direction
+is UP, and an earlier draft of this entry had the two columns the wrong way
+round. The effect on showdown frequency, pooled
 over five seeds at 4,000 hands each, is −1.80pp for the LAG (2.8 standard
 errors) and indistinguishable from zero for the nit and the TAG.
 
@@ -589,10 +595,54 @@ ticket at this node will have to re-derive it or re-invent it.
 
 **What a row would need.** A grounded target for unopened late-street bet
 frequency by persona archetype (which today would be `[UNVERIFIED]`, like the
-c-bet band), and a composition obligation stated against the §3 bluff-share
-identity at the size actually wagered — the quantity
-`tools/capped_composition_probe.py` already computes and
-`tools/late_street_probe.py` now computes at these nodes.
+c-bet band); a composition obligation stated against the §3 bluff-share identity
+at the size actually wagered — the quantity `tools/capped_composition_probe.py`
+already computes and `tools/late_street_probe.py` now computes at these nodes;
+and a CROSS-PERSONA ORDERING obligation on the value side, because the
+aggregates cannot see a partial ordering break. S3-T5 produced one: shipping the
+LAG's lever puts it above the maniac at river top pair in position (0.885 against
+0.843), turn middle pair in position (0.531 against 0.529) and river monster in
+position (0.987 against 0.985), while the maniac stays far ahead on naked air.
+Every aggregate band and every ordering leg is green through that.
+
+### The measurement this row is missing, taken at the LAG's river node
+
+Adjudicated from Codex Sol's HIGH finding on the rework: recorded here as
+evidence for the missing row, NOT actioned, because recalibrating the river leg
+is outside this ticket's owner-set boundary of one bounded lever and is the
+owner's call. Probability of betting an unopened river, LAG, lever-off → shipped
+(12,000 hands, three seeds):
+
+| hand class | lever off | shipped |
+|---|---|---|
+| middle pair, in and out of position | **0.000** | **0.000** |
+| top pair, in position | 0.794 | 0.885 |
+| top pair, out of position | 0.713 | 0.831 |
+| two pair plus, out of position | 0.934 | 0.966 |
+| monster, in position | 0.975 | 0.987 |
+| monster, out of position | 0.956 | 0.977 |
+| naked air, in position | 0.194 | 0.240 |
+| naked air, out of position | 0.125 | 0.155 |
+| naked ace-high, in position | 0.148 | 0.183 |
+| **bluff share of all river bets** | **13.1%** | **15.0%** |
+
+**Read the middle-pair row first.** A LAG's unopened river betting range
+contains NO middle pair at all, at any position, before or after this ticket:
+that is the pre-existing `_RIVER_BET_FLOOR` (W1-a), not something S3-T5 did.
+Combined with top pair and better betting 0.83 to 0.99, it means **the LAG's
+river checking range is nearly free of strong hands** — it checks middle pair
+and air and bets everything else — which is a polarised, under-bluffed river
+policy for this archetype BEFORE this ticket. S3-T5 raised both sides with the
+bluff side rising proportionally more (bluffs 13.1% → 15.0% of river bets, naked
+air ×1.24 against a monster's ×1.02), so the ticket moved the composition in the
+right direction; **the absolute gap remains and the ticket does not claim to have
+closed it.**
+
+**What a contract row would therefore have to require, beyond a bluff-share
+target: a credible river CHECKING range** — some strong hands that check the
+river — which today's engine cannot produce at this node while the value cells
+sit at 0.83 to 0.99 and the one-pair class is floored at zero. That is a
+recalibration of the river leg, not a dial.
 
 **Severity MEDIUM**: it blocks nothing today, and it becomes the blocking item
 the moment a second ticket touches this node, because two tickets inventing two

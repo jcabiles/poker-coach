@@ -391,9 +391,13 @@ class PersonaPostflop(BaseModel):
     # opt-out and is byte-identical — the same default-off contract
     # `position_sensitivity` and `line_sensitivity` above already use — so a
     # pack that does not author it plays exactly as it did before this field
-    # existed. Bounded to [0, 1] because the gains are calibrated so that 1.0
-    # is the deepest dial the aggression-factor bands admit; a pack cannot ask
-    # for more aggression than the calibration was measured over.
+    # existed. Bounded to [0, 1] because 1.0 is the SCHEMA AND CALIBRATION CAP —
+    # the point the gains were fitted at and the deepest dial anything has been
+    # measured over — NOT an aggression-factor limit. No persona is anywhere
+    # near an aggression ceiling at 1.0: the LAG, the only pack that authors
+    # this field, reads 2.725 against a band top of 4.5. The bound exists so a
+    # pack cannot ask for behaviour outside the fitted region, not because the
+    # bands would stop it.
     #
     # It is honestly named for what it moves — how often an unopened late
     # street is bet, LEADS INCLUDED. It is NOT a stab lever: nothing in the

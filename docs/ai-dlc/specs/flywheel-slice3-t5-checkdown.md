@@ -210,6 +210,17 @@ See §1's correction and the slice ledger's Filed 11.
 
 ## 5. Pre-registration (written in the PR before any pack value moves)
 
+**AMENDED 2026-08-22 (build). Item 1 below was not executed as written, and the
+build's pre-registration rev 2 supersedes it.** Two differences, both material.
+(a) **Only a dial of 1.0 was measured on arrival.** The four-dial ladder was run
+only in the withdrawn first round, on an instrument whose before/after arms were
+not paired, so it is not evidence and no claim about the shape of the dial
+response survives. (b) The arrival arms dial every candidate persona TOGETHER
+rather than one at a time — the pooled harness runner works that way — and that
+is the right arm to judge a ship rule on anyway, because a joint configuration
+is what would ship. Per-node POLICY is what is now measured one persona at a
+time, by the paired probe, which is where per-persona attribution is clean.
+
 1. The sweep, **one persona at a time with the other five packs unedited**
    (the harness is mixed-persona — `:2958-2973` — so a roster-wide sweep would
    let the TAG's extra bets lower the nit's faced-wager share and earn the
@@ -228,10 +239,20 @@ See §1's correction and the slice ledger's Filed 11.
 
 ## 6. Acceptance criteria
 
-1. Went-to-showdown falls for nit, TAG and LAG (paired before/after on the
-   harness's pinned sample) — the gate. Never-faced-a-wager share for nit and
-   TAG falls by at least the registered floor in the single-persona sweeps —
-   the diagnostic, reported, not gated.
+1. **RESTATED 2026-08-22 (build).** The original criterion — "went-to-showdown
+   falls for nit, TAG and LAG" — assumed all three would be dialled, and it is
+   struck. Two reasons: the harness's before/after arms are not paired, so
+   "paired before/after on the pinned sample" was not a thing that could be
+   done; and treating a per-persona gate as a roster-wide one licensed shipping
+   a persona whose showdown frequency had risen, which the first round did. It
+   is replaced by the **ship rule** registered before any pack value moved
+   (`t5-preregistration.md` §5): *a persona authors `late_street_bet` only if
+   its went-to-showdown falls at the harness's pinned seed AND the five-seed
+   pooled estimate agrees in sign; otherwise its field stays unset and the
+   shortfall is recorded.* Outcome: **the LAG ships; the nit and the TAG are
+   withdrawn.** The diagnostic half is likewise restated — the registered floors
+   are on `checked_down`, the statistic the ticket is actually about, with
+   never-faced-a-wager reported alongside.
 2. All HARD bands green (AF, fold-to-c-bet, went-to-showdown) for all six
    personas; ordering legs as in §4; ceiling ratchet re-applied and recorded.
 3. Byte-identity test passes with packs unedited; targeted tests — named
@@ -239,8 +260,10 @@ See §1's correction and the slice ledger's Filed 11.
    `test_late_street_bet_is_identity_when_absent_or_off_scope`, and
    `test_late_street_bet_estimator_parity_unopened` — show the
    multiplier firing at an unopened turn/river BET leg on the non-bluff path
-   and NOT firing on the flop, on the RAISE leg, on the bluff cell, or when
-   the field is absent.
+   and NOT firing on the flop, on the RAISE leg, or when the field is absent.
+   **The exclusion "or on the bluff cell" is struck (2026-08-22, build):** the
+   lever now HAS a bluff-side companion, so the tests assert that the bluff cell
+   moves by its own gain on the late streets and does not move anywhere else.
 4. Five-seed gate green, LAG–TAG pair reported.
 5. Estimator parity: `test_estimator_prices_the_faced_bet` and the parity
    guard from PR #199 pass unchanged, plus a NEW unopened turn/river
@@ -265,8 +288,15 @@ A flop bet-frequency lever · any change to `check_merit` · a true
 "checked-to-me" signal (the roadmap's `prev_street_checked_through` item,
 persona-realism.md B12-b) — a later ticket may add it and re-scope this lever
 onto real stabs · sizing changes (sizes
-stay seat-conditional per slice 1) · the LAG's showdown lever · the commit-gated
+stay seat-conditional per slice 1) · the commit-gated
 pots mechanism (`W4-a`, deferred past the finale by owner ruling).
+
+**"The LAG's showdown lever" was in this list and is struck (2026-08-22,
+build).** It was written when the LAG was expected to be the persona this ticket
+could not help; the LAG is the one persona that ships the lever, and excluding
+its own subject matter from the ticket that delivered it would be nonsense.
+Recalibrating the LAG's RIVER leg — a different and larger question, see the
+slice ledger's Filed 13 — remains out of scope, as owner-set boundary work.
 
 ## 9. Review tier
 

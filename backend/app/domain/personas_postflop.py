@@ -1245,13 +1245,28 @@ def _position_agg_mult(pf: PersonaPostflop, context: PostflopContext | None) -> 
 #
 # The river gain is the larger of the two because the river is the last chance
 # to win a pot without showing down, and because a checked-through turn leaves a
-# river node where neither player has shown strength. Both values are the
-# SMALLEST PAIR SCANNED in the pre-registered candidate-gain scan recorded in
-# `t5-report.md` §4.1: larger pairs bought aggression factor and NO showdown
-# reduction — quadrupling the gains made showdown frequency slightly worse — so
-# nothing above this pair is admissible on the evidence. They are FIT constants,
-# not measured poker quantities: the pack dial carries the per-persona
-# magnitude, and these two numbers only set what a dial of 1.0 means.
+# river node where neither player has shown strength.
+#
+# PROVENANCE, STATED PLAINLY BECAUSE THE COMMIT HISTORY WOULD OTHERWISE CONTRADICT
+# A LOOSER CLAIM: THIS PAIR WAS NOT PRE-REGISTERED. It was written down when the
+# lever was first built (`5bb0b1c`), and the scan that justifies it was run
+# afterwards, in the rework. So the scan is POST-HOC CALIBRATION of a value
+# already in the tree, not a prediction tested against it. What the scan does
+# establish, and what the pair now rests on, is a comparison the smallest pair
+# wins on its merits: at the fitted bluff gains it is the ONLY candidate that
+# keeps every persona's realised unopened bluff share at or above its lever-off
+# value — every larger pair drives the betting range MORE value-pure. The
+# companion gains below have the same history: 0.20 landed with the companion
+# (`9d4adc0`) and the fit that moved them to 0.24 ran after (`3f8eca6`).
+#
+# WHAT *WAS* FIXED IN ADVANCE is the thing that decides behaviour: the ship rule
+# — which personas may author this field at all — was registered in `3f8eca6`
+# and the pack value landed in `d646882`, after it. See `t5-preregistration.md`
+# §5.
+#
+# They are FIT constants, not measured poker quantities: the pack dial carries
+# the per-persona magnitude, and these two numbers only set what a dial of 1.0
+# means.
 #
 # The flop is deliberately absent. The flop continuation bet is already governed
 # by `aggression` and `position_sensitivity`, and the theory contract's c-bet
@@ -1279,8 +1294,10 @@ _LATE_STREET_GAIN = {Street.TURN: 0.60, Street.RIVER: 1.00}
 # its `bluff_freq` is 0.04, so bluffs are about 1% of its bets at these nodes and
 # it needs the largest proportional lift to hold that. A first pass at 7,500
 # hands read 0.20 for the nit; the larger population moved it one grid step, and
-# the larger population is what the constant is set from. Pre-registered before
-# any pack value moved: `t5-preregistration.md` §4.
+# the larger population is what the constant is set from. The fit is recorded in
+# `t5-preregistration.md` §4 — and it is a POST-HOC calibration of a value that
+# was already in the tree, not a pre-registered prediction; see the provenance
+# note under `_LATE_STREET_GAIN` above. It landed before the pack value did.
 #
 # THE TWO STREETS COINCIDE HERE, and that is a fitted outcome rather than a
 # judgement: unlike the value gains above, these are set by a hold-the-share

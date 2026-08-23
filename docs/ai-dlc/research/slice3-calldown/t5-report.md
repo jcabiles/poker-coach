@@ -158,7 +158,11 @@ crosses its own ceiling — the closest is the passive fish at 0.5262 against
 This is the finding that reshaped the lever, so it is reported at length. All
 figures come from `backend/tools/late_street_probe.py` at 12,000 hands over
 three seeds: the hands are played once and both arms are read off the SAME node,
-so these carry no sampling variance at all.
+so they carry **zero conditional action-sampling variance** — the two arms differ
+only by the lever, never by which cards fell or which action was drawn. That is
+not the same as no error. **The 1,257 turn and 879 river nodes are still a finite
+sample of nodes**, so the LEVELS below carry the usual sampling error of a node
+population; what is exact is the OFF-versus-ON comparison at each node.
 
 ### The headline
 
@@ -170,6 +174,21 @@ so these carry no sampling variance at all.
 | nit | river | 0.2645 → 0.3180 | 0.0145 → 0.0150 |
 | tag | turn | 0.4104 → 0.4774 | 0.0531 → 0.0566 |
 | tag | river | 0.3182 → 0.3471 | 0.0901 → 0.1025 |
+
+**Per-seed spread, so the levels are not read as more precise than they are.**
+Each seed is its own 4,000-hand node population; the lever's effect is read
+within each.
+
+| seed | turn share off → on | river share off → on |
+|---|---|---|
+| 601 | 0.1104 → 0.1183 | 0.1512 → 0.1724 |
+| 20260817 | 0.0858 → 0.0933 | 0.1110 → 0.1286 |
+| 20260818 | 0.0770 → 0.0828 | 0.1292 → 0.1482 |
+| **pooled** | **0.0909 → 0.0980** | **0.1306 → 0.1501** |
+
+The LEVEL swings by three points across seeds on the turn — the pooled 0.0909
+is not a precise quantity — while the RISE is the same sign and roughly the same
+size in all three, which is what the paired reading buys.
 
 **The betting range gets MORE bluff-weighted, not less** — the opposite of the
 first round, where the same table read 0.074 of naked air against 0.85 to 0.97
@@ -203,6 +222,24 @@ easier. The river's middle pair stays at zero throughout: that is the
 pre-existing W1-a floor, untouched by this lever and visible here because the
 table now shows it.
 
+**THREE VALUE CELLS NOW CROSS THE MANIAC, and that is recorded rather than
+buried.** Comparing each persona as it ships — the LAG with the lever on, the
+maniac with it unauthored — the LAG bets three cells MORE often than the
+roster's most aggressive persona: river top pair in position 0.885 against
+0.843, turn middle pair in position 0.531 against 0.529, and river monster in
+position 0.987 against 0.985. Two of the three are hairline and the third
+(river top pair) is four points. No aggression-factor band or ordering leg is
+affected — those are aggregates and all six are green — and the maniac remains
+far ahead where the archetype is defined, at naked air on the turn (0.350
+against the LAG's 0.192) and on the river (0.241 against 0.155). **What has
+happened is that the LAG's late-street VALUE betting has caught the maniac while
+its BLUFFING has not**, which is a partial-ordering wrinkle the aggregates
+cannot see. It is not a defect the ticket's own boundary can fix — the maniac
+does not author this field and giving it one is a pack change outside the ship
+rule — and it is the second reason (after Filed 13) that the unopened
+late-street node needs a contract row with a cross-persona ordering obligation
+in it.
+
 **What a reviewer should still push on:** the turn's strongest cells are
 saturating (monster .957 → .972), so at a deeper dial the value side would
 compress against its ceiling while the bluff side kept climbing. Nothing in the
@@ -216,7 +253,7 @@ exactly why §3 of the pre-registration rejects the larger value-gain pairs.
 |---|---|
 | `./scripts/verify.sh` | **BACKEND VERIFY OK** — 2191 passed, 2 skipped, 6 xfailed |
 | `cd backend && ruff check .` | clean |
-| `python -m tools.derobo_gate --check --all-seeds` | **GATE PASS 5/5** |
+| `python -m tools.derobo_gate --check --all-seeds` | **GATE PASS 5/5** (run at `d646882`; the commits after it change comments, documentation and one test only — `git diff` on the engine and the pack models is empty of code) |
 | `pytest -k "persona_postflop_bands or wtsd_ordering or late_street"` | 12 passed |
 
 ### The five-seed gate, with the separation numbers

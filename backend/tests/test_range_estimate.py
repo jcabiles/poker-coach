@@ -1455,7 +1455,8 @@ def test_late_street_bet_estimator_parity_unopened(packs, street):
     at a node where a bet is already outstanding, so none of them touches the
     unopened CHECK/BET branch the lever lives in. The lever-off distribution is
     asserted to differ from the lever-on one first, so the parity claim is not a
-    comparison of two identical vectors."""
+    comparison of two identical vectors, and both sides of the lever — the
+    value multiply and the bluff-side companion — are probed."""
     def _dialled(value):
         pack = packs[VillainType.TAG].model_copy(deep=True)
         pack.postflop = pack.postflop.model_copy(update={"late_street_bet": value})
@@ -1471,19 +1472,35 @@ def test_late_street_bet_estimator_parity_unopened(packs, street):
     assert ctx.kinds == frozenset({ActionType.CHECK, ActionType.BET})
     assert ctx.to_call_bb == 0.0
 
-    hole = ("Kd", "8d")  # top pair: bets and checks at this node, so both move
-    off = _postflop_action_dist(unlevered, hole, ctx)
-    on = _postflop_action_dist(levered, hole, ctx)
-    assert on[ActionType.BET] > off[ActionType.BET], street
+    # BOTH SIDES OF THE LEVER, because it has two and they run down different
+    # branches of the sampler. The value side scales an odds ratio on the
+    # non-bluff path; the bluff-side companion scales an exact-frequency mass on
+    # the other one. A parity test that probed only a made hand would leave the
+    # companion — the half added by the rework — unwatched here, which is the
+    # gap this leg closes. `6h4d` is naked air with no draw on this board on the
+    # turn AND the river, so it takes the bluff branch on both; asserted rather
+    # than assumed, because a gutshot mislabelled as air is exactly the mistake
+    # the composition tables of this ticket already made once.
+    probes = {"value": ("Kd", "8d"), "bluff_cell": ("6h", "4d")}
+    assert strength_bucket(probes["bluff_cell"], list(ctx.board)) == (
+        StrengthBucket.AIR,
+        DrawCategory.NONE,
+    ), street
+    assert strength_bucket(probes["value"], list(ctx.board))[0] is StrengthBucket.TOP_PAIR
 
-    live = _CaptureFirstChoices()
-    sample_postflop_decision(
-        levered, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
-        ctx.opponents,
-        live,  # type: ignore[arg-type] — duck-typed capture rng
-        current_bet_to=ctx.current_bet_to, street=ctx.street,
-        latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
-        facing_raise=ctx.facing_raise,
-        aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
-    )
-    assert on == live.dist, street
+    for kind, hole in probes.items():
+        off = _postflop_action_dist(unlevered, hole, ctx)
+        on = _postflop_action_dist(levered, hole, ctx)
+        assert on[ActionType.BET] > off[ActionType.BET], (street, kind)
+
+        live = _CaptureFirstChoices()
+        sample_postflop_decision(
+            levered, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+            ctx.opponents,
+            live,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=ctx.current_bet_to, street=ctx.street,
+            latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
+            facing_raise=ctx.facing_raise,
+            aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
+        )
+        assert on == live.dist, (street, kind)
