@@ -2385,17 +2385,31 @@ def test_late_street_bet_is_identity_when_absent_or_off_scope():
             DrawCategory.NONE,
         ), street
 
-    # (i) the field absent is the shipped pack, byte-for-byte, on the very
-    # street the lever fires on.
+    # (i) an UNAUTHORED pack is the pre-ticket engine on the very street the
+    # lever fires on. The maniac is the probe because it is one of the three
+    # personas this ticket deliberately leaves alone; asserting its authorship
+    # here is what keeps the leg from going quietly vacuous if a later slice
+    # authors it. The authored side is checked too: the tag's SHIPPED pack must
+    # reproduce its authored dial exactly, which is what proves the pack value
+    # reaches the engine rather than sitting unread in the JSON.
+    assert _pack("maniac").postflop.late_street_bet is None
+    assert _pack("tag").postflop.late_street_bet == 1.0
     for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
-        shipped = _late_street_dist("tag", None, top_pair, board, street)
         cap = _CaptureWeights()
         sample_postflop_decision(
-            _pack("tag"), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
+            _pack("maniac"), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
             cap,  # type: ignore[arg-type] — duck-typed capture rng
             current_bet_to=0.0, street=street,
         )
-        assert shipped == cap.dist, street
+        assert cap.dist == _late_street_dist("maniac", None, top_pair, board, street), street
+        shipped_tag = _CaptureWeights()
+        sample_postflop_decision(
+            _pack("tag"), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
+            shipped_tag,  # type: ignore[arg-type] — duck-typed capture rng
+            current_bet_to=0.0, street=street,
+        )
+        assert shipped_tag.dist == _late_street_dist("tag", 1.0, top_pair, board, street), street
+        assert shipped_tag.dist != _late_street_dist("tag", None, top_pair, board, street), street
 
     # (ii) the flop and (iii) a caller that passes no street at all.
     for street, board in ((Street.FLOP, flop_board), (None, _TURN_BOARD)):
@@ -3192,11 +3206,11 @@ def budget():
 BANDS = {
     # (fish/station AF + fold-to-c-bet are still the W3R-2 tuples — see the
     # block above; their WTSD tuples are Stage-0 interim values)
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.55)),  # WTSD: Stage-0 interim
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.54)),  # WTSD: Stage-0 interim
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.67)),  # WTSD: Stage-0 interim (AF frozen)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.64)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
@@ -3229,7 +3243,7 @@ BANDS = {
     # maniac P2a: AF top 4.5 → 5.1 (measured 4.102 at N=670, CI top 5.079),
     # ftc top 0.56 → 0.61 (measured .446/.466, CI top 0.609), WTSD
     # (0.39,0.56) → (0.34,0.50) (measured .420/.398 — river polarization).
-    "maniac": ((2.4, 5.1), (0.0, 0.61), (0.30, 0.62)),  # WTSD: Stage-0 interim + A5 repair
+    "maniac": ((2.4, 5.1), (0.0, 0.61), (0.30, 0.61)),  # WTSD: Stage-0 interim + A5 repair
 }
 
 
@@ -4560,12 +4574,38 @@ _GOLDEN_STATS_N200 = {
     # `BANDS`. ATTRIBUTION PROVEN, not assumed: with the two pack files reverted
     # and every other edit in this branch left in place, this test passes
     # untouched at the old values; restoring the packs reproduces the new ones.
-    "calling_station": (0.3333333333333333, 0.22033898305084745, 0.6714801444043321),
-    "lag": (2.4363636363636365, None, 0.5877862595419847),
-    "maniac": (3.7169811320754715, 0.36363636363636365, 0.5607476635514018),
-    "nit": (None, None, 0.6153846153846154),
-    "passive_fish": (0.7946428571428571, 0.46875, 0.5297029702970297),
-    "tag": (2.088235294117647, None, 0.6470588235294118),
+    # RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street bet
+    # lever, 2026-08-22, slice-authorized): the nit, the tag and the lag author
+    # the new `late_street_bet` field (0.5, 1.0, 1.0), so all three bet unopened
+    # turns and rivers more often, hands end differently, and the shared rng
+    # stream displaces from the first changed decision onward. Every row moves,
+    # the three untouched packs included, which is displacement rather than a
+    # change in their play.
+    # Values immediately before it:
+    #   calling_station (0.3333333333333333, 0.22033898305084745, 0.6714801444043321)
+    #   lag             (2.4363636363636365, None, 0.5877862595419847)
+    #   maniac          (3.7169811320754715, 0.36363636363636365, 0.5607476635514018)
+    #   nit             (None, None, 0.6153846153846154)
+    #   passive_fish    (0.7946428571428571, 0.46875, 0.5297029702970297)
+    #   tag             (2.088235294117647, None, 0.6470588235294118)
+    # The tag's AF and FtC cells go to None at this seed: its n=200 sample loses
+    # the 30-observation denominator, so the tripwire stops watching two of its
+    # cells until the stream shifts back. The population claims are unaffected —
+    # they live in `BANDS`, asserted at 4,000 hands, where the tag's AF reads
+    # 2.710 inside (1.4, 3.6).
+    # NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the lever
+    # only scales a merit feeding the existing action draw. The draw COUNT is
+    # not claimed invariant — a check flipping to a bet changes which later
+    # decisions happen at all.
+    # ATTRIBUTION PROVEN, not assumed: with the three pack files reverted and
+    # every other edit in this branch left in place, this test passes untouched
+    # at the old values; restoring the packs reproduces the new ones.
+    "calling_station": (0.3591549295774648, 0.15217391304347827, 0.7237354085603113),
+    "lag": (2.509433962264151, 0.4666666666666667, 0.5909090909090909),
+    "maniac": (3.3728813559322033, 0.4222222222222222, 0.5495049504950495),
+    "nit": (None, None, 0.6170212765957447),
+    "passive_fish": (0.7142857142857143, 0.5714285714285714, 0.5226130653266332),
+    "tag": (None, None, 0.625),
 }
 
 
@@ -7230,6 +7270,53 @@ def test_persona_postflop_bands(persona, budget):
     argument is the contract's grounded fold-to-continuation-bet row and the α
     fold-ceiling, both written down where a reader can check them against the
     poker rather than against this table.
+
+    ── THE FIFTH RATCHET, S3-T5 (improvement slice 3, ticket 5 — the
+    late-street bet lever, 2026-08-22). A new pack field, `late_street_bet`,
+    raises how often a persona BETS an unopened turn or river; the nit ships
+    0.5, the tag and the lag 1.0, and the other three packs do not author it at
+    all. Same harness, same pinned seed, same `_WTSD_ORDER_N` = 4000 hands, and
+    the same arithmetic as the four ratchets above; "before" is this harness at
+    `72322d0`, the tip this ticket branches from.
+
+        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
+        nit              0.6173    0.5894    984  0.047047  0.636478 -> 0.64
+        tag              0.5528    0.5709   1643  0.036632  0.607539 -> 0.61
+        lag              0.5769    0.5704   2430  0.030126  0.600497 -> 0.61
+        maniac           0.5945    0.5848   3972  0.023455  0.608299 -> 0.61
+        calling_station  0.7010    0.7055   5460  0.018506  0.724001 -> 0.73
+        passive_fish     0.5204    0.5166   4177  0.023196  0.539835 -> 0.54
+
+        persona          incumbent  ratchet  INSTALLED  what happened
+        nit                  0.67     0.64     0.64     tightens by 3 points
+        tag                  0.59     0.61     0.59     capped by the incumbent
+        lag                  0.59     0.61     0.59     capped by the incumbent
+        maniac               0.62     0.61     0.61     tightens by 1 point
+        calling_station      0.72     0.73     0.72     capped by the incumbent
+        passive_fish         0.55     0.54     0.54     tightens by 1 point
+
+    NO STOP-AND-REPORT FIRES: A4.2 item 3 is about a MEASUREMENT crossing its
+    ceiling, and the closest here is the calling station at 0.7055 against 0.72,
+    then the tag at 0.5709 against 0.59.
+
+    THE TAG AND THE LAG READ UP AT THIS SAMPLE SIZE AND DOWN AT THREE TIMES IT,
+    which is the honest summary of what this lever did to showdown frequency
+    outside the nit. At 4,000 hands the tag reads +1.81 points and the lag -0.65;
+    at 12,000 hands, same seed and same combined packs, the tag reads -0.71 and
+    the lag -0.32. One binomial standard deviation on the tag at n=1643 is 1.22
+    points, so every one of those numbers is inside the noise this instrument
+    produces, and the ticket does not claim otherwise. The nit is the exception
+    and it is not close: -2.79 points here and -3.69 at 12,000 hands, against a
+    standard deviation of 1.57.
+
+    WHERE THE LEVER DOES BITE IS THE CHECKED-DOWN SHARE, which is what it was
+    built to move and which `_persona_stats` now reports. Over 12,000 hands the
+    share of showdown hands in which NO seat wagered postflop falls for all
+    three: tag 0.2044 -> 0.1745, lag 0.1448 -> 0.1377, nit 0.3073 -> 0.3005.
+    Showdown frequency does not follow it point for point, because a bet that
+    is called produces a showdown just as a check-down does — the hand simply
+    has money in it now. That is a finding about the mechanism, recorded in
+    `docs/ai-dlc/research/slice3-calldown/t5-report.md`, not a band claim.
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]

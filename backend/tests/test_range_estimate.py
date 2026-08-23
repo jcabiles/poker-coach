@@ -1455,10 +1455,16 @@ def test_late_street_bet_estimator_parity_unopened(packs, street):
     at a node where a bet is already outstanding, so none of them touches the
     unopened CHECK/BET branch the lever lives in. The lever-off distribution is
     asserted to differ from the lever-on one first, so the parity claim is not a
-    comparison of two identical un-levered vectors."""
-    shipped = packs[VillainType.TAG]
-    levered = shipped.model_copy(deep=True)
-    levered.postflop = levered.postflop.model_copy(update={"late_street_bet": 1.0})
+    comparison of two identical vectors."""
+    def _dialled(value):
+        pack = packs[VillainType.TAG].model_copy(deep=True)
+        pack.postflop = pack.postflop.model_copy(update={"late_street_bet": value})
+        return pack
+
+    # Both sides are built explicitly. Reading the "off" side off the shipped
+    # TAG pack would make this test silently vacuous the moment that pack
+    # authors the field — which it now does, at 1.0.
+    unlevered, levered = _dialled(None), _dialled(1.0)
 
     ctx = _unopened_late_ctx(street)
     assert ctx.street is street
@@ -1466,7 +1472,7 @@ def test_late_street_bet_estimator_parity_unopened(packs, street):
     assert ctx.to_call_bb == 0.0
 
     hole = ("Kd", "8d")  # top pair: bets and checks at this node, so both move
-    off = _postflop_action_dist(shipped, hole, ctx)
+    off = _postflop_action_dist(unlevered, hole, ctx)
     on = _postflop_action_dist(levered, hole, ctx)
     assert on[ActionType.BET] > off[ActionType.BET], street
 

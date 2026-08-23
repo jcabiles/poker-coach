@@ -511,6 +511,35 @@ this paragraph said it rose, which was true of T1 and is not true of T3. The
 fall is the third-deepest in the chain, is attributed to displacement on the
 evidence set out in the T3 entry above, and is reported rather than claimed as
 compliance.
+
+RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street bet
+lever, 2026-08-22, slice-authorized): the nit, the tag and the lag author the
+new `late_street_bet` pack field (0.5, 1.0, 1.0), so all three bet unopened
+turns and rivers more often. Hands go further, hero reaches more decisions, and
+the stream displaces: 1239/337 -> 1318/343 (27.20% -> 26.02%).
+
+READ THE SIX-SEED SPLIT, NOT THIS SEED — point (1) above, and this change is
+another instance of it. Paired arms measured by swapping only the three pack
+files on disk at this tip, `measure_split` at 2,000 hands x six seeds
+(20260718-20260723):
+
+    preflop   0.57088 -> 0.57648   (+0.56pp)
+    postflop  0.03300 -> 0.03258   (-0.04pp)
+    overall   0.24953 -> 0.25151   (+0.20pp)
+
+Coverage is FLAT TO SLIGHTLY UP on that instrument while this fixture's single
+400-hand seed reads -1.18pp, so the dip here is sampling, not a mapper
+regression. The mechanism is the expected one: hero postflop decisions rise
+0.4% (21,816 -> 21,912) because villains put money in more often, and postflop
+grades at about 3% against preflop's 57%.
+
+ATTRIBUTION PROVEN, not assumed: with the three pack files reverted and every
+other edit in this branch left in place, this test passes untouched against the
+old fixture; restoring the packs reproduces the new counts. CUMULATIVE vs the
+immutable persona-realism-start snapshot (349/1233 = 28.30%): 343/1318 =
+26.02%, -2.28pp — inside the long-adjudicated mapper-track dip that T-cover
+owns, reported not silent. Seeded-fixture re-record; population bands stay
+frozen to W4-b.
 """
 
 from __future__ import annotations

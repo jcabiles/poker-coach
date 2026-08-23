@@ -336,19 +336,38 @@ def _hash_manifest(manifest: dict) -> str:
 # other edit in this branch left in place, all four digests above reproduce
 # exactly and this test passes untouched; restoring the packs reproduces the
 # four below. No engine file was changed by this ticket.
+# RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street bet
+# lever, 2026-08-22, slice-authorized): the nit, the tag and the lag author the
+# new `late_street_bet` pack field (0.5, 1.0, 1.0), so all three bet unopened
+# turns and rivers more often, hands end differently and every byte of a seeded
+# export changes with them. Values immediately before it:
+#   manifest      e12c3358b0dfe994ccd92cb2b722a78be2ae31a8928ec7ca5f82d51b8e79b377
+#   hands         b50c38ab287e0bf570ec5be261305da10fc2c47c02be2428ce4a091bffa04f18
+#   seat_outcomes c7b162892d353f6d6ed643c2688771c76e2962d8689a573d10c4fd2f4667e3fe
+#   decisions     f2ac4f0b69d79c938358b044106aa1315b06321ec75987f877cc69de0b70e8b9
+# THE MANIFEST MOVES for the reason the S3-T2 entry above gives: `config_hash`
+# is canonicalized over the loaded pack MODELS, so a new authored field and
+# three `version` bumps (nit 1.11.0 -> 1.12.0, tag the same, lag 1.13.0 ->
+# 1.14.0) move it, and the `run_id`/`hand_id` columns move with it.
+# ATTRIBUTION PROVEN, not assumed: with the three pack files reverted and every
+# other edit in this branch left in place, all four digests above reproduce
+# exactly and this test passes untouched; restoring the packs reproduces the
+# four below. An engine file WAS changed by this ticket, unlike S3-T2 — but it
+# is a true no-op for a pack that does not author the field, which the byte
+# identity run at the previous commit demonstrated across all six packs.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "e12c3358b0dfe994ccd92cb2b722a78be2ae31a8928ec7ca5f82d51b8e79b377"
+    "d74ad2f166d254a3ec0614955dd84af5e005bdc682ff2627b5c923579d2f740c"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "b50c38ab287e0bf570ec5be261305da10fc2c47c02be2428ce4a091bffa04f18"
+    "448d5f02aaf3af6e50e84f58634bcf781f91f0cfc10adbcd4766cc46f23c8c80"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "c7b162892d353f6d6ed643c2688771c76e2962d8689a573d10c4fd2f4667e3fe"
+    "83d184eb0eccf967c3db299515038ec04ed459a4209b9f452417400fc50fc9bb"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "f2ac4f0b69d79c938358b044106aa1315b06321ec75987f877cc69de0b70e8b9"
+    "21d5c61183c60f0e5b9d36a396628fba4ce5c8028c1745fbd060933c083eba74"
 )
 
 
