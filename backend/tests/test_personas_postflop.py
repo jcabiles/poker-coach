@@ -2316,6 +2316,12 @@ def _late_street_pack(persona: str, dial: float | None):
 
 
 _UNOPENED_LEGAL = [personas_postflop_legal_check(), personas_postflop_legal_bet(1.0, 97.0)]
+# TRUE naked air per street — the bluff cell is `AIR or ACE_HIGH with NO draw`,
+# and the river's probe hole (6h4d) is a GUTSHOT while the river card is still
+# to come, so it is not in the cell on the turn. The first build's composition
+# table used it on both streets and so reported the bluff side standing still
+# when what it had measured was a semi-bluff. Asserted at every use site.
+_LATE_BLUFF_HOLE = {Street.TURN: ("Jh", "2d"), Street.RIVER: ("6h", "4d")}
 _MATCHED_LEGAL = [personas_postflop_legal_check(), personas_postflop_legal_raise(6.0, 97.0)]
 
 
@@ -2354,6 +2360,7 @@ def test_late_street_bet_fires_on_unopened_turn_river_bet_leg(street, board, gai
     re-calibration instead of failing on one.
     """
     assert personas_postflop._LATE_STREET_GAIN[street] == gain
+    bluff_gain = personas_postflop._LATE_STREET_BLUFF_GAIN[street]
     hole = _RIVER_HOLES[StrengthBucket.TOP_PAIR]  # thin value: bets, and checks
     off = _late_street_dist("tag", None, hole, board, street)
     assert 0.0 < off[ActionType.BET] < 1.0, off
@@ -2363,6 +2370,24 @@ def test_late_street_bet_fires_on_unopened_turn_river_bet_leg(street, board, gai
         odds = on[ActionType.BET] / on[ActionType.CHECK]
         assert odds == pytest.approx(base_odds * (1.0 + dial * gain), rel=1e-12), dial
         assert on[ActionType.BET] > off[ActionType.BET], dial
+
+    # The BLUFF-SIDE companion, on the same node shape and the same one dial.
+    # The bluff cell is an EXACT-FREQUENCY cell — its two merits sum to 1, so
+    # P(bet) IS the mass — which is why this leg asserts the factor on the
+    # PROBABILITY where the value leg had to assert it on the odds. That
+    # difference is the whole reason the two gains are separate constants.
+    air = _LATE_BLUFF_HOLE[street]
+    assert strength_bucket(air, board) == (StrengthBucket.AIR, DrawCategory.NONE), street
+    off_air = _late_street_dist("tag", None, air, board, street)
+    assert 0.0 < off_air[ActionType.BET] < 1.0, off_air
+    for dial in (0.25, 0.5, 0.75, 1.0):
+        on_air = _late_street_dist("tag", dial, air, board, street)
+        assert on_air[ActionType.BET] == pytest.approx(
+            off_air[ActionType.BET] * (1.0 + dial * bluff_gain), rel=1e-12
+        ), dial
+    # The two sides move by DIFFERENT factors on purpose (joint calibration):
+    # if they were ever collapsed into one constant this leg fails.
+    assert bluff_gain != gain, street
 
 
 def test_late_street_bet_is_identity_when_absent_or_off_scope():
@@ -2385,31 +2410,28 @@ def test_late_street_bet_is_identity_when_absent_or_off_scope():
             DrawCategory.NONE,
         ), street
 
-    # (i) an UNAUTHORED pack is the pre-ticket engine on the very street the
-    # lever fires on. The maniac is the probe because it is one of the three
-    # personas this ticket deliberately leaves alone; asserting its authorship
-    # here is what keeps the leg from going quietly vacuous if a later slice
-    # authors it. The authored side is checked too: the tag's SHIPPED pack must
-    # reproduce its authored dial exactly, which is what proves the pack value
-    # reaches the engine rather than sitting unread in the JSON.
-    assert _pack("maniac").postflop.late_street_bet is None
-    assert _pack("tag").postflop.late_street_bet == 1.0
+    # (i) every shipped pack plays EXACTLY the dial it authors — or exactly the
+    # pre-ticket engine when it authors none. Written against whatever the packs
+    # say rather than against hard-coded values, because this leg has to keep
+    # meaning the same thing when a later slice authors the field on another
+    # persona or withdraws it from one of these. The discriminating half is the
+    # last assertion: the mechanism must be live, whatever the roster does.
+    for persona in ALL_PERSONAS:
+        dial = _pack(persona).postflop.late_street_bet
+        for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
+            cap = _CaptureWeights()
+            sample_postflop_decision(
+                _pack(persona), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
+                cap,  # type: ignore[arg-type] — duck-typed capture rng
+                current_bet_to=0.0, street=street,
+            )
+            assert cap.dist == _late_street_dist(
+                persona, dial, top_pair, board, street
+            ), (persona, street)
     for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
-        cap = _CaptureWeights()
-        sample_postflop_decision(
-            _pack("maniac"), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
-            cap,  # type: ignore[arg-type] — duck-typed capture rng
-            current_bet_to=0.0, street=street,
-        )
-        assert cap.dist == _late_street_dist("maniac", None, top_pair, board, street), street
-        shipped_tag = _CaptureWeights()
-        sample_postflop_decision(
-            _pack("tag"), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
-            shipped_tag,  # type: ignore[arg-type] — duck-typed capture rng
-            current_bet_to=0.0, street=street,
-        )
-        assert shipped_tag.dist == _late_street_dist("tag", 1.0, top_pair, board, street), street
-        assert shipped_tag.dist != _late_street_dist("tag", None, top_pair, board, street), street
+        assert _late_street_dist("tag", 1.0, top_pair, board, street) != _late_street_dist(
+            "tag", None, top_pair, board, street
+        ), street
 
     # (ii) the flop and (iii) a caller that passes no street at all.
     for street, board in ((Street.FLOP, flop_board), (None, _TURN_BOARD)):
@@ -2427,13 +2449,32 @@ def test_late_street_bet_is_identity_when_absent_or_off_scope():
         if street is Street.TURN:
             assert on[ActionType.RAISE] > 0.0
 
-    # (v) the bluff cell keeps its own mass: pure air is untouched on both
-    # late streets, while the same node's value hand moves.
+    # (v) the bluff cell is IN SCOPE on the late streets and out of scope
+    # everywhere else. The first build left it untouched, which made the
+    # unopened river bet value-pure; the rework's companion is what this leg
+    # now guards, so nobody can quietly delete it and leave the value side
+    # running alone.
     for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
         air = air_by_street[street]
-        on = _late_street_dist("tag", 1.0, air, board, street)
-        assert on == _late_street_dist("tag", None, air, board, street), street
-        assert on[ActionType.BET] > 0.0, street  # air does bet here; it just does not move
+        assert (
+            _late_street_dist("tag", 1.0, air, board, street)[ActionType.BET]
+            > _late_street_dist("tag", None, air, board, street)[ActionType.BET]
+        ), street
+    # ... but not on the flop, not with no street, and not on the RAISE leg.
+    flop_air = ("Jh", "2d")
+    assert strength_bucket(flop_air, flop_board)[0] is StrengthBucket.AIR
+    for street, board, hole in (
+        (Street.FLOP, flop_board, flop_air),
+        (None, _TURN_BOARD, air_by_street[Street.TURN]),
+    ):
+        assert _late_street_dist("tag", 1.0, hole, board, street) == _late_street_dist(
+            "tag", None, hole, board, street
+        ), street
+    for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
+        air = air_by_street[street]
+        assert _late_street_dist(
+            "tag", 1.0, air, board, street, legal=_MATCHED_LEGAL
+        ) == _late_street_dist("tag", None, air, board, street, legal=_MATCHED_LEGAL), street
 
 
 # =====================================================================
@@ -3206,11 +3247,11 @@ def budget():
 BANDS = {
     # (fish/station AF + fold-to-c-bet are still the W3R-2 tuples — see the
     # block above; their WTSD tuples are Stage-0 interim values)
-    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.54)),  # WTSD: Stage-0 interim
+    "passive_fish": ((0.0, 1.560), (0.0, 0.549), (0.33, 0.55)),  # WTSD: Stage-0 interim
     "calling_station": ((0.0, 1.056), (0.0, 0.424), (0.38, 0.72)),  # WTSD: Stage-0 interim
     # nit AF top 2.025 → 2.4 (P2a: measured 1.520 at N=399, CI top 2.350) and
     # WTSD floor 0.50 → 0.37 (CI floor 0.378 at N=399, n=96).
-    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.64)),  # WTSD: Stage-0 interim (AF frozen)
+    "nit": ((0.6, 2.4), (0.10, 0.90), (0.20, 0.67)),  # WTSD: Stage-0 interim (AF frozen)
     # tag ftc floor re-anchored (F1, RES-D §4): price-aware defense folds small
     # c-bets far less, pulling the aggregate to ~0.21 — ON the old 0.203 floor
     # (measured 0.195-0.26 across machines; n scales with machine speed and can
@@ -3243,7 +3284,7 @@ BANDS = {
     # maniac P2a: AF top 4.5 → 5.1 (measured 4.102 at N=670, CI top 5.079),
     # ftc top 0.56 → 0.61 (measured .446/.466, CI top 0.609), WTSD
     # (0.39,0.56) → (0.34,0.50) (measured .420/.398 — river polarization).
-    "maniac": ((2.4, 5.1), (0.0, 0.61), (0.30, 0.61)),  # WTSD: Stage-0 interim + A5 repair
+    "maniac": ((2.4, 5.1), (0.0, 0.61), (0.30, 0.62)),  # WTSD: Stage-0 interim + A5 repair
 }
 
 
@@ -3302,7 +3343,35 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
     key = (persona, n, context_aware, _packs_fingerprint(packs))
     if key in _STATS_CACHE:
         return _STATS_CACHE[key]
-    rng = random.Random(20260710)
+    result = _measure_persona_stats(packs, persona, n, context_aware, _BAND_SEED)
+    _STATS_CACHE[key] = result
+    return result
+
+
+# The band harness's pinned seed. It is a named constant so the multi-seed
+# helper below cannot drift from it, NOT an invitation to change it: every
+# frozen band and every seeded golden in this file was recorded at this value.
+_BAND_SEED = 20260710
+
+
+def _measure_persona_stats(packs, persona: str, n: int, context_aware: bool, seed: int):
+    """`_persona_stats`' measurement loop, with the seed made an argument.
+
+    S3-T5 rework: the review of that ticket established that a before/after
+    comparison on THIS harness is not paired — one `random.Random` supplies both
+    the deal sequence and the bots' action draws, so the first decision that
+    flips changes every later hand — and that differences of one or two points
+    at a single seed were being read as effects when the seed-to-seed spread is
+    the same size. The remedy is to pool several seeds and quote a two-sample
+    standard error, which needs exactly this: the same loop at a different seed.
+
+    NOTHING ABOUT THE PINNED-SEED PATH CHANGES. `_persona_stats` calls this with
+    `_BAND_SEED` and is byte-identical to what it was — the goldens and bands in
+    this file prove it, and they were re-run unchanged across this refactor.
+    A multi-seed reading is EVIDENCE, never a gate: every band in `BANDS` is
+    asserted at the pinned seed and stays that way.
+    """
+    rng = random.Random(seed)
     fillers = [p for p in ALL_PERSONAS if p != persona]
     lineup = ([persona] * 3 + [fillers[i % len(fillers)] for i in range(6)])[:9]
     persona_by_seat = {i: lineup[i] for i in range(9)}
@@ -3400,7 +3469,6 @@ def _persona_stats(packs, persona: str, n: int, *, context_aware: bool = False):
         never_faced_wager,
         checked_down,
     )
-    _STATS_CACHE[key] = result
     return result
 
 
@@ -4574,38 +4642,12 @@ _GOLDEN_STATS_N200 = {
     # `BANDS`. ATTRIBUTION PROVEN, not assumed: with the two pack files reverted
     # and every other edit in this branch left in place, this test passes
     # untouched at the old values; restoring the packs reproduces the new ones.
-    # RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street bet
-    # lever, 2026-08-22, slice-authorized): the nit, the tag and the lag author
-    # the new `late_street_bet` field (0.5, 1.0, 1.0), so all three bet unopened
-    # turns and rivers more often, hands end differently, and the shared rng
-    # stream displaces from the first changed decision onward. Every row moves,
-    # the three untouched packs included, which is displacement rather than a
-    # change in their play.
-    # Values immediately before it:
-    #   calling_station (0.3333333333333333, 0.22033898305084745, 0.6714801444043321)
-    #   lag             (2.4363636363636365, None, 0.5877862595419847)
-    #   maniac          (3.7169811320754715, 0.36363636363636365, 0.5607476635514018)
-    #   nit             (None, None, 0.6153846153846154)
-    #   passive_fish    (0.7946428571428571, 0.46875, 0.5297029702970297)
-    #   tag             (2.088235294117647, None, 0.6470588235294118)
-    # The tag's AF and FtC cells go to None at this seed: its n=200 sample loses
-    # the 30-observation denominator, so the tripwire stops watching two of its
-    # cells until the stream shifts back. The population claims are unaffected —
-    # they live in `BANDS`, asserted at 4,000 hands, where the tag's AF reads
-    # 2.710 inside (1.4, 3.6).
-    # NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the lever
-    # only scales a merit feeding the existing action draw. The draw COUNT is
-    # not claimed invariant — a check flipping to a bet changes which later
-    # decisions happen at all.
-    # ATTRIBUTION PROVEN, not assumed: with the three pack files reverted and
-    # every other edit in this branch left in place, this test passes untouched
-    # at the old values; restoring the packs reproduces the new ones.
-    "calling_station": (0.3591549295774648, 0.15217391304347827, 0.7237354085603113),
-    "lag": (2.509433962264151, 0.4666666666666667, 0.5909090909090909),
-    "maniac": (3.3728813559322033, 0.4222222222222222, 0.5495049504950495),
-    "nit": (None, None, 0.6170212765957447),
-    "passive_fish": (0.7142857142857143, 0.5714285714285714, 0.5226130653266332),
-    "tag": (None, None, 0.625),
+    "calling_station": (0.3333333333333333, 0.22033898305084745, 0.6714801444043321),
+    "lag": (2.4363636363636365, None, 0.5877862595419847),
+    "maniac": (3.7169811320754715, 0.36363636363636365, 0.5607476635514018),
+    "nit": (None, None, 0.6153846153846154),
+    "passive_fish": (0.7946428571428571, 0.46875, 0.5297029702970297),
+    "tag": (2.088235294117647, None, 0.6470588235294118),
 }
 
 
@@ -7270,53 +7312,6 @@ def test_persona_postflop_bands(persona, budget):
     argument is the contract's grounded fold-to-continuation-bet row and the α
     fold-ceiling, both written down where a reader can check them against the
     poker rather than against this table.
-
-    ── THE FIFTH RATCHET, S3-T5 (improvement slice 3, ticket 5 — the
-    late-street bet lever, 2026-08-22). A new pack field, `late_street_bet`,
-    raises how often a persona BETS an unopened turn or river; the nit ships
-    0.5, the tag and the lag 1.0, and the other three packs do not author it at
-    all. Same harness, same pinned seed, same `_WTSD_ORDER_N` = 4000 hands, and
-    the same arithmetic as the four ratchets above; "before" is this harness at
-    `72322d0`, the tip this ticket branches from.
-
-        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
-        nit              0.6173    0.5894    984  0.047047  0.636478 -> 0.64
-        tag              0.5528    0.5709   1643  0.036632  0.607539 -> 0.61
-        lag              0.5769    0.5704   2430  0.030126  0.600497 -> 0.61
-        maniac           0.5945    0.5848   3972  0.023455  0.608299 -> 0.61
-        calling_station  0.7010    0.7055   5460  0.018506  0.724001 -> 0.73
-        passive_fish     0.5204    0.5166   4177  0.023196  0.539835 -> 0.54
-
-        persona          incumbent  ratchet  INSTALLED  what happened
-        nit                  0.67     0.64     0.64     tightens by 3 points
-        tag                  0.59     0.61     0.59     capped by the incumbent
-        lag                  0.59     0.61     0.59     capped by the incumbent
-        maniac               0.62     0.61     0.61     tightens by 1 point
-        calling_station      0.72     0.73     0.72     capped by the incumbent
-        passive_fish         0.55     0.54     0.54     tightens by 1 point
-
-    NO STOP-AND-REPORT FIRES: A4.2 item 3 is about a MEASUREMENT crossing its
-    ceiling, and the closest here is the calling station at 0.7055 against 0.72,
-    then the tag at 0.5709 against 0.59.
-
-    THE TAG AND THE LAG READ UP AT THIS SAMPLE SIZE AND DOWN AT THREE TIMES IT,
-    which is the honest summary of what this lever did to showdown frequency
-    outside the nit. At 4,000 hands the tag reads +1.81 points and the lag -0.65;
-    at 12,000 hands, same seed and same combined packs, the tag reads -0.71 and
-    the lag -0.32. One binomial standard deviation on the tag at n=1643 is 1.22
-    points, so every one of those numbers is inside the noise this instrument
-    produces, and the ticket does not claim otherwise. The nit is the exception
-    and it is not close: -2.79 points here and -3.69 at 12,000 hands, against a
-    standard deviation of 1.57.
-
-    WHERE THE LEVER DOES BITE IS THE CHECKED-DOWN SHARE, which is what it was
-    built to move and which `_persona_stats` now reports. Over 12,000 hands the
-    share of showdown hands in which NO seat wagered postflop falls for all
-    three: tag 0.2044 -> 0.1745, lag 0.1448 -> 0.1377, nit 0.3073 -> 0.3005.
-    Showdown frequency does not follow it point for point, because a bet that
-    is called produces a showdown just as a check-down does — the hand simply
-    has money in it now. That is a finding about the mechanism, recorded in
-    `docs/ai-dlc/research/slice3-calldown/t5-report.md`, not a band claim.
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]

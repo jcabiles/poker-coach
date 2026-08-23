@@ -522,23 +522,9 @@ _PRE_M3_FIRES = {
     # limper-belt content changed and every _WANT_* coverage shape still fires
     # (verified: BB x1 47, BB x2 20, BB x3 6) — stream displacement, not a
     # coverage regression.
-    # RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street
-    # bet lever, 2026-08-22, slice-authorized): the nit, the tag and the lag
-    # author the new `late_street_bet` pack field (0.5, 1.0, 1.0), so all three
-    # bet unopened turns and rivers more often, the shared organic rng stream
-    # displaces, and every pair moves (old counts: UTG2 x1 100, LJ x1 110,
-    # HJ x1 115, CO x1 100, CO x2 22, SB x1 61, SB x2 34, BTN x1 87,
-    # BTN x2 25). This belt runs PRODUCTION `bot_decision`, so it sees the pack
-    # change directly.
-    # ATTRIBUTION PROVEN, not assumed: with the three pack files reverted and
-    # every other edit in this branch left in place, this test passes untouched
-    # at the old counts; restoring the packs reproduces the new ones. No
-    # limper-belt content changed and every _WANT_* coverage shape still fires
-    # (verified: BB x1 50, BB x2 29, BB x3 5) — stream displacement, not a
-    # coverage regression.
-    ("UTG2", 1): 87, ("LJ", 1): 109, ("HJ", 1): 116, ("CO", 1): 113,
-    ("CO", 2): 28, ("SB", 1): 65, ("SB", 2): 37, ("BTN", 1): 93,
-    ("BTN", 2): 37,
+    ("UTG2", 1): 100, ("LJ", 1): 110, ("HJ", 1): 115, ("CO", 1): 100,
+    ("CO", 2): 22, ("SB", 1): 61, ("SB", 2): 34, ("BTN", 1): 87,
+    ("BTN", 2): 25,
 }
 
 

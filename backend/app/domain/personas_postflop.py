@@ -1245,17 +1245,50 @@ def _position_agg_mult(pf: PersonaPostflop, context: PostflopContext | None) -> 
 #
 # The river gain is the larger of the two because the river is the last chance
 # to win a pot without showing down, and because a checked-through turn leaves a
-# river node where neither player has shown strength. Both values were fixed by
-# the sweep recorded in `t5-report.md` §4 — the deepest pair whose dial-1.0
-# reading kept every persona's aggression factor inside its band — and they are
-# FIT constants, not measured poker quantities: the pack dial carries the
-# per-persona magnitude, and these two numbers only set what a dial of 1.0 means.
+# river node where neither player has shown strength. Both values are the
+# SMALLEST PAIR SCANNED in the pre-registered candidate-gain scan recorded in
+# `t5-report.md` §4.1: larger pairs bought aggression factor and NO showdown
+# reduction — quadrupling the gains made showdown frequency slightly worse — so
+# nothing above this pair is admissible on the evidence. They are FIT constants,
+# not measured poker quantities: the pack dial carries the per-persona
+# magnitude, and these two numbers only set what a dial of 1.0 means.
 #
 # The flop is deliberately absent. The flop continuation bet is already governed
 # by `aggression` and `position_sensitivity`, and the theory contract's c-bet
 # band is UNVERIFIED on level, so a flop lever could not be checked against
 # anything.
 _LATE_STREET_GAIN = {Street.TURN: 0.60, Street.RIVER: 1.00}
+
+# S3-T5 rework (2026-08-22, theory-review + Codex Sol finding): the BLUFF-SIDE
+# companion, and it is not optional. Raising the value side alone makes the
+# unopened late-street bet a value-pure action — the TAG's river read went naked
+# air 0.074 against top-pair-and-better 0.85–0.97 — which is a WORSE tell than
+# the passivity the lever set out to fix, because "this bot bets the river"
+# would then mean "this bot has top pair or better". The theory contract's §7
+# stacked-multiplier order requires the two sides to be calibrated JOINTLY, so
+# the SAME pack dial scales the bluff cell's exact-frequency bet mass here.
+#
+# The values are FITTED, not chosen. For each street, `late_street_probe.py`
+# scans a 0.02 grid over the real node population and finds, per persona, the
+# smallest gain at which the realised unopened bluff share at a dial of 1.0 does
+# not fall below its lever-off value; the constant is the MAXIMUM of those
+# three, because one pair of constants serves every persona and the smallest
+# that holds all three is what "does not fall" requires. Measured: turn — nit
+# 0.20, tag 0.16, lag 0.16; river — nit 0.20, tag 0.08, lag 0.06. The nit binds
+# both streets, and it binds them for an arithmetic reason worth knowing: its
+# `bluff_freq` is 0.04, so its bluff share of these bets is about 1.6% and it
+# needs the largest proportional lift to keep it. Pre-registered before any pack
+# value moved: `t5-preregistration.md` §4.
+#
+# They are smaller than the value gains because the bluff cell is an
+# EXACT-FREQUENCY cell — its bet probability IS this mass — while the value side
+# multiplies an odds ratio, so the same proportional rise costs less here.
+#
+# TURN:RIVER RATIO — DIRECTIONAL, NEVER SWEPT. Both pairs keep the river gain
+# above the turn gain on the reasoning that the river is the last chance to win
+# without showing down. No measurement in this repository compares that ordering
+# against its reverse; a scan of the RATIO is filed, not done.
+_LATE_STREET_BLUFF_GAIN = {Street.TURN: 0.20, Street.RIVER: 0.20}
 
 
 # R9-DEFENCE-a: the opponent-LINE damp. `λ_p = _LINE_DELTA · pf.line_sensitivity`
@@ -1734,6 +1767,22 @@ def sample_postflop_decision(
             # CHECK at 1 − bluff_mass while BET became mult·bluff_mass, compressing
             # the IP:OOP bet-rate ratio and breaking `bluff_freq` as a frequency lever.
             bluff_bet_mass = bluff_mass * pos_mult
+            # S3-T5: the late-street lever's BLUFF-SIDE companion, the mirror of
+            # the value-side multiply below and driven by the same one pack
+            # dial. It is applied HERE, before the complement is formed, for the
+            # T-ANCHOR reason immediately above: this cell's two merits sum to
+            # 1, so anything applied after the complement would break
+            # `bluff_freq` as a frequency lever. The guard is written out in
+            # full and mirrors the value side's exactly.
+            if (
+                bluff_cell
+                and agg_action is ActionType.BET
+                and street in (Street.TURN, Street.RIVER)
+                and pf.late_street_bet is not None
+            ):
+                bluff_bet_mass *= (
+                    1.0 + pf.late_street_bet * _LATE_STREET_BLUFF_GAIN[street]
+                )
             agg_merit = bluff_bet_mass
             check_merit = max(1.0 - bluff_bet_mass, 0.0)
         else:
@@ -1771,16 +1820,17 @@ def sample_postflop_decision(
                 and bucket in _RIVER_BET_FLOOR
             ):
                 agg_merit = 0.0  # middle pair never value-bets the river
-            # S3-T5: the late-street bet lever. An unopened turn or river gets
-            # its aggressive candidate scaled up, so fewer hands check through
-            # to a showdown nobody wagered into. The fourth condition of the
-            # guard — non-bluff — is structural: this is the non-bluff arm, and
-            # the bluff cell above is left alone on purpose so that pure air
-            # rises only through its own `bluff_freq` mass, which is what keeps
-            # the extra bets strength-weighted rather than a uniform stab rate.
+            # S3-T5: the late-street bet lever, VALUE SIDE. An unopened turn or
+            # river gets its aggressive candidate scaled up, so fewer hands
+            # check through to a showdown nobody wagered into. `not bluff_cell`
+            # is stated even though this is already the non-bluff arm: the two
+            # sides of this lever are calibrated jointly and each must be
+            # readable on its own, and the spec's wording is the guard.
             # Scaling the aggressive candidate rather than damping `check_merit`
-            # is the same choice for the same reason: the candidate already
-            # carries every hand-strength and draw term.
+            # keeps the extra bets strength-weighted — the candidate already
+            # carries every hand-strength and draw term — while the bluff cell
+            # rises through its own mass by the companion above, so the betting
+            # range's value-to-bluff composition is held rather than polarised.
             #
             # BET only (the matched-with-option check-RAISE is out of scope,
             # exactly as for `pos_mult`), and turn/river only. A pack that does
@@ -1790,7 +1840,8 @@ def sample_postflop_decision(
             # function, so the villain-range estimator inherits it rather than
             # needing a parallel path.
             if (
-                agg_action is ActionType.BET
+                not bluff_cell
+                and agg_action is ActionType.BET
                 and street in (Street.TURN, Street.RIVER)
                 and pf.late_street_bet is not None
             ):
