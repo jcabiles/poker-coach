@@ -262,6 +262,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--personas", default="nit,tag,lag")
     ap.add_argument("--fit", action="store_true",
                     help="scan bluff gains for the smallest that holds the share")
+    ap.add_argument("--value-grid", default=None,
+                    help="semicolon-separated candidate value-gain pairs to "
+                         "compare in one pass, e.g. '0.6,1.0;1.5,2.5'")
     ap.add_argument("--fit-grid", default=None,
                     help="comma-separated bluff gains to scan (default: 0.00..0.50 by 0.02)")
     ap.add_argument("--value-gains", default="0.60,1.00")
@@ -274,7 +277,13 @@ def main(argv: list[str] | None = None) -> int:
     personas = args.personas.split(",")
     vg = tuple(float(x) for x in args.value_gains.split(","))
     arms = [_Arm("off", None, None, None)]
-    if args.fit:
+    if args.value_grid:
+        bg = (pp._LATE_STREET_BLUFF_GAIN[Street.TURN],
+              pp._LATE_STREET_BLUFF_GAIN[Street.RIVER])
+        for pair in args.value_grid.split(";"):
+            gains = tuple(float(x) for x in pair.split(","))
+            arms.append(_Arm(f"v{pair}", args.dial, gains, bg))
+    elif args.fit:
         grid = ([float(x) for x in args.fit_grid.split(",")] if args.fit_grid
                 else [round(0.02 * i, 2) for i in range(0, 26)])
         for g in grid:

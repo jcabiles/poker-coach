@@ -1268,17 +1268,23 @@ _LATE_STREET_GAIN = {Street.TURN: 0.60, Street.RIVER: 1.00}
 # stacked-multiplier order requires the two sides to be calibrated JOINTLY, so
 # the SAME pack dial scales the bluff cell's exact-frequency bet mass here.
 #
-# The values are FITTED, not chosen. For each street, `late_street_probe.py`
-# scans a 0.02 grid over the real node population and finds, per persona, the
-# smallest gain at which the realised unopened bluff share at a dial of 1.0 does
-# not fall below its lever-off value; the constant is the MAXIMUM of those
-# three, because one pair of constants serves every persona and the smallest
-# that holds all three is what "does not fall" requires. Measured: turn — nit
-# 0.20, tag 0.16, lag 0.16; river — nit 0.20, tag 0.08, lag 0.06. The nit binds
-# both streets, and it binds them for an arithmetic reason worth knowing: its
-# `bluff_freq` is 0.04, so its bluff share of these bets is about 1.6% and it
-# needs the largest proportional lift to keep it. Pre-registered before any pack
-# value moved: `t5-preregistration.md` §4.
+# The values are FITTED, not chosen. `late_street_probe.py` scans a grid over
+# the real node population and finds, per persona and per street, the smallest
+# gain at which the realised unopened bluff share at a dial of 1.0 does not fall
+# below its lever-off value; the constant is the MAXIMUM of those, because one
+# pair of constants serves every persona and the smallest that holds all of them
+# is what "does not fall" requires. At 12,000 hands over three seeds the binding
+# reading is the NIT on both streets, at 0.24 — turn: nit 0.24, tag <=0.20, lag
+# <=0.20; river: the same. The nit binds for an arithmetic reason worth knowing:
+# its `bluff_freq` is 0.04, so bluffs are about 1% of its bets at these nodes and
+# it needs the largest proportional lift to hold that. A first pass at 7,500
+# hands read 0.20 for the nit; the larger population moved it one grid step, and
+# the larger population is what the constant is set from. Pre-registered before
+# any pack value moved: `t5-preregistration.md` §4.
+#
+# THE TWO STREETS COINCIDE HERE, and that is a fitted outcome rather than a
+# judgement: unlike the value gains above, these are set by a hold-the-share
+# constraint, and the same persona binds both streets.
 #
 # They are smaller than the value gains because the bluff cell is an
 # EXACT-FREQUENCY cell — its bet probability IS this mass — while the value side
@@ -1288,7 +1294,7 @@ _LATE_STREET_GAIN = {Street.TURN: 0.60, Street.RIVER: 1.00}
 # above the turn gain on the reasoning that the river is the last chance to win
 # without showing down. No measurement in this repository compares that ordering
 # against its reverse; a scan of the RATIO is filed, not done.
-_LATE_STREET_BLUFF_GAIN = {Street.TURN: 0.20, Street.RIVER: 0.20}
+_LATE_STREET_BLUFF_GAIN = {Street.TURN: 0.24, Street.RIVER: 0.24}
 
 
 # R9-DEFENCE-a: the opponent-LINE damp. `λ_p = _LINE_DELTA · pf.line_sensitivity`

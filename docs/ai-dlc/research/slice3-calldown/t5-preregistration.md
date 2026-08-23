@@ -1,116 +1,193 @@
 # Pre-registration — S3-T5, the late-street bet lever
 
-**Bottom line.** Half of the nit's showdown hands and about 45% of the TAG's
-still reach showdown without anyone ever wagering a chip at them, measured on a
-committed instrument for the first time. S3-T5 (the fifth ticket of improvement
-slice 3, the calling-and-showdown slice of the bot-realism flywheel) adds one
-bounded pack lever, `late_street_bet`, that makes a bot more willing to bet an
-unopened turn or river. This document records the before-state and the sweep
-that fixes the lever's size, and it is written in two passes: the baseline table
-below landed with the instrument, before any engine or pack change; the
-registered floors in §3 landed after the sweep and before any pack value moved.
+**status: revision 2, 2026-08-22 — supersedes revision 1 of the same date, whose
+sweeps were not paired and whose floors are therefore withdrawn. Written after
+the repaired measurements and BEFORE any pack value was set; the pack values
+land in the commit after this one.**
 
-## 1. The instrument
+**Bottom line.** About a third of the nit's showdown hands, a fifth of the TAG's
+and a seventh of the LAG's are checked all the way down — no seat wagers on any
+postflop street — and the calling dial this slice has been tuning cannot reach
+them, because a hand nobody bets at contains no calling decision. S3-T5 adds one
+bounded pack lever that makes a bot more willing to bet an unopened turn or
+river, on both the value and the bluff side so the resulting betting range is
+not value-pure. This document fixes, in advance of any pack value: which
+statistic is the target, how it is measured, what the lever's constants are and
+how they were fitted, how much of a fall counts as success, and — new in this
+revision — the rule that decides which personas get the lever at all.
 
-`_persona_stats` in `backend/tests/test_personas_postflop.py` now returns a
-seventh value, `never_faced_wager`: the share of a persona's showdown hands in
-which that persona never met a wager on any postflop street. It counts a hand as
-having met a wager when the persona took a postflop FOLD, CALL or RAISE, which
-is the same event the earlier ticket's prose figures counted
-(`t2-preregistration.md` §4), so the two are comparable. The one known impurity
-is the rare matched-with-option RAISE, a node where a raise is legal without a
-wager outstanding; it was counted in the prose figures and is counted here.
+## 0. What revision 1 got wrong
 
-The counter is a DIRECTIONAL diagnostic under the persona-realism theory
-contract, never a HARD gate. Only three statistics may be gated hard today —
-aggression factor, fold-to-continuation-bet, and went-to-showdown — and
-went-to-showdown remains this ticket's gate.
+Three findings from the review of `c498088`, all folded in below.
 
-## 2. Baseline, before any engine or pack change
+**The sweeps were not paired, so the floors derived from them are withdrawn.**
+The band harness draws its deals and the bots' actions from ONE
+`random.Random`. The moment a bot checks where it used to bet, it consumes a
+different number of draws, and every later hand of that run is a different hand.
+A "before and after" on that harness is therefore two independent samples, not a
+paired comparison, and differences of a point or two — which is what revision 1
+registered floors against — are the size of the seed-to-seed spread. Measured:
+the nit's went-to-showdown reads 0.6173, 0.5876, 0.6225, 0.5876 and 0.6019
+across five seeds with NOTHING changed, a spread of 3.5 points, against the
+2.8-point "effect" revision 1 reported from one seed.
 
-Measured at the band harness's pinned seed (20260710) with all six persona packs
-unedited, at the tip of improvement slice 3 after its tickets 2, 3 and 4 merged
-(commit 72322d0). Two sample sizes are reported: 600 hands per persona, which is
-the size continuous integration asserts the bands at, and 4,000 hands, which is
-the size the slice's research figures are quoted at.
+**The lever was half a lever.** Raising the value side alone made the unopened
+river bet value-pure: at a dial of 1.0 the TAG's naked air bet 7.4% of the time
+while its top pair and better bet 85–97%. A judge reading that table learns "if
+this bot bets the river it has top pair or better", which is a worse tell than
+the passivity the ticket set out to fix. The bluff cell is now driven by the
+same one pack dial through its own gains (§4).
 
-### 4,000 hands per persona
+**Two different statistics were being quoted as one.** "Never faced a wager"
+(the persona met no wager) and "checked down" (NO seat wagered) differ by about
+twenty points on the nit, and only the second is what the ticket's prose
+describes. §1 fixes which is the target.
 
-| persona | never faced a wager | went to showdown | aggression factor | fold to c-bet | showdown hands |
-|---|---|---|---|---|---|
-| nit | 50.33% | 0.6173 | 1.461 | 0.4350 | 600 |
-| tag | 44.97% | 0.5528 | 2.383 | 0.3258 | 905 |
-| lag | 42.44% | 0.5769 | 2.629 | 0.3189 | 1,395 |
-| passive_fish | 33.90% | 0.5204 | 0.912 | 0.4457 | 2,180 |
-| calling_station | 24.71% | 0.7010 | 0.318 | 0.1755 | 3,941 |
-| maniac | 42.08% | 0.5945 | 3.147 | 0.3256 | 2,355 |
+## 1. The instruments
 
-### 600 hands per persona
+**Primary target — `checked_down`.** The share of a persona's showdown hands in
+which no seat wagered on any postflop street. This is what "the hand checked
+through to a showdown" means, it is the population the calling dial cannot
+reach, and it is what this lever acts on directly: a bot that bets no longer
+produces a checked-down hand, whatever the opponent then does.
 
-| persona | never faced a wager | went to showdown | aggression factor | fold to c-bet |
+**Secondary, disclosed — `never_faced_wager`.** The share of showdown hands in
+which the persona itself met no wager. It is the statistic revision 1 was
+written against and the one the earlier tickets of this slice quoted, so it is
+reported rather than dropped. It responds to this lever only indirectly: it
+falls when somebody wagers AT the persona, which the persona's own bet can
+cause by being raised, and which its own bet can also PRE-EMPT — a hand it now
+bets and gets called on is a showdown it did not face a wager in, exactly as the
+check-down it replaced was. Which of the two effects dominates is a per-persona
+empirical question, and §5 registers no magnitude against it.
+
+Both are DIRECTIONAL diagnostics under the theory contract. Neither is a gate.
+
+**The gate — went-to-showdown**, one of the three statistics the contract marks
+HARD-today, asserted at the harness's pinned seed and 4,000 hands.
+
+**How each is measured.**
+
+- **Policy** — how often a bot bets a given node — by
+  `backend/tools/late_street_probe.py`: the hands are played once and each arm
+  is read off the SAME node with a capture rng, so a difference is the lever and
+  carries no sampling variance at all. Every composition and bluff-share figure
+  below comes from it, at 4,000 hands × three seeds (601, 20260817, 20260818).
+- **Arrival** — went-to-showdown, `checked_down`, `never_faced_wager` — by the
+  band harness pooled over FIVE seeds (20260710, the pinned one, plus 20260711
+  to 20260714) at 4,000 hands each, with a two-sample binomial standard error,
+  because the two arms are independent runs and cannot be paired. The probe
+  cannot measure these: turning the lever on changes which nodes exist, and no
+  pairing can show that.
+
+## 2. Baseline, before any pack value
+
+Pooled over the five seeds, all six packs unauthored, at commit `9d4adc0`.
+
+| persona | checked down | never faced a wager | went to showdown | aggression factor |
 |---|---|---|---|---|
-| nit | 52.17% | 0.5897 | 1.343 | 0.4286 |
-| tag | 46.97% | 0.5714 | 2.446 | 0.2889 |
-| lag | 51.23% | 0.5953 | 2.850 | 0.3871 |
-| passive_fish | 37.86% | 0.5510 | 0.922 | 0.4141 |
-| calling_station | 25.92% | 0.7019 | 0.322 | 0.2033 |
-| maniac | 48.03% | 0.6086 | 3.042 | 0.3721 |
+| nit | 31.69% | 51.51% | 0.6033 | 1.531 |
+| tag | 19.77% | 46.91% | 0.5648 | 2.514 |
+| lag | 14.46% | 40.67% | 0.5762 | 2.561 |
 
-The nit's, TAG's and LAG's figures sit a little above the 47.7 / 44.1 / 41.6%
-the earlier ticket quoted, which is the expected direction: ticket 2 of this
-slice tightened those three personas' calling dials, so fewer of the hands that
-DO face a wager survive to showdown, and the checked-through population is a
-larger share of what remains.
+At the pinned seed alone the nit's checked-down share reads 31.33% and its
+went-to-showdown 0.6173; the five-seed pool is the number to quote.
 
-Reading the roster column, the counter behaves the way the archetypes predict,
-which is the evidence that it measures what it claims: the calling station,
-which continues against almost anything, meets a wager in three showdowns out of
-four, while the nit — which folds most of what it holds and bets only a narrow
-value range — reaches half its showdowns with no chips in the middle.
+## 3. The value gains, and why the smallest candidate pair
 
-## 3. Registered floors
+Four candidate pairs, read on the same node population by the paired probe at a
+dial of 1.0, with the bluff companion at its fitted value. Bet frequency is the
+mean probability of betting an unopened node; bluff share is the fraction of
+that betting contributed by the bluff cell.
 
-**Registered 2026-08-22, from the single-persona sweeps, before any pack value
-moved.** Every reading below comes from a sweep of one persona at a time with
-the other five packs unedited, on the band harness at its pinned seed, over
-12,000 hands. The derivation rule was fixed by the specification before the
-sweep ran: the floor is the fall the deepest aggression-admissible dial
-delivers, minus one binomial standard error on that persona's showdown sample.
-A dial of 1.0 is aggression-admissible for all three personas — the nit reads
-1.562 against a band of (0.6, 2.4), the TAG 2.720 against (1.4, 3.6), the LAG
-2.743 against (1.5, 4.5) — so 1.0 is the deepest dial for each.
+| pair (turn, river) | nit turn bet freq | nit turn bluff share | tag turn bluff share | lag river bluff share |
+|---|---|---|---|---|
+| lever off | 0.2838 | 0.00945 | 0.05307 | 0.13064 |
+| **(0.60, 1.00)** | 0.3419 | **0.00973** | **0.05658** | **0.15013** |
+| (1.50, 2.50) | 0.3985 | 0.00832 | 0.05043 | 0.14680 |
+| (2.00, 3.50) | 0.4221 | 0.00787 | 0.04832 | 0.14570 |
+| (3.00, 5.00) | 0.4598 | 0.00723 | 0.04544 | 0.14483 |
 
-| persona | metric | at dial 1.0, before → after | fall | one standard error | registered floor |
-|---|---|---|---|---|---|
-| nit | never faced a wager | 0.5133 → 0.4983 | 1.50pp | 1.16pp | **≥ 0.3pp** |
-| tag | never faced a wager | 0.4562 → 0.4807 | **−2.45pp (a rise)** | 1.34pp | **none can be registered** |
-| nit | checked down | 0.3073 → 0.2963 | 1.10pp | 1.08pp | **direction only** |
-| tag | checked down | 0.2044 → 0.1855 | 1.89pp | 0.77pp | **≥ 1.1pp** |
-| nit, tag, lag | went to showdown | see §4 of the report | — | — | **direction DOWN** (the gate) |
+**Only the smallest pair keeps every persona's bluff share at or above its
+lever-off value.** Every larger pair drives the betting range MORE value-pure,
+which is the defect the companion exists to prevent — the companion is fitted at
+the shipped pair, and a bigger value gain outruns it. That is the reason the
+pair is chosen, and it is a measured one rather than the "larger gains cost
+aggression factor for no showdown reduction" argument revision 1 gave, which
+rested on unpaired readings and is withdrawn as evidence (the aggression-factor
+costs it reported — 1.56, 1.75, 1.83, 1.96 at dial 1.0 — are large relative to
+their own error and still stand as a secondary reason).
 
-The LAG carries a direction and no magnitude, for the reason ticket 2 recorded:
-its showdown excess has not been traced to a lever, so no defensible magnitude
-can be predicted for it.
+**The turn-to-river ratio is DIRECTIONAL and was never swept.** Both gains keep
+the river above the turn on the reasoning that the river is the last chance to
+win without showing down. Nothing here tests that ordering against its reverse;
+a scan of the ratio is filed, not done.
 
-### Why a second metric appears here
+## 4. The bluff-side companion, fitted
 
-**The never-faced-a-wager share cannot see this lever working, and that is a
-property of the metric rather than of the lever.** It counts showdown hands in
-which the persona met no wager. A bot that used to check a hand down and now
-bets it and gets called STILL met no wager, so the hand stays in the numerator;
-the metric only falls when somebody wagers AT the bot. The TAG's row above is
-that effect measured: its hands that were genuinely checked down fell 1.9
-points at the same dial where its never-faced-a-wager share rose 2.5.
+The bluff cell is an exact-frequency cell — its two merits sum to one, so its
+bet probability IS the mass the dial scales — while the value side scales an
+odds ratio. The two therefore need different constants to move a range by the
+same proportion, which is why they are two constants and not one.
 
-So a second counter, `checked_down`, was added to the same harness function
-during the sweep and before any pack value moved: the share of showdown hands
-in which NO seat wagered on any postflop street — a hand genuinely checked
-down, which is what this ticket's problem statement describes in prose. Both
-are DIRECTIONAL diagnostics and neither is a gate. The first is kept, floors
-and all, rather than quietly replaced: it is the statistic the ticket was
-written against, and retiring it after seeing its reading would be moving the
-goalposts.
+**Fitting rule, fixed before the scan: the smallest gain at which no candidate
+persona's realised unopened bluff share falls below its lever-off value at a
+dial of 1.0, taken per street as the maximum over the three personas.** Scanned
+over the real node population at 12,000 hands:
 
-Shortfall rule, from the owner's answer of 2026-08-22: if the admissible dials
-cannot clear a floor, ship the admissible value and record the shortfall rather
-than tuning past an aggression band.
+| street | nit binds at | tag binds at | lag binds at | **installed** |
+|---|---|---|---|---|
+| turn | 0.24 | ≤ 0.20 | ≤ 0.20 | **0.24** |
+| river | 0.24 | ≤ 0.20 | ≤ 0.20 | **0.24** |
+
+The nit binds both streets because its `bluff_freq` is 0.04 — bluffs are about
+1% of its bets at these nodes, so it needs the largest proportional lift to hold
+that share. A first pass at 7,500 hands read 0.20; the larger population moved
+it one grid step and is what the constants are set from.
+
+## 5. Which personas get the lever, and the registered floors
+
+**The ship rule, fixed here before any pack value.** A persona's
+`late_street_bet` is set ONLY if BOTH hold at the deepest aggression-admissible
+dial: its went-to-showdown falls at the harness's pinned seed and 4,000 hands
+(the gate's own sample), AND the five-seed pooled estimate agrees in sign.
+Otherwise its field stays UNSET — the lever is simply off for that persona — and
+the shortfall is recorded with the numbers. The gate is not a floor and the
+owner's shortfall rule does not cover it; a persona that does not clear it does
+not ship.
+
+Measured at dial 1.0, which is aggression-admissible for all three (nit 1.581
+against a band of (0.6, 2.4); tag 2.734 against (1.4, 3.6); lag 2.734 against
+(1.5, 4.5)):
+
+| persona | pinned-seed went-to-showdown | pooled Δ (5 seeds) | verdict |
+|---|---|---|---|
+| nit | 0.6173 → 0.5865, **falls** | −0.31pp ± 0.97 | **SHIPS at 1.0** |
+| lag | 0.5769 → 0.5638, **falls** | −2.20pp ± 0.64 | **SHIPS at 1.0** |
+| tag | 0.5528 → 0.5603, **rises** | +0.06pp ± 0.78 | **DOES NOT SHIP** |
+
+**Registered floors**, on the primary diagnostic, for the two personas that
+ship. Derivation rule, unchanged from revision 1 in form and repaired in
+substance: the fall the shipped dial delivers in the five-seed pool, minus one
+two-sample standard error.
+
+| persona | quantity | measured fall | one standard error | registered floor |
+|---|---|---|---|---|
+| nit | checked down | 2.30pp | 1.18pp | **≥ 1.1pp** |
+| lag | checked down | 2.51pp | 0.58pp | **≥ 1.9pp** |
+| lag | never faced a wager | 1.20pp | 0.84pp | **≥ 0.3pp** |
+| nit | never faced a wager | 1.07pp | 1.28pp | **direction only** |
+
+Shortfall rule, from the owner's answer of 2026-08-22, and it applies to these
+floors and not to the gate: if the admissible dial cannot clear a floor, ship
+the admissible value and record the shortfall.
+
+## 6. What would falsify this before it ships
+
+Any of these stops the ticket rather than being tuned around: a shipped
+persona's aggression factor or fold-to-continuation-bet leaving its HARD band; a
+went-to-showdown ordering leg weakening; the five-seed de-robotization gate's
+separation floor binding; a shipped persona's realised unopened bluff share
+falling below its lever-off value on the final packs; or the combined
+configuration reversing the sign of a shipped persona's pinned-seed
+went-to-showdown against the single-persona reading this section registered.
