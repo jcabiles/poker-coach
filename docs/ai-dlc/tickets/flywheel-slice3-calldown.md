@@ -353,7 +353,19 @@ with no money in the middle.
    villain-range estimator share.
 3. Sweep one persona at a time with the other five packs unedited, register the
    floors from the sweep's reach before any pack value moves, then set values on
-   the nit, the TAG and the LAG only.
+   the personas that clear the ship rule.
+
+**AMENDED 2026-08-22 after the build's triple review.** Three changes, all in
+the report and the pre-registration rev 2. (a) The lever gained a BLUFF-SIDE
+companion on the same pack dial: the value side alone made the unopened river
+bet value-pure, which is a worse tell than the passivity it removes. (b) The
+sweeps are re-done with a zero-variance paired probe for policy and five-seed
+pooling with a two-sample standard error for arrival — the band harness cannot
+be paired, and the first round's floors were inside its seed-to-seed spread.
+(c) A persona gets the lever ONLY if its went-to-showdown falls at the pinned
+seed AND the pooled estimate agrees in sign; the gate is not a floor and the
+owner's shortfall rule does not cover it. On that rule the nit and the LAG ship
+and the TAG does not.
 
 **Acceptance criteria:**
 1. Went-to-showdown falls for the nit, the TAG and the LAG — the gate. The
@@ -375,7 +387,14 @@ with no money in the middle.
 **Owns:** `backend/app/domain/personas_postflop.py`,
 `backend/app/domain/content/models.py`, `content/schema/persona.schema.json`,
 `content/personas/{nit,tag,lag}.json`, `backend/tests/test_personas_postflop.py`,
-`backend/tests/test_range_estimate.py` (the new parity test only).
+`backend/tests/test_range_estimate.py` (the new parity test only),
+`backend/tools/late_street_probe.py` (NEW — the paired composition probe the
+rework added; see the report §5), and, for displaced seeded fixtures only,
+`backend/tests/test_buyin_spread.py`, `backend/tests/test_coverage_baseline.py`,
+`backend/tests/data/coverage_baseline.json` and
+`backend/tests/test_limper_coverage_belt.py`. Every one of those four is a
+re-record with provenance and a revert-to-prove-attribution check; no tolerance
+is widened.
 
 **Dependencies:** S3-T4 merged (end of the serial chain).
 

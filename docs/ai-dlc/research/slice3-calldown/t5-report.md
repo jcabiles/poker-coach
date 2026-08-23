@@ -1,54 +1,81 @@
 # Report — S3-T5, the late-street bet lever
 
-**Bottom line.** The lever works on the thing it was built to move and barely
-moves the thing the ticket gated on. Hands that check all the way down to a
-showdown fall for all three tuned personas — the TAG by 3.0 points, the nit by
-0.7, the LAG by 0.7, measured over 12,000 hands — while went-to-showdown falls
-by an amount only the nit's exceeds this instrument's noise. The 50,000-hand
-export agrees on direction for all six personas and moves the pool 53.4% →
-53.2%. Every hard band is green, all five ordering legs hold, the five-seed
-de-robotization gate passes 5 of 5 with more separation than before, and the
-interim ceiling ratchet tightens three ceilings. Nothing here is a
-stop-and-report, and one acceptance criterion is not met: went-to-showdown does
-not measurably fall for the TAG or the LAG.
+**Bottom line.** One persona ships the lever and two do not. The LAG's
+`late_street_bet` goes to 1.0, which lowers its went-to-showdown by 1.80
+points and the share of its showdown hands that are checked all the way down by
+1.42, both larger than the harness's noise. The nit and the TAG were dialled in
+an earlier round of this ticket and are withdrawn: after the measurement method
+was repaired, neither persona's showdown frequency moves in a direction the
+evidence supports, and the ship rule registered before the pack values says a
+persona that does not clear the gate does not get the lever. Every hard band is
+green, no ceiling moves, all five ordering legs hold, the five-seed
+de-robotization gate passes 5 of 5, and the unopened river bet is measurably
+less value-pure than it was before this ticket rather than more.
 
 Ticket: S3-T5, the fifth ticket of improvement slice 3 (the calling-and-showdown
 slice of the bot-realism flywheel), admitted by owner ruling on 2026-08-22.
-Spec: `../../specs/flywheel-slice3-t5-checkdown.md`. Pre-registration and the
-registered floors: `t5-preregistration.md`. Built at `72322d0`.
+Spec: `../../specs/flywheel-slice3-t5-checkdown.md`. Pre-registration rev 2,
+which fixes the method, the gains and the ship rule:  `t5-preregistration.md`.
+Built across `2834b60`..`HEAD` on `feat/slice3-t5-late-street-bet`; the
+lever-off tip that every "before" below is measured at is `9d4adc0`.
 
-## 1. What shipped
+## 1. What the first round got wrong, and what fixed it
 
-One pack field, `late_street_bet`, in `[0, 1]` and absent by default. At an
-unopened turn or river, on the non-bluff BET leg only, it multiplies the
-aggressive candidate's merit by `1 + late_street_bet * _LATE_STREET_GAIN[street]`
-with gains of 0.60 on the turn and 1.00 on the river. Values: **nit 0.5, TAG 1.0,
-LAG 1.0**; the maniac, the calling station and the passive fish do not author it
-and are byte-identical to their pre-ticket selves.
+The build passed a refuter, then failed a triple review — the persona-realism
+theory reviewer on composition, Codex Sol on measurement and on the gate. Three
+findings, all folded in.
 
-The gains come from a scan of four candidate pairs on the nit at 12,000 hands
-(§4.1). The dials come from the per-persona sweep (§4.2). The nit's 0.5 is the
-one value that is not simply the deepest admissible dial, and §4.2 says why.
+**The sweeps were not paired.** The band harness draws its deals and its bots'
+actions from one generator, so the first decision that flips changes every later
+hand. With NOTHING changed, the nit's went-to-showdown reads 0.6173, 0.5876,
+0.6225, 0.5876 and 0.6019 across five seeds; the first round registered floors
+against a 2.8-point "effect" measured inside that spread. Policy is now read by
+a zero-variance paired probe (§5) and arrival is pooled over five seeds with a
+two-sample standard error (§2).
+
+**The lever was half a lever.** Raising the value side alone made the unopened
+river bet value-pure. The bluff cell now rises through its own mass on the same
+one pack dial, fitted so no persona's realised bluff share falls (§5).
+
+**The gate was treated as a floor.** The first round shipped a persona whose
+went-to-showdown had risen, on the owner's shortfall rule. That rule covers
+registered floors, not the gate. The ship rule in §3 replaces it.
 
 ## 2. Did it work
 
-### The gate, went-to-showdown
+Band harness, five seeds (20260710 — the pinned one — plus 20260711 to
+20260714) at 4,000 hands each, lever-off against the shipped packs. The
+two-sample standard error is in the last column; "SE" in the text means
+multiples of it.
 
-Combined roster, band harness, pinned seed 20260710, all three dials in at once.
+| persona | went to showdown | Δ | checked down | Δ | never faced a wager Δ | SE (WTSD) |
+|---|---|---|---|---|---|---|
+| **lag** | 0.5762 → 0.5583 | **−1.80pp (2.8 SE)** | 14.46% → 13.04% | **−1.42pp (2.4 SE)** | −0.59pp | 0.64pp |
+| nit | 0.6033 → 0.6167 | +1.33pp (1.4 SE) | 31.69% → 31.78% | +0.09pp | +0.07pp | 0.97pp |
+| tag | 0.5648 → 0.5777 | +1.30pp (1.7 SE) | 19.77% → 18.34% | −1.43pp (1.8 SE) | −0.27pp | 0.78pp |
+| maniac | 0.5950 → 0.5945 | −0.05pp | 16.78% → 16.51% | −0.27pp | −0.47pp | 0.49pp |
+| passive_fish | 0.5174 → 0.5163 | −0.11pp | 23.11% → 23.15% | +0.05pp | −0.52pp | 0.49pp |
+| calling_station | 0.7072 → 0.7009 | −0.63pp (1.6 SE) | 18.06% → 17.55% | −0.52pp | −0.56pp | 0.39pp |
 
-| persona | 4,000 hands (the sample CI asserts at) | 12,000 hands | one standard deviation at 4,000 |
-|---|---|---|---|
-| nit | 0.6173 → 0.5894 (**−2.79pp**) | 0.6144 → 0.5775 (**−3.69pp**) | 1.57pp |
-| tag | 0.5528 → 0.5709 (+1.81pp) | 0.5697 → 0.5625 (−0.71pp) | 1.22pp |
-| lag | 0.5769 → 0.5704 (−0.65pp) | 0.5683 → 0.5651 (−0.32pp) | 1.00pp |
-| maniac | 0.5945 → 0.5848 | 0.5954 → 0.5908 | 0.78pp |
-| calling_station | 0.7010 → 0.7055 | 0.7020 → 0.7005 | 0.62pp |
-| passive_fish | 0.5204 → 0.5166 | 0.5108 → 0.5112 | 0.77pp |
+**Only the LAG's pack changed, and only the LAG's numbers move further than the
+noise.** The other five rows are the same bots meeting a table with one more
+bettor in it; the nit's and the TAG's +1.3 points are 1.4 and 1.7 standard
+errors and are not read as effects here, which is the discipline the first round
+lacked.
 
-**Only the nit's movement is bigger than the noise, and the TAG's changes sign
-between the two sample sizes.** That is the honest reading and the ticket does
-not dress it up: the gate is met for the nit and is not established for the TAG
-or the LAG.
+At the pinned seed alone — the sample the gate is asserted at — the LAG reads
+0.5769 → 0.5639, a fall, so both halves of the ship rule hold for it.
+
+**Against the registered floors, the LAG falls short and it is recorded.** The
+floors (checked down ≥ 1.9pp, never faced a wager ≥ 0.3pp) were registered off
+an arm with all three personas dialled, where the LAG delivered 2.51pp and
+1.20pp. Shipping alone it delivers **1.42pp and 0.59pp** — the second clears,
+the first misses by 0.5 points. Under the owner's rule of 2026-08-22 the
+admissible value ships and the miss is written down. The mechanism is not
+mysterious: a checked-down hand needs EVERY seat to check, so two of the three
+bettors leaving the table takes back part of the effect the third was credited
+with. A floor registered on a configuration that does not ship is a defect in
+the registration and is filed as one in the slice ledger.
 
 ### The 50,000-hand export, the second instrument
 
@@ -56,228 +83,194 @@ Ratified nine-seat lineup, seed 20260817, showdowns divided by flops seen.
 
 | persona | before | after | change | flops seen |
 |---|---|---|---|---|
-| nit | 0.5788 | 0.5716 | −0.72pp | 3,485 |
-| tag | 0.5003 | 0.4932 | −0.71pp | 20,919 |
-| lag | 0.5107 | 0.5084 | −0.23pp | 9,711 |
-| maniac | 0.5263 | 0.5261 | −0.02pp | 18,329 |
+| lag | 0.5107 | 0.5088 | −0.19pp | 9,711 |
+| nit | 0.5788 | 0.5712 | −0.76pp | 3,485 |
+| tag | 0.5003 | 0.4988 | −0.15pp | 20,919 |
+| maniac | 0.5263 | 0.5252 | −0.11pp | 18,329 |
 | calling_station | 0.6635 | 0.6622 | −0.13pp | 22,158 |
-| passive_fish | 0.4763 | 0.4748 | −0.15pp | 33,282 |
-| **pooled** | **0.5343** | **0.5319** | **−0.24pp** | 107,884 |
+| passive_fish | 0.4763 | 0.4779 | +0.16pp | 33,282 |
+| **pooled** | **0.5343** | **0.5338** | **−0.05pp** | 107,884 |
 
-All six move down, which is worth noting because the two instruments have
-disagreed in sign on earlier tickets of this slice. The falls are small, and at
-these sample sizes the TAG's −0.71pp is about two standard errors while the
-LAG's and the maniac's are inside one.
+Five of six fall and the pool is flat. Read the sizes rather than the signs:
+one binomial standard error on the LAG at this sample is 0.51pp and on the
+pooled row 0.15pp, so nothing here is separable from zero except possibly the
+nit's −0.76pp at 0.84pp of error — and the nit's pack did not change. **The
+export and the band harness agree that the roster-wide effect of this ticket is
+small; they disagree about the LAG**, which the harness resolves at 2.8 standard
+errors and the export cannot resolve at all, because the LAG occupies one seat
+of the ratified nine and sees a third as many flops there as the TAG does. The
+harness is the gating instrument for exactly this reason; the export is
+diagnostic context.
 
-### The diagnostic the lever actually moves
+## 3. Why the nit and the TAG do not ship
 
-Share of showdown hands in which NO seat wagered on any postflop street — a
-hand genuinely checked down. Combined roster, 12,000 hands.
+The ship rule, fixed in the pre-registration before any pack value: a persona
+gets the lever only if its went-to-showdown falls at the pinned seed AND the
+five-seed pooled estimate agrees in sign.
 
-| persona | before | after | change |
+| configuration measured | nit pooled Δ | tag pooled Δ | lag pooled Δ |
 |---|---|---|---|
-| tag | 0.2044 | 0.1745 | **−3.00pp** |
-| lag | 0.1448 | 0.1377 | −0.71pp |
-| nit | 0.3073 | 0.3005 | −0.68pp |
-| maniac | 0.1657 | 0.1516 | −1.41pp |
-| calling_station | 0.1734 | 0.1602 | −1.33pp |
-| passive_fish | 0.2333 | 0.2300 | −0.33pp |
+| all three dialled | −0.31pp ± 0.97 | +0.06pp ± 0.78 | −2.20pp ± 0.64 |
+| nit + lag dialled | +0.28pp ± 0.97 | — | −1.71pp ± 0.64 |
+| lag alone (**shipped**) | +1.33pp ± 0.97 | +1.30pp ± 0.78 | −1.80pp ± 0.64 |
 
-The three untouched personas move too, because a check-down needs every seat to
-check and three of the nine seats now bet more often.
+**The TAG fails on both halves in every configuration** — its pinned-seed
+reading rises 0.75 points and its pooled estimate is +0.06 ± 0.78. **The nit's
+pooled sign is configuration-dependent and never distinguishable from zero**:
+−0.31 with the TAG in the arm, +0.28 without it. It passed the rule on the
+first arm measured and failed it on the arm that would actually have shipped,
+so it does not ship.
 
-**Why showdown frequency does not follow this point for point.** A bet that gets
-called produces a showdown exactly as a check-down does; the hand simply has
-money in it now. The lever converts check-downs into bet-and-called showdowns
-and only removes a showdown when the bet takes the pot down. Both outcomes are
-improvements in how the table reads; only one of them shows up in
-went-to-showdown.
+This costs the ticket its motivating persona — the nit has the worst
+checked-down share on the roster at 31.7% — and that is the honest outcome
+rather than a reason to soften the rule. What the ticket can say about the nit
+is narrower and still worth having: at these gains the lever raises its
+unopened late-street betting exactly as designed (§5), and that policy change
+does not reach its showdown frequency.
 
-### The metric the ticket was written against
+## 4. Bands, ordering and the ratchet
 
-Share of showdown hands in which the persona itself never faced a wager,
-12,000 hands: nit 0.5133 → 0.4974 (−1.59pp, clears its registered floor of
-0.3pp), lag 0.4261 → 0.4054 (−2.07pp, direction only was registered), **tag
-0.4562 → 0.4704 (+1.42pp, a rise)**.
+All HARD bands green at the 4,000-hand pinned sample the test asserts at.
 
-The TAG's rise is the shortfall the pre-registration predicted and explained
-before the pack values moved: this metric cannot fall when the bot is the one
-putting the money in, because the bot still faced no wager. It is recorded here
-rather than argued away, and the owner's shortfall rule was applied — the
-admissible value ships and the shortfall is written down.
-
-## 3. Aggression factor and fold-to-continuation-bet
-
-All HARD bands green at the 4,000-hand sample the test asserts at.
-
-| persona | aggression factor before → after | band | fold-to-c-bet before → after | band |
+| persona | aggression factor (pooled, off → on) | band | fold-to-c-bet | band |
 |---|---|---|---|---|
-| nit | 1.461 → 1.528 | (0.6, 2.4) | 0.435 → 0.514 | (0.10, 0.90) |
-| tag | 2.383 → 2.710 | (1.4, 3.6) | 0.326 → 0.366 | (0.0, 0.55) |
-| lag | 2.629 → 2.778 | (1.5, 4.5) | 0.319 → 0.357 | (0.12, 0.64) |
-| maniac | 3.147 → 3.212 | (2.4, 5.1) | 0.326 → 0.328 | (0.0, 0.61) |
-| calling_station | 0.318 → 0.312 | (0.0, 1.056) | 0.176 → 0.164 | (0.0, 0.424) |
-| passive_fish | 0.912 → 0.899 | (0.0, 1.560) | 0.446 → 0.449 | (0.0, 0.549) |
+| lag | 2.561 → 2.725 | (1.5, 4.5) | 0.306 → 0.334 | (0.12, 0.64) |
+| nit | 1.531 → 1.524 | (0.6, 2.4) | 0.419 → 0.442 | (0.10, 0.90) |
+| tag | 2.514 → 2.550 | (1.4, 3.6) | 0.355 → 0.363 | (0.0, 0.55) |
+| maniac | 3.094 → 3.110 | (2.4, 5.1) | 0.292 → 0.300 | (0.0, 0.61) |
+| passive_fish | 0.918 → 0.901 | (0.0, 1.560) | 0.453 → 0.449 | (0.0, 0.549) |
+| calling_station | 0.314 → 0.314 | (0.0, 1.056) | 0.165 → 0.179 | (0.0, 0.424) |
 
-Fold-to-continuation-bet rises for the three tuned personas even though the
-lever never touches a facing decision. The reason is the population it is
-measured over: a persona that bets more late reaches the flop-continuation-bet
-node with a different distribution of hands and opponents.
+**Ordering legs, all five intact** at the pinned seed: `station > tag`
+0.7022 > 0.5732; `station > lag` 0.7022 > 0.5639; `maniac < station`
+0.5993 < 0.7022; `fish < tag` 0.5262 < 0.5732; `station − fish` 0.1761 > 0.10.
+No transition-scoped leg had to move, so ruling 2's one-move allowance is
+untouched.
 
-### Ordering legs, all five intact
+**Ceiling ratchet: no ceiling moves.** Every persona's re-derived
+measurement-plus-three-standard-deviations value sits at or above the ceiling an
+earlier slice earned, so all six are capped by their incumbents. No measurement
+crosses its own ceiling — the closest is the passive fish at 0.5262 against
+0.55. The arithmetic is in `test_persona_postflop_bands`' docstring.
 
-Measured at 4,000 hands: `station > tag` 0.7055 > 0.5709; `station > lag`
-0.7055 > 0.5704; `maniac < station` 0.5848 < 0.7055; `fish < tag`
-0.5166 < 0.5709; `station − fish` 0.1889 > 0.10. No transition-scoped leg had
-to be moved, so ruling 2's one-move allowance is untouched.
+## 5. Composition: is the betting range still a mix?
 
-### Ceiling ratchet
+This is the finding that reshaped the lever, so it is reported at length. All
+figures come from `backend/tools/late_street_probe.py` at 12,000 hands over
+three seeds: the hands are played once and both arms are read off the SAME node,
+so these carry no sampling variance at all.
 
-Re-derived on the same harness, seed and 4,000-hand sample as the four ratchets
-before it. Installed: nit 0.67 → **0.64**, maniac 0.62 → **0.61**, passive_fish
-0.55 → **0.54**; tag, lag and calling_station capped by their incumbents at
-0.59, 0.59 and 0.72. No measurement crosses its own ceiling — the closest is
-the calling station at 0.7055 against 0.72 — so no stop-and-report fires. The
-arithmetic is in `test_persona_postflop_bands`' docstring.
+### The headline
 
-## 4. The sweep
-
-### 4.1 The gains
-
-Nit only, all other packs unedited, dial fixed at 1.0, 12,000 hands.
-
-| gains (turn, river) | aggression factor | went to showdown | never faced a wager |
+| persona | street | bet frequency off → on | realised bluff share off → on |
 |---|---|---|---|
-| — (baseline) | 1.514 | 0.6144 | 0.5133 |
-| (0.60, 1.00) | 1.562 | **0.5854** | **0.4983** |
-| (1.50, 2.50) | 1.745 | 0.5893 | 0.5052 |
-| (2.00, 3.50) | 1.833 | 0.5894 | 0.5117 |
-| (3.00, 5.00) | 1.959 | 0.5970 | 0.5076 |
+| lag | turn | 0.4783 → 0.5500 | 0.0909 → **0.0980** |
+| lag | river | 0.3626 → 0.3914 | 0.1306 → **0.1501** |
+| nit | turn | 0.2838 → 0.3419 | 0.0095 → 0.0097 |
+| nit | river | 0.2645 → 0.3180 | 0.0145 → 0.0150 |
+| tag | turn | 0.4104 → 0.4774 | 0.0531 → 0.0566 |
+| tag | river | 0.3182 → 0.3471 | 0.0901 → 0.1025 |
 
-**Bigger gains buy nothing and cost aggression factor.** The smallest pair
-gives the largest fall on both statistics; beyond it the effect saturates and
-then reverses, while the aggression factor climbs steadily toward the band. So
-the shipped pair is the smallest one tested, (0.60, 1.00).
+**The betting range gets MORE bluff-weighted, not less** — the opposite of the
+first round, where the same table read 0.074 of naked air against 0.85 to 0.97
+of top pair and better. The bluff gains are fitted to make that so: 0.24 on both
+streets, the smallest at which no persona's share falls, with the nit binding
+because its `bluff_freq` of 0.04 leaves it the least share to hold.
 
-### 4.2 The dials
+### By hand class and position — the LAG, the persona that ships
 
-One persona at a time, the other five packs unedited, gains (0.60, 1.00).
-At 4,000 hands across the whole dial ladder, then at 12,000 hands at the two
-dials the choice came down to.
+Mean probability of betting an unopened node, lever-off → lever-on. Naked air
+here is the true bluff cell (air or ace-high with NO draw); a gutshot appears in
+its own draw row, which the first round's table did not do.
 
-| persona | dial | aggression factor | went to showdown | never faced a wager | checked down |
-|---|---|---|---|---|---|
-| nit | — | 1.514 | 0.6144 | 0.5133 | 0.3073 |
-| nit | 0.5 | 1.537 | 0.5862 | 0.4941 | 0.2936 |
-| nit | 1.0 | 1.562 | 0.5854 | 0.4983 | 0.2963 |
-| tag | — | 2.410 | 0.5697 | 0.4562 | 0.2044 |
-| tag | 0.5 | 2.655 | 0.5720 | 0.4744 | 0.1870 |
-| tag | 1.0 | 2.720 | 0.5527 | 0.4807 | 0.1855 |
-| lag | — | 2.670 | 0.5683 | 0.4261 | 0.1448 |
-| lag | 0.5 | 2.692 | 0.5663 | 0.4170 | 0.1366 |
-| lag | 1.0 | 2.743 | 0.5550 | 0.3994 | — |
+| hand class | turn IP | turn OOP | river IP | river OOP |
+|---|---|---|---|---|
+| naked air | — | .155 → .192 | .194 → .240 | .125 → .155 |
+| naked ace-high | .232 → .288 | .154 → .191 | .148 → .183 | .104 → .130 |
+| air + strong draw | — | .481 → .592 | n/a | n/a |
+| air + weak draw | — | .240 → .335 | n/a | n/a |
+| middle pair | .417 → .531 | .336 → .446 | .000 → .000 | .000 → .000 |
+| top pair | — | .722 → .805 | .794 → .885 | .713 → .831 |
+| two pair plus | — | .912 → .943 | — | .934 → .966 |
+| monster | — | .957 → .972 | .975 → .987 | .956 → .977 |
 
-**The nit ships 0.5 because its response saturates there.** The two dials are
-indistinguishable on both statistics — 0.5862 against 0.5854 on showdown
-frequency — so the deeper dial would buy aggression factor and a flatter
-per-bucket betting spread and no showdown reduction. The TAG and the LAG do not
-saturate: 0.5 leaves both flat and 1.0 moves both, so both ship at 1.0.
+(Cells with fewer than 30 observed nodes are omitted rather than reported.)
 
-The 4,000-hand ladder (all four dials, both candidate gain pairs, three
-personas) is in the run log and adds nothing the two rows above do not; at that
-sample every difference between adjacent dials is inside one standard error.
+**Read the RATIOS, which is where the tell would be.** On the river the naked
+air cell rises by a factor of 1.24 and the monster by 1.02, so the gap between
+what a bluff and a nut hand do NARROWS — the bot becomes harder to read, not
+easier. The river's middle pair stays at zero throughout: that is the
+pre-existing W1-a floor, untouched by this lever and visible here because the
+table now shows it.
 
-## 5. The tell check
-
-Exact bet frequency at an unopened node, by strength bucket, on the fixed probe
-board — the diagnostic the spec asked for so a reviewer can see whether the
-policy narrowed into a uniform stab rate. Columns are air, middle pair, top
-pair, overpair, two pair plus, monster.
-
-| persona | street | before | after |
-|---|---|---|---|
-| nit | turn | .065 .162 .423 .583 .643 .773 | .083 .201 .488 .645 .701 .816 |
-| nit | river | .014 .000 .423 .583 .643 .773 | .014 .000 .524 .677 .730 .836 |
-| tag | turn | .218 .436 .746 .849 .878 .932 | .308 .552 .824 .900 .920 .956 |
-| tag | river | .074 .000 .746 .849 .878 .932 | .074 .000 .854 .918 .935 .965 |
-| lag | turn | .270 .507 .796 .882 .906 .948 | .372 .622 .862 .923 .939 .967 |
-| lag | river | .118 .000 .796 .882 .906 .948 | .118 .000 .887 .937 .951 .973 |
-
-**No leg is flattened, and the ordering is exactly preserved.** The lever
-multiplies odds by one constant, so in log-odds every bucket it touches keeps
-its previous separation to the last decimal — checked directly: the TAG's turn
-odds ratio is 1.600 at air and 1.601 at monster against a designed 1.600.
-
-Two effects a reviewer should still look at. On the **river the policy becomes
-more polarized, not less**: the bluff cell is untouched by design, so pure air
-stays at .074 for the TAG while its value bets rise. On the **turn, the
-probability-scale gap between thin value and a monster narrows** — the TAG's
-top pair goes from 80% of its monster's bet rate to 86% — which is arithmetic
-saturation at the top of the scale rather than a policy change, but it is real
-in the numbers a judge would see. The absolute spread is still wide (the TAG
-bets a monster .956, middle pair .552, air .308).
+**What a reviewer should still push on:** the turn's strongest cells are
+saturating (monster .957 → .972), so at a deeper dial the value side would
+compress against its ceiling while the bluff side kept climbing. Nothing in the
+shipped configuration is near that, but the fit that holds the share is a
+property of these gains at this dial, not a guarantee at larger ones — which is
+exactly why §3 of the pre-registration rejects the larger value-gain pairs.
 
 ## 6. Checks
 
 | command | result |
 |---|---|
-| `./scripts/verify.sh` | **BACKEND VERIFY OK** (2191 passed, 2 skipped, 6 xfailed) |
+| `./scripts/verify.sh` | **BACKEND VERIFY OK** — 2191 passed, 2 skipped, 6 xfailed |
 | `cd backend && ruff check .` | clean |
 | `python -m tools.derobo_gate --check --all-seeds` | **GATE PASS 5/5** |
-| `pytest -k "persona_postflop_bands or wtsd_ordering or late_street"` | 10 passed |
+| `pytest -k "persona_postflop_bands or wtsd_ordering or late_street"` | 12 passed |
 
 ### The five-seed gate, with the separation numbers
 
 | seed | minimum pairwise distance | required | pre-ticket reading |
 |---|---|---|---|
-| 601 | 2.087749 | 1.254429 | 1.853360 |
-| 602 | 1.909912 | 1.254429 | 1.792393 |
-| 603 | 1.914639 | 1.254429 | 1.765554 |
-| 604 | 1.988509 | 1.254429 | 2.008972 |
-| 605 | 1.818840 | 1.254429 | 1.958660 |
+| 601 | 2.190574 | 1.254429 | 1.853360 |
+| 602 | 1.921416 | 1.254429 | 1.792393 |
+| 603 | 1.887987 | 1.254429 | 1.765554 |
+| 604 | 1.821617 | 1.254429 | 2.008972 |
+| 605 | 2.180375 | 1.254429 | 1.958660 |
 
 Label preservation is 6 of 6 on every seed and the determinism guard passes on
 every seed. Separation rises on three seeds and falls on two, and every reading
 clears the floor by at least 45%. **The separation floor did not bind, so
 ruling 3's stop-and-report does not fire.**
 
-**On the LAG–TAG pair, which the spec asks to be reported: the gate does not
-name the pair that sets the minimum**, and no committed tool exposes it — the
-constraint rule returns the minimum over all fifteen pairs and nothing else.
-What the gate does expose is each candidate persona's distance to every baseline
-centroid, at seed 601: the candidate LAG sits 1.194 from the baseline LAG and
-2.036 from the baseline TAG; the candidate TAG sits 0.997 from the baseline TAG
-and 2.001 from the baseline LAG. Both are labelled correctly and each is about
-twice as far from the other archetype as from its own, so the axis the slice
-spec warned about is not under pressure at this tip. Naming the binding pair
-would need a probe that recomputes the candidate z-vectors, which is filed
-rather than done here.
+**The LAG–TAG pair, which the slice spec flags as the tightest axis.** The gate
+does not name the pair that sets the minimum — the constraint rule returns the
+minimum over all fifteen pairs and nothing else, and no committed tool exposes
+more. What it does expose is each candidate persona's distance to every baseline
+centroid. At seed 601: the candidate LAG sits **0.754** from the baseline LAG
+and **1.963** from the baseline TAG; the candidate TAG sits **0.939** from the
+baseline TAG and **2.098** from the baseline LAG. Both are labelled correctly
+and each is more than twice as far from the other archetype as from its own, so
+that axis is not under pressure at this tip. The LAG also sits CLOSER to its own
+frozen pre-fix centroid than it did before this ticket, which is the direction
+this work wants. Naming the pair that actually sets the minimum would need a
+probe that recomputes the candidate z-vectors; it is filed rather than done.
 
 ## 7. Acceptance criteria, verdict by verdict
 
 | # | criterion | verdict |
 |---|---|---|
-| 1 | went-to-showdown falls for nit, TAG, LAG | **PARTIAL.** PASS for the nit (−2.79pp at 4,000 hands, −3.69 at 12,000, against a 1.57pp standard deviation). NOT ESTABLISHED for the TAG and the LAG: both move less than the noise and the TAG changes sign between sample sizes. The 50,000-hand export has all six falling. The diagnostic half — never-faced-a-wager against the registered floors — is PASS for the nit (−1.59pp against 0.3pp) and a recorded SHORTFALL for the TAG (+1.42pp), which the pre-registration predicted and explained before the values moved. |
-| 2 | all HARD bands green, ordering legs, ratchet re-applied | **PASS.** §3. Three ceilings tighten, three are capped by their incumbents, no stop-and-report. |
-| 3 | byte-identity with packs unedited, three named targeted tests | **PASS.** The identity run is recorded at the lever's own commit: all six personas reproduce every statistic to the last digit with the field unauthored. The three tests are named as the spec required. |
-| 4 | five-seed gate green, LAG–TAG reported | **PASS on the gate**, 5 of 5. The pair is reported as far as the committed tooling allows — see §6. |
-| 5 | estimator parity unchanged plus a new unopened parity test | **PASS.** `test_estimator_prices_the_faced_bet` and the PR #199 bracket guard are untouched and green; the new test asserts estimator-versus-sampler equality at an unopened turn and river with the lever on, and asserts the lever-off distribution differs first so the equality is not vacuous. |
+| 1 | went-to-showdown falls for nit, TAG, LAG | **PARTIAL, and the shortfall is in the ship list rather than in the numbers.** It falls for the LAG on both instruments and by 2.8 standard errors on the pooled harness estimate. It does not fall for the nit or the TAG, so under the pre-registered ship rule neither gets the lever and both are byte-identical to their pre-ticket selves. The diagnostic half: the LAG's checked-down fall of 1.42pp MISSES its registered floor of 1.9pp, recorded under the owner's shortfall rule, with the reason measured in §2. |
+| 2 | all HARD bands green, ordering legs, ratchet re-applied | **PASS.** §4. No ceiling moves and no stop-and-report fires. |
+| 3 | byte-identity with packs unedited, three named targeted tests | **PASS.** Commit `9d4adc0` is a whole-suite-green tip with the lever in the engine and no pack authoring it. The three tests keep their names and now cover both sides of the lever; the identity test was rewritten so it reads the shipped packs rather than hard-coded dials, and so it cannot go vacuous when the roster changes. |
+| 4 | five-seed gate green, LAG–TAG reported | **PASS on the gate**, 5 of 5, with more separation than the pre-ticket reading on three seeds of five and the floor cleared by at least 45% on all of them. The LAG–TAG pair is reported as far as the committed tooling allows — see §6. |
+| 5 | estimator parity unchanged plus a new unopened parity test | **PASS.** The PR #199 bracket guard and `test_estimator_prices_the_faced_bet` are untouched and green; the new test asserts estimator-versus-sampler equality at an unopened turn and river with the lever on, and builds its lever-off side explicitly so it cannot go vacuous when a pack authors the field. |
 | 6 | 50,000-hand export reported | **PASS.** §2. |
-| 7 | slice-spec amendment lands in the same pull request | **PASS.** The slice-3 spec carries a dated owner-ruling note and the slice-3 ticket file carries the S3-T5 entry. |
+| 7 | slice-spec amendment lands in the same pull request | **PASS.** The slice-3 spec carries the dated owner-ruling note, the slice-3 ticket file carries the S3-T5 entry and its own amendment note, and this ticket's spec marks the two paragraphs the rework superseded. |
 
-## 8. What a reviewer should push on
+## 8. What a reviewer should scrutinise
 
-1. **Criterion 1 is not fully met and the ticket ships anyway.** The judgement
-   is that the checked-down share is the statistic the mechanism moves, that it
-   moves decisively for the TAG, and that the owner's shortfall rule covers the
-   registered floor. A reviewer may reasonably hold that a gate is a gate.
-2. **The nit's dial is the one value chosen on a judgement rather than a rule.**
-   Its two candidate dials are statistically indistinguishable and 0.5 was
-   preferred as the cheaper one. If a reviewer prefers the deepest admissible
-   dial for consistency with the TAG and the LAG, the evidence does not
-   contradict them.
-3. **The turn saturation in §5.** Thin value and monsters converge slightly in
-   probability space. It is not flattening in the policy, but it is what a judge
-   sees.
-4. **Four seeded fixtures were re-recorded.** Each carries provenance and the
-   revert-to-prove-attribution check, and no tolerance was widened.
+1. **One persona ships out of three proposed.** The ticket's value is a real but
+   narrow result plus two measured negatives. Whether that clears the bar for
+   merging is a judgement the report does not make for the reviewer.
+2. **The registered floor was set on a configuration that did not ship**, and
+   the LAG misses it by 0.5 points as a result. The fix for next time is to
+   register floors per shipped configuration, filed in the ledger.
+3. **The nit's result is a null, not a refutation.** The lever demonstrably
+   changes its policy (§5) and demonstrably does not change its showdown
+   frequency. Whether that is the lever's fault or the statistic's is open; §2 of
+   the ledger's Filed 12 argues the latter is at least partly true.
+4. **Three seeded fixtures were re-recorded**, each with provenance and a
+   revert-to-prove-attribution check run in both directions. The coverage
+   baseline did NOT move and was left alone.

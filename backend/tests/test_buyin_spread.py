@@ -336,19 +336,38 @@ def _hash_manifest(manifest: dict) -> str:
 # other edit in this branch left in place, all four digests above reproduce
 # exactly and this test passes untouched; restoring the packs reproduces the
 # four below. No engine file was changed by this ticket.
+# RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street bet
+# lever, 2026-08-22, slice-authorized): the LAG authors the new
+# `late_street_bet` field at 1.0, so it bets unopened turns and rivers more
+# often and every byte of a seeded export changes with it. Values immediately
+# before it:
+#   manifest      e12c3358b0dfe994ccd92cb2b722a78be2ae31a8928ec7ca5f82d51b8e79b377
+#   hands         b50c38ab287e0bf570ec5be261305da10fc2c47c02be2428ce4a091bffa04f18
+#   seat_outcomes c7b162892d353f6d6ed643c2688771c76e2962d8689a573d10c4fd2f4667e3fe
+#   decisions     f2ac4f0b69d79c938358b044106aa1315b06321ec75987f877cc69de0b70e8b9
+# THE MANIFEST MOVES for the reason the S3-T2 entry above gives: `config_hash`
+# is canonicalized over the loaded pack MODELS, so a newly authored field and a
+# `version` bump (lag 1.13.0 -> 1.14.0) move it, and the `run_id`/`hand_id`
+# columns move with it.
+# ATTRIBUTION PROVEN, not assumed: with the LAG pack file reverted and every
+# other edit in this branch left in place, all four digests above reproduce
+# exactly and this test passes untouched; restoring the pack reproduces the four
+# below. An engine file WAS changed by this ticket, unlike S3-T2 — but it is a
+# true no-op for a pack that does not author the field, and the commit that
+# added it left all six packs unauthored and the whole suite green.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
 _GOLDEN_MANIFEST_SHA256 = (
-    "e12c3358b0dfe994ccd92cb2b722a78be2ae31a8928ec7ca5f82d51b8e79b377"
+    "7e42a6243deb532ebbf6eaca4c64347bbe79fc9c2cc9e9b4bde27ac8c52c0193"
 )
 _GOLDEN_HANDS_SHA256 = (
-    "b50c38ab287e0bf570ec5be261305da10fc2c47c02be2428ce4a091bffa04f18"
+    "948372e1cfdec7b0b014b4e706210bd08af54413836d0b8b36a5353c7633d2ae"
 )
 _GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "c7b162892d353f6d6ed643c2688771c76e2962d8689a573d10c4fd2f4667e3fe"
+    "32b645c7bc3173c5eec90ee849abea800bcbebacae6a8a0422dfb413645cda69"
 )
 _GOLDEN_DECISIONS_SHA256 = (
-    "f2ac4f0b69d79c938358b044106aa1315b06321ec75987f877cc69de0b70e8b9"
+    "e7d41831ea14007b01922e4a8b74f4e8187b9847a3c87b3653f4998db6ebdb76"
 )
 
 

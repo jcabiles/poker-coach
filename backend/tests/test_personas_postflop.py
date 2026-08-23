@@ -4642,12 +4642,37 @@ _GOLDEN_STATS_N200 = {
     # `BANDS`. ATTRIBUTION PROVEN, not assumed: with the two pack files reverted
     # and every other edit in this branch left in place, this test passes
     # untouched at the old values; restoring the packs reproduces the new ones.
-    "calling_station": (0.3333333333333333, 0.22033898305084745, 0.6714801444043321),
-    "lag": (2.4363636363636365, None, 0.5877862595419847),
-    "maniac": (3.7169811320754715, 0.36363636363636365, 0.5607476635514018),
-    "nit": (None, None, 0.6153846153846154),
+    # RE-RECORDED for S3-T5 (improvement slice 3, ticket 5 — the late-street bet
+    # lever, 2026-08-22, slice-authorized): the LAG authors the new
+    # `late_street_bet` field at 1.0, so it bets unopened turns and rivers more
+    # often, hands end differently, and the shared rng stream displaces from the
+    # first changed decision onward. Four of the six rows move; the maniac's and
+    # the passive fish's happen to be unmoved at this seed, which is a property
+    # of a 200-hand sample rather than of their play.
+    # Values immediately before it:
+    #   calling_station (0.3333333333333333, 0.22033898305084745, 0.6714801444043321)
+    #   lag             (2.4363636363636365, None, 0.5877862595419847)
+    #   maniac          (3.7169811320754715, 0.36363636363636365, 0.5607476635514018)
+    #   nit             (None, None, 0.6153846153846154)
+    #   passive_fish    (0.7946428571428571, 0.46875, 0.5297029702970297)
+    #   tag             (2.088235294117647, None, 0.6470588235294118)
+    # READ THESE AS A TRIPWIRE, NOT AS EVIDENCE: n=200 leaves the nit's and the
+    # tag's fold-to-c-bet cells under the 30-observation floor, and the nit's AF
+    # crosses back OVER that floor here (None -> 1.567) purely by sample. The
+    # population claims live in `BANDS`, asserted at 4,000 hands.
+    # NO NEW RANDOM DRAW WAS ADDED AND NONE PRECEDES THE ACTION DRAW: the lever
+    # scales two merits feeding the existing action draw. The draw COUNT is not
+    # claimed invariant — a check flipping to a bet changes which later decisions
+    # happen at all.
+    # ATTRIBUTION PROVEN, not assumed: with the LAG pack file reverted and every
+    # other edit in this branch left in place, this test passes untouched at the
+    # old values; restoring the pack reproduces the new ones.
+    "calling_station": (0.2709677419354839, 0.16393442622950818, 0.696113074204947),
+    "lag": (2.826923076923077, 0.4666666666666667, 0.5531914893617021),
+    "maniac": (3.3728813559322033, 0.4222222222222222, 0.5495049504950495),
+    "nit": (1.5666666666666667, None, 0.625),
     "passive_fish": (0.7946428571428571, 0.46875, 0.5297029702970297),
-    "tag": (2.088235294117647, None, 0.6470588235294118),
+    "tag": (3.0, None, 0.6666666666666666),
 }
 
 
@@ -7312,6 +7337,48 @@ def test_persona_postflop_bands(persona, budget):
     argument is the contract's grounded fold-to-continuation-bet row and the α
     fold-ceiling, both written down where a reader can check them against the
     poker rather than against this table.
+
+    ── THE FIFTH RATCHET, S3-T5 (improvement slice 3, ticket 5 — the late-street
+    bet lever, 2026-08-22). ONE persona moves: the LAG authors the new
+    `late_street_bet` field at 1.0, so it bets an unopened turn or river more
+    often on both the value and the bluff side. The nit and the tag were dialled
+    in an earlier round of the ticket and did NOT clear its ship rule — their
+    went-to-showdown did not fall on the pooled multi-seed estimate — so their
+    field is unset and they are byte-identical to their pre-ticket selves. Same
+    harness, same pinned seed, same `_WTSD_ORDER_N` = 4000 hands, same
+    arithmetic as the four ratchets above; "before" is this harness at `9d4adc0`,
+    the lever-off tip of this ticket.
+
+        persona          before  measured   n     3 sd      p + 3sd  -> ratchet
+        nit              0.6173    0.6312    995  0.045888  0.677044 -> 0.68
+        tag              0.5528    0.5732   1640  0.036641  0.609812 -> 0.61
+        lag              0.5769    0.5639   2378  0.030508  0.594427 -> 0.60
+        maniac           0.5945    0.5993   3933  0.023442  0.622730 -> 0.63
+        calling_station  0.7010    0.7022   5501  0.018496  0.720732 -> 0.73
+        passive_fish     0.5204    0.5262   4183  0.023161  0.549338 -> 0.55
+
+        persona          incumbent  ratchet  INSTALLED  what happened
+        nit                  0.67     0.68     0.67     capped by the incumbent
+        tag                  0.59     0.61     0.59     capped by the incumbent
+        lag                  0.59     0.60     0.59     capped by the incumbent
+        maniac               0.62     0.63     0.62     capped by the incumbent
+        calling_station      0.72     0.73     0.72     capped by the incumbent
+        passive_fish         0.55     0.55     0.55     unchanged
+
+    NO CEILING MOVES, and every one of the six is held down by a ceiling an
+    earlier slice earned. NO STOP-AND-REPORT FIRES: A4.2 item 3 is about a
+    MEASUREMENT crossing its ceiling, and the closest here is the passive fish at
+    0.5262 against 0.55, then the maniac at 0.5993 against 0.62.
+
+    FIVE OF THE SIX ROWS READ UP AT THIS SEED AND FOUR OF THEM ARE UNCHANGED
+    BOTS. That is the seed, not the lever, and this ticket is the one that
+    measured how much of it there is: pooled over five seeds at 4,000 hands the
+    same comparison reads nit +1.33pp, tag +1.30pp, lag -1.80pp, maniac -0.05pp,
+    fish -0.11pp, station -0.63pp, with a two-sample standard error near 0.8pp
+    for the smaller samples. Only the LAG's movement is larger than that error,
+    and the LAG is the only persona whose pack changed. Anyone reading a
+    one-point move off this single-seed table as an effect should read
+    `docs/ai-dlc/research/slice3-calldown/t5-report.md` §2 first.
     """
     packs, per_persona_n, _texture_n, _hands_per_s = budget
     af_band, ftc_band, wtsd_band = BANDS[persona]

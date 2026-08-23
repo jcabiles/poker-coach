@@ -1,6 +1,6 @@
 # Ledger — improvement slice 3 (calldown) of the bot-realism flywheel
 
-**Bottom line. Twelve things are filed here and none of them is fixed by this
+**Bottom line. Fifteen things are filed here and none of them is fixed by this
 slice. Two compete for most consequential. Filed 5: a bot's probability of
 betting a top pair or a middle pair does not respond to its stack depth AT ALL,
 when commitment says it should rise toward certainty as the stack shortens — so
@@ -12,7 +12,7 @@ ruling that it bounds naked ace-high — and the test filed 9 built to enforce i
 apply a range identity to a bucket, which measurement shows is wrong in both
 directions at once.
 
-The twelve in order. (1) The calling dial is hand-strength-blind, so it cannot close the
+The fifteen in order. (1) The calling dial is hand-strength-blind, so it cannot close the
 fold-to-continuation-bet gap: it moves air, which already folds almost always,
 by the same odds factor as the marginal pairs where the gap actually lives —
 that needs a bucket-aware fold lever, which is an ENGINE-LEVER DEFECT at MEDIUM.
@@ -41,7 +41,14 @@ counts the wrong event — it cannot fall when the bot itself is the one betting
 and ticket 5 measured the two disagreeing in sign on the same run. (12) Showdown
 frequency barely responds to how often the bots bet a late street, because a bet
 that is called makes a showdown just as a check-down does, so the remaining
-thirty-point gap will not close with another merit-layer dial.**
+thirty-point gap will not close with another merit-layer dial. (13) No
+theory-contract row governs unopened late-street betting or what that betting
+range is made of, so ticket 5 had to invent a local composition rule. (14) The
+engine's multiplier order on the aggressive path does not match the contract
+text — pre-existing, harmless while every factor is a plain multiply, filed
+before someone adds a bound to that chain. (15) Ticket 5 registered a reduction
+floor on a configuration that did not end up shipping, which turned a
+composition effect into a recorded miss.**
 
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
@@ -482,66 +489,152 @@ says may not exist.
 
 ---
 
-## Filed 11 — MEASUREMENT DEFECT (MEDIUM): "never faced a wager" cannot see a bot that starts betting
+## Filed 11 — MEASUREMENT DEFECT (MEDIUM): "never faced a wager" and "checked down" were quoted as one statistic
 
-**The statistic this slice used to size the checked-down problem counts the
-wrong event, and S3-T5 measured it doing so.** "Share of showdown hands in which
-the persona never faced a wager" is what `t2-preregistration.md` §4 quoted at
-47.7 / 44.1 / 41.6% for the nit, the TAG and the LAG, and it is what S3-T5's
-first commit turned into a committed counter. It falls only when somebody wagers
-AT the persona. A persona that used to check a hand down and now bets it and
-gets called still never faced a wager, so the hand stays in the numerator — and
-converting check-downs into bet-and-called showdowns is exactly what S3-T5's
-lever does.
+**Three approved documents size the checked-down problem with a number that
+measures something else, and S3-T5's instrument caught it.** "Share of showdown
+hands in which the persona never faced a wager" is what
+`t2-preregistration.md` §4 quoted at 47.7 / 44.1 / 41.6% for the nit, the TAG
+and the LAG, and it is what S3-T5's spec §1 and this slice's prose repeated as
+"every street is checked through". They are not the same event. Measured on the
+band harness pooled over five seeds at 4,000 hands with every pack unauthored:
 
-**Measured, at the dial the TAG ships**: hands genuinely checked down fall 3.00
-points while the never-faced-a-wager share RISES 1.42 points, over 12,000 hands
-of the combined roster. The two statistics disagree in sign on the same run,
-which is the cleanest possible demonstration that they are not measuring the
-same thing.
+| persona | never faced a wager | genuinely checked down |
+|---|---|---|
+| nit | 51.5% | **31.7%** |
+| tag | 46.9% | **19.8%** |
+| lag | 40.7% | **14.5%** |
 
-**What was done about it inside the ticket.** A second counter, `checked_down`
-(no seat wagered on any postflop street), was added to the same harness function
-during the sweep and before any pack value moved, and both are reported. The
-original counter was NOT retired: it is the statistic the ticket was written
-against, and dropping it after seeing its reading would be moving the goalposts.
+**Why they differ, precisely.** A hand can reach showdown with the persona
+having met no wager because nobody bet — the checked-down case — or because the
+persona itself was the bettor and nobody raised it. The first statistic pools
+both. The second isolates the first case, which is what the ticket's prose
+always described.
 
-**What is left for a later slice.** Any future ticket that wants to reduce
-passive showdowns should gate on `checked_down`, not on `never_faced_wager`. The
-figures in `t2-preregistration.md` §4 and in S3-T5's spec §1 remain true as
-written but overstate the checked-down population by roughly 20 points for the
-nit (50.3% never faced a wager against 31.3% genuinely checked down at the
-pre-ticket tip), and anyone sizing a mechanism off them should use the second
-number.
+**The consequence for a lever like S3-T5's, stated carefully.** The
+never-faced-a-wager share does NOT fall automatically when a bot starts betting,
+and it does not automatically rise either. Both channels are live: the bot's own
+bet can be RAISED, which moves the hand out of the numerator, and the bot's own
+bet can PRE-EMPT the wager an opponent would otherwise have made at it, which
+keeps the hand in. Which dominates is a per-persona empirical question, and
+S3-T5 measured both signs on the same run — the nit and the LAG fell, the TAG
+rose. An earlier draft of this entry said the metric "cannot fall when the bot
+is the one betting", which is too strong and is corrected here.
 
-**Severity MEDIUM**: nothing shipped is wrong, no gate was breached, and the
-correction is already in the harness. It is filed because the wrong number is
-quoted in three approved documents and will be reused if nobody says so.
+**What was done inside the ticket.** A second counter, `checked_down` (no seat
+wagered on any postflop street), was added to the same harness function during
+the sweep and before any pack value moved. Both are reported. The original was
+kept: it is the statistic the earlier tickets quoted, and dropping it after
+seeing its reading would be moving the goalposts.
+
+**What is left for a later slice.** Gate on `checked_down`. The figures in
+`t2-preregistration.md` §4 and S3-T5's spec §1 overstate the checked-down
+population by about twenty points on the nit; S3-T5's spec now carries a dated
+correction, and anyone sizing a mechanism off the older documents should use the
+right-hand column above.
+
+**Severity MEDIUM**: nothing shipped is wrong and the correction is already in
+the harness. It is filed because the wrong number is quoted in documents that
+will be reused.
 
 ---
 
 ## Filed 12 — OPEN ITEM: went-to-showdown barely responds to how often the bots bet late
 
-**S3-T5 moved the checked-down share for all three tuned personas and moved
-went-to-showdown for only one of them, and the slice should not assume the next
-lever will do better.** Over 12,000 hands the TAG's checked-down share fell 3.0
-points and its showdown frequency fell 0.7 with a standard error of about 0.7;
-the LAG's fell 0.7 and 0.3. The nit is the exception at −3.7 points of showdown
-frequency.
+**S3-T5 raised three personas' unopened late-street betting by a fifth to a
+quarter and moved one persona's showdown frequency.** The lever's effect on
+policy is large, exact and reproducible: at the shipped gains the LAG bets an
+unopened turn 47.8% of the time instead of 55.0%, the nit 28.4% instead of
+34.2%, the TAG 41.0% instead of 47.7%. The effect on showdown frequency, pooled
+over five seeds at 4,000 hands each, is −1.80pp for the LAG (2.8 standard
+errors) and indistinguishable from zero for the nit and the TAG.
 
 **The mechanism, measured rather than assumed.** Betting an unopened late street
 does two opposite things to showdown frequency at once: the bet sometimes takes
 the pot down, which removes a showdown, and it sometimes gets called by a field
-that contains a calling station and two passive fish, which creates one that a
-check-fold would not have produced. The gain scan in `t5-report.md` §4.1 shows
-the net effect saturating almost immediately — quadrupling the lever's strength
-made showdown frequency slightly WORSE, not better.
+containing a calling station and two passive fish, which creates a showdown that
+a check-and-fold would not have produced. The candidate-gain scan shows the net
+effect saturating almost immediately — quadrupling the value gains moved
+showdown frequency slightly the WRONG way while driving the betting range
+value-pure.
 
-**Consequence for the slice's north-star gap.** The nit still sits about 30
-points above its grounded went-to-showdown band after this ticket (0.5894
-against a target of 0.20-0.28). Across the whole slice, on the 4,000-hand
-harness, the nit has moved 0.6353 -> 0.6173 -> 0.5894 and the TAG 0.6144 ->
-0.5528 -> 0.5709: about 4.6 and 4.4 points net, from two shipped levers and one
-withdrawn. Whatever closes the remaining thirty is not a merit-layer dial on
-decisions the bots already mix, and the next slice should be scoped on that
-basis rather than on another dial.
+**Consequence for the slice's north-star gap.** The nit still sits about 32
+points above its grounded went-to-showdown band and does not ship this lever at
+all. Across the whole slice, on the 4,000-hand harness at the pinned seed, the
+nit has moved 0.6353 → 0.6173 → 0.6312 and the TAG 0.6144 → 0.5528 → 0.5732.
+Two shipped levers and one withdrawn have bought roughly four points on the TAG
+and nothing durable on the nit. **Whatever closes the remaining thirty is not a
+merit-layer dial on decisions the bots already mix**, and the next slice should
+be scoped on that basis rather than on another dial.
+
+---
+
+## Filed 13 — CONTRACT DEFECT (MEDIUM): no theory-contract row governs unopened late-street betting
+
+**S3-T5 is the first mechanic this program has built at the unopened turn/river
+node, and the theory contract has nothing to say about it.** Its §4 and §5 rows
+cover the aggressor-side continuation bet (position, P1), the facing-chips
+defence side, and the three HARD-gatable aggregates. None of them governs (a)
+how often a seat should BET an unopened late street, or (b) what that betting
+range should be MADE OF. The closest row, P1 position, is street-blind and is
+about the c-bet.
+
+**Why that mattered here rather than being a paperwork point.** With no row on
+composition, the first build of this ticket raised the value side alone and the
+review had to catch by inspection what a contract row would have caught by
+construction: the unopened river bet became value-pure. The fix — a bluff-side
+companion fitted so the realised share does not fall — is a LOCAL rule invented
+inside this ticket, and it is defensible but it is not contract law. A future
+ticket at this node will have to re-derive it or re-invent it.
+
+**What a row would need.** A grounded target for unopened late-street bet
+frequency by persona archetype (which today would be `[UNVERIFIED]`, like the
+c-bet band), and a composition obligation stated against the §3 bluff-share
+identity at the size actually wagered — the quantity
+`tools/capped_composition_probe.py` already computes and
+`tools/late_street_probe.py` now computes at these nodes.
+
+**Severity MEDIUM**: it blocks nothing today, and it becomes the blocking item
+the moment a second ticket touches this node, because two tickets inventing two
+local composition rules is how a contract stops meaning anything.
+
+---
+
+## Filed 14 — CONTRACT DEFECT (LOW): the shipped multiplier order does not match §7 as written
+
+**The engine applies the position multiplier LAST on the non-bluff aggressive
+path, after the multiway and texture damps, while theory contract §7 writes the
+stacked-multiplier order the other way round.** This is PRE-EXISTING — it
+predates S3-T5, which inserted its own multiply next to the position one and
+deliberately reordered nothing — and it is filed because S3-T5's contract map
+noticed it and no entry existed.
+
+Nothing measurable turns on it today: the operations are all multiplications on
+the same scalar, so the ORDER is arithmetically irrelevant while every factor is
+a plain multiplier. It stops being irrelevant the moment any factor becomes a
+clamp, a floor or a cap — and this file already contains two such floors on
+adjacent paths. **Severity LOW, but fix it in the contract text or in the code
+before the next ticket adds a bound to that chain.**
+
+---
+
+## Filed 15 — PROCESS DEFECT (MEDIUM): a reduction floor was registered on a configuration that did not ship
+
+**S3-T5 registered the LAG's checked-down floor at 1.9 points from an arm where
+all three candidate personas were dialled, then shipped the LAG alone, where the
+same lever delivers 1.42.** The miss is recorded as a shortfall under the
+owner's rule, and the shortfall is real — but it is an artifact of the
+registration rather than of the lever. A checked-down hand requires EVERY seat
+to check, so a persona's checked-down share falls partly because of what the
+OTHER dialled personas do; removing two of the three bettors takes back part of
+the effect the third was credited with.
+
+**The rule this should become.** A floor is registered against the configuration
+that is proposed to ship, and if the ship list changes after the floors are
+written, the floors are re-derived for the new list before the values land — or
+the shortfall is attributed to the change rather than to the lever, which is
+what S3-T5's report does.
+
+**Severity MEDIUM**: it produced a misleading-looking miss on a ticket that is
+otherwise green, and the same pattern will recur on any slice whose ship list is
+decided by a gate rather than fixed in advance.

@@ -158,7 +158,11 @@ not ship.
 
 Measured at dial 1.0, which is aggression-admissible for all three (nit 1.581
 against a band of (0.6, 2.4); tag 2.734 against (1.4, 3.6); lag 2.734 against
-(1.5, 4.5)):
+(1.5, 4.5)). **The arm below has all three dialled together** — the pooled
+harness runner sets every persona it is asked about, and calling that a
+"one persona at a time" sweep would be the same class of mislabelling this
+revision exists to fix. The joint arm is the right one to read the ship rule
+against anyway, because a joint configuration is what would ship:
 
 | persona | pinned-seed went-to-showdown | pooled Δ (5 seeds) | verdict |
 |---|---|---|---|
@@ -166,17 +170,48 @@ against a band of (0.6, 2.4); tag 2.734 against (1.4, 3.6); lag 2.734 against
 | lag | 0.5769 → 0.5638, **falls** | −2.20pp ± 0.64 | **SHIPS at 1.0** |
 | tag | 0.5528 → 0.5603, **rises** | +0.06pp ± 0.78 | **DOES NOT SHIP** |
 
-**Registered floors**, on the primary diagnostic, for the two personas that
-ship. Derivation rule, unchanged from revision 1 in form and repaired in
+**AMENDED THE SAME DAY, BEFORE THE PACK VALUES WERE COMMITTED.** The rule has
+to be applied to the configuration that actually ships, and applying it removed
+the nit. Three configurations were measured, five seeds each:
+
+| configuration | nit pooled Δ | tag pooled Δ | lag pooled Δ |
+|---|---|---|---|
+| all three dialled | −0.31pp ± 0.97 | +0.06pp ± 0.78 | −2.20pp ± 0.64 |
+| nit + lag dialled | **+0.28pp ± 0.97** | — | −1.71pp ± 0.64 |
+| lag alone (shipped) | — | — | **−1.80pp ± 0.64** |
+
+**The nit's pooled sign is configuration-dependent and never distinguishable
+from zero**, so it fails the second half of the rule the moment the TAG is
+removed from the arm. Its checked-down fall shrinks with it, from 2.30pp to
+1.20pp, and stops clearing one standard error. The nit therefore does NOT ship.
+The LAG's effect is the same size in every configuration and clears in all of
+them, so it does.
+
+That the rule cost the ticket its motivating persona is not a reason to soften
+it. The nit is the persona this lever was designed around, and the evidence
+after repair says the lever does not move its showdown frequency either way.
+
+**Registered floors**, on the primary diagnostic, for the persona that ships. Derivation rule, unchanged from revision 1 in form and repaired in
 substance: the fall the shipped dial delivers in the five-seed pool, minus one
 two-sample standard error.
 
 | persona | quantity | measured fall | one standard error | registered floor |
 |---|---|---|---|---|
-| nit | checked down | 2.30pp | 1.18pp | **≥ 1.1pp** |
 | lag | checked down | 2.51pp | 0.58pp | **≥ 1.9pp** |
 | lag | never faced a wager | 1.20pp | 0.84pp | **≥ 0.3pp** |
-| nit | never faced a wager | 1.07pp | 1.28pp | **direction only** |
+| ~~nit~~ | ~~checked down~~ | ~~2.30pp~~ | ~~1.18pp~~ | **withdrawn — does not ship** |
+
+Both LAG floors are registered off the all-three arm, which is the arm that was
+measured when they were written. The shipped configuration is the LAG alone, and
+it delivers LESS: 1.42pp of checked-down and 0.59pp of never-faced-a-wager. That
+is a **recorded shortfall against both floors** under the owner's rule of
+2026-08-22 — the admissible value ships and the miss is written down. It is not
+a surprise in hindsight and it is worth stating why: two of the three personas
+that were dialled when the floor was set are no longer dialled, and a
+checked-down hand needs EVERY seat to check, so removing two of the three
+bettors from the table takes back part of the effect the third was credited
+with. A floor registered on a configuration that does not ship is a defect in
+the registration, and it is filed as one.
 
 Shortfall rule, from the owner's answer of 2026-08-22, and it applies to these
 floors and not to the gate: if the admissible dial cannot clear a floor, ship

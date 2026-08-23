@@ -1,12 +1,13 @@
 # Spec — S3-T5: the checked-down path (improvement slice 3, ticket 5)
 
-**status: approved (owner 2026-08-22) — BUILT at `72322d0`; outcome, criterion by criterion, in `../research/slice3-calldown/t5-report.md` (one criterion is PARTIAL: went-to-showdown falls for the nit and is not established for the TAG or the LAG). Slice-3 scope amendment landed. Rev history: draft rev 2 — rev 1 FAILED blind review (refuter + Codex Sol, 2026-08-22) on four converging findings, all folded in below; confirmation pass PASS-WITH-FIXES (Sonnet refuter), fixes applied — READY, pending slice-3 spec amendment at build time**
+**status: approved (owner 2026-08-22) — BUILT, then REWORKED after a triple review; the slice-3 scope amendment has landed. The build spans commits `2834b60`..`HEAD` on `feat/slice3-t5-late-street-bet`. Outcome, criterion by criterion, in `../research/slice3-calldown/t5-report.md`. Two things in the text below are SUPERSEDED by the rework and carry dated notes where they appear: §3's "the bluff cell is untouched" (the lever now has a bluff-side companion on the same dial) and §1's framing of the problem statistic (the target is the checked-down share, not the never-faced-a-wager share). Review history: rev 1 FAILED blind review 2026-08-22 on four findings; rev 2 was READY; the BUILD then failed a triple review (refuter PASS-WITH-FIXES, theory reviewer NEEDS-WORK, Codex Sol FAIL) on measurement pairing, composition and the gate, all folded into the rework.**
 
-**Bottom line.** Between 42% and 48% of the nit, TAG and LAG personas' showdown
-hands never face a wager at all — every street is checked through. The calling
-dial that slice 3's earlier tickets tune cannot reach those hands, which is why
-S3-T2 (the calling-dial retune, ticket 2 of this slice) fell short of its
-went-to-showdown target. This ticket adds **one bounded, pack-read lever** that
+**Bottom line.** Between a seventh and a third of the nit, TAG and LAG
+personas' showdown hands are checked all the way down — no seat wagers on any
+postflop street — and the calling dial that slice 3's earlier tickets tune
+cannot reach them, because a hand nobody bets at contains no calling decision.
+That is why S3-T2 (the calling-dial retune, ticket 2 of this slice) fell short
+of its went-to-showdown target. This ticket adds **one bounded, pack-read lever** that
 makes a bot more willing to bet at an unopened turn or river node, so fewer
 hands drift to showdown with no money going in. The motivating human behaviour
 is the stab a player makes when checked to — but the engine cannot tell a
@@ -16,33 +17,47 @@ earlier on the street), so the lever is honestly named for what it moves:
 field leaves every persona byte-identical), it lives entirely inside the one
 function both the live bot and the villain-range estimator already share, it
 adds no random draw, and it is gated on went-to-showdown (a HARD-today
-statistic) and **diagnosed** with a new harness counter, "share of showdown
-hands that never faced a wager", which this ticket builds first — the theory
-contract requires a metric to be live before anything is measured against it.
+statistic) and **diagnosed** with new harness counters, which this ticket builds
+first — the theory contract requires a metric to be live before anything is
+measured against it. The primary one is "share of showdown hands that were
+checked down"; "share of showdown hands in which this persona never faced a
+wager" is reported alongside it as a disclosed secondary, because it is what the
+earlier tickets of the slice quoted and it answers a different question.
 
 Owner authorization (2026-08-22): spec now; build only if the slice-3 chain
 (S3-T2 → S3-T3 → S3-T4) lands with budget to spare. Boundary: **pack values plus
 one bounded engine lever, default = today's behaviour.** Anything wider returns
 to the owner. **Scope amendment required:** the approved slice-3 spec
 (`flywheel-slice3-calldown.md` §"Constraints", "engine work is limited to the
-two levers named here") admits only S3-T1's split and S3-T3's multiplier. The
-build PR amends that spec with a dated owner-ruling note admitting this
-conditional fifth ticket; until that amendment lands, this document is a
-proposal, not an approved ticket.
+two levers named here") admits only S3-T1's split and S3-T3's multiplier. That
+amendment LANDED with this build: `flywheel-slice3-calldown.md` carries the
+dated owner-ruling note admitting this conditional fifth ticket, so the
+condition this paragraph set is met and the document is no longer a proposal.
 
 ## 1. Problem, measured
 
-| persona | showdown hands that never faced a wager (band harness, pinned 4,000-hand sample) | went-to-showdown vs grounded band |
-|---|---|---|
-| nit | 47.7% | 0.635, about 35 points above its band |
-| tag | 44.1% | 0.614 |
-| lag | 41.6% | 0.566 |
+**CORRECTED 2026-08-22 (build, theory-review finding).** The 47.7 / 44.1 /
+41.6% figures this section was drafted around are the share of showdown hands in
+which the persona NEVER FACED A WAGER, which is not the same thing as "every
+street is checked through" and is about twenty points larger on the nit. The
+build's own instrument measured both; the checked-down share is the one this
+ticket is about, and the table below is the corrected one. Neither figure was
+wrong as arithmetic — they were conflated in the prose of three approved
+documents, which is filed as a measurement defect in the slice ledger.
 
-Source: `../research/slice3-calldown/t2-preregistration.md` §1 and
-`../research/slice3-calldown/t2-findings.md` §5.3. The hands that DO face a
-wager meet about one wager each, so the calling dial's whole reach is a single
-decision per hand; the checked-through hands are the larger population and are
-untouched by every lever this slice has so far.
+| persona | showdown hands CHECKED DOWN (no seat wagered) | showdown hands where this persona never faced a wager | went-to-showdown vs grounded band |
+|---|---|---|---|
+| nit | 31.7% | 51.5% | 0.603, about 32 points above its band |
+| tag | 19.8% | 46.9% | 0.565 |
+| lag | 14.5% | 40.7% | 0.576 |
+
+Measured on the band harness pooled over five seeds at 4,000 hands each, all six
+packs unauthored, at commit `9d4adc0`; the drafting figures came from
+`../research/slice3-calldown/t2-preregistration.md` §1 and
+`../research/slice3-calldown/t2-findings.md` §5.3 at an earlier tip. The hands
+that DO face a wager meet about one wager each, so the calling dial's whole
+reach is a single decision per hand; the checked-down hands are untouched by
+every lever this slice has so far.
 
 Why this is a realism defect and not only a statistic: a human who is checked
 to on the turn with position, or on the river after two check-arounds, bets a
@@ -73,6 +88,19 @@ delayed-c-bet lever exists.
 **turn and river only**, BET leg only — never the matched-with-option RAISE
 leg, never the flop (the flop c-bet is already governed by `position_sensitivity`
 and `aggression`, and the theory contract's c-bet band is `[UNVERIFIED]`).
+
+**SUPERSEDED IN PART, 2026-08-22 (build, theory reviewer + Codex Sol).** The
+paragraphs below say the bluff cell is untouched and give the reason. Measured,
+that made the unopened river bet VALUE-PURE — at a dial of 1.0 the TAG's naked
+air bet 7.4% while its top pair and better bet 85 to 97% — which a judge reads
+as "this bot bets the river, therefore it has top pair or better". That is a
+worse tell than the passivity the lever exists to remove. The shipped lever
+therefore has a BLUFF-SIDE COMPANION driven by the same one pack dial, with its
+own fitted gains, calibrated so no shipped persona's realised unopened bluff
+share falls below its lever-off value. It is still one pack field and one
+bounded lever. The fit and its scan are in the pre-registration §4; the
+reasoning the paragraphs below give for leaving the bluff cell alone is kept as
+the record of what was tried.
 
 **What it does:** on the NON-BLUFF path only, with the full guard written out —
 `not bluff_cell and agg_action is ActionType.BET and street in (TURN, RIVER)
@@ -123,6 +151,16 @@ and after as a diagnostic table so a reviewer can see whether the spread
 narrowed into a uniform stab rate; a visibly flattened spread is a
 stop-and-report.
 
+**RESOLVED at build time, 2026-08-22, and not in the direction this paragraph
+expected.** The measured tell was not a flattened spread but a value-pure one,
+and it came from the value side rising alone. With the bluff-side companion
+fitted, the shipped lever moves the range the OTHER way: the LAG's realised
+unopened river bluff share rises from 0.1306 to 0.1501, and on the river the
+naked-air cell rises by a factor of 1.24 against the monster's 1.02, so the gap
+between what a bluff and a nut hand do narrows. The composition table the
+paragraph asks for is in the report §5, by strength AND draw class, in and out
+of position, with true naked air separated from a gutshot.
+
 ## 3a. The instrument comes first (build phase A)
 
 No committed harness computes "share of showdown hands that never faced a
@@ -134,6 +172,13 @@ faced wagers across all postflop streets ÷ showdown hands), records its value
 for all six personas at the pinned seed with the packs unedited, and lands
 that as the first commit of the PR. It is a DIRECTIONAL diagnostic under the
 theory contract (`:394-409`), never a HARD gate; went-to-showdown is the gate.
+
+**AMENDED at build time, 2026-08-22.** The build shipped that counter and then a
+SECOND one, `checked_down` — showdown hands in which NO seat wagered — because
+the first cannot distinguish a hand nobody bet at from a hand this persona bet
+and got called on, and only the former is what this ticket is about. The second
+is the primary diagnostic; the first is kept and reported. Neither is a gate.
+See §1's correction and the slice ledger's Filed 11.
 
 ## 4. Constraints carried in (violating any is a defect)
 
