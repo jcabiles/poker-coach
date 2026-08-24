@@ -25,3 +25,37 @@ persona-parametrized ceiling test) · `ruff` clean · `make scorer-test` 119/119
 `~/.codex-ai-org` (not auth, not nested-Seatbelt); relocating `CODEX_HOME` to
 `~/.codex/ai-org-home` (inside the sandbox's writable `~/.codex`) fixed it. Worth carrying
 into the recipe if it recurs.
+
+---
+
+# Build round — `/ai-org:build`, Lane A + Lane B, 2026-08-24
+
+**Bottom line.** Every wave was reviewed by a fresh agent that had not seen the worker's
+reasoning. Findings below are listed with what the orchestrator decided about each; none was
+folded automatically. One of them is a defect in the approved spec rather than in anyone's
+build work, and one is an item that now needs the owner's confirmation.
+
+Scope note: the owner's build invocation authorized **Lane A + Lane B only** — chain 1,
+tickets E1 through E3, all inside poker-coach. Chain 2 (tickets P1–P4, the poker-analytics
+publication-readiness lane, which the spec calls Lane C) was not authorized and is unbuilt.
+
+| # | Wave | Source | Severity | Finding | Adjudication |
+|---|---|---|---|---|---|
+| B1 | E1 | build reviewer | HIGH | The paragraph recording ruling D2 (the value-side commitment slope is in scope for the future re-anchor slice) also asserted, inside a paragraph headed as an owner ruling, that the slope's engine work "lands in a separate pull request inside the same slice, ahead of the calibration one" — a reading of pre-existing ratified amendment A6, not something the owner ruled. | **ACCEPTED; kept in substance, re-marked.** Striking it was rejected: A6 opens by calling the re-anchor slice "calibration and hand-off only" while D2 puts engine work inside that slice, so the tension is real and a worker who cannot see it will hit it unwarned. The reading now sits in its own paragraph under the file's existing `⚠️ Provenance … not itself owner-ratified text` convention. **This is a new item awaiting owner confirmation.** |
+| B2 | E1 | build reviewer | MEDIUM | "Amendment A10" was cited four times but never defined; amendments A1 through A9 are each a headed, dated block. | **ACCEPTED; label removed rather than a heading invented,** because the rule structurally is a reviewer-checklist item, not a block in §3, §4a or §7 like every real A-letter. It is now cited as "§11 item 16, owner-ratified 2026-08-24", which keeps its authority visible. |
+| B3 | E2 | worker, orchestrator-verified | MEDIUM | **Defect in the approved spec, not in the build.** The spec directs a docstring correction at `test_fold_to_bet_respects_alpha_ceiling`, lines 8421–8428. Those lines belong to a different test, `test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents` (defined at `:8072`), whose docstring is the one asserting the withdrawn ruling and citing a now-deleted test. | **Line numbers are right, the name is wrong.** Verified independently against `HEAD`: the named test's docstring is about the one-pair bluff-catcher range and the α ceiling as a ceiling-not-a-floor, and never asserts the per-bucket reading — so it needed no correction and got none. The worker corrected the block the line numbers point at, which was the correct call. Recorded here so a later reader does not "fix" the spec's name and re-open the wrong docstring. |
+| B4 | E2 | worker, disclosed | LOW | A roughly 7-line section-header comment not named on the ticket's deletion list was deleted along with the block it introduced. | **ACCEPTED as correct.** The build reviewer confirmed it was a genuine orphan: it introduced only content being removed in full, it asserted the withdrawn ruling as settled fact, and nothing still referenced by surviving code went with it. Keeping it would have left a factually wrong header with nothing underneath. |
+
+**Wave-2 review outcome: APPROVE, zero findings** (`../reviews/slice3-decisions-execution-build-e2.md`).
+The reviewer re-ran the syntax-tree comparison and the persona test file itself rather than reading
+the worker's transcript; both matched. Residue sweep found no surviving line in either file that
+asserts the withdrawn per-bucket rule as live.
+
+**Independently reproduced by the orchestrator, not taken on a worker's word.** The engine
+file `personas_postflop.py` has a **byte-identical abstract syntax tree before and after**
+E2 — that is a proof of zero behaviour change, stronger than reading the diff for lines
+beginning with a hash · all five symbols the ticket deletes are absent and all three that
+must survive are present · the pre-work baseline was registered before any worker started
+(whole suite 2191 passed / 2 skipped / 6 expected-failures; the persona test file alone
+collecting 401), so the predicted post-deletion figures of 2189 / 2 / 0 and 393 were written
+down in advance rather than fitted afterwards.

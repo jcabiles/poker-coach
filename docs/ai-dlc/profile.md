@@ -48,38 +48,22 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 ## Resume
 
 updated:      2026-08-24
-position:     /ai-org:spec ceremony COMPLETE for `slice3-decisions-execution` (+ publication
-              readiness). Owner ruled all six slice-3 filed decisions 2026-08-24 (record:
-              research/slice3-calldown/owner-decisions.md, rulings in-session: D1 α
-              per-range + delete all three per-bucket tests · D2 commit slope IN re-anchor
-              scope · D3 fold lever parked at §4 P8 · D4 Filed-15 rule as §11 item 16,
-              W3R-1 dual pattern · D5 acknowledged · D6 parked). Lane-B discovery: the
-              statistics-ingestion NEXT item was ALREADY satisfied 2026-08-06 by
-              poker-analytics registry v2 — roadmap entry is stale; reconciliation is
-              ticket E3. Spec dual-reviewed (refuter + Codex Terra, both
-              APPROVE-WITH-FIXES, 4 findings accepted+folded: ledger/slice3-decisions-execution.md).
-awaiting John: Gate-2 build approval of tickets/slice3-decisions-execution.md (then /clear
-              + /ai-org:build in a fresh session). Blind play session + finale keys remain
-              separately owed and are NOT part of this spec.
-authorized:   artifact writes under docs/ai-dlc only (spec/contracts/tickets/ledger/reviews
-              + this block). NO code, NO engine/test edits, NO PRs yet — build authorization
-              comes only from tickets/slice3-decisions-execution.md reading
-              `status: approved`. Comment-only personas_postflop.py corrections are inside
-              the approved-spec scope ONLY once build is authorized.
-
---- (prior resume, 2026-08-23, kept for provenance) ---
-updated:      2026-08-23
-commit:       0561e8f (main; engine/packs/frontend unchanged by wave 5 — docs-only close work on top)
-log-entry:    wave 5 close packet, /ai-org:build ceremony 2026-08-23 (plan: docs/ai-dlc/plans/slice3-chain-autonomy.md)
-position:     improvement slice 3 (calldown) BUILT — all five tickets merged (#211, #212, #215,
-              #216, #217, #218); chain-wide WTSD measured (pooled −0.98pp harness / −1.5pp
-              export); close packet, owner-decision memo, finale-readiness packet, and
-              play-session checklist committed under docs/ai-dlc/research/slice3-calldown/.
-merged:       coach #211–#218 (the build chain). The wave-5 close docs land via the PR that
-              carries this very file (`chore/slice3-close-packet`) and the analytics
-              pointer-refresh PR — if you are reading this on main, both are merged.
-next action:  OWNER — blind play session (research/slice3-calldown/play-session-checklist.md);
-              it closes slice 3 per the 2026-08-17 ruling. Then rule on the six filed decisions
-              (research/slice3-calldown/owner-decisions.md — the α per-range question first).
-              After acceptance: the single finale detection run (finale-readiness.md — keys +
-              go-ahead are the only missing inputs). No build work is unblocked until then.
+commit:       5cbf6cb on branch `chore/slice3-decisions-execution` (base 2b4fefe = origin/main)
+log-entry:    /ai-org:build of tickets/slice3-decisions-execution.md, Lane A + Lane B
+position:     BUILD IN PROGRESS. Ticket file approved 2026-08-24 for **Lane A + Lane B only**
+              — that is chain 1, tickets E1 → E2 → E3, all in poker-coach. Chain 2 (tickets
+              P1–P4, the poker-analytics publication-readiness lane, which the spec calls
+              Lane C) was NOT authorized in this run and is still unbuilt.
+              Wave 1 (E1) CLOSED: the owner's six 2026-08-24 rulings are recorded in
+              contracts/persona-realism-theory-contract.md as amendment A9, a cross-reference
+              on A8 item 5, a §4 row-P8 parking note, §11 item 16, a §7 factor-order
+              correction and §9 ledger entry 18. Reviewed APPROVE-WITH-FIXES, two findings
+              accepted and fixed pre-commit (reviews/slice3-decisions-execution-build-e1.md).
+              Wave 2 (E2, the test deletions) and wave 3 (E3, ledger and roadmap) still owed.
+baseline:     before E2, `./scripts/verify.sh` is green at 2191 passed / 2 skipped / 6 xfailed;
+              tests/test_personas_postflop.py alone collects 401. E2 deletes 8 cases, so a
+              correct E2 lands 2189 passed / 2 skipped / 0 xfailed.
+owner still owes (unchanged, NOT part of this build): the blind play session that closes
+              slice 3 (research/slice3-calldown/play-session-checklist.md), then the single
+              finale detection run (research/slice3-calldown/finale-readiness.md — vendor
+              keys and a go-ahead are its only missing inputs).
