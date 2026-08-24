@@ -640,6 +640,16 @@ built, and nothing below blocks the slice.
   nothing in the code says so. **Owner ruled 2026-08-19 that α does apply to the
   bucket, and authorised a guard-extension ticket**; T3's new call leg currently sits
   outside the guard, because the guard is scoped by `_CATCHER_BUCKETS`.
+  **CLOSED 2026-08-24 — the 2026-08-19 ruling recorded in this bullet is WITHDRAWN and
+  this item is no longer open.** The owner ruled that α bounds a defender's whole RANGE
+  and nothing smaller; the guard-extension ticket it authorised shipped as improvement
+  slice 3's ticket S3-T4 and its guard was then **deleted** on 2026-08-24, along with the
+  pre-river station assertion built on the same premise. `_CATCHER_BUCKETS` excluding
+  ACE_HIGH is now correct rather than merely un-applied, and **no test, ticket, band or
+  review finding may assert a per-class α obligation again.** Replacement law: theory
+  contract `../contracts/persona-realism-theory-contract.md` amendment **A9**, indexed at
+  §9 ledger entry 18; evidence in `flywheel-slice3-calldown.md` items Filed 9 and Filed 10.
+  `_ACE_HIGH_RIVER_CALL_DAMP` is untouched at 0.06 — it is a lever, not a bound.
 - **The two standing price fixtures are blind to street-gated levers.**
   `fold_by_size` and `catcher_fold_by_size` both omit `street`, so they measure at
   `street=None`, outside any street gate; a first version of T1's α measurement

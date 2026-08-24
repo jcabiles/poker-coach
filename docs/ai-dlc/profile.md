@@ -48,22 +48,33 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 ## Resume
 
 updated:      2026-08-24
-commit:       5cbf6cb on branch `chore/slice3-decisions-execution` (base 2b4fefe = origin/main)
+commit:       branch `chore/slice3-decisions-execution` (base 2b4fefe = origin/main)
 log-entry:    /ai-org:build of tickets/slice3-decisions-execution.md, Lane A + Lane B
-position:     BUILD IN PROGRESS. Ticket file approved 2026-08-24 for **Lane A + Lane B only**
-              — that is chain 1, tickets E1 → E2 → E3, all in poker-coach. Chain 2 (tickets
-              P1–P4, the poker-analytics publication-readiness lane, which the spec calls
-              Lane C) was NOT authorized in this run and is still unbuilt.
-              Wave 1 (E1) CLOSED: the owner's six 2026-08-24 rulings are recorded in
-              contracts/persona-realism-theory-contract.md as amendment A9, a cross-reference
-              on A8 item 5, a §4 row-P8 parking note, §11 item 16, a §7 factor-order
-              correction and §9 ledger entry 18. Reviewed APPROVE-WITH-FIXES, two findings
-              accepted and fixed pre-commit (reviews/slice3-decisions-execution-build-e1.md).
-              Wave 2 (E2, the test deletions) and wave 3 (E3, ledger and roadmap) still owed.
-baseline:     before E2, `./scripts/verify.sh` is green at 2191 passed / 2 skipped / 6 xfailed;
-              tests/test_personas_postflop.py alone collects 401. E2 deletes 8 cases, so a
-              correct E2 lands 2189 passed / 2 skipped / 0 xfailed.
-owner still owes (unchanged, NOT part of this build): the blind play session that closes
-              slice 3 (research/slice3-calldown/play-session-checklist.md), then the single
-              finale detection run (research/slice3-calldown/finale-readiness.md — vendor
-              keys and a go-ahead are its only missing inputs).
+position:     BUILD COMPLETE, all three tickets merged into the branch and a PR opened.
+              The ticket file was approved 2026-08-24 for **Lane A + Lane B only** — chain 1,
+              tickets E1 → E2 → E3, all in poker-coach. **Chain 2 (tickets P1–P4, the
+              poker-analytics publication-readiness lane, which the spec calls Lane C) was
+              NOT authorized and is still unbuilt** — it needs its own build run.
+              E1: the six 2026-08-24 rulings recorded in the theory contract (amendment A9,
+              a cross-reference on A8 item 5, a §4 row-P8 parking note, §11 item 16, the §7
+              factor-order correction, §9 ledger entry 18). E2: the three tests enforcing the
+              withdrawn per-bucket α rule deleted with their orphaned helpers, and the engine
+              comments corrected — engine syntax tree proven identical, so zero behaviour
+              change. E3: eleven dated adjudication notes in the slice-3 finding ledger, the
+              two documents still asserting the withdrawn rule resolved, the roadmap's
+              statistics-ingestion entry marked satisfied-2026-08-06 with four residual
+              limitations, and a tree-wide sweep.
+verified:     `./scripts/verify.sh` green on the branch — 2189 passed / 2 skipped / 0 xfailed,
+              BACKEND VERIFY OK, ruff clean. That figure was predicted before any work started
+              (baseline 2191 / 2 / 6, minus the 8 deleted cases) rather than fitted after.
+reviews:      every wave reviewed by a fresh agent that never saw the maker's reasoning.
+              E1 APPROVE-WITH-FIXES (2), E2 APPROVE (0), E3 APPROVE-WITH-FIXES (6, reviewer on
+              Opus). All ten findings accepted and fixed before commit; ledger is
+              ledger/slice3-decisions-execution.md, reports under reviews/.
+owner still owes: (a) confirm or overrule ONE marked-unratified interpretation in the theory
+              contract — how the commitment-slope ruling reconciles with amendment A6 (ledger
+              finding B1); (b) correct §10.2 of research/persona-realism-audit-2026-07-24.md
+              in the main checkout — it is git-excluded, so no branch can reach it, and it
+              still carries the superseded multiplier order the contract now contradicts;
+              (c) unchanged and NOT part of this build — the blind play session that closes
+              slice 3, then the single finale detection run (vendor keys + go-ahead).

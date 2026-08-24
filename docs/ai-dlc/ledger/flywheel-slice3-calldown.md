@@ -54,6 +54,26 @@ before someone adds a bound to that chain. (15) Ticket 5 registered a reduction
 floor on a configuration that did not end up shipping, which turned a
 composition effect into a recorded miss.**
 
+**ADJUDICATION STATUS, added 2026-08-24 — eleven of the fifteen entries now carry
+a dated adjudication note, and they do not all say the same thing.** The owner
+took six decisions on 2026-08-24 (`../research/slice3-calldown/owner-decisions.md`,
+the memo that posed them; theory contract §9 ledger entry 18 indexes where each
+one landed). Read each entry's note for its own outcome: **Filed 9 and Filed 10
+are CLOSED by one shared adjudication** (α is a per-range bound and the
+2026-08-19 per-bucket ruling is withdrawn); **Filed 8 is DISSOLVED**, its
+obligation having been owed against that withdrawn bound; **Filed 15 is CLOSED**,
+adopted as standing process law; **Filed 14 is CLOSED in the contract text**, with
+one residual reported rather than fixed because the document holding it is out of
+reach from any tracked branch; **Filed 1 and Filed 4 stay PARKED**, and **Filed 13
+is DEFERRED to the re-anchor slice and STAYS OPEN** as an obligation that becomes
+blocking the moment a second ticket touches its node; **Filed 5 gains a scope home
+but no build authority**; **Filed 11 is recording-only**; and **Filed 2's residual
+STAYS OPEN** — whether a tight
+archetype may sit near or cross the *range-level* α wall — with no test permitted
+to admit it until a sourced margin exists. The remaining four entries (3, 6, 7,
+12) were not in the decision batch and are unchanged. Nothing above or below this
+line is retracted; the notes are appended, never substituted.
+
 Slice spec: `../specs/flywheel-slice3-calldown.md` ·
 Tickets: `../tickets/flywheel-slice3-calldown.md` ·
 Contract map: `../contracts/flywheel-slice3-calldown.md` ·
@@ -110,6 +130,19 @@ it is built.
 only a slice that is tasked with closing the fold-to-continuation-bet gap. It
 becomes HIGH the moment such a slice is opened.
 
+**ADJUDICATED 2026-08-24 (owner decision 3) — PARKED, not built, and therefore
+not closed.** The owner ruled that the bucket-aware fold lever this entry
+proposes is **filed where the contract says it must be specified, and built only
+if a slice is ever opened whose stated goal IS the fold-to-continuation-bet
+gap.** It is recorded in the boundary cell of theory contract §4 row **P8
+elasticity split** (`../contracts/persona-realism-theory-contract.md`) and
+indexed at that file's §9 ledger entry 18. **Nothing in the finding above is
+retracted:** the calling dial is still hand-strength-blind, and the nit still
+reads 0.435 against a grounded floor of 0.60. What the ruling settles is only
+that the gap stays visible in the band harness, asserted by no gate, until such
+a slice exists — the stated cost of parking. Severity stays MEDIUM on the same
+reasoning this entry already gives.
+
 ---
 
 ## Filed 2 — CONTRACT DEFECT (MEDIUM): α is asserted roster-wide and is silent on archetype
@@ -149,6 +182,31 @@ that margin needs a source and a written scope before any test admits it?
 10 keeps the α assertion RAW and forbids editing it inside a fix round; S3-T2
 stopped at a dial the raw ceiling admits and filed the question rather than
 touching the guard.
+
+**ADJUDICATED 2026-08-24 (owner decision 1) — RESHAPED, and its residual STAYS
+OPEN. This is the one thing anywhere in the repository that the α re-ruling
+leaves live.** Half of this entry dissolves and half survives.
+
+**Dissolved.** The choice this entry posed — is α a roster-wide law, or a
+balanced-bettor guardrail that tight archetypes may exceed — was framed as a
+question about how a bound applies to one hand class. The owner ruled that α
+bounds the defender's WHOLE RANGE and nothing smaller, and **withdrew** the
+2026-08-19 per-bucket ruling (theory contract amendment **A9**; §9 entry 18,
+decision 1). Read against a range-level bound, the framing above is no longer
+the question.
+
+**STILL OPEN — and no test may admit it yet.** May a tight archetype (the nit)
+sit closer to the **range-level** α wall than a loose one, or cross it
+deliberately, as real tight players do? **This stays open.** It is a
+modelling-philosophy question with no source behind it today, and it becomes
+live only when a slice next pushes the nit's calling dial. **The condition that
+must be met first is a SOURCED MARGIN** — quoted with the provenance triple that
+theory contract §5a's citing gate requires. Until such a margin exists, this
+question may not enter the repository as a test assertion, a band edge or an
+acceptance criterion; the W3R-1 rule directs a slice that wants it to open the
+target's provenance before it touches a lever. The measurements above stand
+unchanged and are the reason the question is live at all: the nit ships at 0.3136
+against α 0.3333, headroom 0.0197, and the next dial down leaves 0.0021.
 
 ---
 
@@ -218,6 +276,16 @@ DIRECTIONAL. Any slice that re-derives this constant re-derives it against that
 row, and against the went-to-showdown statistic the constant's own comment names
 as the thing it serves.
 
+**ADJUDICATED 2026-08-24 (owner decision 6) — STAYS PARKED; no action, and no
+closure.** The owner confirmed the disposition this entry already records:
+`_DRAW_FREE_RIVER_PROB` stays at 0.30, it stays out of scope, and it remains
+owned by theory contract §4 rows **P6** and **P6/F7** for whichever slice
+re-derives it. **No contract row moved and nothing above is retracted** — the
+constant is still authored at 0.30 where the arithmetic suggests something nearer
+0.50, and that discrepancy is still filed rather than fixed. This note records
+that the item keeps waiting on a named owner, not that it is finished. Indexed at
+theory contract §9 entry 18, decision 6.
+
 ---
 
 ## Filed 5 — OPEN ITEM (HIGH): made-value betting is FLAT in stack depth, where commitment says it should rise
@@ -253,6 +321,27 @@ where it is filed as an open item for the single designated re-anchor slice.
 **Owner decision required** before any slice builds it: whether the value-side
 commit slope is in scope for the re-anchor, and whether it replaces or composes
 with the existing commit step.
+
+**ADJUDICATED 2026-08-24 (owner decision 2) — IN SCOPE for the single designated
+re-anchor slice; still NOT authorized to build.** The decision this entry asked
+for has been taken. The value-side commitment slope is **in scope** for the
+re-anchor slice, and the replace-versus-compose question against the existing
+commit step is decided **inside that slice's own spec**, not here.
+Cross-referenced at theory contract §3 amendment **A8 item 5** and indexed at §9
+entry 18, decision 2. **What the ruling gives this entry is a home and nothing
+more** — the highest-severity open engine defect stops floating, and no build is
+authorized by it. The measurement above is unchanged: top pair and middle pair
+are still identical to twelve decimal places from a stack-to-pot ratio of 10 down
+to 0.3, and severity stays HIGH.
+
+**One thing a worker who reaches the re-anchor slice must not silently resolve.**
+Theory contract amendment A6 calls that slice "calibration and hand-off only" and
+forbids its pull request from moving any engine constant or lever, while this
+ruling places a new engine mechanism inside the same slice. The contract carries
+a reading that reconciles the two (the slope lands in a separate pull request
+ahead of the calibration one), but that reading is an **orchestrator-adjudicated
+clarification flagged for owner confirmation, not ratified text**. Raise the
+tension at that slice; do not pick a reading.
 
 ## Filed 6 — MEASUREMENT DEFECT (MEDIUM): the capped-node bluff-share shortfall was read RAW, and part of it is size-warranted
 
@@ -369,6 +458,25 @@ be no per-bucket obligation for the damp to be re-derived against.
 **Not a defect and not a blocker.** Nothing is red, the guard extension shipped
 without it, and the engine is behaviourally byte-identical.
 
+**ADJUDICATED 2026-08-24 (owner decisions 1 and 6) — DISSOLVED, and parked in the
+same breath.** This entry recorded an obligation that no longer exists. The
+re-derivation it files was owed against the **per-bucket** α bound, and the owner
+withdrew that bound on 2026-08-24 (theory contract amendment **A9**). With no
+per-bucket obligation there is no target for the damp to be re-derived against,
+so the follow-up ticket described above is not merely blocked — **it has nothing
+left to satisfy.** This entry's own closing paragraph anticipated exactly that
+outcome. Separately, decision 6 confirms the item stays parked on its own
+headroom bar, which was missed by 4.05 points on the calling station and 5.41 on
+the LAG and has not been re-measured since.
+
+**`_ACE_HIGH_RIVER_CALL_DAMP` itself is untouched and stays at 0.06.** It is a
+lever, not a bound: it is independently pinned by
+`test_t3_river_damp_moves_only_the_ace_high_call_leg` and documented in the
+engine, and neither the withdrawal nor this note changes its value. A slice that
+later wants to move it needs a **new, correctly grounded target** — the α
+identity may not be borrowed for one a second time. Indexed at theory contract §9
+entry 18, decisions 1 and 6.
+
 ---
 
 ## Filed 9 — FINDING (HIGH, for owner ruling): naked ace-high breaks α at every river cell
@@ -412,6 +520,42 @@ tolerance, per owner ruling 10 of 2026-08-22.
 street for the entire roster, and the gap widened this slice. **But see filed 10:**
 the theory review of this ticket argues the ruling itself is mis-specified, in
 which case the right response is to withdraw the obligation rather than to meet it.
+
+**ADJUDICATED 2026-08-24 (owner decision 1) — CLOSED. This entry and Filed 10
+below are closed by ONE adjudication, written out here and referred to from
+there.** They were never two independent findings: the reasoning runs in a single
+direction, from Filed 10's argument to this entry's breach, and reading them
+apart is what produced the conflict recorded above.
+
+**What the owner ruled.** α = f/(1+f) bounds the defender's **whole range** and
+nothing smaller. The 2026-08-19 ruling that applied it to the naked-ace-high
+bucket is **withdrawn**, recorded as theory contract amendment **A9** and indexed
+at that file's §9 ledger entry 18. Filed 10's argument was adopted in full:
+applied to one bucket the identity is wrong in both directions at once — too
+strict at large prices, too loose at small ones — and Filed 10's whole-range
+composition probe is the arithmetic the amendment cites.
+
+**What that does to this entry.** The 24-of-24 breach measured above **stops
+being a breach**, because there is no per-bucket obligation left to breach.
+Nothing in the measurement is retracted: the cells still read what they read, and
++0.2695 to +0.6391 remains the correct description of engine behaviour — against
+a bound that has now been withdrawn. The conflict this entry escalated to the
+owner (a ratified ruling on one side, the frozen went-to-showdown bands on the
+other, roughly sixty times the shipped constant between them) is resolved by
+**removing the ruling**, not by moving the bands or the constant. That is the
+W3R-1 rule applied as written: infeasibility is evidence about the target, and
+the target was the ruling.
+
+**What was removed, and how.** The one-way tripwire shipped by ticket S3-T4, the
+non-vacuity proof that existed only to show that tripwire was real, and the
+pre-river calling-station assertion built on the same premise were all **deleted**
+on 2026-08-24 — not softened, not re-scoped. Softening a guard that measures a
+quantity the contract does not bound is the precise dodge W3R-1 exists to stop.
+**No engine constant, band, lever or content-pack value moved with them.**
+
+**The cost, recorded rather than implied.** The river now carries no
+ace-high-specific guard at all. If ace-high folding is later judged a realism
+defect, that claim needs a new and correctly grounded target of its own.
 
 ---
 
@@ -491,6 +635,24 @@ the moment a ticket is opened to CLOSE the ace-high river breach, because that
 ticket would be spending a 60× constant move to satisfy an obligation this entry
 says may not exist.
 
+**ADJUDICATED 2026-08-24 (owner decision 1) — UPHELD and enacted. Closed by the
+SAME single adjudication recorded under Filed 9 above, not by a separate one —
+read the two together.** The owner adopted this entry's reading: α is a per-RANGE
+bound, the 2026-08-19 per-bucket ruling is **withdrawn**, and the withdrawal is
+written into the theory contract as amendment **A9** with a standing instruction
+that no test, ticket, band or review finding may assert a per-bucket α obligation
+again. The whole-range composition table above is the arithmetic that amendment
+cites.
+
+**Its two prescriptions were followed exactly.** The test it named was **deleted,
+not fixed** — the entry's stated reason, that softening a guard on an unbounded
+quantity is the dodge W3R-1 exists to stop, is the reason recorded in the
+amendment. And its reshaping of Filed 2 held: the prior question this entry
+raised is now answered (α is not a per-bucket bound), so what survives in Filed 2
+is only the range-level residual, which **stays open** and is recorded there and
+in A9. The full reasoning, including what became of Filed 9's 24-cell breach and
+of the guard, is under Filed 9 above.
+
 ---
 
 ## Filed 11 — MEASUREMENT DEFECT (MEDIUM): "never faced a wager" and "checked down" were quoted as one statistic
@@ -540,6 +702,19 @@ right-hand column above.
 **Severity MEDIUM**: nothing shipped is wrong and the correction is already in
 the harness. It is filed because the wrong number is quoted in documents that
 will be reused.
+
+**ADJUDICATED 2026-08-24 — RECORDED; no ruling was required and none was taken.**
+This entry went into the owner's 2026-08-24 decision batch as a recording-only
+item and came back unchanged, because **there was nothing to decide.** The
+correction it describes already shipped inside S3-T5: the `checked_down` counter
+is in the band harness, both statistics are reported, and S3-T5's spec already
+carries the dated correction. What stays live is guidance rather than an
+obligation — **future gates use `checked_down`**, and anyone sizing a mechanism
+off `t2-preregistration.md` §4 or S3-T5's spec §1 should read the right-hand
+column of the table above, which is about twenty points lower on the nit. No
+theory-contract row governs this statistic and none was authored for it. Severity
+stays MEDIUM for the reason already given: the wrong number is quoted in
+documents that will be reused.
 
 ---
 
@@ -648,6 +823,21 @@ recalibration of the river leg, not a dial.
 the moment a second ticket touches this node, because two tickets inventing two
 local composition rules is how a contract stops meaning anything.
 
+**ADJUDICATED 2026-08-24 (contract-hygiene item, recorded in the same pass as the
+six rulings but not one of them) — DEFERRED to the single re-anchor slice, and
+the absence is now disclosed inside the contract itself.** Theory contract §4
+carries a named deferred entry saying that no row governs unopened late-street
+betting, that authoring one is deferred to the re-anchor slice, and that **until
+the row exists a slice touching that node states the absence out loud rather than
+borrowing a neighbouring row's boundary.** The deferral rests on the substantive
+reason this entry gives and not on convenience: a credible row needs a river
+checking range that still holds some strong hands, which today's engine cannot
+produce there while the value cells sit at 0.83 to 0.99 and the one-pair class is
+floored at zero — so the row has to be written against a recalibrated river leg.
+**This entry therefore stays OPEN as a deferred obligation rather than closing**;
+severity stays MEDIUM and it becomes blocking the moment a second ticket touches
+that node. Indexed at theory contract §9 entry 18.
+
 ---
 
 ## Filed 14 — CONTRACT DEFECT (LOW): the shipped multiplier order does not match §7 as written
@@ -665,6 +855,28 @@ a plain multiplier. It stops being irrelevant the moment any factor becomes a
 clamp, a floor or a cap — and this file already contains two such floors on
 adjacent paths. **Severity LOW, but fix it in the contract text or in the code
 before the next ticket adds a bound to that chain.**
+
+**ADJUDICATED 2026-08-24 (contract-hygiene item, recorded in the same pass as the
+six rulings but not one of them) — CLOSED in the engine's favour: the CONTRACT
+TEXT was wrong, not the code.** Theory contract §7's stacked-multiplier bullet
+now writes the **position multiplier last, after the multiway factor**, which is
+what the engine does; both reviewers of the slice-3 decisions spec verified the
+order against the source independently. The correction is text-only and
+arithmetically inert today, exactly as this entry says, and it stops being inert
+the moment any factor in that chain becomes a clamp, a floor or a cap. **No
+engine, band, test or content-pack change accompanies it.** Indexed at theory
+contract §9 entry 18.
+
+**One residual, REPORTED rather than fixed, because the document is out of reach
+from any tracked branch.** Theory contract §11 item 12 sends a reviewer to "the
+§10.2 order" in `docs/ai-dlc/research/persona-realism-audit-2026-07-24.md`, and
+that document's §10.2 note 2 **still lists position fourth and multiway fifth** —
+the order just corrected. Verified read-only on 2026-08-24. That audit is a
+machine-local working document: it is listed in `.git/info/exclude`, is untracked,
+and exists only in the owner's main checkout, so no branch can carry a correction
+to it and none is attempted here. **Until the owner corrects it in place, §11 item
+12's pointer resolves to the superseded order; the contract's own §7 text is
+authoritative and the audit's note 2 is not.**
 
 ---
 
@@ -688,3 +900,22 @@ what S3-T5's report does.
 **Severity MEDIUM**: it produced a misleading-looking miss on a ticket that is
 otherwise green, and the same pattern will recur on any slice whose ship list is
 decided by a gate rather than fixed in advance.
+
+**ADJUDICATED 2026-08-24 (owner decision 4) — ADOPTED as standing process law.**
+The rule this entry proposes now binds: **a reduction floor is registered against
+the configuration proposed to ship, and if the ship list changes after the floors
+are written, the floors are re-derived for the new list before the values land.**
+It is recorded as theory contract **§11 item 16**, owner-ratified 2026-08-24, and
+written in the same dual **form** as the W3R-1 rule — a binding prospective
+obligation *plus* a separate pass/fail reviewer check ("was every floor in this
+slice registered against the shipped configuration?"), **both halves recorded at
+§11 item 16** and neither of them in §5a, whose two obligations are the citing
+gate and the W3R-1 rule and nothing else — because
+landing a prospective rule as a bare checklist item silently demotes it into an
+after-the-fact question. **It binds a slice while it is being built, not only at
+review.** Gain: it prevents a recurring class of fake misses on any gate-decided
+ship list. Cost: one contract edit, and genuinely more re-derivation work on
+tickets whose ship list is decided late — which is the work the rule exists to
+force. **S3-T5's own recorded shortfall is not retracted**: it stays attributed to
+the registration rather than to the lever, which is what that ticket's report
+already does. Indexed at theory contract §9 entry 18, decision 4.

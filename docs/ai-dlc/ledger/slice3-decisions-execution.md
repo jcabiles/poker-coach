@@ -46,6 +46,13 @@ publication-readiness lane, which the spec calls Lane C) was not authorized and 
 | B3 | E2 | worker, orchestrator-verified | MEDIUM | **Defect in the approved spec, not in the build.** The spec directs a docstring correction at `test_fold_to_bet_respects_alpha_ceiling`, lines 8421–8428. Those lines belong to a different test, `test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents` (defined at `:8072`), whose docstring is the one asserting the withdrawn ruling and citing a now-deleted test. | **Line numbers are right, the name is wrong.** Verified independently against `HEAD`: the named test's docstring is about the one-pair bluff-catcher range and the α ceiling as a ceiling-not-a-floor, and never asserts the per-bucket reading — so it needed no correction and got none. The worker corrected the block the line numbers point at, which was the correct call. Recorded here so a later reader does not "fix" the spec's name and re-open the wrong docstring. |
 | B4 | E2 | worker, disclosed | LOW | A roughly 7-line section-header comment not named on the ticket's deletion list was deleted along with the block it introduced. | **ACCEPTED as correct.** The build reviewer confirmed it was a genuine orphan: it introduced only content being removed in full, it asserted the withdrawn ruling as settled fact, and nothing still referenced by surviving code went with it. Keeping it would have left a factually wrong header with nothing underneath. |
 
+| B5 | E3 | build reviewer (Opus) | MEDIUM | The roadmap's verification claim that "every derived target is graded LOW confidence throughout" is contradicted by three of the sister repository's registry rows, and the entry was marked satisfied without disclosing that two of its own four candidate approaches are incomplete. | **ACCEPTED.** Confirmed independently by the orchestrator against `poker-analytics:data/targets/registry-v2.json`: 49 rows labelled `LOW`, 3 labelled `C-grade literature (unchanged)` — `flop_cbet`, `fold_to_cbet`, `af`. Condition (2) narrowed to targets *derived from the ingested aggregates*, and a fourth residual added recording that the swap off the literature bands is partial and no expert-elicitation panel was run — a disclosed limitation, not a work item. **This is the finding that justified routing the wave-3 reviewer to Opus.** |
+| B6 | E3 | build reviewer | LOW | One contract map asserted "nothing occupies those line numbers now" while the other contract map edited in the same change said a live test begins exactly there. | **ACCEPTED.** Two contract maps contradicting each other inside one change defeats the purpose of a contract map. Corrected to name the cross-persona ordering test that now occupies those lines. |
+| B7 | E3 | build reviewer | LOW | A ledger note placed the new reduction-floor rule "alongside §5a's obligations"; §5a holds exactly two obligations and this is neither — both halves live in §11 item 16. | **ACCEPTED, ledger note only.** The theory contract's own wording was checked and is correct (it claims the same dual *form*, which is true), so E1's committed text needed no change. |
+| B8 | E3 | build reviewer | LOW | The close packet the roadmap links as its close record still instructs the owner to "rule on the filed decisions", done on 2026-08-24. | **ACCEPTED; narrow scope exception granted.** Dated reports in `research/slice3-calldown/` are normally not edited. One appended dated paragraph, no body change; the play session, genuinely still outstanding, untouched. Gain: the linked record stops handing the owner a completed task. Cost: one more file in the diff, and a small precedent for annotating dated records. |
+| B9 | E3 | build reviewer | LOW | A research measurement script under `docs/` still opens by stating the withdrawn ruling as its reason for existing. | **ACCEPTED; narrow scope exception granted.** The worker self-restricted because the ticket forbids touching code, but the boundary it was given names `backend/`, `frontend/`, `content/` and `scripts/`, and this file is in none of them. Confirmed standalone with no importers and still parsing after a docstring-only banner. |
+| B10 | E3 | build reviewer | LOW | The ledger's summary block compressed parked, deferred and closed into one clause and stated one closure more flatly than its own note did. | **ACCEPTED.** The per-item notes were already correct and distinct; the summary is the first thing read and is where a uniform stamp creeps back in. |
+
 **Wave-2 review outcome: APPROVE, zero findings** (`../reviews/slice3-decisions-execution-build-e2.md`).
 The reviewer re-ran the syntax-tree comparison and the persona test file itself rather than reading
 the worker's transcript; both matched. Residue sweep found no surviving line in either file that
@@ -58,4 +65,35 @@ beginning with a hash · all five symbols the ticket deletes are absent and all 
 must survive are present · the pre-work baseline was registered before any worker started
 (whole suite 2191 passed / 2 skipped / 6 expected-failures; the persona test file alone
 collecting 401), so the predicted post-deletion figures of 2189 / 2 / 0 and 393 were written
-down in advance rather than fitted afterwards.
+down in advance rather than fitted afterwards · both finding ledgers touched by E3 are
+strictly append-only (231 and 10 lines added, **zero deleted**), so no past entry's recorded
+finding was revised · the registry confidence counts behind B5 were re-derived from
+`registry-v2.json` itself rather than accepted from the review · the measurement script in B9
+was confirmed to parse and to have no importers before the exception was granted.
+
+**Wave-3 review outcome: APPROVE-WITH-FIXES, six findings, all accepted and fixed pre-commit**
+(`../reviews/slice3-decisions-execution-build-e3.md`). The wave-3 reviewer was routed to Opus
+rather than the Sonnet used for waves 1 and 2, because that diff is the largest, edits the
+governing roadmap, and makes a claim about another repository's state. B5 is what that
+routing bought.
+
+## Still owed by the owner when this build lands
+
+Two items came out of this build and neither can be closed from a branch.
+
+1. **Confirm or overrule one interpretation** (finding B1). The theory contract now carries a
+   paragraph reconciling the ruling that the commitment slope is in scope for the re-anchor
+   slice with amendment A6, which opens by calling that slice "calibration and hand-off only".
+   The reading offered is that A6's prohibition binds the calibration pull request, so the
+   slope lands in a separate pull request inside the same slice. **It is marked as an
+   agent-adjudicated clarification and explicitly not owner-ratified text**, and a worker
+   reaching the re-anchor slice while it is unconfirmed is instructed to raise the tension
+   rather than pick a reading.
+2. **Correct a document that no branch can reach.**
+   `docs/ai-dlc/research/persona-realism-audit-2026-07-24.md` is listed in `.git/info/exclude`,
+   so it is untracked and exists only in the main checkout. Its §10.2 still gives the
+   superseded order for the engine's aggression multipliers — position before multiway —
+   while the engine applies position **last** and the theory contract now says so. Theory
+   contract §11 item 12 sends reviewers to that §10.2 for exactly this ordering, so the
+   pointer currently resolves to superseded text. The fix is a one-line dated correction in
+   the owner's own copy.

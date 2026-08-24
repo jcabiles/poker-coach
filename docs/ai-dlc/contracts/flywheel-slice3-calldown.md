@@ -73,15 +73,27 @@ villain bot. Specs explicitly forbid newer graders importing it
 scoped to the villain bot must NOT touch it — that would be a category
 error.
 
-`_CATCHER_BUCKETS` (test-only) is defined at
-`backend/tests/test_personas_postflop.py:647`: `(MIDDLE_PAIR, TOP_PAIR)` —
-the α-test fixture's bucket range. It deliberately EXCLUDES ACE_HIGH
-(`:308-318`, `:835-846`) even though the owner ruled 2026-08-19 that α
-already bounds ACE_HIGH — the ruling is recorded but not yet applied,
-because applying it would breach the frozen went-to-showdown bands that
-capped the 0.06 damp (`:841-846`). This is a LIVE DISCLOSED TENSION the
-calldown slice walks into; the Stage-0 interim regime changes the collision
-surface, which is why S3-T4 addresses it directly.
+`_CATCHER_BUCKETS` (test-only) is defined in
+`backend/tests/test_personas_postflop.py`: `(MIDDLE_PAIR, TOP_PAIR)` — the
+α-test fixture's bucket range. It deliberately EXCLUDES ACE_HIGH, and that
+exclusion is now settled rather than contested.
+
+**TENSION RESOLVED BY WITHDRAWAL, 2026-08-24 (replaces the "LIVE DISCLOSED
+TENSION" this section carried).** When this map was scanned, the owner's
+2026-08-19 ruling held that α bounds the ACE_HIGH bucket, the guard did not
+apply it, and applying it would have breached the frozen went-to-showdown
+bands that capped the 0.06 damp — a live conflict the calldown slice walked
+into, and the reason ticket S3-T4 addressed it directly. **That conflict no
+longer exists. On 2026-08-24 the owner ruled that α bounds the defender's
+WHOLE RANGE and nothing smaller, and WITHDREW the 2026-08-19 per-bucket
+ruling** (theory contract amendment **A9**; slice-3 finding ledger Filed 9 and
+Filed 10, closed together; §9 ledger entry 18). The tension is resolved by
+removing the obligation, not by moving the bands or the damp: `_CATCHER_BUCKETS`
+excluding ACE_HIGH is now correct rather than merely un-applied, and **no test,
+ticket, band or review finding may assert a per-bucket α obligation again.** The
+guard S3-T4 shipped, its non-vacuity proof and the pre-river station assertion
+were all deleted on 2026-08-24; no engine constant, band or content-pack value
+moved with them.
 
 `_ACE_HIGH_RIVER_CALL_DAMP` and `call_looseness` compound multiplicatively
 (dial first, damp after).
@@ -100,16 +112,28 @@ deliberate scope change; the name no longer matches its placement.
 
 ## 5. Invisible contracts a calldown change trips
 
+⚠️ **Line numbers in this section are as of the d351150 scan and several have
+since moved** — slice 3's own merges added lines, and the 2026-08-24 deletion of
+the α-over-ace-high tests removed about 350 more. Locate each anchor by name, not
+by number. The two anchors corrected below are the ones the deletion invalidated
+outright.
+
 - **Bands** (`BANDS` dict, test file `:2832-2872`): per-persona 3-standard-
   deviation engine-anchored went-to-showdown/aggression-factor/
   fold-to-continuation-bet ranges; explicitly not fidelity claims against the
   research PRD (`:2712-2718`). Slice 3 measures against the interim regime
   installed by PR #208.
-- **α ceiling tests** (`:713-830`; ACE_HIGH mirror `:908-978`): ceiling ONLY,
-  never a floor (`:714-718`, `:935-939`) — no lower-bound fold assertion may
-  be added.
+- **α ceiling test** — one test, `test_fold_to_bet_respects_alpha_ceiling`
+  (`:713-830`), over `_CATCHER_BUCKETS` only: ceiling ONLY, never a floor
+  (docstring at `:714-718`) — no lower-bound fold assertion may be added.
+  *(Corrected 2026-08-24: this bullet also named an "ACE_HIGH mirror" at
+  `:908-978`. That test —* `test_ace_high_alpha_holds_for_the_station_pre_river`
+  *— was deleted with the per-bucket α ruling it enforced, along with the river
+  guard and its non-vacuity proof. There is no ace-high α assertion left in the
+  file; see §3 above.)*
 - **Cross-persona ordering**
-  (`test_fold_to_bet_persona_ordering_at_fixed_size`, `:981+`): re-derived at
+  (`test_fold_to_bet_persona_ordering_at_fixed_size`, `:833+` after the
+  2026-08-24 deletions): re-derived at
   an earlier wave (internally tracked as W3R-2) — read the current text
   before assuming an order. Separate from the went-to-showdown ordering test
   this slice's tickets check.

@@ -22,6 +22,20 @@ the sentences below that refer it as historical. The ruling, the RIVER street
 this file never swept, and the full violation map are in
 `alpha-acehigh-ruling.md` beside this file.
 
+**SUPERSEDED 2026-08-24 — the 2026-08-19 update above is itself withdrawn, and
+this file's original bottom line is closer to right than that update was.** The
+owner ruled on 2026-08-24 that **α bounds a defender's WHOLE RANGE and nothing
+smaller** and withdrew the ruling that it bounds the `ACE_HIGH` class; no test,
+ticket, band or review finding may assert a per-class α obligation again. So the
+question this file's opening paragraph called open was answered in the *other*
+direction: α is not asserted over this bucket. **Every measurement below still
+stands** — they describe what the engine does on naked ace-high, which has not
+changed. The replacement law is theory contract
+`../../contracts/persona-realism-theory-contract.md` amendment **A9** (indexed at
+§9 ledger entry 18); the evidence is `../../ledger/flywheel-slice3-calldown.md`
+items Filed 9 and Filed 10. `alpha-acehigh-ruling.md` beside this file now opens
+with the same withdrawal banner.
+
 ## What was measured, and one thing that nearly broke the measurement
 
 1,250 naked-ace-high spots (`StrengthBucket.ACE_HIGH` + `DrawCategory.NONE`),
