@@ -9,9 +9,9 @@ artifact_dir: docs/ai-dlc
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       bot-realism-flywheel
               # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
-              # current slice: improvement slice 2, invest-then-fold —
-              #   spec/tickets/ledger under docs/ai-dlc/{specs,tickets,ledger}/
-              #   phase3-invest-then-fold.md; spec'd, reviewed, NOT implemented.
+              # current slice: improvement slice 3, calldown — BUILT (#211–#218)
+              #   and close-packeted 2026-08-23; OPEN until the owner's blind
+              #   play session. See ## Resume below.
               # paused: persona-realism (see its top banner)
 
 verify:
@@ -44,3 +44,21 @@ auth:         none — local single-user app; no accounts/hosting/billing
 
 process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never push main,
               never force-push, never merge without explicit confirmation
+
+## Resume
+
+updated:      2026-08-23
+commit:       0561e8f (main; engine/packs/frontend unchanged by wave 5 — docs-only close work on top)
+log-entry:    wave 5 close packet, /ai-org:build ceremony 2026-08-23 (plan: docs/ai-dlc/plans/slice3-chain-autonomy.md)
+position:     improvement slice 3 (calldown) BUILT — all five tickets merged (#211, #212, #215,
+              #216, #217, #218); chain-wide WTSD measured (pooled −0.98pp harness / −1.5pp
+              export); close packet, owner-decision memo, finale-readiness packet, and
+              play-session checklist committed under docs/ai-dlc/research/slice3-calldown/.
+merged:       coach #211–#218 (the build chain). The wave-5 close docs land via the PR that
+              carries this very file (`chore/slice3-close-packet`) and the analytics
+              pointer-refresh PR — if you are reading this on main, both are merged.
+next action:  OWNER — blind play session (research/slice3-calldown/play-session-checklist.md);
+              it closes slice 3 per the 2026-08-17 ruling. Then rule on the six filed decisions
+              (research/slice3-calldown/owner-decisions.md — the α per-range question first).
+              After acceptance: the single finale detection run (finale-readiness.md — keys +
+              go-ahead are the only missing inputs). No build work is unblocked until then.

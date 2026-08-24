@@ -125,7 +125,13 @@ step 5, so **a credential problem surfaces on 4 cheap calls, not 328 expensive o
 `launch.json` pins the deck's `presentation.json` hash. A later run against a different
 deck at the same output directory is refused, not silently re-launched.
 
-## 5. Control pre-screen — ONE bundle, ONE vendor, before any spend
+## 5. Control pre-screen — ONE bundle, ALL FOUR judge slots, before any bundle spend
+
+*(Amended 2026-08-23 to match ratified §g.5 clause C — "pre-screen on all four slots,
+executed as the finale run's own control checkpoints", 2026-08-15-A. The section
+previously instructed a slot-0-only pre-screen, which §g.5 C superseded; its
+stricter-than-registered-stop reasoning is replaced below by the simpler k=4 fact that
+the pre-screen stop and the registered rule now agree exactly.)*
 
 Find the control bundle's presentation ID. It is in the **unblinding** manifest (the file
 the judging harness cannot read), as the one bundle whose `is_control` is `true`:
@@ -134,7 +140,9 @@ the judging harness cannot read), as the one bundle whose `is_control` is `true`
 .venv/bin/python -c "import json;d=json.load(open('$S6_ROOT/deck/unblinding.json'));print(next(b['presentation_id'] for b in d['bundles'] if b['is_control']))"
 ```
 
-Judge it with slot 0 only:
+Judge it with **all four slots** (no `--only-slot` flag), in the finale's own
+launch/output tree so these responses ARE the finale's control checkpoints, after the
+step-3 model-ID diff against the shakedown manifest:
 
 ```sh
 .venv/bin/python -m tools.detection_judge run \
@@ -142,31 +150,25 @@ Judge it with slot 0 only:
   --judges "$S6_JUDGES" \
   --order-seed 20260807 \
   --out "$S6_ROOT/judging" \
-  --only-slot 0 \
   --only-presentation-id <CONTROL_ID>
 ```
 
-Read the verdict:
+Read all four verdicts:
 
 ```sh
-.venv/bin/python -c "import json;r=json.load(open('$S6_ROOT/judging/responses/slot-0/<CONTROL_ID>.json'));print(r['status'], r['parsed'])"
+for s in 0 1 2 3; do .venv/bin/python -c "import json;r=json.load(open('$S6_ROOT/judging/responses/slot-$s/<CONTROL_ID>.json'));print($s, r['status'], r['parsed'])"; done
 ```
 
-**STOP RULE — the control must be labelled `bot`.** If `parsed['label'] != 'bot'` (or the
-status is not `ok`), **stop and revisit; do not run step 6.**
+**STOP RULE — every slot must label the control `bot`.** If ANY slot returns
+`parsed['label'] != 'bot'` (or a status that is not `ok`), **stop and revisit; do not run
+step 6.**
 
-This stop is deliberately **stricter than the registered rule, and is not a prediction of
-it.** §d.2 invalidates a batch only when the panel-aggregate confidence-human is < 50 AND
-≥`ceil(4k/5)` judges label the control "bot" (4 of 4 at the amended k=4, §g.3) — a
-conjunctive rule over the whole panel, which one slot's answer alone does not decide at
-pre-screen time. What a slot-0 miss establishes is only that the cheapest available signal
-came back wrong, which is enough to stop spending on the other 327 calls and look again.
-It is an operational spend-stop, not evidence that the aggregate rule would have failed.
-(One sharpening at k=4: checkpoints are per (bundle, judge) and terminal, so the
-pre-screen's slot-0 control response IS the full run's slot-0 control response. With the
-label conjunct now unanimous, a slot-0 "human" on the control would already guarantee
-batch invalidation — at k=4 the pre-screen stop rule and the registered rule happen to
-agree on that one slot, which was not true at k=5.)
+At the amended k=4 panel (§g.3), §d.2's label conjunct is unanimous — 4 of 4 judges must
+label the control "bot" for the batch to be valid — so a single control miss at
+pre-screen already guarantees the full batch would be invalidated: this stop rule and the
+registered rule agree exactly, which was not true of the older slot-0-only pre-screen at
+k=5. Checkpoints are per (bundle, judge) and terminal, so these four control responses
+are the finale's own control responses, not a rehearsal of them.
 
 If it does fire, record that it fired and everything you did next — the pilot write-up has
 a slot for exactly this (`poker-analytics:docs/methods/detection-pilot-s6.md` §5), because

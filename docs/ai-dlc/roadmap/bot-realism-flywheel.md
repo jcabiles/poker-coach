@@ -1,4 +1,4 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-21 (rev 5)
+# Bot-Realism Flywheel Roadmap — updated 2026-08-23 (rev 6)
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
@@ -20,6 +20,15 @@ ratchet, and the maniac's went-to-showdown assertion restored at a ratcheted cei
 been skipped since 2026-08-01) is **RATIFIED**, landing
 in a parallel PR to the theory contract. See the NOW banner, the improvement-phase block
 header, and the slice 2 and slice 3 entries below for where each lands.
+**Rev 6 (2026-08-23): slice 3's five-ticket chain is BUILT AND MERGED** (S3-T1/T1b #211/#212,
+S3-T2 #215, S3-T3 #216 — lever withdrawn, instrument shipped, S3-T4 #217, S3-T5 #218 — a fifth
+ticket admitted by owner ruling 2026-08-22, LAG-only ship) **and the close packet is committed**
+(`../research/slice3-calldown/close-packet.md`: chain-wide measurements, six filed owner
+decisions, finale-readiness packet, play-session checklist). The slice stays OPEN until the
+owner's blind play session — that session, not the gate numbers, closes it (standing 2026-08-17
+ruling). The S6 execution checklist's §5 pre-screen was aligned to ratified §g.5 clause C (all
+four judge slots), and `flywheel-s6-control-redesign.md` was closed as superseded by PR #184 +
+§g.5 A.
 
 ## Bottom line
 
@@ -96,6 +105,9 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 > plausibly human at the table, nothing stood out as robotic — slice 3 (calldown) is core
 > scope, ruled 2026-08-21, and spec'd and approved the same day (`docs/ai-dlc/specs/
 > flywheel-slice3-calldown.md`). Resume with its ticket chain, not from this banner.**
+> **Rev 6 update (2026-08-23): that ticket chain is now fully merged (#211–#218) and the close
+> packet is committed — resume from `../research/slice3-calldown/close-packet.md`; the only
+> open acceptance step is the owner's blind play session, and the owner decisions filed there.**
 > *(Superseded banner, 2026-08-13, kept for provenance: every slice closed, S6 moved to
 > NEXT, gate pending, do-not-start-NEXT.)* The evidence it
 > rests on is the S5 close-out below; note that one of its two planned inputs, the detection
@@ -171,7 +183,7 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 
 S6, the only planned measurement of it, is built but deferred — it now sits in NEXT.
 
-### Improvement phase (ruling A) — three slices in order, two closed
+### Improvement phase (ruling A) — three slices in order; two closed, the third built and awaiting the owner's play session
 
 > **Why this block exists (added 2026-08-17).** Ruling A defines three improvement slices and
 > the NOW lane had entries for none of them: the order lived in
@@ -337,7 +349,22 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       arithmetic derived, because a further owner ruling on 2026-08-19 capped it inside two
       frozen went-to-showdown bands. Measured: invest-then-fold events 1,084 → 1,015, pool
       went-to-showdown +0.94 points (54.14 → 55.09), inside the spec's 3.78-point bound.
-- [ ] **Slice 3 — Calldown — CORE SCOPE (owner-ruled 2026-08-21), and its headline number was
+- [ ] **Slice 3 — Calldown — BUILT 2026-08-22, close packet committed 2026-08-23; stays OPEN
+      until the owner's blind play session.** All five tickets merged: S3-T1/T1b (#211/#212,
+      price-conditioned strong-draw split), S3-T2 (#215, nit 0.45→0.32 and TAG 0.60→0.38 calling
+      dials; LAG withdrawn on coupling), S3-T3 (#216, stack-to-pot value damp WITHDRAWN under
+      triple review — instrument and contract limits shipped, engine byte-identical), S3-T4
+      (#217, α guard over river ace-high as a strict-xfail tripwire; 24/24 cells breach, filed
+      for ruling), S3-T5 (#218, late-street bet lever, admitted 2026-08-22 by owner ruling —
+      only the LAG ships it under the pre-registered per-persona gate). **Measured chain-wide**
+      (baseline `d351150` → tip `0561e8f`): pooled went-to-showdown −0.98pp on the band harness
+      and −1.5pp on the 50k export; TAG −4.0/−4.3pp; every HARD band, ordering leg, and the
+      five-seed de-robotization gate green. As the corrected entry below predicted, that is far
+      short of the ~12-point counterfactual cutoff move — the slice's standing justification is
+      the visibility argument, not that number. Close packet, filed owner decisions (six),
+      finale-readiness packet, and play-session checklist:
+      `../research/slice3-calldown/close-packet.md`. Original entry follows.
+      **CORE SCOPE (owner-ruled 2026-08-21), and its headline number was
       wrong** *(corrected 2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended
       cutting it; that was withdrawn under review, and the scope-valve question the withdrawal
       left open is now settled — see the ruling below. **Spec'd and approved by the owner,

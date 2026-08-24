@@ -1,6 +1,17 @@
 # Ticket: S6 control redesign — a manipulation check judges can actually catch
 
-**Status: BLOCKED behind the phase-3 gate (fix-vs-overhaul, owner decision).** This
+**Status: CLOSED 2026-08-23 — SUPERSEDED, its recommended design already shipped.** The
+phase-3 gate ruled A (fix the bots) on 2026-08-15, and the same day's consolidated
+amendment (estimand contract §g.5 clause A) replaced the control with exactly this
+ticket's candidate 1 — a rule-breaking scripted bot — implemented in PR #184 and
+probe-validated 2026-08-15 (judged `bot` at confidence-human 3 with its tells named,
+while the old T1 control read `human` 62). The §g amendment recording the reversal this
+ticket required exists (§g.5 A states it was ratified after seeing judge output). Nothing
+here remains to build; kept for the design analysis below. Readiness state for the
+finale run: `docs/ai-dlc/research/slice3-calldown/finale-readiness.md`.
+
+*(Superseded original status, kept for provenance:)* ~~BLOCKED behind the phase-3 gate
+(fix-vs-overhaul, owner decision).~~ This
 ticket exists so that IF the gate keeps blind-detection rate as a metric, re-running the
 S6 pilot is a build task with a settled design, not a research question. Do not start it
 before the gate rules; the gate may instead retire the metric, which closes this ticket
