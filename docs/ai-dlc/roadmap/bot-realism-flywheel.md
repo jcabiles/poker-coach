@@ -1,4 +1,4 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-23 (rev 6)
+# Bot-Realism Flywheel Roadmap — updated 2026-08-24 (rev 7)
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
@@ -29,6 +29,14 @@ owner's blind play session — that session, not the gate numbers, closes it (st
 ruling). The S6 execution checklist's §5 pre-screen was aligned to ratified §g.5 clause C (all
 four judge slots), and `flywheel-s6-control-redesign.md` was closed as superseded by PR #184 +
 §g.5 A.
+**Rev 7 (2026-08-24): the persona-label toggle is specified to the owner's three clauses.**
+Candidate slice (1) of the training-app table-controls entry in NEXT — the one that hides the
+opponent archetype names on the table — was recorded as a one-way hide with a reveal at
+session end. The owner ruled it is instead a **two-way toggle the player operates during
+play**, which **does not appear until 100 completed hands**, and which **never removes the
+labels from the stored hand record**. The lane's freeze is untouched by this edit: nothing
+here schedules the work or lifts the 2026-08-09 no-go, it only fixes what the slice will mean
+when the freeze lifts at the phase-3 gate. Full ruling text sits under that entry in NEXT.
 
 ## Bottom line
 
@@ -563,10 +571,43 @@ listed rather than the gate slipping silently.
   draft linked it to "coaching usefulness", a phrase this roadmap never defines, baselines, or
   measures — claiming it as an outcome-link was an outcome-in-costume) · candidate slices, one
   line each, to be specified properly only if the test below passes: **(1) persona-label
-  toggle** — hide every persona name and badge in Simulate, opt-in reveal after the session;
+  toggle** — a player-operated switch that hides and re-shows every persona name and badge in
+  Simulate, available only after 100 completed hands, with the stored hand record keeping the
+  labels either way (three clauses ruled by the owner 2026-08-24; full text immediately below
+  this list, and it supersedes the earlier "opt-in reveal after the session" phrasing);
   **(2) random table picker** — choose between up to three freshly generated rosters,
   regenerated on restart and on leaving a table, each reproducible from a stored seed;
   **(3) custom roster chooser** — the player specifies the archetype mix.
+  · **OWNER RULING 2026-08-24 — slice (1) is a two-way toggle, gated on 100 hands, and never
+  strips the record.** It replaces the one-way "hide now, reveal at session end" design the
+  line above used to describe. Three binding clauses:
+  **(a) Two-way, during play.** The player turns opponent labels off and back on at will
+  inside a session. Hiding is not a one-way door that reopens only when the session ends.
+  **(b) The control is absent until 100 completed hands.** Below that count the toggle does
+  not appear in the interface at all — not present-and-disabled — so a new player meets the
+  labelled table first and opts into the hidden mode after they have seen the archetypes
+  named. The 100 is the owner's number, not a measured threshold; it is a product judgement
+  and does not need evidence to stand.
+  **(c) The stored hand record always keeps the labels.** Hiding is a display state and never
+  a recording state. Whatever the toggle says, each seat's archetype stays attributable
+  afterwards — in the database, in post-hand review, and in the analytics export. No hand may
+  become unattributable because the player was in hidden mode when they played it.
+  **Two pieces of existing code this ruling lands on, both checked 2026-08-24.** Clause (c)
+  is already structurally satisfied: persona identity is stored on the seat row
+  (`backend/app/db/models.py:67`, `SimSeat.persona_type` — per session, per seat), not on
+  anything the view produces, so a hide implemented in the frontend cannot reach it. Clause
+  (a) is *not* free: `backend/app/services/sim_session.py:155-158` already carries a seam for
+  exactly this feature (`REVEAL_ENABLED`, commented "a future hidden-persona mode can flip
+  this off"), but its own comment says it is **global, not per-session** — "v1 has no
+  per-session hiding" — so a per-player toggle is more than flipping that flag, and the slice
+  should say so when it is specified.
+  **What the ruling changes elsewhere in this entry.** The open question below — whether
+  hidden labels should also hide the grader's references to opponent type — is now half
+  settled: clause (c) fixes the *data* answer (the record keeps them) and leaves the *display*
+  answer open, because a post-hand review that names the archetype while the toggle is off
+  would defeat clause (a) without breaching clause (c). And the falsification test below can
+  only run from hand 101 onward, where its "before each reveal" step means "before switching
+  labels back on".
   · riskiest assumption: *hiding labels and varying the roster measurably improves training
   value* — **untested**. Cheapest test, rewritten 2026-08-13 because the first version was
   unusable: it proposed hiding labels to test the value of hiding labels, which is slice 1 and
