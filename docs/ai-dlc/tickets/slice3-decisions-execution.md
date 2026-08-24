@@ -36,7 +36,18 @@ readiness. The chains share no files and may run in parallel. Spec:
   NEXT entry marked satisfied-2026-08-06 by registry v2 (spec Package 2); grep sweep for
   remaining live citations. *Done-condition:* sweep grep returns only
   historical/adjudicated mentions. *Owns:* ledger, contract map, roadmap
-  (`bot-realism-flywheel.md` is a hotspot-class shared doc — single owner, this ticket).
+  (`bot-realism-flywheel.md` is a hotspot-class shared doc — single owner, this ticket),
+  plus the two sweep targets named below.
+  **Two named sweep targets, added 2026-08-24 during wave 1** (the spec's sweep clause
+  already covers them generically; naming them makes the done-condition checkable):
+  (i) `docs/ai-dlc/research/slice2-invest-then-fold/alpha-acehigh-ruling.md` is *prescriptive*,
+  not merely historical — it states the withdrawn 2026-08-19 per-bucket α ruling as current law
+  and names `test_ace_high_alpha_holds_for_the_station_pre_river`, which E2 deletes, as its
+  live enforcement. It needs a dated withdrawal banner, not a rewrite.
+  (ii) `docs/ai-dlc/research/persona-realism-audit-2026-07-24.md` §10.2 is where theory-contract
+  §11 item 12 sends a reviewer for "the §10.2 order", and it presumably still carries the
+  factor order E1 just corrected (position multiplier applied last, after multiway). Verify;
+  annotate if wrong.
 
 ## Chain 2 — poker-analytics (one PR, branch `chore/publication-readiness`, own worktree)
 
