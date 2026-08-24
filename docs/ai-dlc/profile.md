@@ -47,6 +47,27 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
+updated:      2026-08-24
+position:     /ai-org:spec ceremony COMPLETE for `slice3-decisions-execution` (+ publication
+              readiness). Owner ruled all six slice-3 filed decisions 2026-08-24 (record:
+              research/slice3-calldown/owner-decisions.md, rulings in-session: D1 α
+              per-range + delete all three per-bucket tests · D2 commit slope IN re-anchor
+              scope · D3 fold lever parked at §4 P8 · D4 Filed-15 rule as §11 item 16,
+              W3R-1 dual pattern · D5 acknowledged · D6 parked). Lane-B discovery: the
+              statistics-ingestion NEXT item was ALREADY satisfied 2026-08-06 by
+              poker-analytics registry v2 — roadmap entry is stale; reconciliation is
+              ticket E3. Spec dual-reviewed (refuter + Codex Terra, both
+              APPROVE-WITH-FIXES, 4 findings accepted+folded: ledger/slice3-decisions-execution.md).
+awaiting John: Gate-2 build approval of tickets/slice3-decisions-execution.md (then /clear
+              + /ai-org:build in a fresh session). Blind play session + finale keys remain
+              separately owed and are NOT part of this spec.
+authorized:   artifact writes under docs/ai-dlc only (spec/contracts/tickets/ledger/reviews
+              + this block). NO code, NO engine/test edits, NO PRs yet — build authorization
+              comes only from tickets/slice3-decisions-execution.md reading
+              `status: approved`. Comment-only personas_postflop.py corrections are inside
+              the approved-spec scope ONLY once build is authorized.
+
+--- (prior resume, 2026-08-23, kept for provenance) ---
 updated:      2026-08-23
 commit:       0561e8f (main; engine/packs/frontend unchanged by wave 5 — docs-only close work on top)
 log-entry:    wave 5 close packet, /ai-org:build ceremony 2026-08-23 (plan: docs/ai-dlc/plans/slice3-chain-autonomy.md)
