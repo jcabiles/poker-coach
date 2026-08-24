@@ -1,5 +1,39 @@
 # The α ceiling on naked ace-high, after the owner's 2026-08-19 ruling
 
+> ⛔ **WITHDRAWN 2026-08-24 — the ruling this document applies is no longer in
+> force. Read this as a historical measurement record, never as current law.**
+>
+> On 2026-08-24 the owner ruled that **α = f/(1+f) bounds a defender's WHOLE
+> RANGE and nothing smaller**, and **withdrew** the 2026-08-19 ruling that it
+> bounds the `ACE_HIGH` hand-strength class. Applied to one class the identity is
+> wrong in both directions at once — too strict at large bets, too loose at small
+> ones. **No test, ticket, band or review finding may assert a per-class α
+> obligation again.**
+>
+> **Read the replacement here:** theory contract
+> `../../contracts/persona-realism-theory-contract.md`, amendment **A9** (the
+> ruling and its scope) and §9 ledger entry 18 (the index of all six 2026-08-24
+> decisions). The evidence behind it is the slice-3 finding ledger
+> `../../ledger/flywheel-slice3-calldown.md`, items **Filed 9 and Filed 10**,
+> which are closed together.
+>
+> **The guard test named below no longer exists.**
+> `test_ace_high_alpha_holds_for_the_station_pre_river` was deleted on 2026-08-24
+> together with the river guard ticket S3-T4 later added and that guard's
+> non-vacuity proof — deleted rather than softened, because softening a guard
+> that measures a quantity the contract does not bound is the exact move the
+> W3R-1 rule exists to prevent. `_ACE_HIGH_RIVER_CALL_DAMP` is untouched and
+> stays at 0.06; it is a lever, not a bound.
+>
+> **What still stands.** Everything below is a valid record of what was measured
+> on this engine, at these nodes, under the old ruling. The numbers reproduce and
+> the reasoning about *why* the cells read as they do is unaffected — only the
+> obligation they were measured against has been withdrawn. Nothing below has
+> been rewritten. The same applies to the companion measurement script
+> `alpha_acehigh_measure.py` beside this file, which still runs and still
+> reproduces these tables, and which now carries the same withdrawal banner in
+> its docstring.
+
 **Bottom line: under the ruling that α = f/(1+f) DOES bound the ACE_HIGH bucket,
 today's engine breaks the bound nearly everywhere, and the calling station on
 pre-river streets is the only part of the surface that holds. Above the river,

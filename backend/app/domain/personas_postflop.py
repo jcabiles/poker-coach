@@ -320,54 +320,46 @@ _CHECK_BASE = {
 #    facing ⅓-pot, pre-T1). Full table:
 #    `docs/ai-dlc/research/slice2-invest-then-fold/alpha-multiway-t1.md`.
 #
-#    ⚠️ THE OWNER HAS RULED, AND THE OLD TEXT HERE WAS STALE. This block used
-#    to say that WHETHER α SHOULD BE ASSERTED OVER ACE-HIGH AT ALL WAS AN OPEN
-#    QUESTION referred to the owner. It is not open: the owner ruled on
-#    **2026-08-19** that α DOES bound the ACE_HIGH bucket. That sentence was
-#    already false when `alpha-acehigh-ruling.md` shipped, was disclosed there
-#    rather than fixed (that slice shipped no engine diff at all), and is
-#    corrected here by S3-T4 — ticket 4 of improvement slice 3 ("calldown") of
-#    the bot-realism flywheel, which is the next ticket to touch this file.
+#    ⚠️ THE OWNER RULED, THEN WITHDREW THE RULING — READ THIS BEFORE THE
+#    PARAGRAPH BELOW IT. On **2026-08-19** the owner ruled that α DOES bound
+#    the ACE_HIGH bucket specifically, and two tests were written to enforce
+#    that reading (`test_ace_high_alpha_holds_for_the_station_pre_river` and
+#    `test_ace_high_river_alpha_ceiling`, both in `test_personas_postflop.py`).
+#    On **2026-08-24** the owner WITHDREW that ruling (contract amendment A9,
+#    `docs/ai-dlc/contracts/persona-realism-theory-contract.md`): α bounds a
+#    defender's WHOLE RANGE and nothing smaller, so there is no per-bucket
+#    ACE_HIGH obligation, and the finding underneath the paragraph below this
+#    one is what carried the day. Both enforcing tests, and the helpers built
+#    only to support them, are deleted (ticket E2 of the slice-3 decisions-
+#    execution build). No engine constant moved with either the ruling or its
+#    withdrawal.
 #
-#    WHAT THE RULING LEAVES STANDING, because it settles the contract and not
-#    the engine. `_CATCHER_BUCKETS` still excludes ace-high, and correctly: that
-#    constant is the composition of the BALANCED-VILLAIN bluff-catcher fixture,
-#    fixed by theory, and widening it would corrupt the one-pair fixture rather
-#    than extend the ruling. The two readings of ace-high are street-shaped and
-#    both survive — with cards to come it is a hand that must improve, and on a
-#    finished board it is exactly a bluff-catcher, which is the owner's stated
-#    deciding reason for T3's river call leg (spec §6, RULED 2026-08-18).
+#    WHAT THE WITHDRAWAL LEAVES STANDING, because it settles the contract and
+#    not the engine. `_CATCHER_BUCKETS` still excludes ace-high, and correctly:
+#    that constant is the composition of the BALANCED-VILLAIN bluff-catcher
+#    fixture, fixed by theory, and widening it would corrupt the one-pair
+#    fixture rather than track a bucket-level ruling that no longer exists.
+#    The two readings of ace-high are street-shaped and both survive — with
+#    cards to come it is a hand that must improve, and on a finished board it
+#    is exactly a bluff-catcher, which is the owner's stated deciding reason
+#    for T3's river call leg (spec §6, RULED 2026-08-18).
 #
-#    HOW THE RULING IS ENFORCED, so that "no test enforces the distinction" is
-#    no longer true either. Two tests in `test_personas_postflop.py`, both on a
-#    purpose-built naked-ace-high range rather than on `_CATCHER_BUCKETS`:
-#      * `test_ace_high_alpha_holds_for_the_station_pre_river` (#204) pins the
-#        only part of the surface that COMPLIES — the calling station, streets
-#        before the river, one to three opponents.
-#      * `test_ace_high_river_alpha_ceiling` (S3-T4) covers the RIVER call leg
-#        for all six personas heads-up, and is a STRICT EXPECTED FAILURE: all 24
-#        cells breach α today, by +0.2695 to +0.6391. It pins no number, so
-#        nothing here is re-recorded when a cell moves; it goes red only if the
-#        river becomes α-compliant, which is the event a fix wants announced.
-#        `test_ace_high_river_alpha_guard_is_not_vacuous` proves that guard can
-#        both pass and trip, by driving `_ACE_HIGH_RIVER_CALL_DAMP` to scratch
-#        values in a monkeypatched scope.
+#    NO TEST ENFORCES A PER-BUCKET ACE_HIGH BOUND ANY MORE, and none should be
+#    added — amendment A9 says so directly. `_ACE_HIGH_RIVER_CALL_DAMP` keeps
+#    its shipped value and its own pinning test
+#    (`test_t3_river_damp_moves_only_the_ace_high_call_leg`); it was never
+#    owed a re-derivation against a bound that turned out not to exist.
 #
-#    WHAT IS STILL THE OWNER'S. Closing the river breach needs an ace-high river
-#    call merit near sixty times the shipped `_ACE_HIGH_RIVER_CALL_DAMP`, and the
-#    frozen went-to-showdown bands already refused 7.5 times it. Reconciling the
-#    ruling with those bands is an owner decision, not a constant to tune here —
-#    the arithmetic is in `docs/ai-dlc/research/slice3-calldown/t4-report.md`.
-#
-#    ⚠️ AND THE RULING ITSELF IS UNDER REVIEW, so do not treat the paragraph above
-#    as a to-do list. S3-T4's theory review found that α bounds how often the
-#    defender's WHOLE RANGE folds and says nothing per bucket: measured on a
-#    whole-range river probe, hands beating ace-high are 56.75% of the range, so
-#    facing a pot-sized bet ace-high may fold outright and minimum defence still
-#    holds, while facing a third of the pot it must call essentially always. The
-#    per-bucket reading is wrong in BOTH directions on this bucket. Filed as item
-#    10 of `docs/ai-dlc/ledger/flywheel-slice3-calldown.md`; if the owner
-#    re-rules, `test_ace_high_river_alpha_ceiling` is DELETED, not fixed.
+#    WHY THE PER-BUCKET READING DID NOT SURVIVE, stated because it is the
+#    poker reasoning and not merely the administrative outcome. α bounds how
+#    often the defender's WHOLE RANGE folds and says nothing per bucket:
+#    measured on a whole-range river probe, hands beating ace-high are 56.75%
+#    of the range, so facing a pot-sized bet ace-high may fold outright and
+#    minimum defence still holds, while facing a third of the pot it must call
+#    essentially always. The per-bucket reading is wrong in BOTH directions on
+#    this bucket. Filed as item 10 of
+#    `docs/ai-dlc/ledger/flywheel-slice3-calldown.md`; adjudicated by amendment
+#    A9 above.
 #  - What protects the CATCHER range is now the BUCKET gate alone, and that is
 #    tested at one, two and three opponents by
 #    `test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents`. Widen
@@ -1731,21 +1723,26 @@ def sample_postflop_decision(
         # reading a 30-hand bundle would essentially never see.
         #
         # Ace-high does not get its full call weight back, only a small mixed
-        # one: `_ACE_HIGH_RIVER_CALL_DAMP`. That constant does NOT land the
-        # roster on its minimum-defence obligation — it is a round value inside
-        # the range two frozen went-to-showdown bands admit, and the owner ruled
-        # on 2026-08-19 that the bands win where they and the poker disagree.
-        # The derived value, the shipped value, the residual under-defence and
-        # the reason the constant is flat rather than price-conditioned are all
-        # recorded with the constant. Read them before changing this branch.
+        # one: `_ACE_HIGH_RIVER_CALL_DAMP`. That constant is a round value
+        # inside the range two frozen went-to-showdown bands admit; it was
+        # never meant to land the roster on a per-bucket minimum-defence
+        # obligation, and amendment A9 (2026-08-24,
+        # `docs/ai-dlc/contracts/persona-realism-theory-contract.md`)
+        # confirms no such obligation exists. The derived value, the shipped
+        # value and the reason the constant is flat rather than price-
+        # conditioned are all recorded with the constant. Read them before
+        # changing this branch.
         #
         # The bucket gate here says ace-high IS a river bluff-catcher, while
         # `_CATCHER_BUCKETS` excludes it from the α fixture on the ground that
-        # it is not one. That tension is street-shaped and both halves stand; the
-        # α CONTRACT question underneath it is CLOSED (owner ruling 2026-08-19:
-        # α bounds ACE_HIGH), and this leg's river fold rates are now asserted
-        # against α by `test_ace_high_river_alpha_ceiling` — a strict expected
-        # failure, because every cell breaches. See the `_CALL_BASE` block above.
+        # it is not one. That tension is street-shaped and both halves stand.
+        # The α CONTRACT question underneath it was ruled CLOSED on
+        # 2026-08-19 (α bounds ACE_HIGH specifically) and then that ruling was
+        # WITHDRAWN on 2026-08-24 (amendment A9): α bounds the whole range and
+        # nothing smaller, so this leg's river fold rates are not separately
+        # asserted against α. The test that once did so,
+        # `test_ace_high_river_alpha_ceiling`, is deleted along with the
+        # obligation it enforced. See the `_CALL_BASE` block above.
         if street is Street.RIVER and draw is DrawCategory.NONE:
             if bucket is StrengthBucket.AIR:
                 call_merit = 0.0

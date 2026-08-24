@@ -14,6 +14,16 @@ play the session (`play-session-checklist.md`), then rule on the filed
 decisions (`owner-decisions.md`). The finale detection run is ready to fire
 once the owner supplies keys and go-ahead (`finale-readiness.md`).
 
+**UPDATE 2026-08-24 — one half of "what the owner does next" is DONE: all six
+filed decisions were taken on 2026-08-24 and executed as documentation.** Do not
+re-ask them. The index of what was ruled and where each ruling landed is theory
+contract `../../contracts/persona-realism-theory-contract.md` §9 ledger entry 18;
+the per-finding adjudication notes are in `../../ledger/flywheel-slice3-calldown.md`.
+No engine constant, band, lever or content-pack value moved with them. **The blind
+play session is still outstanding and the slice is still NOT closed** — that half
+of the sentence above stands unchanged, and nothing else in this packet has been
+edited.
+
 ## 1. What shipped, ticket by ticket
 
 | Ticket | PR | What actually shipped |

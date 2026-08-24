@@ -364,3 +364,39 @@ pre-judging, write-up scaffold, status. Remaining: owner gathers 5 vendor keys,
 runs control pre-screen then full judging per
 specs/flywheel-s6-execution-checklist.md; write-up fills from analysis.json.
 Ledger: ledger/flywheel-s6.md (all ~46 findings with dispositions).
+
+## 2026-08-24 — slice-3 decisions executed (Lane A + Lane B); Lane C not authorized
+
+`/ai-org:build` of `tickets/slice3-decisions-execution.md`, scoped by the owner to Lane A
+and Lane B — chain 1 only (E1 → E2 → E3, all poker-coach). Chain 2, the poker-analytics
+publication-readiness lane the spec calls Lane C, was not authorized and remains unbuilt.
+
+Three serial waves, one worker each, a fresh reviewer at every fan-in, nothing committed
+before its review. E1 (Opus) recorded the owner's six 2026-08-24 rulings in the theory
+contract: amendment A9 withdrawing the 2026-08-19 per-bucket α ruling in favour of a
+per-range bound, a cross-reference putting the commitment slope in re-anchor scope, the
+bucket-aware fold lever parked at §4 row P8, the reduction-floor rule adopted as §11 item 16
+in the binding-rule-plus-reviewer-check form, the §7 factor order corrected to match the
+engine, and §9 ledger entry 18 indexing all six. E2 (Sonnet) deleted the three tests built on
+the withdrawn rule, their narrator block and two orphaned helpers, and corrected the engine
+comments — the engine file's syntax tree is identical before and after, which is a proof of
+zero behaviour change rather than an assurance. E3 (Opus) wrote eleven dated adjudication
+notes with genuinely distinct dispositions (parked / dissolved / deferred / closed / still
+open), resolved the two documents still asserting the withdrawn rule, marked the roadmap's
+statistics-ingestion NEXT item satisfied-2026-08-06 by registry v2 with four residuals as
+disclosed limitations, and swept the tree.
+
+Ten review findings, all accepted and fixed pre-commit (ledger:
+`ledger/slice3-decisions-execution.md`). Two earned their keep. The first: E1 had folded an
+unratified reading of amendment A6 into a paragraph headed as an owner ruling — it is now
+split out under the file's own "not owner-ratified text" convention and awaits owner
+confirmation. The second, and the reason the wave-3 reviewer was routed to Opus: the roadmap
+was about to claim every target in the sister repository's registry is graded low-confidence,
+and three of the fifty-two are not. Verified independently against `registry-v2.json` — 49
+`LOW`, 3 `C-grade literature (unchanged)`. The condition was narrowed and a fourth residual
+disclosed, so nobody closes that item believing the swap off literature bands was total.
+
+Suite 2191 passed / 2 skipped / 6 xfailed → 2189 / 2 / 0, matching a figure written into the
+worker's brief before it started. `BACKEND VERIFY OK`, ruff clean. Two items only the owner
+can close: confirm or overrule the A6 reading, and correct §10.2 of the 2026-07-24 audit,
+which is git-excluded and reachable only in the main checkout.

@@ -355,7 +355,8 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       dials; LAG withdrawn on coupling), S3-T3 (#216, stack-to-pot value damp WITHDRAWN under
       triple review — instrument and contract limits shipped, engine byte-identical), S3-T4
       (#217, α guard over river ace-high as a strict-xfail tripwire; 24/24 cells breach, filed
-      for ruling), S3-T5 (#218, late-street bet lever, admitted 2026-08-22 by owner ruling —
+      for ruling — **RULED 2026-08-24 and the guard DELETED**, see the decisions batch below),
+      S3-T5 (#218, late-street bet lever, admitted 2026-08-22 by owner ruling —
       only the LAG ships it under the pre-registered per-persona gate). **Measured chain-wide**
       (baseline `d351150` → tip `0561e8f`): pooled went-to-showdown −0.98pp on the band harness
       and −1.5pp on the 50k export; TAG −4.0/−4.3pp; every HARD band, ordering leg, and the
@@ -363,7 +364,23 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       short of the ~12-point counterfactual cutoff move — the slice's standing justification is
       the visibility argument, not that number. Close packet, filed owner decisions (six),
       finale-readiness packet, and play-session checklist:
-      `../research/slice3-calldown/close-packet.md`. Original entry follows.
+      `../research/slice3-calldown/close-packet.md`.
+      **THE SIX FILED DECISIONS WERE TAKEN 2026-08-24 and executed as documentation; no
+      engine constant, band, lever or content-pack value moved.** Index and full text:
+      theory contract `../contracts/persona-realism-theory-contract.md` §9 ledger entry 18.
+      **(1) α is a per-RANGE bound and the 2026-08-19 per-bucket ruling is WITHDRAWN**
+      (amendment A9) — S3-T4's tripwire, its non-vacuity proof and the pre-river station
+      assertion were deleted rather than softened, the 24/24 breach stops being a breach,
+      and no test, ticket, band or review finding may assert a per-bucket α obligation
+      again; the only thing left open is whether a tight archetype may sit near or cross
+      the *range-level* α wall, which needs a sourced margin before any test admits it.
+      **(2)** the value-side commitment slope is IN scope for the single designated
+      re-anchor slice (scope only, no build authorized). **(3)** the bucket-aware fold
+      lever is PARKED at §4 row P8. **(4)** the reduction-floor registration rule is
+      ADOPTED as standing process law (§11 item 16). **(5)** the unopened-arrival watch
+      band's re-centring is acknowledged, no action. **(6)** the two parked follow-ups stay
+      parked. Adjudication notes on all eleven affected findings:
+      `../ledger/flywheel-slice3-calldown.md`. Original entry follows.
       **CORE SCOPE (owner-ruled 2026-08-21), and its headline number was
       wrong** *(corrected 2026-08-18)*. An earlier draft of the 2026-08-17 audit recommended
       cutting it; that was withdrawn under review, and the scope-valve question the withdrawal
@@ -568,8 +585,28 @@ listed rather than the gate slipping silently.
   on, not because it is impossible · open questions: whether table choice persists across
   restarts; whether hidden labels should also hide the post-hand grader's references to
   opponent type.
-- **Population-statistics ingestion + target-registry upgrade** *(RE-SCOPED 2026-08-06 by owner
-  ruling on S2b's gate brief — was "Corpus ingestion"; the acquire-hands framing is CLOSED)* —
+- **Population-statistics ingestion + target-registry upgrade — SATISFIED 2026-08-06 by
+  target registry version 2. This entry sat in NEXT for eighteen days after the work
+  landed; the reconciliation is recorded here on 2026-08-24 and nothing is scheduled by
+  it.** The registry exists as `poker-analytics:data/targets/registry-v2.json`
+  (v2.0.0, `statdef-2026-08-06`), hash-pinned in that repository's `scorer/registry.py`
+  and governed by its estimand contract §g.1. **All four of the owner's binding
+  conditions from the 2026-08-06 ruling were verified satisfied** by a read-only scan on
+  2026-08-24: (1) every value is recorded with its exact filter combination — stake,
+  segment, statistic — and its retrieval date, in a 720-observation raw snapshot, which
+  is what makes a rolling 12-month window reproducible where a date alone would not;
+  (2) every target **derived from the ingested aggregates** — the seven swapped pool rows
+  and all forty-two persona rows — is graded LOW confidence, the source publishing neither
+  sample size nor methodology (the three pool rows NOT derived from them are covered in the
+  limitations below); (3) the mapping from the source's population
+  strata (regulars and recreationals, which are profitability-and-VPIP strata) to this
+  app's persona archetypes is constructed, justified in writing and sensitivity-tested
+  (`mapping_sensitivity`, `frozen_rules`); (4) the limitation is stated in the registry
+  and travels in **every** score payload. **Nothing in that registry, and none of its
+  hashes, is touched by this reconciliation** — it belongs to poker-analytics.
+  *(RE-SCOPED 2026-08-06 by owner
+  ruling on S2b's gate brief — was "Corpus ingestion"; the acquire-hands framing is CLOSED.
+  The original entry, kept as the record of what was ruled and why, follows.)* —
   evidence: S2b verdict **PARTIAL**
   (`../research/realism-architecture/03-nlhe-corpus-gate-brief.md`) — **NO-GO on a licensing-clean
   corpus of human NLHE *hands*** (every candidate of adequate size traces to ToS-prohibited
@@ -591,6 +628,26 @@ listed rather than the gate slipping silently.
   to hand-level or play-style data plus rights to publish derived statistics; **keep it listed, do
   not pursue it now** · open questions: era-drift validity (no quantified NLHE trend line exists),
   single-site bias (GGPoker only), how to pin a rolling-window source reproducibly.
+  **FOUR RESIDUALS REMAIN OPEN, and they are DISCLOSED LIMITATIONS — not work items,
+  not candidate slices, and nothing here schedules them** (recorded 2026-08-24; each is
+  already disclosed in poker-analytics' estimand contract, which is where they are
+  governed). **(a) The fold-to-three-bet pool budget is vacuous** — its band is wider
+  than the range it is meant to constrain, roughly 73 percentage points, which was a
+  deliberate choice recorded at the time rather than an oversight. **(b) Persona-tier
+  degeneracy** — the source publishes only two target vectors across six personas,
+  because it publishes no finer segments; no amount of processing creates a third.
+  **(c) Era-drift and single-site bias** — unresolvable without new data sources, and
+  the only credible route to those is the operator data-sharing agreement already listed
+  above as "keep it listed, do not pursue it now". **(d) The swap off the literature
+  bands is PARTIAL, and no expert-elicitation panel was run** — seven of the ten pool
+  rows now carry the ingested aggregates, but `flop_cbet`, `fold_to_cbet` and `af` still
+  ride on the v2.3 literature values this entry itself describes as uncited author
+  opinion, labelled in the registry as "C-grade literature (unchanged)"; the panel this
+  entry lists as a candidate for statistics the aggregates do not cover was never
+  performed. **Listing any of these as a task
+  would manufacture work the owner did not ask for and that no available evidence can
+  complete.** They are recorded so a later reader knows the ingestion item is satisfied
+  *with* stated limits, not satisfied *without* them.
 - **Portfolio publication path** — evidence: dual-purpose mandate; poker-analytics currently
   private · **strategy (owner-ratified 2026-08-05): curated narrative public, raw exhaust
   private.** Public = README front door + 2–3 polished methodology write-ups (score design +

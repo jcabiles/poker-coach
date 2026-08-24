@@ -138,7 +138,14 @@ fixtures, dossier §5 Option 1(d)).
     walk values, already asserted equal to live `HandState` (`range_estimate.py:1-30`, `_Ctx` at
     `:97-138`), not a bracket field. Trips only if new code reads `la.max_bb`/`la.min_bb` off a
     `LegalAction` instead — an avoidable but real mistake given the instinct to reach for "the cap."
-- **α fold-ceiling test** (`test_personas_postflop.py:713-830`, ACE_HIGH mirror `:833-978`). Out of
+- **α fold-ceiling test** (`test_personas_postflop.py`,
+    `test_fold_to_bet_respects_alpha_ceiling` at `:713-830`). *(Corrected 2026-08-24: this
+    entry also named an "ACE_HIGH mirror" at `:833-978`. That test enforced the per-bucket α
+    ruling the owner withdrew on 2026-08-24 and was deleted with it — theory contract
+    amendment A9. **No ace-high α assertion remains anywhere in the file**; the α ceiling is
+    asserted over `_CATCHER_BUCKETS` only. Those line numbers are now occupied by a
+    different test — `test_fold_to_bet_persona_ordering_at_fixed_size` begins at `:833` —
+    so locate anchors in that file by name, not by number.)* Out of
     scope directly — gates FOLD merit on the CALL/FOLD facing branch, not the made-value BET path.
     Indirect risk only if the lever changes how many hands reach a later facing node, via the
     coverage-baseline mechanism in §3.

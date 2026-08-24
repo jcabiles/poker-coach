@@ -1,6 +1,21 @@
 """The naked-ace-high fold rate against the alpha ceiling alpha = f/(1+f), on
 every street and at one, two and three opponents.
 
+WITHDRAWN 2026-08-24 -- THE RULING THIS SCRIPT WAS WRITTEN TO SERVE IS NO LONGER
+IN FORCE. On 2026-08-24 the owner ruled that alpha bounds a defender's WHOLE
+RANGE and nothing smaller, and withdrew the 2026-08-19 ruling that it bounds the
+ACE_HIGH strength bucket; no test, ticket, band or review finding may assert a
+per-bucket alpha obligation again. The replacement law is amendment A9 of
+`docs/ai-dlc/contracts/persona-realism-theory-contract.md` (indexed at its
+section 9, ledger entry 18); the evidence is
+`docs/ai-dlc/ledger/flywheel-slice3-calldown.md`, items "Filed 9" and "Filed 10".
+The guard test this script's output supported,
+`test_ace_high_alpha_holds_for_the_station_pre_river`, was deleted on 2026-08-24.
+The script still RUNS and its numbers are still correct -- it measures what the
+engine does, which has not changed -- so it is kept as a reproduction tool for
+the historical tables in `alpha-acehigh-ruling.md`, which carries the same
+banner. Read the paragraph below as history, not as a live obligation.
+
 WHY THIS EXISTS. The owner ruled on 2026-08-19 that the alpha bound DOES apply
 to the ACE_HIGH strength bucket, closing the open question T1 referred up
 (`docs/ai-dlc/ledger/phase3-invest-then-fold.md`, finding 3 and its open item).
