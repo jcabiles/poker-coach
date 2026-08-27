@@ -48,32 +48,35 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-08-26
-commit:       bc40c1c   (branch `feat/two-mode-simulate`, in a worktree, UNPUSHED)
-log-entry:    "2026-08-26 — Two-mode Simulate: build waves 1-2 landed"
-position:     `/ai-org:build` running the **Two-mode Simulate** slice. The owner approved the
-              plan at the go-gate on 2026-08-26; the ticket file, the spec and
-              `plans/two-mode-simulate.md` all read `status: approved`. Approval covers
-              building all eight tickets, running migration `0015` against the local
-              development database, and committing to the feature branch. It does **not**
-              cover merging.
-merged:       nothing. The branch has never been pushed.
-progress:     T1 (two nullable session columns + migration `0015`) — committed `e3b3cde`,
-              review APPROVE. T2 (mode accepted at creation, carried on every response) —
-              committed `bc40c1c`, review APPROVE WITH FINDINGS, both Major findings fixed
-              and verified. T3 (completed-hand count + server-side deal barrier) — in flight.
-              T4-T8 not started.
-next action:  finish the T3 barrier, then T4 (blind-check endpoint), T5 (frontend types and
-              client), T6 (mode-choice screen), T7 (display gate + Labels toggle), T8 (the
-              hand-200 dialog). One ticket at a time — nothing in the chain parallelises.
-where:        the build runs in a worktree, NOT the main checkout, because another session is
-              writing to the shared tree. Its Python environment and Node packages are
-              symlinks into the main checkout; `PYTHONPATH=.` is mandatory or tests silently
-              run against the main checkout's source.
-baseline:     the worktree runs `2197 passed, 2 skipped, 0 failed`. The two skips read a
-              machine-local data file that is not in the worktree; in the main checkout the
-              same two tests FAIL. Inside the worktree any failure is ours.
-awaiting John: (a) the written per-persona verdict that closes flywheel slice 3 — the
-              1050-hand session is already played, only the verdict is owed; (b) two
-              theory-contract items still open from 2026-08-24 (ledger finding B1, and
-              section 10.2 of the git-excluded persona-realism audit).
+updated:      2026-08-27
+commit:       496557a  (branch `feat/two-mode-simulate`, in a worktree, **NEVER PUSHED**)
+log-entry:    "2026-08-27 — Two-mode Simulate: all eight tickets built and reviewed"
+position:     **Two-mode Simulate is BUILT and REVIEWED, and stops there.** All eight tickets
+              are committed to `feat/two-mode-simulate`. Nothing is pushed, nothing is merged,
+              and the roadmap box is deliberately unticked.
+authorized:   The owner approved building, running migration `0015` against the local
+              development database, and committing to the branch. That is spent. **Merging was
+              explicitly excluded and still needs a separate confirmation.**
+gates:        backend `2239 passed, 2 skipped, 0 failed`, ruff clean; frontend typecheck and
+              build clean; frontend suite `60 passed` (35 when the slice started).
+chain:        T1 columns+migration `e3b3cde` · T2 mode on the wire `bc40c1c` · T3 hand count +
+              deal barrier `929bda1` · T4 blind-check endpoint `ca31800` · T5 frontend types
+              `6672ffa` · T6 sit-down screen `982c023` · T7 display gate + Labels toggle
+              `b3bef9d` · T8 hand-200 dialog `496557a`.
+records:      per-barrier detail in `reviews/two-mode-simulate-build.md`; forty-four
+              build-phase findings with their adjudications in `ledger/two-mode-simulate.md`.
+next action:  the owner plays it. This initiative's precedent is that the play session, not the
+              gate numbers, is the product verdict — the same rule keeping slice 3 open. Then a
+              merge decision.
+where:        the build ran in a worktree, NOT the main checkout, because another session was
+              writing to the shared tree. Its Python environment and Node packages are symlinks
+              into the main checkout; `PYTHONPATH=.` is mandatory or tests silently exercise the
+              main checkout's source. The worktree baseline is `0 failed` — two tests that FAIL
+              in the main checkout skip there for want of a machine-local data file.
+carried fwd:  three items, all in the ledger, none hidden — the preflop exploit note is
+              **structurally unreachable in Simulate** and always has been (pre-existing, not
+              this slice's); one display helper is now duplicated three ways across files the
+              slice froze; two modules stand well past the file-size guidance.
+awaiting John: (a) play the slice, then decide on merging; (b) the written per-persona verdict
+              that closes flywheel slice 3 — the 1050-hand session is already played, only the
+              verdict is owed; (c) two theory-contract items open since 2026-08-24.

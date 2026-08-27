@@ -510,8 +510,29 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > blocks. Slice 3 (calldown) will be spec'd and measured against this interim regime, not the
 > old frozen bands; see the slice 3 entry above.
 
-- [ ] **Two-mode Simulate (Training / Challenge) — supersedes the persona-label toggle; next
-      to build.** Promoted out of the NEXT-lane table-controls entry, whose freeze was lifted
+- [ ] **Two-mode Simulate (Training / Challenge) — supersedes the persona-label toggle. BUILT
+      AND REVIEWED 2026-08-27; the box stays unticked because the owner has neither played it
+      nor merged it.**
+
+      > **State, 2026-08-27.** All eight tickets are built, independently reviewed and committed
+      > to `feat/two-mode-simulate` — a branch that has **never been pushed**. The owner's
+      > approval at the build gate covered building, running migration `0015` against the local
+      > development database, and committing; it did **not** cover merging, and merging still
+      > needs an explicit confirmation. Gates at the final barrier: backend `2239 passed, 2
+      > skipped, 0 failed` with ruff clean, frontend typecheck and build clean, and the frontend
+      > suite at 60 tests (it was 35 when the slice started). Every barrier's record is in
+      > `../reviews/two-mode-simulate-build.md`; forty-four build-phase findings and their
+      > adjudications are in `../ledger/two-mode-simulate.md`.
+      >
+      > **What is owed before this can be ticked:** the owner playing it. This initiative's own
+      > precedent is that the play session, not the gate numbers, is the product verdict — the
+      > same rule that keeps slice 3 open. Three items are also carried forward deliberately and
+      > are recorded in the ledger rather than hidden: the preflop exploit note is **structurally
+      > unreachable in Simulate** and always has been (a pre-existing defect this slice found and
+      > does not own), one display helper is now duplicated three ways across files the slice
+      > deliberately froze, and two modules stand well past the repository's file-size guidance.
+
+      Promoted out of the NEXT-lane table-controls entry, whose freeze was lifted
       for this slice only (see the no-gos block), and **re-shaped by owner ruling 2026-08-26**
       from one hidden-by-default toggle into two named modes. **What it does:** the player picks
       a mode at sit-down and it is fixed for that session. **Training** is the app as it stands —

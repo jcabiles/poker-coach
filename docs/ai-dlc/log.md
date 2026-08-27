@@ -1,5 +1,33 @@
 # AI-Org log — poker-coach
 
+## 2026-08-27 — Two-mode Simulate: all eight tickets built and reviewed (NOT merged, NOT played)
+- Owner approved the plan at the `/ai-org:build` go-gate on 2026-08-26. Eight tickets in one
+  sequential chain, each built by a worker and checked by a fresh reviewer that never saw the
+  worker's reasoning; the three visible tickets also got a browser-based design review. Final
+  gates: backend `2239 passed, 2 skipped, 0 failed`, ruff clean, frontend typecheck and build
+  clean, frontend suite 35 → 60 tests. Branch `feat/two-mode-simulate`, tip `496557a`, **never
+  pushed**. Merging was excluded from the approval and is still owed a decision.
+- **The reviews earned their cost, and repeatedly caught reasoning rather than behaviour.** Two
+  approved documents carried a boundary sentence that contradicted the formula they mandated —
+  left standing, the frontend would have opened the dialog mid-hand, which is the exact defect
+  that forced the spec's rev-2 rewrite. A worker's explanation of why the exploit note never
+  fires was wrong in a way that would have implied authoring content revives it. And the slice's
+  own done-condition could report green while running none of the new tests, because it matched
+  module filenames.
+- **The Director was wrong four times and each was caught by someone else.** Told four workers
+  there was no frontend test suite (there is; four tickets shipped no test as a result, fixed at
+  the last barrier). Wrote a ledger entry mandating three refusal messages for three states a
+  reviewer then proved unreachable. Described a contrast pair as gilt-on-gilt when one side is
+  the muted token, which is what led a reviewer to recommend dropping a hairline on a false
+  premise. And briefed a test that the approved spec makes unsatisfiable — the worker followed
+  the spec and said so.
+- **Found but not owned:** the preflop exploit note is structurally unreachable in Simulate for
+  every archetype — every authored entry is indexed under a null facing position while the lookup
+  requires a non-null one. A teaching feature that has never once appeared. Recorded as ledger
+  B30 for a change of its own.
+- Next: the owner plays it, then decides on merging. Records: `reviews/two-mode-simulate-build.md`
+  (per barrier) and `ledger/two-mode-simulate.md` (forty-four findings, adjudicated).
+
 ## 2026-08-26 — Two-mode Simulate: build waves 1-2 landed
 - Owner approved the plan at the `/ai-org:build` go-gate. Eight tickets, one sequential chain,
   8 workers + 10 reviewers, all in a worktree on `feat/two-mode-simulate` (base `ea64392`) —
