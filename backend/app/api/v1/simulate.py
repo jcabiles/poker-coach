@@ -6,6 +6,8 @@ POST /simulate/session/{id}/action   -> hero acts; bots advance to the next
                                          hero decision (or hand end).
 POST /simulate/session/{id}/hand     -> deal the next hand (carry-over stacks).
 POST /simulate/session/{id}/leave    -> end the session (no longer restorable).
+POST /simulate/session/{id}/blind-check -> answer (or skip) the hand-200 blind
+                                         check; scores it and stores it once.
 GET  /simulate/history               -> all completed hands, newest-first,
                                          day-bucketed with per-day ordinals.
 GET  /simulate/hand/{id}/replay      -> step-by-step replay of one completed hand
@@ -46,6 +48,8 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.domain.action import Decision
 from app.schemas.simulate import (
+    BlindCheckSubmitRequest,
+    BlindCheckView,
     CoachExplainRequest,
     CoachExplainView,
     CreateSessionRequest,
@@ -62,7 +66,7 @@ from app.schemas.simulate import (
 )
 from app.services import coach, sim_session
 from app.services.coach import CoachContext
-from app.services.sim_session import SessionNotFound
+from app.services.sim_session import BlindCheckNotOpen, SessionNotFound
 
 router = APIRouter(prefix="/simulate", tags=["simulate"])
 
@@ -105,6 +109,27 @@ async def next_hand(session_id: str, db: Session = Depends(get_session)) -> Sess
         return sim_session.deal_next_hand(db, session_id, owner_id=_OWNER_ID)
     except SessionNotFound as exc:
         raise HTTPException(status_code=404, detail="session not found") from exc
+
+
+@router.post("/session/{session_id}/blind-check", response_model=BlindCheckView)
+async def submit_blind_check(
+    session_id: str, body: BlindCheckSubmitRequest, db: Session = Depends(get_session)
+) -> BlindCheckView:
+    # Two-mode Simulate T4: the hand-200 blind check. Singular `/session/`, like
+    # every other route here. First write wins, so a duplicate submission is a
+    # 200 carrying the FIRST result rather than a conflict. 409 = the gate is not
+    # open (a Training session's never is); 400 = seats other than the three the
+    # digest picked; 404 stays SessionNotFound-only. The schema rejects a body
+    # that cannot mean one thing before any of this runs, as 422: an archetype
+    # outside the six, the wrong number of answers, or a skip carrying answers.
+    try:
+        return sim_session.submit_blind_check(db, session_id, body, owner_id=_OWNER_ID)
+    except SessionNotFound as exc:
+        raise HTTPException(status_code=404, detail="session not found") from exc
+    except BlindCheckNotOpen as exc:
+        raise HTTPException(status_code=409, detail="blind check is not open") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/session/{session_id}/leave", status_code=204)

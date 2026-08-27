@@ -23,6 +23,7 @@ Spec: docs/ai-dlc/specs/simulate-s9.md.
 
 from __future__ import annotations
 
+import hashlib
 import random
 import secrets
 import uuid
@@ -30,7 +31,7 @@ from datetime import UTC, datetime
 from functools import cache
 from typing import get_args
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 
 from app.db.models import DrillAttempt, SimDecision, SimHand, SimSeat, SimSession
 from app.domain.action import Decision
@@ -94,6 +95,9 @@ from app.domain.table.sizing import (
     pot_fraction_to_bb,
 )
 from app.schemas.simulate import (
+    BLIND_CHECK_SEAT_COUNT,
+    BlindCheckGuess,
+    BlindCheckSubmitRequest,
     BlindCheckView,
     EventView,
     ExploitNoteView,
@@ -175,6 +179,12 @@ class SessionNotFound(Exception):
     """Session missing/ended/not-owned — the API maps this to 404.
 
     ValueError stays reserved for illegal / not-hero-turn actions (=> 400)."""
+
+
+class BlindCheckNotOpen(Exception):
+    """The blind check was submitted while its gate was shut — the API maps this
+    to 409. A Training session's gate never opens at all, so every submission to
+    one lands here."""
 
 
 @cache
@@ -328,6 +338,45 @@ def _stored_blind_check(session: SimSession) -> BlindCheckView | None:
         return BlindCheckView.model_validate_json(session.blind_check_json)
     except ValueError:
         return None
+
+
+def _blind_check_seats(session_id: str) -> list[int]:
+    """The three seats this session's blind check asks about (spec para 14).
+
+    A pure function of the session id — no database, no clock, no randomness —
+    so the same three seats come back after a reload, from another request and
+    from another process. The digest is `hashlib.sha256` and NOT Python's
+    built-in `hash()`, which is salted per process: with `hash()` a restart
+    would ask the player about different opponents than the dialog first showed
+    them.
+
+    Sampled without replacement from the eight non-hero seats, one digest byte
+    per pick, so the three are always distinct and the hero is never among them.
+    The modulo leaves a slight bias towards low indices on the second and third
+    pick (256 divides neither 7 nor 6); that is fine for what spec para 17 calls
+    a keepsake rather than a measurement, and cheaper than rejection sampling.
+    """
+    digest = hashlib.sha256(session_id.encode()).digest()
+    pool = [seat for seat in range(9) if seat != HERO_SEAT]
+    picked = []
+    for i in range(BLIND_CHECK_SEAT_COUNT):
+        picked.append(pool.pop(digest[i] % len(pool)))
+    return sorted(picked)
+
+
+def _blind_check_gate_open(session: SimSession, hand: SimHand | None) -> bool:
+    """Whether the blind check is DUE: a Challenge session at or past the
+    threshold. Says nothing about whether it has been answered — that is
+    `_stored_blind_check()`, and the two are deliberately separate questions.
+
+    Three callers, one rule. `deal_next_hand()` bars while this is true and
+    nothing is stored; `_view()` emits the seats so the client knows what to ask;
+    `submit_blind_check()` refuses an early submission with 409.
+    """
+    return (
+        session.mode == "challenge"
+        and _completed_hands(session, hand) >= BLIND_CHECK_HAND_GATE
+    )
 
 
 def _get_session(db: Session, session_id: str, owner_id: str) -> SimSession | None:
@@ -828,6 +877,21 @@ def _view(
     # set a permitted value.
     mode: SimMode = session.mode if session.mode in get_args(SimMode) else "training"
     blind_check = _stored_blind_check(session)
+    if blind_check is None and _blind_check_gate_open(session, hand):
+        # Gate open, nothing answered yet. The client cannot ask the player
+        # about three seats it has not been told, so the pick rides here.
+        # `guesses` stays EMPTY: every guess row carries the seat's ACTUAL
+        # archetype, so populating it before the answer would hand over the
+        # answers to the question being asked. (`SeatView.persona_type` is a
+        # separate matter — spec's constraint (c) keeps it on the wire in both
+        # modes, and hiding it on screen is the frontend's job.)
+        blind_check = BlindCheckView(
+            seats=_blind_check_seats(session.id),
+            submitted=False,
+            skipped=False,
+            guesses=[],
+            score=None,
+        )
     return SessionView(
         session_id=session.id,
         mode=mode,
@@ -1469,16 +1533,16 @@ def deal_next_hand(db: Session, session_id: str, owner_id: str = "") -> SessionV
         # instead — every other reader of this column degrades rather than
         # raising, and dealing on is what this function did before the gate.
         and hand.state_json is not None
-        and session.mode == "challenge"
+        and _blind_check_gate_open(session, hand)
         and _stored_blind_check(session) is None
-        and _completed_hands(session, hand) >= BLIND_CHECK_HAND_GATE
     ):
         # The blind-check pause is enforced here, not in the client: with Watch
         # off, a hero fold posts the action and the next deal back to back in
         # one handler (`SimulateView.tsx`, the `decide` callback), so nothing in
         # the browser can interpose the dialog. Barring is not an error — return
-        # the settled hand untouched and mutate nothing on the way out. `>=`, so
-        # a session that somehow arrived past the gate without a stored check
+        # the settled hand untouched and mutate nothing on the way out. The
+        # threshold comparison in `_blind_check_gate_open()` is `>=`, so a
+        # session that somehow arrived past the gate without a stored check
         # stays barred instead of dealing on.
         state = HandState.model_validate_json(hand.state_json)
         # Unlike the live-hand no-op above, this hand is OVER, so it has an
@@ -1499,6 +1563,100 @@ def deal_next_hand(db: Session, session_id: str, owner_id: str = "") -> SessionV
     seats = _load_seats(db, session_id)
     hand, state, events = _deal_and_advance(db, session, seats)
     return _view(session, hand, state, seats, events)
+
+
+def submit_blind_check(
+    db: Session,
+    session_id: str,
+    submission: BlindCheckSubmitRequest,
+    owner_id: str = "",
+) -> BlindCheckView:
+    """Score the hand-200 blind check against the table and store it (spec 14-17).
+
+    **First write wins**, including for two requests in flight at once. A second
+    submission never overwrites — it returns what is already stored, so a
+    duplicate post, a retry or a second tab cannot change an answered check.
+    "Already stored" is `_stored_blind_check()`, the
+    same predicate the deal barrier and the wire use: a value that does not
+    parse counts as NOT stored, so a corrupt write leaves the check answerable
+    instead of barring the deal for the rest of the session.
+
+    **A skip stores a result too** — submitted, skipped, no guesses, no score.
+    The barrier lifts on something being stored, not on it being right, so a
+    skip that stored nothing would re-fire the gate forever.
+
+    `SimSeat.persona_type` is READ here and never written: the archetype stays
+    in the database in both modes, which is what keeps history, replay and the
+    analytics export attributable.
+    """
+    session = _get_session(db, session_id, owner_id)
+    if session is None:
+        raise SessionNotFound(session_id)
+    if not _blind_check_gate_open(session, _current_hand(db, session)):
+        # => 409. Includes every Training session, whose gate never opens.
+        raise BlindCheckNotOpen(session_id)
+    stored = _stored_blind_check(session)
+    if stored is not None:
+        return stored
+    observed = session.blind_check_json  # what the write below compares against
+
+    expected = _blind_check_seats(session.id)
+    guesses: list[BlindCheckGuess] = []
+    if not submission.skipped:
+        named = sorted(answer.seat_index for answer in submission.guesses)
+        if named != expected:
+            # => 400. One comparison catches an unexpected seat, a repeated
+            # seat, and a wrong number of answers.
+            raise ValueError(f"blind check expects seats {expected}, got {named}")
+        personas = {row.seat_index: row.persona_type for row in _load_seats(db, session.id)}
+        for answer in submission.guesses:
+            actual = personas[answer.seat_index]
+            guesses.append(
+                BlindCheckGuess(
+                    seat_index=answer.seat_index,
+                    guess=answer.guess.value,
+                    actual=actual,
+                    correct=answer.guess.value == actual,
+                )
+            )
+
+    result = BlindCheckView(
+        seats=expected,
+        submitted=True,
+        skipped=submission.skipped,
+        guesses=guesses,
+        score=None if submission.skipped else sum(1 for g in guesses if g.correct),
+    )
+    # First write wins even when two requests OVERLAP, which a plain assignment
+    # would not give: the read above and this write are not one step, so a
+    # second request can clear the same "nothing stored" check before this one
+    # commits, and both would then write — the second silently replacing the
+    # score the first already returned to its player. The UPDATE therefore
+    # lands only while the column still holds exactly what was read. The
+    # comparison is NULL-safe (`IS`, not `=`) and is against the OBSERVED value
+    # rather than "is empty", so the corrupt value `_stored_blind_check()`
+    # reports as nothing stored is still replaceable by a genuine first write.
+    landed = db.exec(
+        update(SimSession)
+        .where(SimSession.id == session.id)
+        .where(SimSession.blind_check_json.is_not_distinct_from(observed))
+        .values(blind_check_json=result.model_dump_json())
+    )
+    db.commit()
+    db.refresh(session)
+    if landed.rowcount == 1:
+        return result
+    # Lost the race: this request stored nothing, so it must report what the
+    # winner stored rather than its own unstored score — both callers and the
+    # database then say the same thing.
+    winner = _stored_blind_check(session)
+    if winner is None:
+        # Only this function writes the column, and only ever a serialised
+        # BlindCheckView, so the winner's value parses. Reaching here means
+        # something else overwrote it unreadably in the same instant; that must
+        # surface, not be papered over with this request's unstored result.
+        raise RuntimeError(f"blind check for {session.id} was overwritten unreadably")
+    return winner
 
 
 def leave_session(db: Session, session_id: str, owner_id: str = "") -> None:

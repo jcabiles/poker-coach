@@ -275,4 +275,14 @@ def test_unparseable_stored_check_keeps_the_deal_barred(db):
 
     view = deal_next_hand(db, session.id)
     assert view.hand.hand_no == BLIND_CHECK_HAND_GATE
-    assert view.blind_check is None
+    # T4 made the barred wire carry the QUESTION rather than nothing: the gate
+    # is open and nothing readable is stored, so the client is told which three
+    # seats to ask about and the check reads unanswered. Same invariant as
+    # before — the gate and the wire agree that nothing is stored — now stated
+    # in the shape T4 emits, because a barred deal with no question on the wire
+    # would leave the player unable to answer and unable to play on.
+    assert view.blind_check is not None
+    assert view.blind_check.submitted is False
+    assert view.blind_check.skipped is False
+    assert view.blind_check.guesses == []
+    assert view.blind_check.score is None

@@ -208,3 +208,72 @@ rather than implementer-invented, the implementer proved each new test fails aga
 mechanically reverted copy, the mutation battery was re-run afterwards with the file restored
 byte-identical, and the Director read the final diff and re-ran the full suite. Recorded so the
 decision is visible rather than implied.
+
+---
+
+## Barrier after ticket T4 — the blind-check endpoint, and the end of the backend
+
+**Ticket in plain terms.** T4 builds the quiz that unlocks the opponents' names: the server picks
+three seats from the session identifier, the player names each one's playing style, the server
+scores the answers against what those seats actually were and stores the result once. It is the
+last backend ticket; everything after it is the browser.
+
+**Worker:** `heavy-worker`, Opus, high effort (pinned).
+**Reviewer:** `refuter`, Opus, high effort (pinned). Fresh context.
+**Verdict: APPROVE WITH FINDINGS** — two Minor, both fixed before this barrier closed.
+
+**Deterministic checks:**
+
+| Check | Result |
+|---|---|
+| Full backend suite, before the fixes | `2236 passed, 2 skipped`, zero failures — exactly the 23 tests T4 added |
+| Full backend suite, after the fixes | `2239 passed, 2 skipped`, zero failures |
+| `ruff check .` | clean |
+
+**Eighteen mutations, zero survivors.** The reviewer copied the worktree elsewhere and mutated the
+copy rather than the tree, so the working tree is provably untouched. Mutations covered the
+scoring arithmetic, the seat pick's determinism, sampling without replacement, hero exclusion,
+the threshold comparison, the mode condition, each error status, first-write-wins, persistence,
+and two aimed squarely at the information leak. One of those killed the worker's own doubt: the
+mutation that fills the pre-submission offer with the real archetypes was caught by three tests,
+so that guard is load-bearing rather than decorative.
+
+**Cross-process determinism was measured, not argued.** Four separate interpreters at four
+different hash seeds produced the same triples. More usefully, the reviewer **wrote its own
+implementation from the specification text alone** and confirmed it reproduces both pinned
+triples — which is what rules out the failure where a test's hard-coded expectation was written
+to match a buggy implementation. It then checked the arithmetic by hand.
+
+**The disclosed sampling bias was quantified exactly rather than waved through:** 0.56% total
+variation distance from uniform, all 56 possible triples reachable, worst-case per-seat deviation
+0.36 percentage points. The reviewer then gave a better reason than the specification's for why
+it does not matter — the archetypes are shuffled onto seats by a generator statistically
+independent of the session identifier, so bias in *which seat* is asked induces no bias in *which
+archetype* is asked about.
+
+**The orchestrator was wrong once, and the structure caught it.** The worker's brief demanded a
+test proving no archetype appears anywhere in the pre-submission response. That is unsatisfiable
+against the approved specification, which deliberately lets every seat's archetype ride the wire
+in both modes and records that nulling it breaks two frontend consumers. The worker followed the
+specification over the brief, said so plainly, and scoped its assertion to the quiz object — where
+the real leak channel is. The reviewer confirmed the ruling and verified nothing had been nulled
+or hidden to satisfy the instruction. This is recorded as ledger entry B15 rather than left in a
+transcript, because a review structure that only ever catches workers is not doing its job.
+
+**One reviewer recommendation was overruled.** It judged the concurrent-submission race
+carry-forward-able because the application is local and single-user. The Director overruled: the
+ticket's own acceptance criterion states first-write-wins as a property, the specification
+explicitly contemplates two browser tabs, and T4 is the last backend ticket — no remaining ticket
+owns the file, so deferring meant never. The fix is a conditional write that lands only while the
+column still holds what the read observed, compared null-safely against the **observed value**
+rather than against emptiness, so that the corrupt-value rule from ledger entry B10 survives: a
+value that does not parse is still replaceable by a genuine first write.
+
+**A test that passed against broken code nearly shipped as proof that it did not.** The worker's
+first concurrency reproduction asserted on a row re-fetched from the database session instead of
+one held in a local variable. The identity map holds weak references, so the row was collected,
+the second caller silently re-read after the first had committed, and the test passed against the
+unfixed code. The worker found this themselves and rewrote the test to hold both rows — and to
+assert its own reproduction is still valid before exercising it, so a future library change makes
+it fail loudly rather than pass while testing nothing. Recorded because it is the most instructive
+thing that happened at this barrier.

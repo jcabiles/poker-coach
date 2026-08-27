@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
+from app.domain.archetypes import VillainType
 from app.domain.evaluation import ReasoningParts
 from app.domain.spot import Hero, LegalAction
 
@@ -177,6 +178,13 @@ class SimulateHandView(BaseModel):
     recap: list[GradeView] = []
 
 
+# Seats the hand-200 blind check asks about (spec para 13-14). Lives here, with
+# the models that carry it, because the submission schema needs it to reject a
+# body with the wrong number of answers; `sim_session._blind_check_seats()`
+# reads the same constant rather than a second literal.
+BLIND_CHECK_SEAT_COUNT = 3
+
+
 class BlindCheckGuess(BaseModel):
     """One seat's answer in the hand-200 blind check (T4 scores these)."""
 
@@ -198,6 +206,48 @@ class BlindCheckView(BaseModel):
     skipped: bool
     guesses: list[BlindCheckGuess]  # [] when skipped or not yet submitted
     score: int | None  # None when not yet submitted or skipped
+
+
+class BlindCheckAnswer(BaseModel):
+    """One seat the player named, as it arrives on the wire (T4).
+
+    `guess` is the archetype enum, not a bare `str`, so a value outside the six
+    options fails schema validation (422) before the service runs — the same
+    posture `SimMode` takes for the session mode."""
+
+    seat_index: int
+    guess: VillainType
+
+
+class BlindCheckSubmitRequest(BaseModel):
+    """Body of `POST /simulate/session/{id}/blind-check` (T4).
+
+    Either three answers, or `{"skipped": true}` — a skip stores a result too,
+    because the deal stays barred until something is stored (spec para 15).
+
+    The two are mutually exclusive and the count is enforced HERE, so the body
+    can only ever mean one thing. A skip that also carried answers would
+    otherwise be stored as a bare skip with the answers silently dropped and
+    their seats never checked: a dialog bug that left the skip flag set while
+    posting real guesses would record a no-score skip, and nothing in the
+    response would say so. Rejecting it is a 422 from the schema, the same
+    posture `SimMode` and `BlindCheckAnswer.guess` already take.
+
+    WHICH seats were named is still the service's question — it alone knows the
+    digest pick — and an unexpected or repeated seat is its `400`."""
+
+    skipped: bool = False
+    guesses: list[BlindCheckAnswer] = []
+
+    @model_validator(mode="after")
+    def _skip_or_a_full_set_of_answers(self) -> BlindCheckSubmitRequest:
+        expected = 0 if self.skipped else BLIND_CHECK_SEAT_COUNT
+        if len(self.guesses) != expected:
+            subject = "a skip" if self.skipped else "a submission"
+            raise ValueError(
+                f"{subject} carries {expected} guesses, got {len(self.guesses)}"
+            )
+        return self
 
 
 class SessionView(BaseModel):
