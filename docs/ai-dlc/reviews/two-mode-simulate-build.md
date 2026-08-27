@@ -277,3 +277,56 @@ unfixed code. The worker found this themselves and rewrote the test to hold both
 assert its own reproduction is still valid before exercising it, so a future library change makes
 it fail loudly rather than pass while testing nothing. Recorded because it is the most instructive
 thing that happened at this barrier.
+
+---
+
+## Barrier after ticket T5 — the browser learns the server's shapes
+
+**Ticket in plain terms.** T5 is the hinge between the finished backend and the three interface
+tickets. It hand-writes the TypeScript types for the two new response fields and the quiz
+objects, and gives the client its two new calls. It builds no interface.
+
+**Worker:** `implementer`, Sonnet, medium effort (pinned).
+**Reviewer:** `refuter`, Sonnet, high effort (pinned). Fresh context.
+**Verdict: APPROVE WITH FINDINGS** — one Minor, fixed by the Director at this barrier.
+
+**This ticket had no test suite and no runtime validation.** The types are hand-maintained, there
+is no code generation, and the generated-types file in the tree is unwired. A green compiler
+proves the types are self-consistent, not that they are *true* — so the review was the only thing
+standing between a mistyped field and a runtime failure three tickets later.
+
+**Deterministic checks:**
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npm run build` | 72 modules, built |
+| Full backend suite | `2239 passed, 2 skipped`, zero failures |
+
+**The types were checked against real serialised JSON, not against the Python source.** The
+implementer could not do this — another session holds port 8008 — and fell back to reading the
+models field by field, which was sanctioned but is the weaker check. The reviewer took the route
+that needs no port at all: the in-process test client this repository already uses in its own boot
+probe. It captured actual JSON for a session created with no body, in each mode, restored, at the
+open gate before submission, after an answered submission, and after a skipped one, plus the three
+error bodies. **No divergence anywhere** — including the two cases most likely to bite, the quiz
+object arriving as `null` rather than absent before the gate, and its guess list arriving empty
+rather than absent.
+
+**The compiler-enforcement decision was tested rather than assumed.** The session-creation call
+takes a required mode rather than an optional one defaulting to Training, because the
+specification names silently creating a Training session as how a Challenge player loses their
+mode without being told. The reviewer removed the argument, confirmed the typecheck fails, then
+restored the file and checked its hash matched.
+
+**The one finding overturned the implementer's stated rationale using the file's own history.**
+The incoming scored guess was typed as a bare string "to mirror the Python". The reviewer found
+seven existing places where this same file deliberately tightens a closed-set backend string into
+a literal union, and pointed out that the actual archetype is one of six *by construction* because
+the table composition is a fixed multiset. Narrowed at this barrier; typecheck and build re-run
+clean.
+
+**One thing was correctly left alone and carried forward instead.** The new client call cannot
+distinguish the quiz endpoint's three refusal statuses, because the shared response helper
+discards the body and throws with only the status. That is the file's uniform convention and
+imitating it was right; T8 needs to know going in, and its brief carries it.

@@ -392,7 +392,9 @@ export default function SimulateView() {
 
   // Create a fresh session and adopt its first hand.
   const startSession = useCallback(async () => {
-    adopt(await postSimulateSession());
+    // T6 replaces this literal with the player's actual choice from the
+    // mode-choice screen.
+    adopt(await postSimulateSession("training"));
   }, [adopt]);
 
   // Mount: try to restore a stored session; on 404 (missing/ended) clear it and
