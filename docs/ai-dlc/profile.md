@@ -49,22 +49,31 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 ## Resume
 
 updated:      2026-08-26
-position:     `/ai-org:spec` complete for **Two-mode Simulate** and STOPPED at the plan gate.
-              Artifacts written, nothing built, no code touched: contract map
-              `contracts/persona-label-toggle.md`, spec `specs/two-mode-simulate.md` (rev 2),
-              ledger `ledger/two-mode-simulate.md`, tickets `tickets/two-mode-simulate.md`
-              (T1–T8, one sequential chain), and roadmap rev 9 recording the owner's
-              2026-08-26 rulings. Design canvas: "Simulate — Training vs Challenge".
-reviews:      Round 1 dual, both blind. Claude refuter REJECT, Codex gpt-5.6-sol REJECT.
-              Seventeen findings, all seventeen accepted, none rejected — the first draft
-              asserted four things about the code that were false. Folded into spec rev 2.
-authorized:   NOTHING. Approval covers no ticket. The owner has not approved the plan.
-              It does NOT authorize: any edit outside `docs/ai-dlc/`, any migration, any
-              commit, or any of T1–T8.
-awaiting John: (a) approve or amend `tickets/two-mode-simulate.md`; (b) the written
-              per-persona verdict that closes flywheel slice 3 — the 1050-hand session is
-              already played, only the verdict is owed; (c) two theory-contract items still
-              open from 2026-08-24 (ledger finding B1, and §10.2 of the git-excluded
-              persona-realism audit).
-uncommitted:  Everything above is UNCOMMITTED in a shared working tree that other sessions
-              are also writing to. Nothing has been staged, committed or pushed.
+commit:       bc40c1c   (branch `feat/two-mode-simulate`, in a worktree, UNPUSHED)
+log-entry:    "2026-08-26 — Two-mode Simulate: build waves 1-2 landed"
+position:     `/ai-org:build` running the **Two-mode Simulate** slice. The owner approved the
+              plan at the go-gate on 2026-08-26; the ticket file, the spec and
+              `plans/two-mode-simulate.md` all read `status: approved`. Approval covers
+              building all eight tickets, running migration `0015` against the local
+              development database, and committing to the feature branch. It does **not**
+              cover merging.
+merged:       nothing. The branch has never been pushed.
+progress:     T1 (two nullable session columns + migration `0015`) — committed `e3b3cde`,
+              review APPROVE. T2 (mode accepted at creation, carried on every response) —
+              committed `bc40c1c`, review APPROVE WITH FINDINGS, both Major findings fixed
+              and verified. T3 (completed-hand count + server-side deal barrier) — in flight.
+              T4-T8 not started.
+next action:  finish the T3 barrier, then T4 (blind-check endpoint), T5 (frontend types and
+              client), T6 (mode-choice screen), T7 (display gate + Labels toggle), T8 (the
+              hand-200 dialog). One ticket at a time — nothing in the chain parallelises.
+where:        the build runs in a worktree, NOT the main checkout, because another session is
+              writing to the shared tree. Its Python environment and Node packages are
+              symlinks into the main checkout; `PYTHONPATH=.` is mandatory or tests silently
+              run against the main checkout's source.
+baseline:     the worktree runs `2197 passed, 2 skipped, 0 failed`. The two skips read a
+              machine-local data file that is not in the worktree; in the main checkout the
+              same two tests FAIL. Inside the worktree any failure is ours.
+awaiting John: (a) the written per-persona verdict that closes flywheel slice 3 — the
+              1050-hand session is already played, only the verdict is owed; (b) two
+              theory-contract items still open from 2026-08-24 (ledger finding B1, and
+              section 10.2 of the git-excluded persona-realism audit).
