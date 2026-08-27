@@ -1,4 +1,4 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-24 (rev 7)
+# Bot-Realism Flywheel Roadmap — updated 2026-08-26 (rev 9)
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
@@ -29,14 +29,33 @@ owner's blind play session — that session, not the gate numbers, closes it (st
 ruling). The S6 execution checklist's §5 pre-screen was aligned to ratified §g.5 clause C (all
 four judge slots), and `flywheel-s6-control-redesign.md` was closed as superseded by PR #184 +
 §g.5 A.
-**Rev 7 (2026-08-24): the persona-label toggle is specified to the owner's three clauses.**
-Candidate slice (1) of the training-app table-controls entry in NEXT — the one that hides the
-opponent archetype names on the table — was recorded as a one-way hide with a reveal at
-session end. The owner ruled it is instead a **two-way toggle the player operates during
-play**, which **does not appear until 100 completed hands**, and which **never removes the
-labels from the stored hand record**. The lane's freeze is untouched by this edit: nothing
-here schedules the work or lifts the 2026-08-09 no-go, it only fixes what the slice will mean
-when the freeze lifts at the phase-3 gate. Full ruling text sits under that entry in NEXT.
+**Rev 7 (2026-08-24, clause (b) corrected 2026-08-25): the persona-label toggle is specified
+to the owner's three clauses.** Candidate slice (1) of the training-app table-controls entry in
+NEXT — the one that hides the opponent archetype names on the table — was recorded as a one-way
+hide with a reveal at session end. The owner ruled it is instead a **two-way toggle the player
+operates during play**, where **labels start hidden every session and the toggle unlocks 100
+hands into that session** (per session, not lifetime), and which **never removes the labels from
+the stored hand record**. **Rev 8 (2026-08-25):** the rev-7 text recorded clause (b) inverted —
+it described labels visible by default with *hiding* unlocking at 100. The owner corrected it to
+the design actually intended: hidden by default, *revealing* unlocks at 100, counted per session.
+The lane's freeze is untouched by these edits: nothing here schedules the work or lifts the
+2026-08-09 no-go, it only fixes what the slice will mean when the freeze lifts. Full ruling text
+sits under that entry in NEXT.
+
+**Rev 9 (2026-08-26): the persona-label toggle is re-shaped into two named modes, and clause
+(b) is withdrawn.** The owner ruled that hiding labels in every session is the wrong default.
+Instead the player chooses when they sit down between **Training**, where archetype labels and
+estimated ranges are available from hand 1, and **Challenge**, where both are withheld until
+hand 200 of that session. The mode is fixed for the session; leaving the table and sitting down
+again is the only way to change it. This **withdraws clause (b)** of the 2026-08-24/25 ruling —
+labels no longer start hidden in every session, and the unlock count moves from 100 to 200,
+applying only inside Challenge. Clauses (a) and (c) survive unchanged: the control is two-way
+and operated during play, and the stored hand record always keeps the labels. Three further
+rulings the same day: the whole five-screen flow ships as one slice; the mode is stored on the
+session row, which makes this a schema change with an Alembic migration; and Challenge also
+suppresses the preflop exploit note, which names the archetype in prose, as a display gate that
+leaves the frozen content pack untouched. Full text at the NOW entry and at the table-controls
+entry in NEXT.
 
 ## Bottom line
 
@@ -491,6 +510,47 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > blocks. Slice 3 (calldown) will be spec'd and measured against this interim regime, not the
 > old frozen bands; see the slice 3 entry above.
 
+- [ ] **Two-mode Simulate (Training / Challenge) — supersedes the persona-label toggle; next
+      to build.** Promoted out of the NEXT-lane table-controls entry, whose freeze was lifted
+      for this slice only (see the no-gos block), and **re-shaped by owner ruling 2026-08-26**
+      from one hidden-by-default toggle into two named modes. **What it does:** the player picks
+      a mode at sit-down and it is fixed for that session. **Training** is the app as it stands —
+      every opponent's archetype named on their seat, estimated ranges available, the preflop
+      exploit note showing. **Challenge** withholds all three from hand 1; at 200 completed hands
+      in that session the deal pauses once to ask the player to name the archetype of three
+      seats, after which the labels, ranges and exploit note open and a two-way Labels control
+      appears in the top control cluster and works at will for the rest of the session. That
+      control is absent before the unlock, not present-and-disabled. The stored hand record keeps
+      every archetype in both modes.
+      · **outcome-link: none — owner-stated product quality, tracked as a bet, not as movement
+      on a north-star metric.** Recorded plainly so nobody later reads a detection number into
+      it. It does not touch the persona engine or content packs, so it cannot disturb the
+      pending finale detection run.
+      · **Contract map, 2026-08-25: `../contracts/persona-label-toggle.md`.** It corrects three
+      things this entry asserted before it. `REVEAL_ENABLED`
+      (`backend/app/services/sim_session.py:155-158`) is **not** a seam for this feature — it
+      gates showdown hole-card reveal, an unrelated mechanism, and must not be reused. There are
+      **four** archetype display sites, not three: the seat plate
+      (`frontend/src/components/simulate/SimTable.tsx:291-294`, including its `title=`), the
+      ledger column (`SimLedger.tsx:60`), the villain-range panel header
+      (`SimVillainRange.tsx:55,79`) and the preflop exploit note (`SimRangeChart.tsx:214`). And
+      the villain-range **button** (`SimTable.tsx:313`) is not a leak after all — every non-hero
+      seat in Simulate is a bot, so its presence tells the player nothing they do not know.
+      · **Four owner rulings, 2026-08-26.** The full five-screen flow ships as one slice rather
+      than being cut down · the mode is stored on the session row with an Alembic migration, not
+      held in browser state, so a hand played blind stays identifiable in the record · Challenge
+      suppresses the preflop exploit note as a display gate, leaving the frozen content pack
+      untouched · and this roadmap is amended to record the change rather than letting the spec
+      diverge from it.
+      · **Sequencing: RESOLVED, no longer a blocker.** The slice-3 blind play session this would
+      have invalidated was played 2026-08-25 — session `6188b557`, 1050 completed hands with
+      labels visible, on the unchanged engine (base `0561e8f`; the three commits after it are
+      documentation only). The like-for-like baseline against slice 2 is captured. What slice 3
+      still needs is the owner's written per-persona verdict, not another session.
+      · **Open question, now settled:** whether hidden labels also suppress the grader's
+      archetype references. Ruled yes for Challenge, and the surface is one field on one endpoint
+      (`ExploitNoteView.villain_label`), not a sweep across grading.
+
 **Scope valves (appetite is a cap — cut scope, not quality):** S5 confirmatory study deferred
 unless the pilot is ambiguous · S2b commercial lane is the first research cut · S6 pilot may
 shrink judge count, never blinding. Critical path S1→S2a→S3→S4→S5 ≈ 15–21 working days with
@@ -563,18 +623,23 @@ listed rather than the gate slipping silently.
     behaviour, not as an architectural gap** — and re-open whether the product lane's third
     slice is blocked at all.
 - **Training-app table controls (persona labels · table picker · roster chooser)** *(new
-  2026-08-09, from owner observation; **FROZEN until the phase-3 gate by owner ruling** — see
-  the no-gos block)* — problem: the app names each opponent's type on screen, so the player
+  2026-08-09, from owner observation; **PARTIALLY UNFROZEN 2026-08-25** — slice (1), the
+  persona-label toggle, is released from the freeze and **promoted to the NOW lane** for
+  immediate build; slices (2) and (3) remain frozen under the original ruling — see the no-gos
+  block)* — problem: the app names each opponent's type on screen, so the player
   never practises forming a read; and there is one fixed nine-seat lineup, so every session is
   spent against the same table · **outcome-link: none — this is owner-stated product quality,
   tracked as a bet, not as movement on a north-star metric** (corrected 2026-08-13: an earlier
   draft linked it to "coaching usefulness", a phrase this roadmap never defines, baselines, or
   measures — claiming it as an outcome-link was an outcome-in-costume) · candidate slices, one
   line each, to be specified properly only if the test below passes: **(1) persona-label
-  toggle** — a player-operated switch that hides and re-shows every persona name and badge in
-  Simulate, available only after 100 completed hands, with the stored hand record keeping the
-  labels either way (three clauses ruled by the owner 2026-08-24; full text immediately below
-  this list, and it supersedes the earlier "opt-in reveal after the session" phrasing);
+  toggle** — every persona name and badge in Simulate starts **hidden** each session, and 100
+  hands into that session the player gains a switch that reveals and re-hides them at will,
+  with the stored hand record keeping the labels either way (three clauses ruled by the owner
+  2026-08-24, clause (b) corrected by the owner 2026-08-25; full text immediately below this
+  list, and it supersedes both the earlier "opt-in reveal after the session" phrasing and the
+  inverted labels-visible-by-default wording);
+  **(Re-shaped 2026-08-26 into two-mode Simulate — see the NOW lane; clause (b) withdrawn.)**
   **(2) random table picker** — choose between up to three freshly generated rosters,
   regenerated on restart and on leaving a table, each reproducible from a stored seed;
   **(3) custom roster chooser** — the player specifies the archetype mix.
@@ -583,11 +648,26 @@ listed rather than the gate slipping silently.
   line above used to describe. Three binding clauses:
   **(a) Two-way, during play.** The player turns opponent labels off and back on at will
   inside a session. Hiding is not a one-way door that reopens only when the session ends.
-  **(b) The control is absent until 100 completed hands.** Below that count the toggle does
-  not appear in the interface at all — not present-and-disabled — so a new player meets the
-  labelled table first and opts into the hidden mode after they have seen the archetypes
-  named. The 100 is the owner's number, not a measured threshold; it is a product judgement
-  and does not need evidence to stand.
+  · **WITHDRAWN 2026-08-26 (rev 9) — superseded by two-mode Simulate in the NOW lane.**
+  Labels no longer start hidden in every session; hiding now belongs to Challenge mode
+  only, and the count is 200. Clauses (a) and (c) are unaffected. Original text follows.
+  **(b) Labels start HIDDEN each session; the toggle unlocks at 100 hands into that session.**
+  *(Corrected 2026-08-25 by the owner — the 2026-08-24 entry recorded this clause inverted, and
+  the inverted text is struck below. The owner's stated intent governs; this is not a change of
+  mind.)* Every session opens with opponent archetypes hidden, from hand 1. At 100 completed
+  hands **within that session** the player gains the two-way toggle of clause (a) and may
+  reveal the labels and hide them again at will. Below 100 the control does not appear in the
+  interface at all — not present-and-disabled — so the player spends the first 100 hands of
+  every session forming reads unaided. The count is **per session, not lifetime**: it re-arms
+  each time the player sits down (owner ruling, 2026-08-25). The 100 is the owner's number,
+  not a measured threshold; it is a product judgement and does not need evidence to stand.
+  ~~*Superseded text, kept for provenance:* "The control is absent until 100 completed hands.
+  Below that count the toggle does not appear in the interface at all — not present-and-disabled
+  — so a new player meets the labelled table first and opts into the hidden mode after they have
+  seen the archetypes named."~~ That wording had labels **visible** by default with *hiding*
+  unlocking at 100 — the opposite default and the opposite unlocked action. Its stated rationale
+  ("a new player meets the labelled table first") argued for the inverted design and does not
+  survive the correction.
   **(c) The stored hand record always keeps the labels.** Hiding is a display state and never
   a recording state. Whatever the toggle says, each seat's archetype stays attributable
   afterwards — in the database, in post-hand review, and in the analytics export. No hand may
@@ -731,13 +811,24 @@ listed rather than the gate slipping silently.
 - 🚫 Persona-fix code or COMMITTED pack-value changes before the phase-3 gate (verification:
   clean `git diff` on `backend/app/domain/` + `content/`; S4's ephemeral counterfactual
   configs are explicitly not commits).
-- 🚫 **The training-app table-controls lane, in full, before the phase-3 gate** (owner ruling
+- ⚠️ **The training-app table-controls lane — FREEZE LIFTED FOR SLICE (1) ONLY, owner ruling
+  2026-08-25.** The persona-label toggle is released from this no-go and moved into the NOW
+  lane for immediate build (see the improvement-phase block). Slices (2) random table picker
+  and (3) custom roster chooser **stay frozen** under the original terms below. This also
+  settles the 2026-08-13 known consequence: the lane's falsification test needed labels hidden,
+  which was slice (1) itself, so the freeze froze the test that would justify the lane —
+  building slice (1) resolves the circularity directly, and under the corrected clause (b)
+  every session's first 100 hands are blind by construction, which is the test's own condition.
+  The 2026-08-23 ruling that kept the lane frozen "until the finale/play session" is superseded
+  for slice (1) by this one.
+  ~~🚫 **The training-app table-controls lane, in full, before the phase-3 gate** (owner ruling
   2026-08-09). This is stricter than the rule above it: the label toggle and the table picker
   touch only frontend and table composition, so the persona-code freeze would not have caught
   them. The owner froze all three anyway to keep attention on the gate. Known consequence
   (2026-08-13): the lane's own falsification test needs labels hidden, which is slice 1, so the
   freeze also freezes the test that would justify the lane — resolve that at the gate rather
-  than by quietly exempting one slice.
+  than by quietly exempting one slice.~~ *(Original text, superseded for slice (1) only;
+  still binding on slices (2) and (3).)*
 - 🚫 Per-decision-LLM bot policy (latency + throughput constraints).
 - 🚫 Corpus data in poker-coach; unlicensed data anywhere public.
 - 🚫 Flywheel v0 blocking on the corpus (registry v0 = graded literature bands by design).

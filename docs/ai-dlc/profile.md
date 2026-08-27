@@ -9,9 +9,10 @@ artifact_dir: docs/ai-dlc
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       bot-realism-flywheel
               # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
-              # current slice: improvement slice 3, calldown — BUILT (#211–#218)
-              #   and close-packeted 2026-08-23; OPEN until the owner's blind
-              #   play session. See ## Resume below.
+              # current slice: Two-mode Simulate (Training / Challenge) —
+              #   spec'd 2026-08-26, awaiting owner approval at the plan gate.
+              # slice 3 (calldown): play session PLAYED 2026-08-25 (1050 hands);
+              #   OPEN pending only the owner's written per-persona verdict.
               # paused: persona-realism (see its top banner)
 
 verify:
@@ -47,34 +48,23 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-08-24
-commit:       branch `chore/slice3-decisions-execution` (base 2b4fefe = origin/main)
-log-entry:    /ai-org:build of tickets/slice3-decisions-execution.md, Lane A + Lane B
-position:     BUILD COMPLETE, all three tickets merged into the branch and a PR opened.
-              The ticket file was approved 2026-08-24 for **Lane A + Lane B only** — chain 1,
-              tickets E1 → E2 → E3, all in poker-coach. **Chain 2 (tickets P1–P4, the
-              poker-analytics publication-readiness lane, which the spec calls Lane C) was
-              NOT authorized and is still unbuilt** — it needs its own build run.
-              E1: the six 2026-08-24 rulings recorded in the theory contract (amendment A9,
-              a cross-reference on A8 item 5, a §4 row-P8 parking note, §11 item 16, the §7
-              factor-order correction, §9 ledger entry 18). E2: the three tests enforcing the
-              withdrawn per-bucket α rule deleted with their orphaned helpers, and the engine
-              comments corrected — engine syntax tree proven identical, so zero behaviour
-              change. E3: eleven dated adjudication notes in the slice-3 finding ledger, the
-              two documents still asserting the withdrawn rule resolved, the roadmap's
-              statistics-ingestion entry marked satisfied-2026-08-06 with four residual
-              limitations, and a tree-wide sweep.
-verified:     `./scripts/verify.sh` green on the branch — 2189 passed / 2 skipped / 0 xfailed,
-              BACKEND VERIFY OK, ruff clean. That figure was predicted before any work started
-              (baseline 2191 / 2 / 6, minus the 8 deleted cases) rather than fitted after.
-reviews:      every wave reviewed by a fresh agent that never saw the maker's reasoning.
-              E1 APPROVE-WITH-FIXES (2), E2 APPROVE (0), E3 APPROVE-WITH-FIXES (6, reviewer on
-              Opus). All ten findings accepted and fixed before commit; ledger is
-              ledger/slice3-decisions-execution.md, reports under reviews/.
-owner still owes: (a) confirm or overrule ONE marked-unratified interpretation in the theory
-              contract — how the commitment-slope ruling reconciles with amendment A6 (ledger
-              finding B1); (b) correct §10.2 of research/persona-realism-audit-2026-07-24.md
-              in the main checkout — it is git-excluded, so no branch can reach it, and it
-              still carries the superseded multiplier order the contract now contradicts;
-              (c) unchanged and NOT part of this build — the blind play session that closes
-              slice 3, then the single finale detection run (vendor keys + go-ahead).
+updated:      2026-08-26
+position:     `/ai-org:spec` complete for **Two-mode Simulate** and STOPPED at the plan gate.
+              Artifacts written, nothing built, no code touched: contract map
+              `contracts/persona-label-toggle.md`, spec `specs/two-mode-simulate.md` (rev 2),
+              ledger `ledger/two-mode-simulate.md`, tickets `tickets/two-mode-simulate.md`
+              (T1–T8, one sequential chain), and roadmap rev 9 recording the owner's
+              2026-08-26 rulings. Design canvas: "Simulate — Training vs Challenge".
+reviews:      Round 1 dual, both blind. Claude refuter REJECT, Codex gpt-5.6-sol REJECT.
+              Seventeen findings, all seventeen accepted, none rejected — the first draft
+              asserted four things about the code that were false. Folded into spec rev 2.
+authorized:   NOTHING. Approval covers no ticket. The owner has not approved the plan.
+              It does NOT authorize: any edit outside `docs/ai-dlc/`, any migration, any
+              commit, or any of T1–T8.
+awaiting John: (a) approve or amend `tickets/two-mode-simulate.md`; (b) the written
+              per-persona verdict that closes flywheel slice 3 — the 1050-hand session is
+              already played, only the verdict is owed; (c) two theory-contract items still
+              open from 2026-08-24 (ledger finding B1, and §10.2 of the git-excluded
+              persona-realism audit).
+uncommitted:  Everything above is UNCOMMITTED in a shared working tree that other sessions
+              are also writing to. Nothing has been staged, committed or pushed.
