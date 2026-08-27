@@ -41,10 +41,15 @@ and one that makes them earn the read over 200 hands.
 2. Choosing either creates the session with that mode. The mode is **fixed for the session**.
    Leaving the table and sitting down again is the only way to change it.
 3. Restoring an existing session restores its stored mode, and never re-asks.
-4. **All three paths that currently create a session eagerly must route through the choice
-   screen instead** — first boot, the 404 recovery at `SimulateView.tsx:462-470`, and Leave
-   Table at `:549-566`. Left alone, each silently creates a Training session, which is how a
-   Challenge player would lose their mode without being told.
+4. **Every path that currently creates a session eagerly must route through the choice screen
+   instead.** Left alone, each silently creates a Training session, which is how a Challenge
+   player would lose their mode without being told. **Corrected 2026-08-27 during the build:
+   there are four, not three.** The three this spec originally named were first boot, the
+   404 recovery, and Leave Table. The fourth is a **first-visit race guard inside the `run()`
+   helper**, which minted a session inline if a hero action fired before the boot effect had
+   adopted anything. It was found by the T6 worker and confirmed independently at review. All
+   four now route through the choice screen, and a fifth was searched for and does not exist —
+   there is exactly one call of the session-creation client function in the whole frontend.
 
 ### Training mode
 

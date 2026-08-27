@@ -103,10 +103,11 @@ through it.
 
 - **Owns:** `frontend/src/components/simulate/SimModeChoice.tsx` (new),
   `frontend/src/components/SimulateView.tsx`, `frontend/src/styles/app.css`.
-- **Acceptance:** first boot, the 404 recovery (`SimulateView.tsx:462-470`) and Leave Table
-  (`:549-566`) all land on the choice screen rather than silently creating Training; restoring an
-  existing session never re-asks; design tokens only, AA contrast and visible focus in both
-  themes.
+- **Acceptance:** **all four** eager-creation paths land on the choice screen rather than
+  silently creating Training — first boot, the 404 recovery, Leave Table, and the first-visit
+  race guard inside `run()` that the spec originally missed; restoring an existing session never
+  re-asks, with no flash of the choice screen before the restore resolves; design tokens only, AA
+  contrast and visible focus in both themes.
 - **Depends:** T5.
 
 ### T7 — The display gate and the Labels toggle

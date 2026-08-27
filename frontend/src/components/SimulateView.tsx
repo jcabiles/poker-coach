@@ -15,6 +15,7 @@ import type {
   HandReplayView,
   RevealedSeatView,
   SessionView,
+  SimMode,
   VillainRangeView,
 } from "../api/types";
 import HandReplay from "./simulate/HandReplay";
@@ -22,6 +23,7 @@ import SimActionBar from "./simulate/SimActionBar";
 import SimEventLog from "./simulate/SimEventLog";
 import SimGradingToggle from "./simulate/SimGradingToggle";
 import SimLedger from "./simulate/SimLedger";
+import SimModeChoice from "./simulate/SimModeChoice";
 import SimPostflopChart from "./simulate/SimPostflopChart";
 import SimRangeChart from "./simulate/SimRangeChart";
 import SimRecap from "./simulate/SimRecap";
@@ -126,6 +128,39 @@ export default function SimulateView() {
   const [busy, setBusy] = useState(false); // any in-flight action/deal
   const busyRef = useRef(false); // sync guard against click bursts
   const sessionIdRef = useRef<string | null>(null);
+
+  // ── Sit-down gate (two-mode-simulate T6) ──────────────────────────────────
+  // The mode is fixed for a session, so a session may only ever be created by an
+  // explicit choice. `awaitingMode` raises the two-room sit-down screen; it is
+  // set by every path that used to create a Training session silently (spec
+  // para 4: first boot, the 404 recovery in `run`, and Leave table) and cleared
+  // only once a chosen session has been adopted. Restoring a stored session
+  // never sets it, so a mid-session reload lands straight back at the table.
+  // `pendingMode` is the room whose session is in flight — it drives the
+  // screen's loading state and is null whenever nothing is being created.
+  const [awaitingMode, setAwaitingMode] = useState(false);
+  const [pendingMode, setPendingMode] = useState<SimMode | null>(null);
+
+  // Focus handoff. Sitting down disables the card mid-press; leaving the table
+  // removes the button that was pressed. Either way the focused element stops
+  // existing and the browser drops focus to <body>, which puts the theme switch
+  // and seven navigation tabs between a keyboard user and the screen that just
+  // appeared. So each swap names the element to move focus to, and the effect
+  // below does it once the new view has rendered.
+  //
+  // A FAILED create needs the same handoff and for the same reason: the card
+  // was disabled while the request was in flight, so focus was already dropped
+  // to <body>, and re-enabling it does not bring focus back. That case aims at
+  // the error panel rather than a heading — it is above the still-pickable
+  // rooms, so it both reads out what went wrong and leaves Tab pointing at the
+  // choice again.
+  //
+  // All three targets carry tabIndex={-1}: they are focus TARGETS, never tab
+  // stops. app.css scopes its outline suppression to that attribute.
+  const modeHeadingRef = useRef<HTMLHeadingElement>(null);
+  const tableHeadingRef = useRef<HTMLHeadingElement>(null);
+  const errorPanelRef = useRef<HTMLDivElement>(null);
+  const focusAfterSwap = useRef<"none" | "sit-down-screen" | "table" | "error">("none");
 
   // Speed setting (client-only, localStorage). Drives the pacing delays. Held
   // in a ref too so the running playback timer reads the LIVE speed on each step
@@ -390,16 +425,75 @@ export default function SimulateView() {
     }
   }, []);
 
-  // Create a fresh session and adopt its first hand.
-  const startSession = useCallback(async () => {
-    // T6 replaces this literal with the player's actual choice from the
-    // mode-choice screen.
-    adopt(await postSimulateSession("training"));
-  }, [adopt]);
+  // Hand the table back to the player instead of creating one for them. Every
+  // path that used to deal a session eagerly calls this: the mode is fixed for
+  // the session, so silently minting a Training table is exactly how a
+  // Challenge player would lose the room they chose without being told (spec
+  // para 4). Clearing `view` unmounts the felt so the sit-down screen is the
+  // whole page, and drops any stale hand from the session just lost/left.
+  // `handoff` says whether a focused control was destroyed getting here. After
+  // Leave table or a lost session the player was mid-interaction and their
+  // control has just gone, so focus moves to the sit-down heading. On first
+  // boot nobody has interacted yet — stealing focus then would be its own
+  // failure, so focus is left where the browser put it.
+  const askForMode = useCallback((handoff: "move-focus" | "leave-focus") => {
+    if (handoff === "move-focus") focusAfterSwap.current = "sit-down-screen";
+    setView(null);
+    setPendingMode(null);
+    setAwaitingMode(true);
+  }, []);
+
+  // Create the session the player asked for and adopt its first hand. This is
+  // the ONLY place a session is created. A failure leaves the sit-down screen
+  // up with the error panel above it, so the player can pick again.
+  const chooseMode = useCallback(
+    async (mode: SimMode) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      setPendingMode(mode);
+      setError(null);
+      try {
+        adopt(await postSimulateSession(mode));
+        // The card that was just pressed is about to unmount — hand focus to
+        // the table's own heading, which announces the room and the hand.
+        focusAfterSwap.current = "table";
+        setAwaitingMode(false);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        // The pressed card went disabled and took focus with it; both rooms are
+        // about to be pickable again, so hand focus to the error panel above
+        // them rather than leaving the keyboard user on <body>.
+        focusAfterSwap.current = "error";
+      } finally {
+        setPendingMode(null);
+        busyRef.current = false;
+        setBusy(false);
+      }
+    },
+    [adopt],
+  );
+
+  // Deliver the focus handoff the swap asked for. Deliberately has no
+  // dependency array: it must run after EVERY render, because the render that
+  // mounts the new view is the first moment its heading exists. The ref is
+  // cleared as it fires, so a later unrelated render never re-steals focus.
+  useEffect(() => {
+    const target = focusAfterSwap.current;
+    if (target === "none") return;
+    focusAfterSwap.current = "none";
+    const el =
+      target === "sit-down-screen"
+        ? modeHeadingRef.current
+        : target === "table"
+          ? tableHeadingRef.current
+          : errorPanelRef.current;
+    el?.focus();
+  });
 
   // Mount: try to restore a stored session; on 404 (missing/ended) clear it and
-  // deal a fresh one. StrictMode double-invokes effects in dev; the cancelled
-  // flag keeps the later resolve from clobbering state.
+  // ask which room to sit in. StrictMode double-invokes effects in dev; the
+  // cancelled flag keeps the later resolve from clobbering state.
   useEffect(() => {
     let cancelled = false;
     setError(null);
@@ -415,15 +509,17 @@ export default function SimulateView() {
       if (stored) {
         try {
           const res = await getSession(stored);
+          // Restore keeps the session's stored mode and never re-asks
+          // (spec para 3) — `awaitingMode` is left false.
           if (!cancelled) adopt(res);
           return;
         } catch (e) {
           if (!isSessionNotFound(e)) throw e;
-          // Stale/ended session — fall through to a fresh one.
+          // Stale/ended session — fall through to the sit-down screen.
           clearStored();
         }
       }
-      if (!cancelled) await startSession();
+      if (!cancelled) askForMode("leave-focus");
     };
 
     boot().catch((e) => {
@@ -432,7 +528,7 @@ export default function SimulateView() {
     return () => {
       cancelled = true;
     };
-  }, [adopt, clearStored, startSession]);
+  }, [adopt, clearStored, askForMode]);
 
   // Shared runner for hero actions / deals: a sync ref guard (state is async —
   // a same-tick burst would slip past a state-only check), 404 recovery, and
@@ -443,18 +539,9 @@ export default function SimulateView() {
       if (busyRef.current) return;
       const id = sessionIdRef.current;
       if (!id) {
-        // No live session (first-visit race) — create one instead.
-        busyRef.current = true;
-        setBusy(true);
-        setError(null);
-        try {
-          await startSession();
-        } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
-        } finally {
-          busyRef.current = false;
-          setBusy(false);
-        }
+        // No live session (first-visit race) — raise the sit-down screen rather
+        // than minting a table the player never asked for.
+        askForMode("move-focus");
         return;
       }
       busyRef.current = true;
@@ -465,8 +552,10 @@ export default function SimulateView() {
           adopt(await op(id));
         } catch (e) {
           if (isSessionNotFound(e)) {
+            // The session was lost mid-play. Ask for the room again rather than
+            // dropping the player into a Training table they did not pick.
             clearStored();
-            await startSession();
+            askForMode("move-focus");
           } else {
             throw e;
           }
@@ -478,7 +567,7 @@ export default function SimulateView() {
         setBusy(false);
       }
     },
-    [adopt, clearStored, startSession],
+    [adopt, clearStored, askForMode],
   );
 
   const decide = useCallback(
@@ -548,8 +637,10 @@ export default function SimulateView() {
     setReplayError(null);
   }, []);
 
-  // Leave the table: end it server-side, clear storage, deal a fresh session so
-  // the tab keeps working. A lost session (already 404) is treated as success.
+  // Leave the table: end it server-side, clear storage, and return to the
+  // sit-down screen. Sitting down again is the only way to change room, so this
+  // path must ask rather than re-deal. A lost session (already 404) is treated
+  // as success.
   const leaveTable = useCallback(async () => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -565,14 +656,14 @@ export default function SimulateView() {
         }
       }
       clearStored();
-      await startSession();
+      askForMode("move-focus");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [clearStored, startSession]);
+  }, [clearStored, askForMode]);
 
   const hand = view?.hand ?? null;
   const tableState = useMemo(
@@ -746,8 +837,17 @@ export default function SimulateView() {
   return (
     <section className="simulate">
       <div className="sim-topbar">
-        <h1 className="sim-heading">
+        <h1 className="sim-heading" ref={tableHeadingRef} tabIndex={-1}>
           Simulate
+          {view && (
+            // Which room this session is in (T6). A stamp on the session's
+            // paperwork, never a control: the mode is fixed once the player has
+            // sat down, so there is nothing here to switch.
+            <span className={`sim-mode-stamp sim-mode-stamp-${view.mode}`}>
+              <span className="sim-sr-only">Table: </span>
+              {view.mode === "challenge" ? "Challenge" : "Training"}
+            </span>
+          )}
           {hand && (
             // Per-session hand counter — orients you on the live table. Same
             // `hand_no` the replayer titles a hand by; History numbers hands
@@ -801,8 +901,16 @@ export default function SimulateView() {
         )}
       </div>
 
+      {/* role="alert" because this panel also appears on paths that hand focus
+          to nothing at all — a failed restore on boot, a failed action at the
+          table — and without a live region those failures are silent to a
+          screen reader. Matches the replay panel below. The focus move on the
+          failed-create path is deliberately kept on TOP of the alert: a focus
+          change can pre-empt a live-region announcement, so reading the panel
+          out because focus landed on it is the guarantee, and the alert is the
+          cover for the paths where focus does not move. */}
       {error && (
-        <div className="panel bad-bg">
+        <div className="panel bad-bg" role="alert" ref={errorPanelRef} tabIndex={-1}>
           Error: {error}. Is the backend running on :8008?
         </div>
       )}
@@ -923,11 +1031,27 @@ export default function SimulateView() {
             <SimLedger seats={hand.seats} />
           </aside>
         </div>
+      ) : awaitingMode ? (
+        // The sit-down screen (T6). Rendered even when `error` is set, so a
+        // failed create leaves the player a way back in — the error panel above
+        // says what went wrong and both rooms stay pickable.
+        <div className="sim-empty-shell">
+          <SimModeChoice
+            pending={pendingMode}
+            onChoose={(m) => void chooseMode(m)}
+            headingRef={modeHeadingRef}
+          />
+          {/* The all-time report is session-independent — it stays beside the
+              door, exactly as it does in the restoring state below. */}
+          <aside className="sim-side sim-side-empty">
+            <SimStreetReport refreshKey={reportKey} />
+          </aside>
+        </div>
       ) : (
         !error && (
           <div className="sim-empty-shell">
             <div className="panel simulate-empty" role="status">
-              Taking a seat…
+              Restoring your table…
             </div>
             {/* The all-time report is session-independent — show it even before
                 the first hand adopts (spec: visible with or without a live

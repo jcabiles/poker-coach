@@ -330,3 +330,66 @@ clean.
 distinguish the quiz endpoint's three refusal statuses, because the shared response helper
 discards the body and throws with only the status. That is the file's uniform convention and
 imitating it was right; T8 needs to know going in, and its brief carries it.
+
+---
+
+## Barrier after ticket T6 — the sit-down screen, and the first thing a player sees
+
+**Ticket in plain terms.** T6 builds the screen where a player choosing to sit down picks between
+two rooms — Training, which names the opponents from the first hand, and Challenge, which withholds
+those names for 200 hands — and reroutes every path that used to create a table without asking.
+
+**Worker:** `ux-ui-designer`, Opus, high effort (pinned), across two rounds; the second round used a
+fresh agent because the first's transcript was evicted after running over an hour.
+**Reviewers:** `refuter`, Sonnet, high effort, on the control flow; `design-reviewer`, Opus, high
+effort, with a real browser, on the visuals and accessibility. Three review passes.
+**Verdict: code review APPROVE with no findings; design review FAIL, then PASS, then a plain pass on
+the residuals.**
+
+**Deterministic checks:** typecheck clean, build clean, backend suite unaffected.
+
+**The code review was clean and did more than it was asked.** It independently verified the fourth
+session-creation path the worker had found, then went looking for a fifth and established there is
+exactly one call of the session-creation client function in the whole frontend. It confirmed there
+is no flash of the chooser before a restore resolves by tracing the initial state values rather than
+only the effect, and confirmed the double-submit guard is a synchronous check rather than a
+cosmetic disabled attribute. It also confirmed the old eager-creation helper was deleted rather than
+left as dead code.
+
+**The design review is why this barrier was worth its cost.** It found eight issues, seven of them
+this ticket's, none of which a typecheck or a code reviewer could have seen — and it found them by
+measuring rendered pixels rather than reading tokens. The one that mattered most was an acceptance
+failure rather than a matter of taste: the mode stamp behaves correctly, but was styled in the
+application's own "this control is ON" idiom, with the same fill, ink and radius as the pressed
+toggle sitting beside it in the same band. The specification says the stamp never becomes a switch.
+
+**Two findings were rendering geometry, not colour.** A one-pixel line landing on a fractional
+coordinate never resolves to its token value — which was silently costing one of the four
+non-colour cues that distinguish the two rooms, and, once the cards' borders were raised, was
+costing half of each card's perimeter too.
+
+**The reviewer's own first framing of that second one was wrong, and the designer corrected it.**
+The vertical edges were not safe, they were lucky: they pass at even viewport widths and collapse at
+odd ones, so the defect was four edges rather than two. The designer also established the whole
+defect is device-pixel-ratio dependent, and flagged that a re-measure at ratio 2 would show
+pass-before-and-after and should not be read as a refutation — handing the next reviewer the very
+thing that would make the designer look wrong. The reviewer tested both claims and upheld both,
+explicitly correcting its own earlier report.
+
+**The Director's brief was wrong once here too.** It relayed an inset-ring fix that would have had
+to be repeated across five box-shadow declarations, all inside a transition, and would therefore
+have animated on hover. The designer rejected it with that reason and doubled the border instead.
+
+**Two defects were closed by deleting something.** The screen's own background wash was both
+darkening text to within one hundredth of its floor and rendering as the panel box its comment said
+it was not. Removing it fixed both. The reviewer's judgment on that is worth keeping: the wash was
+not carrying atmosphere, it was carrying a second rectangle, and by lightening the ground it was
+flattening the very shadows meant to create depth.
+
+**A comment that asserted something false was fixed rather than annotated**, per the standard. It
+claimed the shell already paints a glow behind every route; the shell paints nothing. The deletion
+it justified was still correct, for a measurable reason the comment now states instead.
+
+**One item was correctly attributed away from this ticket.** The application shell overflows
+horizontally at phone widths. The worker said so, and the reviewer verified it by reproducing the
+identical overflow on a route this slice never touches rather than accepting the claim.
