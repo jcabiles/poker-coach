@@ -28,6 +28,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 from functools import cache
+from typing import get_args
 
 from sqlmodel import Session, select
 
@@ -93,6 +94,7 @@ from app.domain.table.sizing import (
     pot_fraction_to_bb,
 )
 from app.schemas.simulate import (
+    BlindCheckView,
     EventView,
     ExploitNoteView,
     GradeView,
@@ -111,6 +113,7 @@ from app.schemas.simulate import (
     SeatView,
     SessionView,
     ShowdownSeatView,
+    SimMode,
     SimulateHandView,
     StreetReportRow,
     StreetReportView,
@@ -773,8 +776,25 @@ def _view(
             )
             for s in settlement.showdown_seats
         ]
+    # T1's column is `str` with a DB-side default, so a hand-rolled insert or
+    # future write path could still land NULL, "", or an unrecognised string —
+    # normalise at the read boundary rather than trust every writer to have
+    # set a permitted value.
+    mode: SimMode = session.mode if session.mode in get_args(SimMode) else "training"
+    blind_check: BlindCheckView | None = None
+    if session.blind_check_json:
+        try:
+            blind_check = BlindCheckView.model_validate_json(session.blind_check_json)
+        except ValueError:
+            # The blind check is "a keepsake for the player, not a
+            # measurement" (spec) — a corrupt or older-shape stored value
+            # must not brick an otherwise playable session. Drop it and
+            # carry on; nothing else in the response depends on it.
+            blind_check = None
     return SessionView(
         session_id=session.id,
+        mode=mode,
+        blind_check=blind_check,
         hand=SimulateHandView(
             hand_no=hand.hand_no,
             button_seat=hand.button_seat,
@@ -814,13 +834,14 @@ def _view(
 # ------------------------------------------------------------- public API
 
 
-def create_session(db: Session, owner_id: str = "") -> SessionView:
+def create_session(db: Session, owner_id: str = "", mode: SimMode = "training") -> SessionView:
     session = SimSession(
         id=uuid.uuid4().hex,
         owner_id=owner_id,
         button_seat=secrets.randbelow(9),
         hand_no=1,
         status="active",
+        mode=mode,
     )
     db.add(session)
     lineup = assign_lineup(_fresh_rng())

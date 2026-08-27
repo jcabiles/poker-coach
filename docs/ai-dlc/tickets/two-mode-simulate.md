@@ -109,7 +109,9 @@ that appears only after the unlock.
   `SimLedger.tsx`, `SimRangeChart.tsx`, `frontend/src/components/SimulateView.tsx`,
   `frontend/src/styles/app.css`.
 - **Imitate:** `SimGradingToggle.tsx` — real `<button>`, `aria-pressed`, gilt pressed state,
-  never colour alone. Namespace its storage key by session id, per `SimulateView.tsx:47`.
+  never colour alone. Namespace its storage key by session id so the toggle re-arms on a new
+  table. Note that the four existing storage keys at `SimulateView.tsx:47-50` are **not**
+  namespaced — they are where storage keys are declared, not an example of the pattern to copy.
 - **Acceptance:** in Challenge before the unlock, no seat plate or `title=`, no range button, no
   exploit note, and the ledger's Player column shows a stable `seat_index` identity — never
   `position` (already the adjacent column, and it rotates every hand) and never `"You"`. The

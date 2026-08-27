@@ -48,6 +48,7 @@ from app.domain.action import Decision
 from app.schemas.simulate import (
     CoachExplainRequest,
     CoachExplainView,
+    CreateSessionRequest,
     HandReplayView,
     HandRevealView,
     HistoryListView,
@@ -69,8 +70,11 @@ _OWNER_ID = ""
 
 
 @router.post("/session", response_model=SessionView)
-async def create_session(db: Session = Depends(get_session)) -> SessionView:
-    return sim_session.create_session(db, owner_id=_OWNER_ID)
+async def create_session(
+    body: CreateSessionRequest | None = None, db: Session = Depends(get_session)
+) -> SessionView:
+    mode = body.mode if body is not None else "training"
+    return sim_session.create_session(db, owner_id=_OWNER_ID, mode=mode)
 
 
 @router.get("/session/{session_id}", response_model=SessionView)

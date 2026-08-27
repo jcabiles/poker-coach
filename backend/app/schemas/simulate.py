@@ -9,10 +9,23 @@ appear on the wire. No endpoint returns `state_json`, `full_board`, or a raw
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 from app.domain.evaluation import ReasoningParts
 from app.domain.spot import Hero, LegalAction
+
+# Two-mode Simulate (two-mode-simulate T2): the session's persona-label
+# visibility mode. A literal union, never a bare `str`, so an invalid value
+# fails schema validation instead of silently persisting.
+SimMode = Literal["training", "challenge"]
+
+
+class CreateSessionRequest(BaseModel):
+    """Optional body for session creation. Absent body ⇒ Training (default)."""
+
+    mode: SimMode = "training"
 
 
 class SeatView(BaseModel):
@@ -164,8 +177,33 @@ class SimulateHandView(BaseModel):
     recap: list[GradeView] = []
 
 
+class BlindCheckGuess(BaseModel):
+    """One seat's answer in the hand-200 blind check (T4 scores these)."""
+
+    seat_index: int
+    guess: str  # archetype the player named
+    actual: str  # archetype the seat actually was
+    correct: bool
+
+
+class BlindCheckView(BaseModel):
+    """The hand-200 quiz as it appears on the wire (two-mode-simulate T2/T4).
+
+    T2 only reflects what is stored: `None` until `blind_check_json` holds a
+    result. The seats-picked-but-not-yet-answered state (submitted=False with
+    populated seats) is T4's to emit."""
+
+    seats: list[int]  # the three seat numbers the player is asked to identify
+    submitted: bool  # lets a stale tab discover the check was already answered
+    skipped: bool
+    guesses: list[BlindCheckGuess]  # [] when skipped or not yet submitted
+    score: int | None  # None when not yet submitted or skipped
+
+
 class SessionView(BaseModel):
     session_id: str
+    mode: SimMode
+    blind_check: BlindCheckView | None = None
     hand: SimulateHandView
 
 
