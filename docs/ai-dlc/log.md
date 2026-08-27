@@ -1,5 +1,30 @@
 # AI-Org log — poker-coach
 
+## 2026-08-26 — Two-mode Simulate: build waves 1-2 landed
+- Owner approved the plan at the `/ai-org:build` go-gate. Eight tickets, one sequential chain,
+  8 workers + 10 reviewers, all in a worktree on `feat/two-mode-simulate` (base `ea64392`) —
+  the main checkout is shared with another live session, so nothing is staged there. The
+  worktree's Python environment and Node packages are symlinks into the main checkout;
+  `PYTHONPATH` was verified to beat the editable-install finder, so tests genuinely exercise
+  the worktree's source.
+- Baseline measured, not assumed: the worktree runs `2197 passed, 2 skipped, 0 failed`. The two
+  skips read a machine-local data file absent here; the same two tests FAIL in the main
+  checkout. Inside the worktree, any failure is ours — a cleaner gate than `main` offers.
+- T1 (two nullable session columns + migration `0015`) → `e3b3cde`, review APPROVE. The
+  reviewer proved the new upgrade test non-vacuous by removing the migration and watching it
+  fail, and adjudicated the spec's "NULL reads as Training" wording: SQLite's `ADD COLUMN ...
+  DEFAULT` backfills at migration time, so no null can reach a reader.
+- T2 (mode accepted at sit-down, carried on every response) → `bc40c1c`, review APPROVE WITH
+  FINDINGS. Two Major, both reproduced by the reviewer as bare 500s and both fixed by the
+  original implementer: an unrecognised stored mode, and a malformed stored blind check, each
+  of which took down *every* route for the session because `_view()` is the single assembly
+  point. Fixed, re-verified, and recorded as ledger findings B2-B4.
+- Two documents corrected in flight: the slice ledger gained a build-phase findings table
+  (B1-B6), and ticket T7's citation for the storage-key pattern was fixed — it pointed at a
+  line that demonstrates no such pattern.
+- Next: T3 (completed-hand count + server-side deal barrier), the correctness-critical ticket,
+  routed to Opus. Then T4-T8. Nothing merged; the branch has never been pushed.
+
 ## 2026-08-05 — bot-realism-flywheel roadmap authored + dual-reviewed (AWAITING OWNER GATE)
 - Owner halted all persona-fix work after the re-measure; `/ai-org:roadmap` produced
   `roadmap/bot-realism-flywheel.md` (rev 2) + `prd/bot-realism-flywheel.md` (rev 2).
