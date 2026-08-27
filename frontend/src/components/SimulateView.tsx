@@ -22,6 +22,7 @@ import HandReplay from "./simulate/HandReplay";
 import SimActionBar from "./simulate/SimActionBar";
 import SimEventLog from "./simulate/SimEventLog";
 import SimGradingToggle from "./simulate/SimGradingToggle";
+import SimLabelsToggle from "./simulate/SimLabelsToggle";
 import SimLedger from "./simulate/SimLedger";
 import SimModeChoice from "./simulate/SimModeChoice";
 import SimPostflopChart from "./simulate/SimPostflopChart";
@@ -50,6 +51,43 @@ const STORAGE_KEY = "simulate.session_id";
 const SPEED_KEY = "simulate.speed";
 const WATCH_KEY = "simulate.watch";
 const COACH_KEY = "simulate.coachMode";
+
+// ── Two-mode Simulate (T7) ──────────────────────────────────────────────────
+// Completed hands a Challenge table plays before the blind check bars the deal,
+// which is what the "Hand N / 200" counter counts towards. This is the client's
+// OWN copy of the backend's `BLIND_CHECK_HAND_GATE`
+// (backend/app/services/sim_session.py) — the threshold is deliberately not on
+// the wire, because the approved contract names exactly two new session fields
+// and a third would be an unapproved deviation (finding ledger B11). Divergence
+// between the two literals is cosmetic: the dialog is driven by the server
+// refusing to deal, never by this counter. Defined once here; no site repeats
+// the number.
+const BLIND_CHECK_HAND_GATE = 200;
+
+// The Labels toggle is TAB-LOCAL (spec para 23) and namespaced by session id so
+// it re-arms at a new table — unlike the four keys above, which are settings
+// that outlive any one session and are deliberately not namespaced.
+function labelsKey(sessionId: string): string {
+  return `simulate.labels.${sessionId}`;
+}
+
+// Labels-shown preference for one session. They RETURN at the unlock (spec
+// para 18), so anything but an explicit "hidden" shows them.
+function readLabelsShown(sessionId: string): boolean {
+  try {
+    return window.localStorage.getItem(labelsKey(sessionId)) !== "hidden";
+  } catch {
+    return true;
+  }
+}
+
+function writeLabelsShown(sessionId: string, shown: boolean): void {
+  try {
+    window.localStorage.setItem(labelsKey(sessionId), shown ? "shown" : "hidden");
+  } catch {
+    /* private-mode storage — setting still applies this session */
+  }
+}
 
 // The client's json<T>() throws Error("<url> -> <status>") on non-2xx, so a
 // lost/ended session surfaces as a message ending "-> 404".
@@ -666,6 +704,73 @@ export default function SimulateView() {
   }, [clearStored, askForMode]);
 
   const hand = view?.hand ?? null;
+
+  // ── The display gate (two-mode-simulate T7) ────────────────────────────────
+  // ONE boolean for all five archetype display sites — the seat plate and its
+  // tooltip, the range button, the ledger's Player column, the range panel's
+  // header, and the preflop exploit note. It is computed here and threaded down
+  // precisely so the five cannot drift apart; a component deciding for itself is
+  // how one of them ends up still rendering.
+  //
+  // Training always names its opponents. Challenge withholds every label from
+  // hand 1 until the blind check has been answered OR skipped (a skip stores a
+  // result too, spec para 15 — `submitted` is true either way), and follows the
+  // player's toggle from then on.
+  //
+  // Nothing here touches the data: `persona_type` rides the wire in both modes
+  // and stays in the record, which is what keeps history, replay and the
+  // analytics export attributable (spec constraint (c)).
+  const challenge = view?.mode === "challenge";
+  const labelsUnlocked = view?.blind_check?.submitted === true;
+
+  // The stored preference is per-session and tab-local, so it is DERIVED during
+  // render rather than restored by an effect: an effect renders one frame under
+  // the previous value first, which on a reload means flashing the labels of a
+  // player who had chosen to hide them. `labelsPref` carries the session it
+  // belongs to, so a new table falls back to that table's stored value instead
+  // of inheriting the last one's.
+  const sessionId = view?.session_id ?? null;
+  const storedLabelsShown = useMemo(
+    () => (sessionId == null ? true : readLabelsShown(sessionId)),
+    [sessionId],
+  );
+  const [labelsPref, setLabelsPref] = useState<{
+    sessionId: string;
+    shown: boolean;
+  } | null>(null);
+  const labelsShown =
+    labelsPref?.sessionId === sessionId ? labelsPref.shown : storedLabelsShown;
+
+  const labelsVisible = !challenge || (labelsUnlocked && labelsShown);
+  // Absent before the unlock, never present-and-disabled (spec para 20): a
+  // disabled control advertises that something is being withheld. Training gets
+  // no toggle at all — it is the app as it stands, plus its stamp.
+  const showLabelsToggle = challenge && labelsUnlocked;
+
+  // Hiding again must CLOSE an open range panel: the panel is mounted
+  // independently of the button, so gating the button alone would leave the
+  // panel and its archetype header on screen (spec para 21). Closing it is also
+  // what discards an in-flight range response — clearing `openRangeSeat` runs
+  // the fetch effect's cleanup, whose existing stale-response guard drops the
+  // late reply. No second guard is added beside it.
+  const changeLabelsShown = useCallback((forSession: string, next: boolean) => {
+    setLabelsPref({ sessionId: forSession, shown: next });
+    writeLabelsShown(forSession, next);
+    if (!next) setOpenRangeSeat(null);
+  }, []);
+
+  // Completed hands, from the wire (spec para 11): hand 200 counts only once it
+  // settles, so this reads 199 while it is live. `hand_no - 1` alone would fire
+  // a hand late and show "Hand 201 / 200". Drives the counter's progress only —
+  // the deal is barred by the server, not by this number.
+  const completedHands = hand != null ? hand.hand_no - (hand.hand_over ? 0 : 1) : 0;
+  // Percent of the way to the check, or null once there is nothing to count
+  // towards — after the unlock the `/ 200` and the bar both go (spec para 19).
+  const gateProgress =
+    challenge && !labelsUnlocked
+      ? Math.min(100, (completedHands / BLIND_CHECK_HAND_GATE) * 100)
+      : null;
+
   const tableState = useMemo(
     () =>
       hand
@@ -852,8 +957,35 @@ export default function SimulateView() {
             // Per-session hand counter — orients you on the live table. Same
             // `hand_no` the replayer titles a hand by; History numbers hands
             // its own way, so this is a live-table cue, not a History key.
-            <span className="sim-hand-no">
-              Hand <span className="num">{hand.hand_no}</span>
+            // On a Challenge table still short of its blind check it also names
+            // the target and draws the distance travelled (T7, spec para 10);
+            // both go at the unlock (para 19).
+            <span className="sim-hand-progress">
+              <span className="sim-hand-no">
+                Hand <span className="num">{hand.hand_no}</span>
+                {gateProgress != null && (
+                  <>
+                    {" / "}
+                    <span className="num">{BLIND_CHECK_HAND_GATE}</span>
+                  </>
+                )}
+              </span>
+              {gateProgress != null && (
+                // Decorative on purpose: the counter beside it already states
+                // both numbers, and an aria-label here would be folded into
+                // this heading's own accessible name and read out with it.
+                <span className="sim-hand-bar" aria-hidden="true">
+                  {/* Nothing is drawn at zero: the fill carries a minimum width
+                      so early progress is visible, and that floor must not
+                      claim a hand the player has not finished. */}
+                  {gateProgress > 0 && (
+                    <span
+                      className="sim-hand-bar-fill"
+                      style={{ width: `${gateProgress}%` }}
+                    />
+                  )}
+                </span>
+              )}
             </span>
           )}
         </h1>
@@ -888,6 +1020,15 @@ export default function SimulateView() {
             )}
             <SimWatchToggle watch={watch} onChange={changeWatch} />
             <SimGradingToggle coachMode={coachMode} onChange={changeCoachMode} />
+            {/* Labels: Shown / Hidden (T7) — mounted only after the blind check
+                has been answered, so before the unlock it is absent from the
+                document rather than present and disabled. */}
+            {showLabelsToggle && (
+              <SimLabelsToggle
+                shown={labelsShown}
+                onChange={(next) => changeLabelsShown(view.session_id, next)}
+              />
+            )}
             <SimSpeedPicker speed={speed} onChange={changeSpeed} />
             <button
               type="button"
@@ -940,13 +1081,19 @@ export default function SimulateView() {
               openRangeSeat={openRangeSeat}
               onToggleRange={toggleRange}
               revealedBySeat={revealedBySeat}
+              labelsVisible={labelsVisible}
             />
 
             {/* Villain-range panel (V2) — one open villain at a time, keyed by
                 the open seat so a seat switch remounts a fresh grid. Sits under
                 the felt so it doesn't crowd the seat pods. Auto-closes on the
-                villain's staged fold / hand_over (effects above). */}
-            {openSeat && !openSeatStagedFolded && !hand.hand_over && (
+                villain's staged fold / hand_over (effects above).
+                T7: the panel's header is an archetype display site of its own,
+                and this file mounts it, so the label gate belongs here — with
+                the labels hidden the panel never exists to leak. Hiding also
+                clears `openRangeSeat` (see changeLabelsShown), which is what
+                stops the fetch and keeps a re-show from popping it back. */}
+            {labelsVisible && openSeat && !openSeatStagedFolded && !hand.hand_over && (
               <SimVillainRange
                 key={openSeat.seat_index}
                 position={openSeat.position}
@@ -979,6 +1126,7 @@ export default function SimulateView() {
                 sessionId={view.session_id}
                 identityKey={`${view.session_id}#${hand.hand_no}#${hand.pot_bb}`}
                 heroCards={hand.hero.hole_cards}
+                labelsVisible={labelsVisible}
               />
             )}
 
@@ -1028,7 +1176,7 @@ export default function SimulateView() {
           <aside className="sim-side">
             <SimEventLog events={hand.events} stagedIndex={stagedIndex} board={hand.board} />
             <SimStreetReport refreshKey={reportKey} />
-            <SimLedger seats={hand.seats} />
+            <SimLedger seats={hand.seats} labelsVisible={labelsVisible} />
           </aside>
         </div>
       ) : awaitingMode ? (

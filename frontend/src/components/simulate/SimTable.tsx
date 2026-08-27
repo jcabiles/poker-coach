@@ -74,6 +74,7 @@ export default function SimTable({
   openRangeSeat,
   onToggleRange,
   revealedBySeat,
+  labelsVisible,
 }: {
   hand: SimulateHandView;
   // Playback-scoped public board/street. The server snapshot may already be at
@@ -116,6 +117,14 @@ export default function SimTable({
   // face-up exactly like a genuine showdown, but sourced on-demand — the client
   // holds no villain cards until the reveal endpoint returns them.
   revealedBySeat: Map<number, readonly [string, string]>;
+  // Two-mode Simulate (T7): whether the opponents' archetype labels may render.
+  // False on a Challenge table until the blind check is answered, and whenever
+  // the player has hidden them again. SimulateView computes the one boolean and
+  // threads it to every display site; this file owns two of them — the persona
+  // plate (with its title= tooltip) and the range button, which is not itself a
+  // leak (every non-hero seat is a bot) but opens a panel whose header is one.
+  // `seat.persona_type` is never nulled: all hiding is here, in the rendering.
+  labelsVisible: boolean;
 }) {
   const { seats, pot_bb, hero, to_act_seat, button_seat } = hand;
   const showdownBySeat = new Map<number, ShowdownSeatView>(
@@ -287,8 +296,10 @@ export default function SimTable({
                 {/* Persona type on its OWN row — a plate above the position line.
                     Splitting it out of the meta row keeps that row (position ·
                     stack · range) from cramming four items across the narrow
-                    flank pods; the full archetype now has room to read. */}
-                {seat.persona_type && (
+                    flank pods; the full archetype now has room to read.
+                    T7: the plate AND its title= tooltip go together — a tooltip
+                    left behind would hand the archetype to any hover. */}
+                {labelsVisible && seat.persona_type && (
                   <span className="sim-persona-plate" title={personaLabel(seat.persona_type)}>
                     {personaLabel(seat.persona_type)}
                   </span>
@@ -309,8 +320,10 @@ export default function SimTable({
                       display uses — so the button stays until the fold narrates
                       (spec low-2), not the instant server-truth flips. Also
                       requires a persona (no estimate without a pack). Hidden at
-                      hand_over: the felt reveals real cards, an estimate is noise. */}
-                  {seat.persona_type && !folded && !hand.hand_over && (
+                      hand_over: the felt reveals real cards, an estimate is noise.
+                      T7 adds `labelsVisible`: the button reveals nothing itself,
+                      but the panel it opens is headed by the archetype. */}
+                  {labelsVisible && seat.persona_type && !folded && !hand.hand_over && (
                     <button
                       type="button"
                       className={

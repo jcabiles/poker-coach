@@ -2658,6 +2658,62 @@ kbd {
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
+/* Counter + its distance-to-the-blind-check bar, stacked (two-mode-simulate
+   T7). The heading row aligns on the baseline, so the block sits on the
+   counter's own baseline and the bar hangs below it — exactly where "a progress
+   bar beneath the counter" means. Both the target and the bar disappear at the
+   unlock, leaving the plain counter this file has always drawn. */
+.sim-hand-progress {
+  display: inline-flex;
+  flex-direction: column;
+  /* Both children start at the same left edge. They no longer share a right
+     edge, because the track's width is fixed and the counter's is not. */
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+/* An OUTLINED track with a gilt body, not a filled rule.
+   Three things it has to do, and the first cut did none of them:
+   • Be visible while empty. A --border track is 1.48:1 on the page in day and
+     1.71:1 in night, so for the first ~40 hands there was a gilt sliver with no
+     visible container and its proportion could not be read at all. The outline
+     is --muted, which clears the 3:1 non-text floor in both themes (5.49 day,
+     8.79 night), and the body stays page-coloured so the travelled part reads
+     against it at 4.62 day / 8.48 night.
+   • Hold still. The width is FIXED. Sized by its content, the track grew from
+     72px at "Hand 1 / 200" to 83px at "Hand 100 / 200" — a finish line that
+     moves 14.7%, more than the fill's own travel over the first 25 hands, so
+     two frames could not be compared.
+   • Not read as the active-navigation underline, which is a 2px gilt border
+     sitting ~57px away in the same eyeline. The difference is SHAPE, not
+     colour: this is a bounded, square-cornered box with a rule around it, and
+     at 100% the outline still frames the fill. */
+.sim-hand-bar {
+  display: block;
+  width: calc(var(--space-8) * 3);
+  height: var(--space-2);
+  border: 1px solid var(--muted);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+/* A floor on the travelled part, so early progress is a mark rather than a
+   sub-pixel smear (1.4px at hand 5 before this). It over-states the first ~8
+   hands by up to one step of the space ramp; being legible from hand 1 is worth
+   more there than being exact, and the "Hand N / 200" beside it is exact. The
+   fill is not rendered at all at zero (SimulateView), so nothing claims
+   progress that has not happened. */
+.sim-hand-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: var(--space-1);
+  border-radius: var(--radius-xs);
+  /* A page-coloured hairline all round the gilt, so the outline never touches
+     it. Gilt on gilt is 1.19:1 in day and 1.04:1 in night, so without this gap
+     a full bar swallows its own frame and becomes a plain gilt rule under text
+     — the very thing it must not be mistaken for. The gap costs the fill one
+     pixel a side, which at the minimum width leaves a 2px mark. */
+  border: 1px solid var(--bg);
+  background: var(--primary);
+}
 .sim-leave-btn {
   display: inline-flex;
   align-items: center;
@@ -3282,9 +3338,10 @@ kbd {
    prefers-reduced-motion collapses all motion (the JS already runs pacing at
    instant under reduce — this just kills the CSS entrance too). */
 
-/* Topbar right cluster: watch + grading toggles, speed picker + leave button
-   share a baseline row. Wraps at narrow widths so the (now three) pills don't
-   overflow — no effect on desktop where the row fits on one line. */
+/* Topbar right cluster: watch + grading toggles, the Labels toggle on an
+   unlocked Challenge table, speed picker + leave button share a baseline row.
+   Wraps at narrow widths so the pills don't overflow — no effect on desktop
+   where the row fits on one line. */
 .sim-topbar-controls {
   display: flex;
   flex-wrap: wrap;
@@ -3376,9 +3433,10 @@ kbd {
    pressed wears the same gilt as a selected Speed chip. Bottom-aligned so its
    pill lines up with the Speed pill, which sits under its SPEED caption. Own
    classes — no shared .sim-speed edits.
-   Reused as-is (no new classes) by SimGradingToggle (N2, Coach ↔ Real play):
-   same pill/face/pressed/focus shape, just a different setting — see
-   .sim-watch usage in SimGradingToggle.tsx. */
+   Reused as-is (no new classes) by SimGradingToggle (N2, Coach ↔ Real play)
+   and by SimLabelsToggle (two-mode-simulate T7, Labels: Shown ↔ Hidden): same
+   pill/face/pressed/focus shape, just a different setting — see the .sim-watch
+   usage in those two files. */
 .sim-watch {
   align-self: flex-end;
   display: inline-flex;

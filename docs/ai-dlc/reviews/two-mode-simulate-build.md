@@ -393,3 +393,76 @@ it justified was still correct, for a measurable reason the comment now states i
 **One item was correctly attributed away from this ticket.** The application shell overflows
 horizontally at phone widths. The worker said so, and the reviewer verified it by reproducing the
 identical overflow on a route this slice never touches rather than accepting the claim.
+
+---
+
+## Barrier after ticket T7 — the display gate, where a single miss defeats the feature
+
+**Ticket in plain terms.** T7 hides every on-screen reference to an opponent's playing style in a
+Challenge session, shows the player how far they are from the 200-hand unlock, and gives them a
+control to hide and show the labels again afterwards.
+
+**Worker:** `heavy-worker`, Opus, high effort (pinned).
+**Reviewers:** `refuter`, Opus, high effort, on the gate; `design-reviewer`, Opus, high effort, with
+a browser, on the bar and the control.
+**Verdict: code APPROVE WITH FINDINGS (two low). Design PASS (two medium, three low).** Five fixes
+were made before this barrier closed.
+
+**Deterministic checks:** typecheck clean, build clean, backend `2239 passed, 2 skipped, 0 failed`
+and ruff clean — T7 touched no backend file.
+
+**Six independent searches for a sixth leak site found none.** The worker used a source census and
+a scan of the rendered document. The reviewer, told explicitly to use a method the worker had not,
+used four more: a field-by-field census of every Simulate endpoint's JSON; a **4,723-row scan of the
+stored grading corpus**, because the grader's prose is the one server-supplied text that reaches the
+recap, the live verdict, the replayer and the coaching request; a census of the **built bundle**,
+which catches re-exported or aliased consumers that a source grep misses; and rendering the surfaces
+the worker's session never reached — showdown, both reveal modes, the coaching explanation and the
+replayer. Zero archetype tokens rendered in any hidden state. The corpus scan also re-verified an
+earlier finding in this slice that had been accepted on a reviewer's reading rather than measured.
+
+**Neither agent could launch a browser**, so both mounted the real component into a real document in
+front of the real backend, and both said so plainly rather than reporting a browser check they had
+not done. That covers behaviour and not pixels — which is exactly why the design review was extended
+to this ticket.
+
+**Extending it was the right call, and it was a change to the plan.** The plan capped browser review
+at tickets T6 and T8, reasoning that T7's states need a session seeded to 200 hands that T8 would
+reach anyway. That premise died when driving the API directly turned out to reach the gate in under
+three seconds. Both medium findings were in the progress bar — the one component with no prior
+visual verification of any kind.
+
+**The bar's two defects were of a kind no test could catch.** Its empty track measured 1.48:1
+against the page, so it communicated nothing until roughly hand 40 — the exact stretch a new player
+needs it. And its track was sized by the counter text beside it, so the finish line slid 14.7% to
+the right as the hand number gained digits, which is more travel than the fill itself covers over
+the first 25 hands. A progress bar whose ends move cannot be compared from one frame to the next.
+
+**The worker found a third defect while fixing the first**, and disclosed going past the letter of
+the finding to fix it: an outlined track alone still collapses at full progress, because gilt fill
+on a gilt outline measures 1.187:1 — reproducing the very collision the fix was meant to remove.
+
+**The most valuable finding is not this ticket's.** The preflop exploit note — one of the five sites
+T7 gates — **never fires in Simulate at all**. The worker measured zero notes in 2,903 hero preflop
+turns and gave a cause; the reviewer showed the cause was wrong, and the Director verified the
+correction independently. It is not that the content pack lacks an entry for the common opponent
+type: every authored entry is indexed under a null facing position while the lookup requires a
+non-null one, so the key can never match for **any** archetype. The distinction matters, because the
+wrong version implies that authoring the missing content revives the note. Recorded as ledger entry
+B30 and left for a change of its own.
+
+**A pattern worth naming.** This is the second barrier in this slice where a worker's *explanation*
+was wrong while its *code* was right, and where a reviewer caught it. Both would have misled the
+next reader. The reviews here are catching reasoning defects at least as often as behavioural ones,
+and a plausible-sounding cause is the easiest thing in a report to accept without checking.
+
+**One item was directed by the Director rather than left open**, because it couples to the next
+ticket: the rail sheet's header said "Seat" over a column that renders position, colliding with the
+new neutral identity beside it. The header was renamed, not the identity — the header was already
+mislabelled, and the identity must keep the raw seat numbers because T8's dialog asks the player
+about exactly those.
+
+**Deferred to T8's browser pass rather than spending another here:** whether the page-coloured
+hairline the worker added around the fill reads as intended or as a fringe at the minimum mark. It
+is a pixel question the worker could only answer by arithmetic, and the bar sits on screen in
+precisely the state T8's dialog appears over.
