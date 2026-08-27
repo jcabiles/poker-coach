@@ -5,12 +5,16 @@ import {
   getSession,
   getVillainRange,
   leaveSession,
+  postBlindCheck,
   postHeroAction,
   postNextHand,
   postSimulateSession,
 } from "../api/client";
 import type {
   ActionType,
+  ArchetypeGuess,
+  BlindCheckSubmitRequest,
+  BlindCheckView,
   GradeView,
   HandReplayView,
   RevealedSeatView,
@@ -20,6 +24,9 @@ import type {
 } from "../api/types";
 import HandReplay from "./simulate/HandReplay";
 import SimActionBar from "./simulate/SimActionBar";
+import SimBlindCheck, { type BlindCheckAnswers } from "./simulate/SimBlindCheck";
+import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
+import { BLIND_CHECK_HAND_GATE, completedHands, gateProgressPct } from "./simulate/handCount";
 import SimEventLog from "./simulate/SimEventLog";
 import SimGradingToggle from "./simulate/SimGradingToggle";
 import SimLabelsToggle from "./simulate/SimLabelsToggle";
@@ -52,17 +59,21 @@ const SPEED_KEY = "simulate.speed";
 const WATCH_KEY = "simulate.watch";
 const COACH_KEY = "simulate.coachMode";
 
-// ── Two-mode Simulate (T7) ──────────────────────────────────────────────────
-// Completed hands a Challenge table plays before the blind check bars the deal,
-// which is what the "Hand N / 200" counter counts towards. This is the client's
-// OWN copy of the backend's `BLIND_CHECK_HAND_GATE`
-// (backend/app/services/sim_session.py) — the threshold is deliberately not on
-// the wire, because the approved contract names exactly two new session fields
-// and a third would be an unapproved deviation (finding ledger B11). Divergence
-// between the two literals is cosmetic: the dialog is driven by the server
-// refusing to deal, never by this counter. Defined once here; no site repeats
-// the number.
-const BLIND_CHECK_HAND_GATE = 200;
+// ── Two-mode Simulate (T7/T8) ───────────────────────────────────────────────
+// The gate threshold and the completed-hand arithmetic live in `handCount.ts`
+// and are pinned there. They are the client's OWN copy of the backend's
+// `BLIND_CHECK_HAND_GATE` (backend/app/services/sim_session.py) — the threshold
+// is deliberately not on the wire, because the approved contract names exactly
+// two new session fields and a third would be an unapproved deviation (finding
+// ledger B11). Divergence between the two literals is cosmetic for the DEAL,
+// which the server bars, but not for the counter, so the derivation is tested
+// against the same boundary the backend tests pin.
+
+// A blank card. Module-level so the identity is stable: `answers` falls back to
+// it on every render where the stored answers belong to a different session,
+// and a fresh object each time would remount nothing but would make the value
+// look changed to anything that ever memoises on it.
+const NO_ANSWERS: BlindCheckAnswers = {};
 
 // The Labels toggle is TAB-LOCAL (spec para 23) and namespaced by session id so
 // it re-arms at a new table — unlike the four keys above, which are settings
@@ -89,10 +100,20 @@ function writeLabelsShown(sessionId: string, shown: boolean): void {
   }
 }
 
-// The client's json<T>() throws Error("<url> -> <status>") on non-2xx, so a
-// lost/ended session surfaces as a message ending "-> 404".
+// The client's json<T>() throws Error("<url> -> <status>") on non-2xx and keeps
+// nothing else — the body is dropped (finding ledger B20) — so the status is
+// only recoverable as a suffix of the message. One reader for it, rather than a
+// regex per caller.
+function errorStatus(err: unknown): number | null {
+  const m = err instanceof Error ? / -> (\d{3})$/.exec(err.message) : null;
+  return m ? Number(m[1]) : null;
+}
+
+// A lost or ended session. The one status this file acts on differently,
+// because it is the one with its own recovery: hand the player back the
+// sit-down screen instead of a table they did not choose.
 function isSessionNotFound(err: unknown): boolean {
-  return err instanceof Error && / -> 404$/.test(err.message);
+  return errorStatus(err) === 404;
 }
 
 // ── Client-side pacing (S11) ────────────────────────────────────────────────
@@ -195,10 +216,19 @@ export default function SimulateView() {
   //
   // All three targets carry tabIndex={-1}: they are focus TARGETS, never tab
   // stops. app.css scopes its outline suppression to that attribute.
+  //
+  // T8 adds the two ends of the blind check to the same mechanism rather than a
+  // second one: the modal takes focus on its own mount, and closing it destroys
+  // whatever held focus, so the card that replaces it (`check-result`) or the
+  // control that re-opens it (`check-resume`) is named the same way.
   const modeHeadingRef = useRef<HTMLHeadingElement>(null);
   const tableHeadingRef = useRef<HTMLHeadingElement>(null);
   const errorPanelRef = useRef<HTMLDivElement>(null);
-  const focusAfterSwap = useRef<"none" | "sit-down-screen" | "table" | "error">("none");
+  const scoreCardRef = useRef<HTMLElement>(null);
+  const resumeCheckRef = useRef<HTMLButtonElement>(null);
+  const focusAfterSwap = useRef<
+    "none" | "sit-down-screen" | "table" | "error" | "check-result" | "check-resume"
+  >("none");
 
   // Speed setting (client-only, localStorage). Drives the pacing delays. Held
   // in a ref too so the running playback timer reads the LIVE speed on each step
@@ -321,6 +351,37 @@ export default function SimulateView() {
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
 
+  // ── The hand-200 blind check (two-mode-simulate T8) ───────────────────────
+  // The dialog itself is driven entirely by the server's `blind_check` (see the
+  // display gate below); the three pieces of state here are only the things the
+  // server cannot know.
+  //
+  // `checkDismissed` is the session whose card the player has set aside — Esc
+  // and the × put the barred table back so the rail sheet (200 hands of P&L
+  // against "Seat 1"…"Seat 8") can be read before answering. It carries its
+  // session id so a new table re-arms the dialog.
+  // `checkAnswers` is the names chosen so far, held HERE rather than inside the
+  // dialog. The card's own copy invites the player to set it aside and go read
+  // the rail sheet before answering the third seat, so the work has to outlive
+  // the unmount that invitation causes. Carried with the session it belongs to,
+  // like `labelsPref` below, so a new table starts on a blank card.
+  // `checkBusy` / `checkError` are the submission's own in-flight and refusal
+  // state; the dialog is modal, so nothing else can be in flight beside it.
+  // `scoreCard` is the ONE showing of the result (spec para 16): set when a
+  // submission resolves, cleared by the next adopted view, so dealing on takes
+  // it away and a reload never brings it back. `mine` is false when the stored
+  // result is not this tab's — see `submitBlindCheck`.
+  const [checkDismissed, setCheckDismissed] = useState<string | null>(null);
+  const [checkAnswers, setCheckAnswers] = useState<{
+    sessionId: string;
+    answers: BlindCheckAnswers;
+  } | null>(null);
+  const [checkBusy, setCheckBusy] = useState(false);
+  const [checkError, setCheckError] = useState<{ status: number | null } | null>(null);
+  const [scoreCard, setScoreCard] = useState<{ result: BlindCheckView; mine: boolean } | null>(
+    null,
+  );
+
   const clearTimer = useCallback(() => {
     if (timerRef.current != null) {
       window.clearTimeout(timerRef.current);
@@ -410,6 +471,12 @@ export default function SimulateView() {
     const grade = hand.last_grade ?? null;
     if (grade) tiersByOrdinal.current.set(grade.ordinal, grade);
     setHeroBadge(grade);
+
+    // The blind-check result shows on ONE screen and then lives only in the
+    // record (spec para 16). Every adopted view is the next screen, so dealing
+    // on is what takes it away — it is never a standing banner, and a reload
+    // does not bring it back (it was only ever component state).
+    setScoreCard(null);
 
     // A finished hand's decisions have persisted — refetch the all-time report
     // (once per hand, so a reload of an already-over hand doesn't re-fetch).
@@ -525,7 +592,11 @@ export default function SimulateView() {
         ? modeHeadingRef.current
         : target === "table"
           ? tableHeadingRef.current
-          : errorPanelRef.current;
+          : target === "check-result"
+            ? scoreCardRef.current
+            : target === "check-resume"
+              ? resumeCheckRef.current
+              : errorPanelRef.current;
     el?.focus();
   });
 
@@ -759,17 +830,127 @@ export default function SimulateView() {
     if (!next) setOpenRangeSeat(null);
   }, []);
 
-  // Completed hands, from the wire (spec para 11): hand 200 counts only once it
-  // settles, so this reads 199 while it is live. `hand_no - 1` alone would fire
-  // a hand late and show "Hand 201 / 200". Drives the counter's progress only —
-  // the deal is barred by the server, not by this number.
-  const completedHands = hand != null ? hand.hand_no - (hand.hand_over ? 0 : 1) : 0;
+  // ── The hand-200 check: when it is asked (T8) ─────────────────────────────
+  // `blind_check` arrives populated in exactly two situations: the gate is open
+  // with nothing stored (submitted false — the three seats to ask about ride
+  // along), or something IS stored (submitted true, on a skip too). So one
+  // reading of the wire answers both "is the deal barred" and "have the labels
+  // opened", and neither is inferred from the client's own hand counter.
+  //
+  // This is also spec para 23's stale tab. The check is session-wide and
+  // server-authoritative, so a tab must never assume its own card is still the
+  // live question — but the honest description of how it finds out is narrower
+  // than "its next response", because WHILE THE CHECK IS PENDING THIS TAB HAS
+  // NO ORDINARY RESPONSES. Every request that returns a SessionView is either
+  // gated on the same pending flag (both deal triggers), impossible at a
+  // settled hand 200 (a hero action needs a turn), needs the labels visible (a
+  // range fetch), or destroys the session (leaving). Nothing polls, and there
+  // is no refetch on focus or visibility.
+  //
+  // So there are exactly two ways the truth arrives, and both are real:
+  //   • a reload — the mount fetch carries `submitted: true`, `checkPending` is
+  //     false from the first render, and the card is simply never offered;
+  //   • this tab's own submission — first write wins server-side, so a 200 may
+  //     carry ANOTHER window's stored answer, which `isOwnSubmission` detects.
+  // Until the player acts, a stale tab keeps offering the card. That is the
+  // behaviour, it is safe (the act itself is what tells them the truth), and it
+  // is written down here rather than papered over with machinery that would
+  // have to poll to do better.
+  const blindCheck = view?.blind_check ?? null;
+  const checkPending = challenge && blindCheck != null && !blindCheck.submitted;
+  // Set aside ≠ answered. The card is re-offered from the paused strip, with
+  // the names already chosen still on it.
+  const checkOpen = checkPending && checkDismissed !== sessionId;
+  const answers = checkAnswers?.sessionId === sessionId ? checkAnswers.answers : NO_ANSWERS;
+  const answerSeat = useCallback(
+    (forSession: string, seatIndex: number, guess: ArchetypeGuess) => {
+      setCheckAnswers((prev) => ({
+        sessionId: forSession,
+        answers: {
+          ...(prev?.sessionId === forSession ? prev.answers : NO_ANSWERS),
+          [seatIndex]: guess,
+        },
+      }));
+    },
+    [],
+  );
+
+  // Submit or skip. ONE status is handled on its own, and everything else is
+  // one message, because what separates them is what the PLAYER can do next,
+  // not what went wrong:
+  //   • 404 — the session is gone. It has its own recovery, not just its own
+  //     wording: back to the sit-down screen, exactly as `run` does, rather
+  //     than a table they did not choose.
+  //   • everything else. The endpoint's three refusals — 409 the gate is not
+  //     open, 400 seats the digest did not pick, 422 a malformed body — are all
+  //     unreachable from a MOUNTED card: it mounts only because the server
+  //     itself reported the gate open, and that gate cannot close underneath it
+  //     (its predicate only ever counts up, and a vanished session answers 404
+  //     instead); it asks about `blind_check.seats` verbatim; and it cannot
+  //     build a partial or contradictory body. What is left reachable is the
+  //     network failing. Giving one of four unreachable-or-identical cases a
+  //     bespoke message is not a line that holds — and the message that was
+  //     there told the player to "keep playing" at a table whose deal control
+  //     this very state removes.
+  // Status is read out of the error TEXT because the shared response helper
+  // drops the body (finding ledger B20); it is SHOWN as a bare number, because
+  // the raw message carries the request URL and the session id in it and this
+  // is a payoff screen. The whole error goes to the console instead of being
+  // swallowed.
+  const submitBlindCheck = useCallback(
+    async (body: BlindCheckSubmitRequest) => {
+      const id = sessionIdRef.current;
+      if (!id || checkBusy) return;
+      setCheckBusy(true);
+      setCheckError(null);
+      try {
+        const result = await postBlindCheck(id, body);
+        // First write wins server-side, so a 200 is not proof this submission
+        // is the one that landed: another window may have answered first, in
+        // which case the stored result comes back instead. `isOwnSubmission` is
+        // what keeps the card from reporting someone else's answers as the
+        // player's own — see its module for why it compares by seat.
+        const mine = isOwnSubmission(body, result);
+        setView((prev) => (prev ? { ...prev, blind_check: result } : prev));
+        setScoreCard({ result, mine });
+        focusAfterSwap.current = "check-result";
+      } catch (e) {
+        if (isSessionNotFound(e)) {
+          clearStored();
+          askForMode("move-focus");
+        } else {
+          console.error("Simulate blind check submission failed", e);
+          setCheckError({ status: errorStatus(e) });
+        }
+      } finally {
+        setCheckBusy(false);
+      }
+    },
+    [checkBusy, clearStored, askForMode],
+  );
+
+  const dismissCheck = useCallback(() => {
+    if (sessionId == null) return;
+    setCheckDismissed(sessionId);
+    setCheckError(null);
+    // The modal is about to unmount and take focus with it; the strip's button
+    // is where the card can be asked for again.
+    focusAfterSwap.current = "check-resume";
+  }, [sessionId]);
+
+  const reopenCheck = useCallback(() => {
+    setCheckDismissed(null);
+    setCheckError(null);
+  }, []);
+
+  // Completed hands and the distance travelled, both from `handCount.ts` where
+  // the arithmetic is pinned against the same boundary the backend tests pin
+  // (spec para 11). They drive the counter and its bar only — the deal is
+  // barred by the server, never by this number.
+  const handsDone = completedHands(hand);
   // Percent of the way to the check, or null once there is nothing to count
   // towards — after the unlock the `/ 200` and the bar both go (spec para 19).
-  const gateProgress =
-    challenge && !labelsUnlocked
-      ? Math.min(100, (completedHands / BLIND_CHECK_HAND_GATE) * 100)
-      : null;
+  const gateProgress = challenge && !labelsUnlocked ? gateProgressPct(hand) : null;
 
   const tableState = useMemo(
     () =>
@@ -813,7 +994,11 @@ export default function SimulateView() {
   useEffect(() => {
     // Also suppressed while the stepped replayer is open — a background Enter/Space
     // must never deal a new live hand under the replay overlay (additive promise).
-    if (!hand?.hand_over || !revealHandEnd || replay) return;
+    // And while the hand-200 check bars the deal (T8): the server would refuse
+    // the request anyway, but the key press would land silently on a table that
+    // looks like it should deal, and none of the elements this handler skips
+    // (button, a, input…) matches the focused <dialog> itself.
+    if (!hand?.hand_over || !revealHandEnd || replay || checkPending) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== "Enter" && e.key !== " ") || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
@@ -830,7 +1015,7 @@ export default function SimulateView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hand?.hand_over, revealHandEnd, nextHand, replay]);
+  }, [hand?.hand_over, revealHandEnd, nextHand, replay, checkPending]);
 
   // ── R1 reveal-after-fold ────────────────────────────────────────────────────
   // Did the hero fold this hand? Only then are the villains withheld (face-down)
@@ -995,7 +1180,11 @@ export default function SimulateView() {
                 fold — the old home in SimShowdown sat below the tall felt and
                 needed a scroll every hand. Present only once the hand has
                 settled (same gate the result panel uses); Enter/Space deal too. */}
-            {hand?.hand_over && revealHandEnd && !replay && (
+            {/* Absent while the hand-200 check bars the deal (T8) — the server
+                refuses to advance, so a live "Next hand" would be a control
+                that does nothing. The paused strip below carries the real next
+                step instead. */}
+            {hand?.hand_over && revealHandEnd && !replay && !checkPending && (
               <button
                 type="button"
                 className="btn btn-primary sim-next-btn"
@@ -1070,6 +1259,101 @@ export default function SimulateView() {
       ) : hand ? (
         <div className="sim-layout">
           <div className="sim-main">
+            {/* The check's ONE showing (spec para 16). Above the felt because
+                it is the whole point of the two hundred hands under it, and
+                gone the moment the next hand is dealt — `adopt` clears it, so
+                it is never a standing banner and a reload does not restore it.
+                Focused as well as announced: B25 settled that a focus move can
+                pre-empt a live-region announcement, so this surface takes both
+                and accepts the duplicate over the silence. */}
+            {scoreCard && (
+              <section
+                className="sbc-score panel"
+                role="status"
+                ref={scoreCardRef}
+                tabIndex={-1}
+              >
+                {!scoreCard.mine ? (
+                  <>
+                    <p className="sbc-eyebrow">Answered in another window</p>
+                    <p className="sbc-score-head">
+                      This check belongs to the session, not to the tab — someone answered it
+                      elsewhere first, so what stands is what the table stored.
+                    </p>
+                  </>
+                ) : scoreCard.result.skipped ? (
+                  <>
+                    <p className="sbc-eyebrow">The check</p>
+                    <p className="sbc-score-head">
+                      Skipped. The names are on, and the deal starts again.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="sbc-eyebrow">The check</p>
+                    <p className="sbc-score-head">
+                      You named <span className="num">{scoreCard.result.score}</span> of{" "}
+                      <span className="num">{scoreCard.result.guesses.length}</span>.
+                    </p>
+                  </>
+                )}
+                {scoreCard.result.guesses.length > 0 && (
+                  <ul className="sbc-score-rows">
+                    {scoreCard.result.guesses.map((g) => (
+                      <li
+                        className={
+                          "sbc-score-row " + (g.correct ? "sbc-score-hit" : "sbc-score-miss")
+                        }
+                        key={g.seat_index}
+                      >
+                        {/* The verdict is a WORD, never the tone alone. */}
+                        <span className="sbc-score-mark">{g.correct ? "Right" : "Wrong"}</span>
+                        <span className="sbc-score-said">
+                          Seat <span className="num">{g.seat_index}</span> — named{" "}
+                          <strong>{archetypeName(g.guess)}</strong>
+                          {!g.correct && (
+                            <>
+                              , and was <strong>{archetypeName(g.actual)}</strong>
+                            </>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!scoreCard.result.skipped && (
+                  <p className="sbc-score-note">
+                    A souvenir, not a measurement: three seats out of a lineup you were shown
+                    before you answered, from six names that were never equally likely. It stays
+                    with this session&rsquo;s record and is counted towards nothing.
+                  </p>
+                )}
+              </section>
+            )}
+
+            {/* Set aside, not answered. The deal really is stopped, so the way
+                back has to be on screen rather than only behind Esc. */}
+            {checkPending && !checkOpen && (
+              <section className="sbc-paused panel">
+                <div className="sbc-paused-text">
+                  <p className="sbc-eyebrow">The deal is paused</p>
+                  <p className="sbc-paused-lede">
+                    <span className="num">{handsDone}</span> hands are in and the table is
+                    waiting on three names. Read the rail sheet for as long as you like — it has
+                    been keeping score against every seat since hand one.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary sbc-resume"
+                  onClick={reopenCheck}
+                  ref={resumeCheckRef}
+                >
+                  Open the check
+                </button>
+              </section>
+            )}
+
             <SimTable
               hand={hand}
               board={tableState?.board ?? hand.board}
@@ -1209,6 +1493,25 @@ export default function SimulateView() {
             </aside>
           </div>
         )
+      )}
+
+      {/* The hand-200 card (T8). A native modal, so its position in the tree is
+          immaterial — showModal() lifts it into the top layer and makes
+          everything above inert. Mounted only while the server says the check
+          is open and unanswered, which is what makes spec para 23 automatic:
+          the `submitted: true` in any next response takes it off screen. */}
+      {checkOpen && blindCheck && hand && view && (
+        <SimBlindCheck
+          seats={blindCheck.seats}
+          seatRows={hand.seats}
+          handsPlayed={handsDone}
+          answers={answers}
+          onAnswer={(seatIndex, guess) => answerSeat(view.session_id, seatIndex, guess)}
+          submitting={checkBusy}
+          error={checkError}
+          onSubmit={(body) => void submitBlindCheck(body)}
+          onDismiss={dismissCheck}
+        />
       )}
     </section>
   );

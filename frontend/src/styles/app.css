@@ -2706,12 +2706,27 @@ kbd {
   height: 100%;
   min-width: var(--space-1);
   border-radius: var(--radius-xs);
-  /* A page-coloured hairline all round the gilt, so the outline never touches
-     it. Gilt on gilt is 1.19:1 in day and 1.04:1 in night, so without this gap
-     a full bar swallows its own frame and becomes a plain gilt rule under text
-     — the very thing it must not be mistaken for. The gap costs the fill one
-     pixel a side, which at the minimum width leaves a 2px mark. */
-  border: 1px solid var(--bg);
+  /* A page-coloured hairline on the LEADING edges only. The gilt fill and the
+     track's --muted outline measure 1.17:1 in day and 1.04:1 in night, so where
+     they touch, the frame disappears into the fill and a full bar reads as a
+     plain gilt rule under text — the very thing it must not be mistaken for.
+     The gap is what keeps them apart.
+     It is inline-only because the block edges cost more than they buy. Every
+     pixel of hairline is a pixel taken out of the mark, and at the bottom of
+     the range the mark is all there is: with all four edges the minimum fill
+     renders 2×4px, with the inline pair alone it renders 2×6px — half again as
+     much visible ink for no change whatever to what the bar CLAIMS. The
+     alternative, raising the minimum width, buys the same two pixels by
+     inventing progress: the 4px floor already overstates hand 1 as ~4.3% of the
+     run, and 6px would make that ~6.4%, which on a feature whose whole argument
+     is do-not-overclaim is the wrong pixel to spend.
+     The cost, stated: at 100% the gilt now meets the track's outline along the
+     top and bottom at that same 1.17:1, so the frame reads only at the two
+     ends. The bar's outer silhouette still sits at 5.49 day / 8.79 night
+     against the page, and at 8px tall with square ends it is not the 2px
+     navigation underline it must not be confused with. */
+  border-block: 0;
+  border-inline: 1px solid var(--bg);
   background: var(--primary);
 }
 .sim-leave-btn {
@@ -6017,4 +6032,598 @@ kbd {
 .sim-mode-stamp-challenge {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+/* ── The hand-200 blind check (two-mode-simulate T8) ─────────────────────────
+   The steward's card: a letterpress form struck on the room's ivory stock and
+   laid on the stage's own black surround, asking the player to name three of
+   the eight they have been reading for two hundred hands.
+
+   It is a native <dialog> opened with showModal(), so the platform supplies the
+   modality — top layer, trapped focus, an inert document behind, and Esc — and
+   this file supplies only the face. The UA's own card styling (system border,
+   canvas fill, 1em padding) is overridden wholesale below; nothing here relies
+   on it.
+
+   Shape language: STATIONERY, not chrome. The room's controls are pills; this
+   is a printed form, so the card and its plates are square-cornered on the
+   radius ramp's small step. The one place the gilt appears at full strength is
+   a chosen name plate — the room's single metal voice, spent on the one thing
+   the player is doing. */
+.sbc {
+  /* Wide enough for three name plates across with prose still at a readable
+     measure, derived from the shell's own column arithmetic (the standard
+     content width less its rail) rather than a picked number. */
+  inline-size: min(92vw, calc(var(--content-width) - var(--sidebar-w)));
+  max-block-size: calc(100vh - var(--space-8));
+  overflow-y: auto;
+  margin: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-overlay);
+}
+/* The stage's surround, drawn over the room. --stage-bg is theme-invariant
+   (the felt sits in a black frame by day too), so the card reads as lit from
+   the front in both themes rather than as a grey wash in one of them. */
+.sbc::backdrop {
+  background: color-mix(in srgb, var(--stage-bg) 72%, transparent);
+}
+/* The dialog itself is the focus target on open (SimBlindCheck focuses it so
+   the title and the reason are announced before the questions). It is never a
+   tab stop, so a ring on it would read as a rendering fault — the same
+   condition-scoped suppression the two focus-handoff headings use. */
+.sbc[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.sbc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.sbc-head-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Small caps eyebrow — the same stationery voice as the sit-down screen's. */
+.sbc-eyebrow {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sbc-title {
+  margin: 0;
+  font-family: var(--font-display);
+  /* The card's one piece of display type, derived from the scale's top step. */
+  font-size: calc(var(--text-xl) * 1.2);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0.2px;
+  color: var(--text);
+}
+.sbc-intro {
+  margin: 0;
+  /* Inside the 45–75ch measure, and set wide enough that the paragraph reads as
+     the card's opening line rather than a narrow column stranded beside it. */
+  max-width: 72ch;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--muted);
+}
+/* Dismiss. The villain-range panel's × control, which is the room's one close
+   idiom — same square face, same glyph, same hover — grown to the 32px control
+   row because this one sits in a dialog rather than a panel header, and with
+   its hairline blended toward --muted: that panel's --border edge measures
+   1.63:1 against its own ground, under the 3:1 floor for identifying a control,
+   and a modal's only exit is not the place to inherit that. */
+.sbc-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-8);
+  min-height: var(--space-8);
+  padding: 0;
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--muted) 72%, var(--border));
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.sbc-close:not(:disabled):hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+.sbc-close:disabled {
+  cursor: default;
+}
+
+/* The house lineup, disclosed. Set as a struck strip rather than prose so the
+   counts can be read at a glance and the card does not lecture: the honesty
+   this screen owes the player is a fact, delivered as a fact. */
+.sbc-lineup {
+  margin-top: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-inline-start: 2px solid var(--primary);
+  border-radius: var(--radius-sm);
+}
+.sbc-lineup-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sbc-lineup-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-md);
+}
+.sbc-lineup-name {
+  font-weight: 600;
+  color: var(--text);
+}
+.sbc-lineup-count {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.sbc-lineup-note {
+  margin: var(--space-2) 0 0;
+  max-width: 66ch;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* The three questions. */
+.sbc-seats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+/* fieldset reset — this must read as a labelled block, not a form box. */
+.sbc-seat {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.sbc-seat-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0 0 var(--space-2);
+}
+.sbc-seat-no {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text);
+}
+/* The player's own evidence, quoted back at them in the rail sheet's figures
+   and the rail sheet's tone tokens — the running P&L is the read these two
+   hundred hands were for, so it belongs beside the question. */
+.sbc-seat-net {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.sbc-seat-net-unit {
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Six name plates — the card's whole act, so they are drawn as things you press
+   rather than words you read. Each is individually bounded: the plate's own
+   fill (--surface-2 on the card's --surface) is barely 1.07:1, so its border is
+   the only thing that can carry the 3:1 floor for identifying a user-interface
+   component, and it is blended toward --muted for the same reason and by the
+   same recipe the sit-down screen's cards use. 2px, also for that screen's
+   reason: this grid is centred by the dialog's own `margin: auto`, so its edges
+   land on fractional device rows at odd viewport widths and a 1px line there
+   never reaches its token value. */
+.sbc-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.sbc-opt {
+  position: relative;
+  display: flex;
+}
+/* The native radio stays in the a11y tree and keeps arrow-key travel; only the
+   face is drawn. */
+.sbc-opt-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.sbc-opt-face {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  /* 40px floor; the gloss line carries it past 56px in practice. */
+  min-height: calc(var(--space-8) + var(--space-2));
+  padding: var(--space-2);
+  text-align: center;
+  border: 2px solid color-mix(in srgb, var(--muted) 72%, var(--border));
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+  background: var(--surface-2);
+}
+.sbc-opt:hover .sbc-opt-face {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface-2));
+}
+/* The press idiom the room uses everywhere: a static 1px settle, never a
+   transition. */
+.sbc-opt:active .sbc-opt-face {
+  transform: translateY(1px);
+}
+/* Struck. --primary-text on --primary is the room's verified gilt pair
+   (4.9:1 day, 7.6:1 night), and it is redundant with the radio's own checked
+   state rather than the only cue. */
+.sbc-opt-input:checked + .sbc-opt-face {
+  color: var(--primary-text);
+  border-color: var(--primary);
+  background: var(--primary);
+}
+/* Focus lands on the hidden input; the ring is painted on the visible face so
+   it is never lost. */
+.sbc-opt-input:focus-visible + .sbc-opt-face {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+/* On a CHOSEN plate the ring and the fill are the same gilt, and 2px of card
+   ground between them is not enough separation to read as a ring — it reads as
+   one thick gilt band. That is not a corner case: native radios select as you
+   arrow, so a chosen plate is the focused plate for the whole of the keyboard
+   interaction, and the strong indicator would only ever show on the first tab
+   in, before anything is picked.
+   The moat is widened rather than the ring recoloured, because there is no
+   third colour that works both ways: --primary-text is cream in day and
+   vanishes on the card ground, and --text sits at 1.96:1 on the night gilt.
+   At 4px the ring is unmistakably a separate stroke with card ground on both
+   of its sides (5.03 day / 8.07 night, against a 3:1 floor), and it still
+   clears the neighbouring plate — 3px ring plus 4px offset is 7px into an 8px
+   grid gap, and only one plate can hold focus at a time. */
+.sbc-opt-input:checked:focus-visible + .sbc-opt-face {
+  outline-offset: var(--space-1);
+}
+.sbc-opt-input:disabled + .sbc-opt-face {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+.sbc-opt-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.2;
+}
+/* What the archetype DOES. A Challenge session has hidden all six of these
+   words since hand 1, and two of them ("Tag", "Lag") are unexpanded acronyms
+   the app-wide Title Case turns into ordinary English, so the gloss is what
+   makes the disclosed lineup a fair chance rather than a formality.
+   It inherits the plate's ink rather than dropping to --muted on a chosen
+   plate: --muted on the gilt fill would fail AA, and the name/gloss hierarchy
+   is carried by size and weight, which survives the fill change. */
+.sbc-opt-gloss {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.sbc-opt-input:checked + .sbc-opt-face .sbc-opt-gloss {
+  /* 4.94:1 day / 7.56:1 night at 12px — AA for small text on the gilt. */
+  color: inherit;
+}
+.sbc-opt-input:disabled {
+  cursor: progress;
+}
+
+/* A refused submission. Nothing was stored, so this is a retry surface, not a
+   dead end — it sits directly above the buttons that failed. */
+.sbc-error {
+  margin: var(--space-6) 0 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bad-bg);
+  border-inline-start: 2px solid var(--bad);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* The status, and only the status. The raw error carries the request URL and
+   the session id with it; that belongs on the console, not on a payoff screen
+   in a public repository. */
+.sbc-error-status {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sbc-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+/* Holds its line so nothing shifts as the count falls to zero. */
+.sbc-remaining {
+  margin: 0;
+  min-height: calc(var(--text-base) * 1.5);
+  font-size: var(--text-base);
+  color: var(--muted);
+}
+.sbc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+/* Skip sits AFTER the primary control, in the document and on the screen.
+   Tabbing off the last name plate used to land on it, one keystroke from
+   forfeiting two hundred hands with no undo — and it was reached BEFORE the
+   button that banks the work. Its own row below the terms line puts it last in
+   both orders at once, so the reading order and the focus order still agree. */
+.sbc-skip-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.sbc-skip {
+  color: var(--muted);
+}
+.sbc-skip:not(:disabled):hover {
+  color: var(--text);
+}
+/* Armed: the second press is the one that discards, so the control says what it
+   is about to do and the warning beside it says what is lost. The tone is
+   carried by the WORDS first — "Skip anyway, discarding your names" — with the
+   bad-tone rule only reinforcing it. */
+.sbc-skip-armed {
+  color: var(--text);
+  border-color: var(--bad);
+  background: var(--bad-bg);
+}
+.sbc-skip-armed:not(:disabled):hover {
+  border-color: var(--bad);
+}
+.sbc-skip-warn {
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--text);
+}
+/* The submit stays disabled until all three are named — the visible half of
+   what makes the body the server rejects with a 422 unreachable rather than
+   discoverable. Its parked face is the app-wide .btn:disabled one; the count
+   beside it says what is missing, so the state is explained and not just
+   locked. */
+.sbc-foot-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: 66ch;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* One card per row's worth of names once three across stops fitting, and the
+   footer stacks so the buttons keep their full width. */
+@media (max-width: 720px) {
+  .sbc {
+    padding: var(--space-4);
+  }
+  .sbc-opts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sbc-foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sbc-actions {
+    justify-content: flex-start;
+  }
+  /* 44px, the comfortable touch floor, where the pointer is a finger. The
+     plates clear it already once the gloss wraps; the footer buttons sit at
+     39px on their own and the × at 32px, and this is the width at which that
+     matters. The card scrolls inside itself, so the extra height costs nothing
+     but scroll. */
+  .sbc-opt-face,
+  .sbc-submit,
+  .sbc-skip,
+  .sbc-close {
+    min-height: calc(var(--space-8) + var(--space-3));
+  }
+  .sbc-close {
+    min-width: calc(var(--space-8) + var(--space-3));
+  }
+}
+
+/* Micro-transitions, gathered in one no-preference block: the tokens file's own
+   rule is that its duration and easing tokens never animate for a reduce user.
+   Hover and selection still change instantly there; only the easing goes. */
+@media (prefers-reduced-motion: no-preference) {
+  .sbc-close,
+  .sbc-opt-face {
+    transition:
+      color var(--dur-1) var(--ease-1),
+      border-color var(--dur-1) var(--ease-1),
+      background var(--dur-1) var(--ease-1);
+  }
+}
+
+/* Entrance: the card is dealt onto the table and its three questions follow, a
+   beat apart — one orchestrated moment rather than scattered fidgets. Reduced
+   motion keeps the fade (the feedback) and drops every movement. */
+@media (prefers-reduced-motion: no-preference) {
+  .sbc[open] {
+    animation: sbc-deal-in var(--dur-2) var(--ease-1) both;
+  }
+  .sbc[open] .sbc-seat {
+    animation: sbc-deal-in var(--dur-2) var(--ease-1) both;
+  }
+  .sbc[open] .sbc-seat:nth-of-type(2) {
+    animation-delay: var(--dur-1);
+  }
+  .sbc[open] .sbc-seat:nth-of-type(3) {
+    animation-delay: var(--dur-2);
+  }
+  @keyframes sbc-deal-in {
+    from {
+      opacity: 0;
+      transform: translateY(var(--space-2));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sbc[open] {
+    animation: sbc-fade-in var(--dur-2) var(--ease-1) both;
+  }
+  @keyframes sbc-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* ── The paused table, when the card has been set aside ──────────────────────
+   Esc and the × hand the player back to the felt so they can read the rail
+   sheet before answering. The deal really is stopped while they do, so the way
+   back on has to be on screen and not only behind a key. */
+.sbc-paused {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  /* The gilt rule is the room's "the house is waiting on you" mark. */
+  border-inline-start: 2px solid var(--primary);
+}
+.sbc-paused-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.sbc-paused-lede {
+  margin: 0;
+  max-width: 66ch;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text);
+}
+.sbc-resume {
+  flex: none;
+  min-height: var(--space-8);
+}
+
+/* ── The result, shown once ──────────────────────────────────────────────────
+   Cleared by the next adopted view (SimulateView), so it is a screen the player
+   passes through, never a banner they live with. */
+.sbc-score {
+  border-inline-start: 2px solid var(--primary);
+}
+.sbc-score[tabindex="-1"]:focus {
+  outline: none;
+}
+.sbc-score-head {
+  margin: var(--space-1) 0 0;
+  max-width: 66ch;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+}
+.sbc-score-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sbc-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text);
+}
+/* The verdict is the WORD; the tone chip only reinforces it. Same chip idiom
+   and the same verified tier pairs the grading badges use. */
+.sbc-score-mark {
+  flex: none;
+  min-width: calc(var(--space-8) * 2);
+  padding: 0 var(--space-2);
+  text-align: center;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sbc-score-hit .sbc-score-mark {
+  color: var(--sim-tier-good-ink);
+  background: var(--sim-tier-good-fill);
+}
+.sbc-score-miss .sbc-score-mark {
+  color: var(--sim-tier-bad-ink);
+  background: var(--sim-tier-bad-fill);
+}
+.sbc-score-said strong {
+  font-weight: 700;
+}
+/* The honesty line. It is not a footnote in small grey type — the whole point
+   is that the player reads it — so it keeps body size and sits on a rule. */
+.sbc-score-note {
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  max-width: 72ch;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--muted);
 }

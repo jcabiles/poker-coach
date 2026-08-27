@@ -466,3 +466,65 @@ about exactly those.
 hairline the worker added around the fill reads as intended or as a fringe at the minimum mark. It
 is a pixel question the worker could only answer by arithmetic, and the bar sits on screen in
 precisely the state T8's dialog appears over.
+
+---
+
+## Barrier after ticket T8 — the payoff screen, and the end of the chain
+
+**Ticket in plain terms.** T8 is the moment the feature pays off: the dialog that stops the deal at
+hand 200 and asks the player to name three of the opponents they have been reading blind, and the
+result afterwards.
+
+**Worker:** `ux-ui-designer`, Opus, high effort (pinned).
+**Reviewers:** `refuter`, Opus, on the logic; `design-reviewer`, Opus, with a browser, on the screen.
+**Verdict: code APPROVE WITH FINDINGS (eight). Design FAIL, then PASS.** Twelve fixes were made
+before this barrier closed.
+
+**Deterministic checks:** typecheck clean, build clean, and the frontend suite from **35 tests to
+60** across two new pure-helper modules. Backend untouched.
+
+**The screen's hardest problem was not technical.** The table's composition is a fixed multiset, so
+naming three seats from six options is a closed-set task and the specification forbids any document
+citing the score as a measurement. The worker chose to **tell the player the composition outright**,
+reasoning that hiding a constraint while scoring out of it is precisely what manufactures a false
+measurement. The design reviewer upheld it and named the tells it looked for: an apologetic screen
+would carry an *argument* — a defensive block explaining why the number should not be trusted before
+the player has seen it — and there is none, only a count table and a clause. It also credited two
+things easy to get wrong: the score is set barely above body size, because **size is the claim** and
+no amount of surrounding prose un-claims a large number; and the caveat is set at full body size
+rather than shrunk into grey small print, because a caveat smaller than what it qualifies is one
+designed not to be read.
+
+**But the reviewer then found the honesty argument was not yet true, only stated.** Disclosure makes
+the task fair deduction *only if the player can map each label onto behaviour* — and the six names
+were offered bare, two of them unexpanded acronyms Title-Cased into ordinary words one letter apart
+and adjacent in the grid, inside a session that had hidden those exact words for 200 hands. A gloss
+was added, and the reviewer confirmed its own test met.
+
+**Two findings were about protecting work the player had already done.** Dismissing the dialog threw
+away every answer named — on a screen whose dismiss control explicitly invites the player to go and
+read the table. And skip was a single irreversible keystroke reached *before* the button that saves
+the work, on a footer whose own comment argued that no accidental keypress may spend a one-way
+check.
+
+**The Director was wrong twice at this barrier, and both were caught.** A ledger entry had mandated
+three distinct refusal messages; the reviewer proved all three refusals unreachable and the entry
+advisory, then showed the one message kept bespoke instructed a recovery the interface forbids. And
+a ledger entry had described the progress bar's track outline as gilt when it is the muted token —
+which is what led a reviewer to recommend dropping a hairline on the premise that the outline
+already separated fill from frame. Recomputed from the token file, that pair is 1.19:1 in day and
+1.04:1 in night. The worker implemented the recommendation while disagreeing with its premise, and
+was right on both counts.
+
+**The largest single gap in this build was the Director's.** Four workers were told there was no
+frontend test suite. There is, and it had four test files throughout — the claim came from the
+profile's verify line, which names only typecheck and build, and was asserted without checking. Four
+tickets shipped no frontend test as a result. Two helpers were extracted and pinned at this barrier,
+the most valuable being the **client-side** completed-hand derivation, whose boundary had already
+forced two approved documents to be corrected and was pinned on one side only.
+
+**One thing the worker changed rather than documented, correctly.** Asked to pin the ownership
+check's positional comparison so its fragility was on record, it made the comparison seat-based
+instead: a re-ordered echo of the player's own answers *is* their answer, and refusing them their
+score over field order is a false negative in the only direction that costs the player anything. The
+safety the check exists for is unchanged, and both directions are now pinned.
