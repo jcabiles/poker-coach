@@ -16,6 +16,15 @@ final.
 
 `T1 → T2 → T3 → T4 → T5 → T6 → T7 → T8`
 
+**Run the whole backend suite at every barrier, not a name-filtered selection.** Corrected
+2026-08-26 after review: `pytest -k "sim or simulate"` matches the *module filename*, so it
+silently deselects `tests/test_grade_map_turn_river.py`, which drives more than two thousand
+hands through `deal_next_hand()` — past the gate — and `tests/test_coach.py`, which posts to the
+Simulate create route. A gate mis-fire in either would be invisible to the filtered run. Worse,
+a new test module whose filename lacks both words is deselected entirely and the check reports
+the unchanged baseline while running none of the new tests, which nearly happened during T3. The
+filtered selection is fine while developing; the barrier uses `pytest -q` and costs ten minutes.
+
 **Baseline before starting:** `./scripts/verify.sh` on `main` is **2 failed, 2189 passed** — two
 pre-existing failures in `backend/tests/test_detection_probe.py`, unrelated to this work. Every
 done-condition below means "no failure other than those two, and no drop in the passing count."
@@ -55,8 +64,8 @@ Derive completed hands as `hand_no - (0 if hand_over else 1)`, and make `deal_ne
 to advance a Challenge session that has 200 completed hands and no stored check.
 
 - **Owns:** `backend/app/services/sim_session.py`.
-- **Acceptance:** the derivation returns 200 both while hand 200 is live and after it settles, and
-  the gate does not fire at 199; `deal_next_hand()` returns the settled hand unchanged at the
+- **Acceptance:** the completed-hand derivation returns **199 while hand 200 is live and 200 once it
+  settles**, so the gate fires at exactly the moment hand 200 settles and never at 199 completed hands; `deal_next_hand()` returns the settled hand unchanged at the
   gate and resumes once a check is stored, including via the skip path.
 - **Why it is server-side:** `SimulateView.tsx:492-508` posts a fold and the next deal inside one
   handler when Watch is off, so no browser guard can interpose.

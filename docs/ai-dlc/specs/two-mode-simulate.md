@@ -228,8 +228,9 @@ which the migration handles by reading them all as Training.
 4. New backend tests, each failing before the change and passing after:
    - a Challenge session reports `mode="challenge"` and every villain row still has a populated
      `SimSeat.persona_type` in the database;
-   - the completed-hand derivation returns 200 both while hand 200 is live and after it settles,
-     and the gate does not fire at 199;
+   - the completed-hand derivation returns **199 while hand 200 is live and 200 once it
+     settles**, so the gate fires exactly when hand 200 settles and never at 199 completed
+     hands;
    - `deal_next_hand()` refuses to advance a Challenge session at the gate with no stored check,
      and resumes once one is stored — including via the skip path;
    - the blind check scores a known roster correctly; rejects submission before the gate with

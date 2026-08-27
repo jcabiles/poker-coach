@@ -125,3 +125,86 @@ reverted copy of the file; and the Director read the final diff and re-ran the c
 agent re-reviewing two reviewer-designed edits would have cost another full review pass to
 re-confirm what two parties had already established. Recorded here so the decision is visible
 rather than implied.
+
+---
+
+## Barrier after ticket T3 — the completed-hand count and the server-side deal barrier
+
+**Ticket in plain terms.** T3 counts how many hands the player has finished and stops the deal
+once a Challenge session reaches 200 of them with the opponent-identification quiz unanswered.
+It is the correctness-critical ticket of the slice: an off-by-one at this exact boundary is the
+defect that forced the specification to be rewritten before it was approved.
+
+**Worker:** `heavy-worker`, Opus, high effort (pinned).
+**Reviewer:** `refuter`, Opus, high effort (pinned). Fresh context.
+**Verdict: APPROVE WITH FINDINGS** — six, all Minor, all real. Four were code and were fixed by
+the original implementer before this barrier closed; two were documents and were fixed by the
+Director.
+
+**Deterministic checks:**
+
+| Check | Result |
+|---|---|
+| Full backend suite, before the fixes | `2210 passed, 2 skipped`, zero failures — exactly the thirteen tests T3 added |
+| Full backend suite, after the fixes | `2213 passed, 2 skipped`, zero failures |
+| The two modules the name-based selection hides | 46 passed |
+| `ruff check .` | clean |
+
+**The boundary was settled by the reviewer from first principles, not checked against the
+implementer's answer.** It derived the count at four states independently and then compared:
+
+| State | Hands finished | Deal barred? |
+|---|---|---|
+| Hand 199 live | 198 | No |
+| Hand 199 settled | 199 | No |
+| Hand 200 live | **199** | No |
+| Hand 200 settled | **200** | **Yes** |
+
+The deal must be barred at exactly one of those four and nowhere earlier. The implementation
+bars there and only there, confirmed by execution rather than by reading: a probe reproduced all
+four states, called the deal, then re-read the session **on a separate database connection** and
+found the hand counter unmoved, the button seat unmoved, and no new hand row written. That is a
+stronger check than the in-test assertion it replaced.
+
+**The most consequential finding is a sentence, not a line of code.** The acceptance criterion
+*"the derivation returns 200 both while hand 200 is live and after it settles"* is false under
+the formula the same documents mandate — a live hand 200 gives 199. The implementer found it in
+the ticket and implemented the formula rather than the sentence, which was the right call. The
+reviewer found the **same sentence repeated verbatim in the specification's own verification
+list**, which the implementer had missed. Both are now corrected. Left standing, a frontend
+worker reading it literally would have opened the dialog mid-hand — the rev-2 defect,
+reintroduced from the document rather than from the code.
+
+**Three findings were fixed here rather than deferred, and one of the deferrals was re-routed.**
+The implementer had sent the dropped end-of-hand recap to ticket T8. That was the right instinct
+and the wrong destination: T8 owns only frontend files, and the recap is assembled on the server,
+so T8 could not have fixed it. It came back to T3, which owned the file at that moment.
+
+**One fix removed code rather than adding it.** The gate and the response had disagreed about
+what counts as a stored quiz result — one tested whether the column was non-empty, the other
+whether it parsed — so a corrupt value let play run past the gate while the browser kept
+re-showing its dialog. Both now call one shared predicate, and the earlier inline parse was
+deleted rather than left beside it. Exactly one parse site now exists in the module.
+
+**Mutation testing, by both parties.** The implementer ran seven mutations; the reviewer ran nine
+independently, including one the implementer had not tried — injecting a mutation *inside* the
+barred branch, which is what proves the "nothing is mutated" assertions are load-bearing rather
+than decorative. Every behaviour-changing mutation was caught. One mutation survived and was
+reported honestly as a genuine equivalence rather than dressed up as a gap: moving the barrier
+above the live-hand early return is behaviourally identical, because both branches build the same
+response from the same row.
+
+**A process defect that nearly hid the whole ticket.** The name-filtered test selection used as
+this slice's de-facto done condition matches the *module filename*. The implementer's first
+filename contained neither "sim" nor "simulate", so the run deselected every new test and
+reported the unchanged baseline — green, while executing none of the work. They caught it only
+because the number had not moved. The reviewer reproduced the mechanism in an isolated project
+and found a second, permanent instance: the same selection hides a test module that drives more
+than two thousand hands through the changed function, past the gate. **The barrier now runs the
+full suite for every remaining backend ticket**, at ten minutes a run instead of thirteen seconds.
+
+**Why no second review round.** As at the previous barrier: the fixes were reviewer-specified
+rather than implementer-invented, the implementer proved each new test fails against a
+mechanically reverted copy, the mutation battery was re-run afterwards with the file restored
+byte-identical, and the Director read the final diff and re-ran the full suite. Recorded so the
+decision is visible rather than implied.

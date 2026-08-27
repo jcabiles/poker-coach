@@ -161,6 +161,15 @@ _STARTING_STACK_BB = 100.0
 REVEAL_ENABLED = True
 _REVEAL_SCOPES = ("last-in", "all")
 
+# Two-mode Simulate (spec: docs/ai-dlc/specs/two-mode-simulate.md, para 11-12).
+# Completed hands a Challenge session may play before the blind check bars the
+# deal. Every backend reader of the threshold — T4's blind-check endpoint next —
+# reads this, not its own literal. The threshold is deliberately NOT on the wire
+# (the approved contract names exactly two new session fields), so the client's
+# "Hand N / 200" counter carries its own constant; divergence there is cosmetic,
+# because the dialog is driven by this gate barring the deal, not by the counter.
+BLIND_CHECK_HAND_GATE = 200
+
 
 class SessionNotFound(Exception):
     """Session missing/ended/not-owned — the API maps this to 404.
@@ -282,6 +291,43 @@ def _current_hand(db: Session, session: SimSession) -> SimHand | None:
         .where(SimHand.session_id == session.id)
         .where(SimHand.hand_no == session.hand_no)
     ).first()
+
+
+def _completed_hands(session: SimSession, hand: SimHand | None) -> int:
+    """Hands the player has finished (spec para 11).
+
+    `deal_next_hand()` early-returns while the current hand is live and
+    increments `session.hand_no` only once it has settled, and `_current_hand()`
+    selects the row whose `hand_no` equals the counter — so the counter reads N
+    both while hand N is live and after hand N is over. Completed is therefore
+    N-1 until it settles and N afterwards. `hand.status == "complete"` is set in
+    exactly the two places `HandState.hand_over` becomes true (`_deal_and_advance`
+    and `apply_hero_action`), so this matches the client's derivation from the
+    wire, `hand_no - (0 if hand_over else 1)`. A missing row means hand `hand_no`
+    has not been dealt, which has the same completed count as a live one.
+    """
+    settled = hand is not None and hand.status == "complete"
+    return session.hand_no - (0 if settled else 1)
+
+
+def _stored_blind_check(session: SimSession) -> BlindCheckView | None:
+    """The session's stored blind-check result, or None when nothing readable is
+    stored.
+
+    One predicate for both readers — `_view()` puts it on the wire and
+    `deal_next_hand()`'s gate bars until something is stored. A value that does
+    not parse counts as NOT stored in both: the blind check is "a keepsake for
+    the player, not a measurement" (spec para 17), so a corrupt or older-shape
+    value must never brick an otherwise playable session, and counting it as
+    stored in the gate while the wire reports none would let play run past the
+    gate while the client keeps re-showing its dialog.
+    """
+    if not session.blind_check_json:
+        return None
+    try:
+        return BlindCheckView.model_validate_json(session.blind_check_json)
+    except ValueError:
+        return None
 
 
 def _get_session(db: Session, session_id: str, owner_id: str) -> SimSession | None:
@@ -781,16 +827,7 @@ def _view(
     # normalise at the read boundary rather than trust every writer to have
     # set a permitted value.
     mode: SimMode = session.mode if session.mode in get_args(SimMode) else "training"
-    blind_check: BlindCheckView | None = None
-    if session.blind_check_json:
-        try:
-            blind_check = BlindCheckView.model_validate_json(session.blind_check_json)
-        except ValueError:
-            # The blind check is "a keepsake for the player, not a
-            # measurement" (spec) — a corrupt or older-shape stored value
-            # must not brick an otherwise playable session. Drop it and
-            # carry on; nothing else in the response depends on it.
-            blind_check = None
+    blind_check = _stored_blind_check(session)
     return SessionView(
         session_id=session.id,
         mode=mode,
@@ -1425,6 +1462,37 @@ def deal_next_hand(db: Session, session_id: str, owner_id: str = "") -> SessionV
         # Idempotent no-op: the current hand is still live — return it.
         state = HandState.model_validate_json(hand.state_json)
         return _view(session, hand, state, _load_seats(db, session_id), events=[])
+    if (
+        hand is not None
+        # Unreadable stored state cannot be returned, and barring on it would
+        # raise where the identical row in Training still deals. Fall through
+        # instead — every other reader of this column degrades rather than
+        # raising, and dealing on is what this function did before the gate.
+        and hand.state_json is not None
+        and session.mode == "challenge"
+        and _stored_blind_check(session) is None
+        and _completed_hands(session, hand) >= BLIND_CHECK_HAND_GATE
+    ):
+        # The blind-check pause is enforced here, not in the client: with Watch
+        # off, a hero fold posts the action and the next deal back to back in
+        # one handler (`SimulateView.tsx`, the `decide` callback), so nothing in
+        # the browser can interpose the dialog. Barring is not an error — return
+        # the settled hand untouched and mutate nothing on the way out. `>=`, so
+        # a session that somehow arrived past the gate without a stored check
+        # stays barred instead of dealing on.
+        state = HandState.model_validate_json(hand.state_json)
+        # Unlike the live-hand no-op above, this hand is OVER, so it has an
+        # end-of-hand recap — and with Watch off the client adopts THIS response
+        # in place of the fold's, so omitting it would strip the gate hand's
+        # per-decision teaching from the screen. Same basis as restore_session().
+        return _view(
+            session,
+            hand,
+            state,
+            _load_seats(db, session_id),
+            events=[],
+            recap=[_grade_view(r) for r in _hand_decisions(db, hand.id)],
+        )
     session.button_seat = (session.button_seat + 1) % 9
     session.hand_no += 1
     db.add(session)
