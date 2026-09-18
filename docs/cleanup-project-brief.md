@@ -13,7 +13,7 @@ The tree carries 389 tracked files under `docs/ai-dlc/` (104 specs, 80 tickets, 
 5. Present the retrospectives + FINDINGS.md to John. **Only after his approval**, `git rm` the raw spec/ticket/ledger/review files.
 6. Keep tracked going forward: `docs/adr/`, `ARCHITECTURE.md`, `docs/FINDINGS.md`, retrospectives, and the live profile/spec of any unfinished work. Future agent scratch goes to an untracked scratch dir.
 
-## Slice 2 — Gates (mechanical)
+## Slice 2 — Gates (mechanical) — ✅ BUILT 2026-09-18 (branch `chore/quality-gates`; spec `docs/ai-dlc/specs/cleanup-quality-gates.md`)
 
 - Add a backend lockfile (`uv lock`) — currently `>=` floors only.
 - Add mypy (or pyright) for the backend; add a linter/formatter for the TypeScript frontend (none exists — Biome recommended); wire both into CI and a root `make check`.

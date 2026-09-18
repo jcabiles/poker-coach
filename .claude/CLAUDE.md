@@ -44,10 +44,10 @@ Invariants: domain core `backend/app/domain/` has no web/DB imports (test-enforc
 Do the simplest thing that meets the ticket's acceptance criteria — no extra features, abstractions, or future-proofing. Touch only files your ticket names.
 
 ## Commands
-- Run dev stack: `poker-coach` (direnv) or `./scripts/serve.sh start` — backend :8008 + frontend :5173, background; `stop`/`restart`/`status` too.
-- Backend tests + boot probe: `./scripts/verify.sh`
-- Backend lint: `cd backend && ruff check .`
-- Frontend typecheck/build: `cd frontend && npm run typecheck && npm run build`
+- Run dev stack: `poker-coach` (direnv) or `./scripts/serve.sh start` — backend :8008 + frontend :7777, background; `stop`/`restart`/`status` too.
+- **The gate: `make check`** (format check + lint + type check + tests, both halves). Run it before declaring any work done. Halves: `make check-backend` / `make check-frontend`; autofix: `make fix`.
+- Leaf targets if you need one: `./scripts/verify.sh` (backend pytest + boot probe — never two at once, it migrates the local DB), `cd backend && ruff check .`, `cd backend && PYTHONPATH=. .venv/bin/mypy app`, `cd frontend && npm run lint` (Biome), `npm run typecheck`, `npm run build`, `npx vitest run`.
+- Type-check baselines: modules listed under `[[tool.mypy.overrides]]` with `BASELINE(date)` in `backend/pyproject.toml`, and rules at `warn` with `BASELINE(date)` in `frontend/biome.jsonc`. Burn them down; never widen them silently.
 
 ## Security
 
