@@ -66,12 +66,15 @@ cd backend && uvicorn app.main:app --port 8008 --reload
 cd frontend && npm run dev
 ```
 
-**Checks:**
+**Checks — one gate, same locally and in CI:**
 ```bash
-./scripts/verify.sh          # backend tests + boot probe
-cd backend && ruff check .   # lint
-cd frontend && npm run typecheck && npm run build
+make check            # format check + lint + type check + tests, both halves
+make check-backend    # ruff format --check · ruff check · mypy app · ./scripts/verify.sh
+make check-frontend   # biome format · biome ci · tsc --noEmit · vitest run · vite build
+make fix              # apply ruff format, ruff check --fix, biome check --write
 ```
+Backend deps are locked in `backend/uv.lock` (`cd backend && uv sync --extra dev` creates
+`.venv`; `pip install -e ".[dev]"` still works). Commit hooks: `backend/.venv/bin/pre-commit install`.
 
 ## Status
 **Phase 0** (foundations) complete & verified. **Phase 1a** (real preflop trainer) built:

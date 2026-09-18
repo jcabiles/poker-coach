@@ -1,5 +1,17 @@
 # AI-Org log — poker-coach
 
+## 2026-09-18 — Cleanup slice 2 built: `make check` is the gate
+- `/ai-org:spec --auto-build`, typed by the owner. Contract map, spec (rev 2 after a blind
+  Claude refuter found two blocking gaps: undeclared dev deps, three modules mis-listed as
+  pattern fixes), six tickets, then the build: backend reformat (proven on an isolated
+  checkout), mypy gate with 261 errors fixed by annotation alone and 76 baselined per module,
+  `uv.lock` proven by a fresh sync, Biome gate with nine rules baselined at warn, a root
+  Makefile, local-only pre-commit hooks, CI reduced to `make check-backend` / `make
+  check-frontend`, and the three docs that defined "the checks" now all point at `make check`.
+- Codex could not review (classifier-blocked full-access mode; nested sandbox failure in
+  read-only mode). Recorded, not substituted.
+- Push blocked: no GitHub token on this machine; both branches wait locally.
+
 ## 2026-09-18 — Two-mode Simulate merged; slice 3 closed; next: quality gates
 - The owner's play verdict ("pretty happy with how realistic the bots are as a base for future
   iterations") closed flywheel slice 3 and the improvement phase. The owner then authorized
