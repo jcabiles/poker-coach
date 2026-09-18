@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type { ReplayStepView, HandReplayView, ShowdownSeatView } from "../../api/types";
+import type { HandReplayView, ReplayStepView, ShowdownSeatView } from "../../api/types";
 import Card from "../Card";
 import ReasoningText from "../ReasoningText";
-import { fmtBb, fmtEvLoss, streetLabel, tierOf } from "./simGrade";
 import { buildReplayModel, deriveSeats } from "./replaySeats";
 import type { RevealScope } from "./revealRequest";
+import { fmtBb, fmtEvLoss, streetLabel, tierOf } from "./simGrade";
 
 // Simulate History Replayer (HRT-2) — the two-pane replay reader for the History
 // route. Left: the LIVE Simulate felt (same stage/felt/tablering/tseat classes)
@@ -105,7 +105,11 @@ export default function HandReplayTable({
 
   // The deepest board the hand reached — for the per-street header mini-cards.
   const finalBoard = useMemo(
-    () => replay.steps.reduce((max, s) => (s.board.length > max.length ? s.board : max), [] as string[]),
+    () =>
+      replay.steps.reduce(
+        (max, s) => (s.board.length > max.length ? s.board : max),
+        [] as string[],
+      ),
     [replay],
   );
 
@@ -126,7 +130,10 @@ export default function HandReplayTable({
       }
       e.preventDefault();
       setVpos((v) =>
-        Math.min(Math.max(v + (e.key === "ArrowRight" ? 1 : -1), 0), Math.max(visible.length - 1, 0)),
+        Math.min(
+          Math.max(v + (e.key === "ArrowRight" ? 1 : -1), 0),
+          Math.max(visible.length - 1, 0),
+        ),
       );
     };
     window.addEventListener("keydown", onKey);
@@ -247,7 +254,12 @@ export default function HandReplayTable({
 
           {/* Controls — Prev / Next over visible steps; ← / → mirror them. */}
           <div className="hrt-controls" role="group" aria-label="Step through the hand">
-            <button type="button" className="btn hrt-step-btn" onClick={() => go(clampedV - 1)} disabled={atStart}>
+            <button
+              type="button"
+              className="btn hrt-step-btn"
+              onClick={() => go(clampedV - 1)}
+              disabled={atStart}
+            >
               ← Prev
             </button>
             <span className="hrt-step-count num" aria-live="polite">
@@ -270,18 +282,13 @@ export default function HandReplayTable({
               and a control that locks up mid-click reads as broken. */}
           {onReveal && (
             <div className="hrt-reveal">
-              <div
-                className="sim-reveal-actions"
-                role="group"
-                aria-label="Reveal villain hands"
-              >
+              <div className="sim-reveal-actions" role="group" aria-label="Reveal villain hands">
                 {(["last-in", "all"] as const).map((scope) => (
                   <button
                     key={scope}
                     type="button"
                     className={
-                      "btn sim-reveal-btn" +
-                      (revealScope === scope ? " sim-reveal-btn-on" : "")
+                      "btn sim-reveal-btn" + (revealScope === scope ? " sim-reveal-btn-on" : "")
                     }
                     aria-pressed={revealScope === scope}
                     aria-busy={revealPending && revealScope === scope}

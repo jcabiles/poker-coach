@@ -144,8 +144,8 @@ export default function SimTable({
     <div className="stage">
       <div className="felt felt-staged">
         <div className="ctx">
-          Simulate · 0.5/1 · 9-max · hand{" "}
-          <span className="sim-ctx-no">{hand.hand_no}</span> · {street}
+          Simulate · 0.5/1 · 9-max · hand <span className="sim-ctx-no">{hand.hand_no}</span> ·{" "}
+          {street}
         </div>
         <div
           className={"tablering sim-tablering" + (hand.hand_over ? " sim-ring-over" : "")}
@@ -177,9 +177,7 @@ export default function SimTable({
             const isToAct = to_act_seat != null && seat.seat_index === to_act_seat;
             // A genuine showdown reveal waits for playback to complete so the
             // cards flip when the board finishes running out — not at the flop.
-            const reveal = playbackComplete
-              ? showdownBySeat.get(seat.seat_index)
-              : undefined;
+            const reveal = playbackComplete ? showdownBySeat.get(seat.seat_index) : undefined;
             // Cards to show face-up: a genuine showdown (settlement) OR an
             // on-demand R1 reveal after a hero fold. R1 reveals can include
             // FOLDED seats ("Reveal All"), so a revealed card overrides the
@@ -215,9 +213,7 @@ export default function SimTable({
             if (seat.is_hero) {
               return (
                 <div
-                  className={
-                    "tseat heroseat sim-seat" + (isToAct ? " sim-seat-act" : "")
-                  }
+                  className={"tseat heroseat sim-seat" + (isToAct ? " sim-seat-act" : "")}
                   key={seat.seat_index}
                   style={style}
                 >
@@ -371,12 +367,8 @@ function SimVerdictBadge({ grade }: { grade: GradeView }) {
       }
     >
       <span className="sim-badge-word">{meta.label}</span>
-      {showLoss && (
-        <span className="sim-badge-ev num">{fmtEvLoss(grade.ev_loss_bb)}</span>
-      )}
-      {sizeMeta && (
-        <span className="sim-badge-size">· size: {sizeMeta.label}</span>
-      )}
+      {showLoss && <span className="sim-badge-ev num">{fmtEvLoss(grade.ev_loss_bb)}</span>}
+      {sizeMeta && <span className="sim-badge-size">· size: {sizeMeta.label}</span>}
     </div>
   );
 }

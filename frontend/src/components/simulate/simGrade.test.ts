@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { StreetReportRow } from "../../api/types";
 import { aggregateRates, goodPct, optimalPct } from "./simGrade";
@@ -34,10 +34,42 @@ describe("goodPct / optimalPct", () => {
 describe("aggregateRates", () => {
   it("sums counts across mixed street rows and derives rates from the summed totals", () => {
     const rows: StreetReportRow[] = [
-      makeRow({ street: "preflop", graded: 10, optimal: 6, acceptable: 2, mistake: 1, blunder: 1, no_baseline: 3 }),
-      makeRow({ street: "flop", graded: 8, optimal: 3, acceptable: 3, mistake: 1, blunder: 1, no_baseline: 0 }),
-      makeRow({ street: "turn", graded: 5, optimal: 1, acceptable: 1, mistake: 2, blunder: 1, no_baseline: 2 }),
-      makeRow({ street: "river", graded: 0, optimal: 0, acceptable: 0, mistake: 0, blunder: 0, no_baseline: 4 }),
+      makeRow({
+        street: "preflop",
+        graded: 10,
+        optimal: 6,
+        acceptable: 2,
+        mistake: 1,
+        blunder: 1,
+        no_baseline: 3,
+      }),
+      makeRow({
+        street: "flop",
+        graded: 8,
+        optimal: 3,
+        acceptable: 3,
+        mistake: 1,
+        blunder: 1,
+        no_baseline: 0,
+      }),
+      makeRow({
+        street: "turn",
+        graded: 5,
+        optimal: 1,
+        acceptable: 1,
+        mistake: 2,
+        blunder: 1,
+        no_baseline: 2,
+      }),
+      makeRow({
+        street: "river",
+        graded: 0,
+        optimal: 0,
+        acceptable: 0,
+        mistake: 0,
+        blunder: 0,
+        no_baseline: 4,
+      }),
     ];
 
     const result = aggregateRates(rows);

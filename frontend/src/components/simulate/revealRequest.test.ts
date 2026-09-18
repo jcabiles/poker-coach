@@ -103,7 +103,7 @@ describe("races — a response must never outlive its request", () => {
     const second = toggleReveal(first.state, "all");
 
     // The newer 'all' response lands first.
-    let state = applyRevealResponse(
+    const state = applyRevealResponse(
       second.state,
       ok([seat(1), seat(2), seat(3)], "all"),
       second.request!,

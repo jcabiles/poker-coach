@@ -22,11 +22,11 @@ import type {
   SimMode,
   VillainRangeView,
 } from "../api/types";
+import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
 import HandReplay from "./simulate/HandReplay";
+import { BLIND_CHECK_HAND_GATE, completedHands, gateProgressPct } from "./simulate/handCount";
 import SimActionBar from "./simulate/SimActionBar";
 import SimBlindCheck, { type BlindCheckAnswers } from "./simulate/SimBlindCheck";
-import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
-import { BLIND_CHECK_HAND_GATE, completedHands, gateProgressPct } from "./simulate/handCount";
 import SimEventLog from "./simulate/SimEventLog";
 import SimGradingToggle from "./simulate/SimGradingToggle";
 import SimLabelsToggle from "./simulate/SimLabelsToggle";
@@ -37,10 +37,10 @@ import SimRangeChart from "./simulate/SimRangeChart";
 import SimRecap from "./simulate/SimRecap";
 import SimShowdown from "./simulate/SimShowdown";
 import SimSpeedPicker, { type SimSpeed } from "./simulate/SimSpeedPicker";
-import SimWatchToggle from "./simulate/SimWatchToggle";
 import SimStreetReport from "./simulate/SimStreetReport";
 import SimTable from "./simulate/SimTable";
 import SimVillainRange from "./simulate/SimVillainRange";
+import SimWatchToggle from "./simulate/SimWatchToggle";
 import { stagedTableState } from "./simulate/simPlayback";
 
 // Simulate S9 — the playable, persistent table. Hero acts via predetermined
@@ -440,86 +440,92 @@ export default function SimulateView() {
   // batch (hero, seats settled before it) get no entry → revealed immediately.
   const revealAt = useMemo(() => {
     const m = new Map<string, number>();
-    if (events) events.forEach((e, i) => m.set(e.position, i + 1));
+    if (events)
+      events.forEach((e, i) => {
+        m.set(e.position, i + 1);
+      });
     return m;
   }, [events]);
 
   // Adopt a session view: hold its id (both in a ref for callbacks and in
   // localStorage for reload restore) and render its hand.
-  const adopt = useCallback((res: SessionView) => {
-    sessionIdRef.current = res.session_id;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, res.session_id);
-    } catch {
-      // Private-mode / disabled storage: play still works this session, only
-      // reload-restore is lost. Non-fatal.
-    }
+  const adopt = useCallback(
+    (res: SessionView) => {
+      sessionIdRef.current = res.session_id;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, res.session_id);
+      } catch {
+        // Private-mode / disabled storage: play still works this session, only
+        // reload-restore is lost. Non-fatal.
+      }
 
-    // S10 grade bookkeeping. A new (session, hand_no) pair resets the per-hand
-    // tier accumulator — hand_no ALONE is not a safe key: every session starts
-    // at hand 1, so a mid-hand-1 404 recovery into a fresh session would
-    // otherwise bleed session A's "why" text into session B's recap (final-gate
-    // refuter med-1). Then stash this response's live grade (if any) by ordinal
-    // so the hand-over recap can merge in the tiers the persisted rows lack,
-    // and surface it as the hero-pod badge.
-    const hand = res.hand;
-    const gradeKey = `${res.session_id}#${hand.hand_no}`;
-    if (gradedHandNo.current !== gradeKey) {
-      tiersByOrdinal.current = new Map();
-      gradedHandNo.current = gradeKey;
-    }
-    const grade = hand.last_grade ?? null;
-    if (grade) tiersByOrdinal.current.set(grade.ordinal, grade);
-    setHeroBadge(grade);
+      // S10 grade bookkeeping. A new (session, hand_no) pair resets the per-hand
+      // tier accumulator — hand_no ALONE is not a safe key: every session starts
+      // at hand 1, so a mid-hand-1 404 recovery into a fresh session would
+      // otherwise bleed session A's "why" text into session B's recap (final-gate
+      // refuter med-1). Then stash this response's live grade (if any) by ordinal
+      // so the hand-over recap can merge in the tiers the persisted rows lack,
+      // and surface it as the hero-pod badge.
+      const hand = res.hand;
+      const gradeKey = `${res.session_id}#${hand.hand_no}`;
+      if (gradedHandNo.current !== gradeKey) {
+        tiersByOrdinal.current = new Map();
+        gradedHandNo.current = gradeKey;
+      }
+      const grade = hand.last_grade ?? null;
+      if (grade) tiersByOrdinal.current.set(grade.ordinal, grade);
+      setHeroBadge(grade);
 
-    // The blind-check result shows on ONE screen and then lives only in the
-    // record (spec para 16). Every adopted view is the next screen, so dealing
-    // on is what takes it away — it is never a standing banner, and a reload
-    // does not bring it back (it was only ever component state).
-    setScoreCard(null);
+      // The blind-check result shows on ONE screen and then lives only in the
+      // record (spec para 16). Every adopted view is the next screen, so dealing
+      // on is what takes it away — it is never a standing banner, and a reload
+      // does not bring it back (it was only ever component state).
+      setScoreCard(null);
 
-    // A finished hand's decisions have persisted — refetch the all-time report
-    // (once per hand, so a reload of an already-over hand doesn't re-fetch).
-    if (hand.hand_over && reportedHandNo.current !== gradeKey) {
-      reportedHandNo.current = gradeKey;
-      setReportKey((k) => k + 1);
-    }
+      // A finished hand's decisions have persisted — refetch the all-time report
+      // (once per hand, so a reload of an already-over hand doesn't re-fetch).
+      if (hand.hand_over && reportedHandNo.current !== gradeKey) {
+        reportedHandNo.current = gradeKey;
+        setReportKey((k) => k + 1);
+      }
 
-    // Villain-range narrated-count bookkeeping (see the refs' comment). A fresh
-    // hand resets the base to 0; a same-hand re-adopt is always a hero action,
-    // whose single narrated row precedes this batch's events — so the new base
-    // is the previous batch's fully-revealed total (prevBase + prevEventCount)
-    // plus that one hero row. The count is only ever CONSUMED while playback is
-    // active (see `rangeThrough`); on a settled/restored turn the full history
-    // is requested instead, so a mid-hand reload (events=[], no hero action)
-    // never needs an accurate base.
-    const newBatch = res.hand.events?.length ?? 0;
-    if (narratedHandRef.current !== gradeKey) {
-      narratedHandRef.current = gradeKey;
-      narratedBaseRef.current = 0;
-      // Any hand transition closes an open villain-range panel — including
-      // hand endings whose hand_over view was never adopted (the hero-fold
-      // shortcut jumps straight to the next deal; without this a panel open on
-      // a NON-folding villain silently carried across the hand boundary —
-      // villain-range refuter med-1).
-      setOpenRangeSeat(null);
-      // R1: a new hand clears any reveal from the previous hand (fold-path FE
-      // state bled 3× historically — reset it on the same boundary as the range
-      // panel so revealed cards can't carry onto the next dealt hand).
-      setRevealScope(null);
-      setRevealedSeats([]);
-    } else {
-      narratedBaseRef.current = narratedBaseRef.current + prevEventCountRef.current + 1;
-    }
-    prevEventCountRef.current = newBatch;
-    // Reset the staged index ATOMICALLY with the base bump: the playback
-    // effect also resets it, but that runs a flush later — in between,
-    // rangeThrough would read newBase + the OLD batch's terminal stagedIndex
-    // and fire one inflated lockstep request (refuter low-1).
-    setStaged(0);
+      // Villain-range narrated-count bookkeeping (see the refs' comment). A fresh
+      // hand resets the base to 0; a same-hand re-adopt is always a hero action,
+      // whose single narrated row precedes this batch's events — so the new base
+      // is the previous batch's fully-revealed total (prevBase + prevEventCount)
+      // plus that one hero row. The count is only ever CONSUMED while playback is
+      // active (see `rangeThrough`); on a settled/restored turn the full history
+      // is requested instead, so a mid-hand reload (events=[], no hero action)
+      // never needs an accurate base.
+      const newBatch = res.hand.events?.length ?? 0;
+      if (narratedHandRef.current !== gradeKey) {
+        narratedHandRef.current = gradeKey;
+        narratedBaseRef.current = 0;
+        // Any hand transition closes an open villain-range panel — including
+        // hand endings whose hand_over view was never adopted (the hero-fold
+        // shortcut jumps straight to the next deal; without this a panel open on
+        // a NON-folding villain silently carried across the hand boundary —
+        // villain-range refuter med-1).
+        setOpenRangeSeat(null);
+        // R1: a new hand clears any reveal from the previous hand (fold-path FE
+        // state bled 3× historically — reset it on the same boundary as the range
+        // panel so revealed cards can't carry onto the next dealt hand).
+        setRevealScope(null);
+        setRevealedSeats([]);
+      } else {
+        narratedBaseRef.current = narratedBaseRef.current + prevEventCountRef.current + 1;
+      }
+      prevEventCountRef.current = newBatch;
+      // Reset the staged index ATOMICALLY with the base bump: the playback
+      // effect also resets it, but that runs a flush later — in between,
+      // rangeThrough would read newBase + the OLD batch's terminal stagedIndex
+      // and fire one inflated lockstep request (refuter low-1).
+      setStaged(0);
 
-    setView(res);
-  }, [setStaged]);
+      setView(res);
+    },
+    [setStaged],
+  );
 
   const clearStored = useCallback(() => {
     sessionIdRef.current = null;
@@ -809,8 +815,7 @@ export default function SimulateView() {
     sessionId: string;
     shown: boolean;
   } | null>(null);
-  const labelsShown =
-    labelsPref?.sessionId === sessionId ? labelsPref.shown : storedLabelsShown;
+  const labelsShown = labelsPref?.sessionId === sessionId ? labelsPref.shown : storedLabelsShown;
 
   const labelsVisible = !challenge || (labelsUnlocked && labelsShown);
   // Absent before the unlock, never present-and-disabled (spec para 20): a
@@ -862,18 +867,15 @@ export default function SimulateView() {
   // the names already chosen still on it.
   const checkOpen = checkPending && checkDismissed !== sessionId;
   const answers = checkAnswers?.sessionId === sessionId ? checkAnswers.answers : NO_ANSWERS;
-  const answerSeat = useCallback(
-    (forSession: string, seatIndex: number, guess: ArchetypeGuess) => {
-      setCheckAnswers((prev) => ({
-        sessionId: forSession,
-        answers: {
-          ...(prev?.sessionId === forSession ? prev.answers : NO_ANSWERS),
-          [seatIndex]: guess,
-        },
-      }));
-    },
-    [],
-  );
+  const answerSeat = useCallback((forSession: string, seatIndex: number, guess: ArchetypeGuess) => {
+    setCheckAnswers((prev) => ({
+      sessionId: forSession,
+      answers: {
+        ...(prev?.sessionId === forSession ? prev.answers : NO_ANSWERS),
+        [seatIndex]: guess,
+      },
+    }));
+  }, []);
 
   // Submit or skip. ONE status is handled on its own, and everything else is
   // one message, because what separates them is what the PLAYER can do next,
@@ -1000,7 +1002,8 @@ export default function SimulateView() {
     // (button, a, input…) matches the focused <dialog> itself.
     if (!hand?.hand_over || !revealHandEnd || replay || checkPending) return;
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key !== "Enter" && e.key !== " ") || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if ((e.key !== "Enter" && e.key !== " ") || e.repeat || e.metaKey || e.ctrlKey || e.altKey)
+        return;
       const target = e.target as HTMLElement | null;
       if (
         target?.closest(
@@ -1164,10 +1167,7 @@ export default function SimulateView() {
                       so early progress is visible, and that floor must not
                       claim a hand the player has not finished. */}
                   {gateProgress > 0 && (
-                    <span
-                      className="sim-hand-bar-fill"
-                      style={{ width: `${gateProgress}%` }}
-                    />
+                    <span className="sim-hand-bar-fill" style={{ width: `${gateProgress}%` }} />
                   )}
                 </span>
               )}
@@ -1267,12 +1267,7 @@ export default function SimulateView() {
                 pre-empt a live-region announcement, so this surface takes both
                 and accepts the duplicate over the silence. */}
             {scoreCard && (
-              <section
-                className="sbc-score panel"
-                role="status"
-                ref={scoreCardRef}
-                tabIndex={-1}
-              >
+              <section className="sbc-score panel" role="status" ref={scoreCardRef} tabIndex={-1}>
                 {!scoreCard.mine ? (
                   <>
                     <p className="sbc-eyebrow">Answered in another window</p>
@@ -1323,9 +1318,9 @@ export default function SimulateView() {
                 )}
                 {!scoreCard.result.skipped && (
                   <p className="sbc-score-note">
-                    A souvenir, not a measurement: three seats out of a lineup you were shown
-                    before you answered, from six names that were never equally likely. It stays
-                    with this session&rsquo;s record and is counted towards nothing.
+                    A souvenir, not a measurement: three seats out of a lineup you were shown before
+                    you answered, from six names that were never equally likely. It stays with this
+                    session&rsquo;s record and is counted towards nothing.
                   </p>
                 )}
               </section>
@@ -1338,9 +1333,9 @@ export default function SimulateView() {
                 <div className="sbc-paused-text">
                   <p className="sbc-eyebrow">The deal is paused</p>
                   <p className="sbc-paused-lede">
-                    <span className="num">{handsDone}</span> hands are in and the table is
-                    waiting on three names. Read the rail sheet for as long as you like — it has
-                    been keeping score against every seat since hand one.
+                    <span className="num">{handsDone}</span> hands are in and the table is waiting
+                    on three names. Read the rail sheet for as long as you like — it has been
+                    keeping score against every seat since hand one.
                   </p>
                 </div>
                 <button

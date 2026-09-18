@@ -68,7 +68,9 @@ export default function FeedbackPanel({
 
   const best = result.best_action;
   const choseBest =
-    chosen != null && chosen.action === best.action && (chosen.size_bb ?? null) === (best.size_bb ?? null);
+    chosen != null &&
+    chosen.action === best.action &&
+    (chosen.size_bb ?? null) === (best.size_bb ?? null);
 
   return (
     <div
@@ -99,7 +101,8 @@ export default function FeedbackPanel({
             <span className="ev-act">
               {actionLabel(chosen.action, chosen.size_bb)}
               <span className="ev-played">
-                played <span className="num">{Math.round(result.chosen_eval.frequency * 100)}%</span>
+                played{" "}
+                <span className="num">{Math.round(result.chosen_eval.frequency * 100)}%</span>
               </span>
             </span>
             <span className="ev-nums">

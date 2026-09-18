@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getPreflopChart } from "../../api/client";
 import type { PreflopChartView } from "../../api/types";
-import { RANK_ORDER, handClass } from "../../lib/poker";
+import { handClass, RANK_ORDER } from "../../lib/poker";
 import ReasoningText from "../ReasoningText";
 
 // Simulate preflop range chart (C2) — a sim-owned COPY of Practice's

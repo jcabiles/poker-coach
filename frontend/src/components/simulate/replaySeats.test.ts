@@ -91,10 +91,18 @@ describe("deriveSeats", () => {
     const h = hand([
       step({ ...CO, street: "flop", action: "bet", amount_bb: 4, is_hero: true }),
       step({ ...BB, street: "flop", action: "call", amount_bb: 4 }),
-      step({ ...CO, street: "turn", action: "check", is_hero: true, board: ["Js", "7h", "2d", "5c"] }),
+      step({
+        ...CO,
+        street: "turn",
+        action: "check",
+        is_hero: true,
+        board: ["Js", "7h", "2d", "5c"],
+      }),
     ]);
     // At the flop bet, CO shows its flop action.
-    expect(deriveSeats(h, 0).seats.find((s) => s.position === "CO")?.lastActionVerb).toBe("Bets 4bb");
+    expect(deriveSeats(h, 0).seats.find((s) => s.position === "CO")?.lastActionVerb).toBe(
+      "Bets 4bb",
+    );
     // On the turn, before CO acts again, BB (who only acted on the flop) shows no verb.
     const turn = deriveSeats(h, 2);
     expect(turn.seats.find((s) => s.position === "BB")?.lastActionVerb).toBeNull();

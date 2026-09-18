@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  BLIND_CHECK_HAND_GATE,
   atBlindCheckGate,
+  BLIND_CHECK_HAND_GATE,
   completedHands,
   gateProgressPct,
 } from "./handCount";

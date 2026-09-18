@@ -53,8 +53,8 @@ export default function SimStreetReport({ refreshKey }: { refreshKey: number }) 
         </div>
       ) : report.total_decisions === 0 ? (
         <p className="sim-report-empty">
-          No graded decisions yet. Play a mapped spot — a heads-up preflop or a
-          flop c-bet — and your record fills in here.
+          No graded decisions yet. Play a mapped spot — a heads-up preflop or a flop c-bet — and
+          your record fills in here.
         </p>
       ) : (
         (() => {

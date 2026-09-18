@@ -72,15 +72,22 @@ export function optimalPct(row: StreetReportRow): number | null {
 // integer % over the SUMMED graded, null when total graded is 0. no_baseline is summed but
 // NEVER enters the graded denominator (sparse-coverage honesty — same rule as the per-street report).
 export function aggregateRates(rows: StreetReportRow[]): {
-  graded: number; optimal: number; acceptable: number; no_baseline: number;
-  goodPct: number | null; optimalPct: number | null;
+  graded: number;
+  optimal: number;
+  acceptable: number;
+  no_baseline: number;
+  goodPct: number | null;
+  optimalPct: number | null;
 } {
   const graded = rows.reduce((s, r) => s + r.graded, 0);
   const optimal = rows.reduce((s, r) => s + r.optimal, 0);
   const acceptable = rows.reduce((s, r) => s + r.acceptable, 0);
   const no_baseline = rows.reduce((s, r) => s + r.no_baseline, 0);
   return {
-    graded, optimal, acceptable, no_baseline,
+    graded,
+    optimal,
+    acceptable,
+    no_baseline,
     goodPct: graded === 0 ? null : Math.round(((optimal + acceptable) / graded) * 100),
     optimalPct: graded === 0 ? null : Math.round((optimal / graded) * 100),
   };

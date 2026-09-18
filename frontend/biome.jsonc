@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": ["src/**"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        // BASELINE(2026-09-18): 20 hits, real work for a later slice
+        "useSemanticElements": "warn",
+        // BASELINE(2026-09-18): 13 hits, real work for a later slice
+        "useAriaPropsSupportedByRole": "warn",
+        // BASELINE(2026-09-18): 3 hits, real work for a later slice
+        "useFocusableInteractive": "warn",
+        // BASELINE(2026-09-18): 3 hits, real work for a later slice
+        "noAriaHiddenOnFocusable": "warn",
+        // BASELINE(2026-09-18): 1 hit, real work for a later slice
+        "noSvgWithoutTitle": "warn"
+      },
+      "suspicious": {
+        // BASELINE(2026-09-18): 26 hits, real work for a later slice
+        "noArrayIndexKey": "warn"
+      },
+      "style": {
+        // BASELINE(2026-09-18): 15 hits, real work for a later slice
+        "noNonNullAssertion": "warn",
+        // BASELINE(2026-09-18): 18 hits in CSS, real work for a later slice
+        "noDescendingSpecificity": "warn"
+      },
+      "correctness": {
+        // BASELINE(2026-09-18): 6 hits, real work for a later slice
+        "useExhaustiveDependencies": "warn"
+      }
+    }
+  }
+}

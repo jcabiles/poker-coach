@@ -170,10 +170,7 @@ export default function HandReplay({
           the meaning for AT), so the rail itself is aria-hidden. */}
       <div className="hr-rail" aria-hidden="true">
         {reachedStreets.map((s, i) => (
-          <span
-            key={s}
-            className={"hr-rail-seg" + (i <= currentStreetIdx ? " on" : "")}
-          >
+          <span key={s} className={"hr-rail-seg" + (i <= currentStreetIdx ? " on" : "")}>
             <span className="hr-rail-label">{streetLabel(s)}</span>
           </span>
         ))}

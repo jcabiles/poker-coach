@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { Spot } from "../api/types";
-import { RANK_ORDER, handClass } from "../lib/poker";
+import { handClass, RANK_ORDER } from "../lib/poker";
 
 const LEGEND: [string, string][] = [
   ["action-raise", "raise"],
