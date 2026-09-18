@@ -7,13 +7,12 @@ artifact_dir: docs/ai-dlc
 # and resumes from its first unchecked slice — never from memory of what seemed
 # next. This field was missing entirely until 2026-08-18, which is why the boot
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
-active:       bot-realism-flywheel
-              # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
-              # current slice: Two-mode Simulate — MERGED 2026-09-18, box unticked
-              #   until the owner plays Challenge mode.
-              # slice 3 (calldown): CLOSED 2026-09-18 on the owner's verdict.
-              # cleanup slice 2 (quality gates): MERGED 2026-09-18 (#224).
-              # next: cleanup slice 3 or 1 (docs/cleanup-project-brief.md).
+active:       phone-and-6max
+              # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (status: draft until the owner approves)
+              # current slice: P1 (LAN walking skeleton) once approved
+              # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
+              #   until the owner plays Challenge mode; slice 3 (calldown) CLOSED 2026-09-18.
+              # cleanup project (docs/cleanup-project-brief.md): slice 2 done; 1 and 3 wait.
               # paused: persona-realism (see its top banner)
 
 verify:
@@ -73,7 +72,6 @@ merged:       #222 (squash de9cb71), #224 (squash 9f26713); #223 closed as super
 awaiting John: (a) play Challenge mode, then tick the slice; (b) two theory-contract items open
               since 2026-08-24 (ledger finding B1; §10.2 of the git-excluded audit).
 authorized:   nothing standing. The 2026-09-18 merge grant is spent.
-next action:  cleanup slice 3 (code findings; the two stale root-file deletions need per-file
-              owner approval) or slice 1 (docs distillation, deletions held for the owner), via
-              `/ai-org:spec --auto-build`. Burn-down lists: mypy overrides in backend/pyproject.toml,
-              Biome warn rules in frontend/biome.jsonc.
+next action:  owner approves docs/ai-dlc/roadmap/phone-and-6max.md (drafted 2026-09-18 after a
+              full interview), then `/ai-org:spec P1 — LAN walking skeleton`. Cleanup slices 1
+              and 3 and the mypy/Biome burn-down wait behind it.
