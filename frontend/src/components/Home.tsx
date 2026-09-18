@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getCalendar, getRecap } from "../api/client";
-import type {
-  CalendarDay,
-  LeakStat,
-  Mode,
-  RecapResponse,
-  ReviewPlanResponse,
-} from "../api/types";
+import type { CalendarDay, LeakStat, Mode, RecapResponse, ReviewPlanResponse } from "../api/types";
 import { formatHash } from "../lib/hashRoute";
 
 // N7 — mastery thresholds. Named constants (not silent magic numbers) and
@@ -83,8 +77,18 @@ function calStep(attempts: number): 0 | 1 | 2 | 3 | 4 {
 function prettyDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
   ];
   const mi = Number(m) - 1;
   return `${months[mi] ?? m} ${Number(d)}, ${y}`;
@@ -193,8 +197,8 @@ export default function Home({
               <h2 className="home-section-title">Learning path</h2>
             </div>
             <span className="home-path-key">
-              Solid ≥{Math.round(MASTERY_ACCURACY_THRESHOLD * 100)}% ·{" "}
-              {MASTERY_ATTEMPTS_THRESHOLD}+ reps
+              Solid ≥{Math.round(MASTERY_ACCURACY_THRESHOLD * 100)}% · {MASTERY_ATTEMPTS_THRESHOLD}+
+              reps
             </span>
           </header>
           <ol className="home-path">
@@ -278,7 +282,7 @@ export default function Home({
               New
             </span>
           </header>
-          {recap && recap.day ? (
+          {recap?.day ? (
             <>
               <dl className="recap-stats">
                 <div className="recap-stat">

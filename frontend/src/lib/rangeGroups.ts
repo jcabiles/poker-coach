@@ -17,9 +17,7 @@
 
 // Low → high, matching notation.py's RANKS.
 const RANKS = "23456789TJQKA";
-const IDX: Record<string, number> = Object.fromEntries(
-  [...RANKS].map((r, i) => [r, i]),
-);
+const IDX: Record<string, number> = Object.fromEntries([...RANKS].map((r, i) => [r, i]));
 
 /** Combos per hand class (used for the "N combos" header). */
 export function combosForClass(cls: string): number {
@@ -53,12 +51,7 @@ function expandPair(rank: string, plus: boolean): string[] {
   return [rank + rank];
 }
 
-function expandTwo(
-  r1: string,
-  r2: string,
-  suit: string | null,
-  plus: boolean,
-): string[] {
+function expandTwo(r1: string, r2: string, suit: string | null, plus: boolean): string[] {
   if (IDX[r1] < IDX[r2]) [r1, r2] = [r2, r1];
   const suits = suit === "s" || suit === "o" ? [suit] : ["s", "o"];
   let kickers: string[];
@@ -97,11 +90,9 @@ function expandToken(raw: string): string[] {
   if (core.length === 2 || core.length === 3) {
     const r1 = core[0];
     const r2 = core[1];
-    if (!(r1 in IDX) || !(r2 in IDX))
-      throw new Error(`unparseable range token: ${tok}`);
+    if (!(r1 in IDX) || !(r2 in IDX)) throw new Error(`unparseable range token: ${tok}`);
     const suit = core.length === 3 ? core[2] : null;
-    if (suit !== null && suit !== "s" && suit !== "o")
-      throw new Error(`bad suit in token: ${tok}`);
+    if (suit !== null && suit !== "s" && suit !== "o") throw new Error(`bad suit in token: ${tok}`);
     return expandTwo(r1, r2, suit, plus);
   }
   throw new Error(`unparseable range token: ${tok}`);
@@ -121,14 +112,11 @@ export function parseRange(spec: string): Set<string> {
  * consecutive rungs into "first-last" and leaving gaps/singletons alone.
  * `rung` maps a class to its ladder index; entries are pre-sorted ascending.
  */
-function collapseLadder(
-  entries: { cls: string; rung: number }[],
-): string[] {
+function collapseLadder(entries: { cls: string; rung: number }[]): string[] {
   const chips: string[] = [];
   let runStart = 0;
   for (let i = 1; i <= entries.length; i++) {
-    const broken =
-      i === entries.length || entries[i].rung !== entries[i - 1].rung + 1;
+    const broken = i === entries.length || entries[i].rung !== entries[i - 1].rung + 1;
     if (broken) {
       const first = entries[runStart];
       const last = entries[i - 1];
@@ -172,7 +160,8 @@ export function groupRange(spec: string): RangeGroups {
     const hi = cls[0];
     const lo = cls[1];
     const bucket = cls.endsWith("s") ? suitedBy : offsuitBy;
-    (bucket[hi] ||= []).push({ cls, rung: IDX[lo] });
+    if (!bucket[hi]) bucket[hi] = [];
+    bucket[hi].push({ cls, rung: IDX[lo] });
   }
 
   pairEntries.sort((a, b) => a.rung - b.rung);
@@ -180,9 +169,7 @@ export function groupRange(spec: string): RangeGroups {
 
   // Suited/offsuit chips ordered by high card (high → low, the way ranges are
   // conventionally written: aces first), kickers ascending within each.
-  const collapseByHi = (
-    by: Record<string, { cls: string; rung: number }[]>,
-  ): string[] => {
+  const collapseByHi = (by: Record<string, { cls: string; rung: number }[]>): string[] => {
     const out: string[] = [];
     const his = Object.keys(by).sort((a, b) => IDX[b] - IDX[a]);
     for (const hi of his) {

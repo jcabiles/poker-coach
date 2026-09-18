@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { ArchetypeGuess, BlindCheckSubmitRequest, BlindCheckView } from "../../api/types";
 import {
   ARCHETYPE_OPTIONS,
-  HOUSE_LINEUP,
-  HOUSE_SEATS,
   archetypeGloss,
   archetypeName,
+  HOUSE_LINEUP,
+  HOUSE_SEATS,
   isOwnSubmission,
 } from "./blindCheck";
 
@@ -27,7 +27,9 @@ function answer(seat_index: number, guess: ArchetypeGuess) {
   return { seat_index, guess };
 }
 
-function sent(...guesses: { seat_index: number; guess: ArchetypeGuess }[]): BlindCheckSubmitRequest {
+function sent(
+  ...guesses: { seat_index: number; guess: ArchetypeGuess }[]
+): BlindCheckSubmitRequest {
   return { skipped: false, guesses };
 }
 
@@ -132,9 +134,9 @@ describe("isOwnSubmission", () => {
   const mine = sent(answer(1, "nit"), answer(4, "lag"), answer(6, "maniac"));
 
   it("accepts the stored result when it echoes what was sent", () => {
-    expect(isOwnSubmission(mine, stored([1, "nit", "nit"], [4, "lag", "tag"], [6, "maniac", "maniac"]))).toBe(
-      true,
-    );
+    expect(
+      isOwnSubmission(mine, stored([1, "nit", "nit"], [4, "lag", "tag"], [6, "maniac", "maniac"])),
+    ).toBe(true);
   });
 
   it("accepts the same three names returned in a different order", () => {
@@ -142,23 +144,23 @@ describe("isOwnSubmission", () => {
     // question is "is this the same answer"; the server echoing the order it
     // was sent is an implementation detail of two independent pieces of code,
     // and a re-ordered echo of the player's own names is still their answer.
-    expect(isOwnSubmission(mine, stored([6, "maniac", "maniac"], [1, "nit", "nit"], [4, "lag", "tag"]))).toBe(
-      true,
-    );
+    expect(
+      isOwnSubmission(mine, stored([6, "maniac", "maniac"], [1, "nit", "nit"], [4, "lag", "tag"])),
+    ).toBe(true);
   });
 
   it("rejects a stored result whose names are all different", () => {
-    expect(isOwnSubmission(mine, stored([1, "tag", "nit"], [4, "nit", "tag"], [6, "lag", "maniac"]))).toBe(
-      false,
-    );
+    expect(
+      isOwnSubmission(mine, stored([1, "tag", "nit"], [4, "nit", "tag"], [6, "lag", "maniac"])),
+    ).toBe(false);
   });
 
   it("rejects a stored result differing in a single seat", () => {
     // The tightest case: two of three match, so anything comparing counts or
     // sampling one row would wrongly claim another window's answer.
-    expect(isOwnSubmission(mine, stored([1, "nit", "nit"], [4, "tag", "tag"], [6, "maniac", "maniac"]))).toBe(
-      false,
-    );
+    expect(
+      isOwnSubmission(mine, stored([1, "nit", "nit"], [4, "tag", "tag"], [6, "maniac", "maniac"])),
+    ).toBe(false);
   });
 
   it("rejects another window's SKIP against this window's answers", () => {
@@ -167,7 +169,10 @@ describe("isOwnSubmission", () => {
 
   it("rejects this window's skip against a check someone else answered", () => {
     expect(
-      isOwnSubmission(skipSent, stored([1, "nit", "nit"], [4, "lag", "tag"], [6, "maniac", "maniac"])),
+      isOwnSubmission(
+        skipSent,
+        stored([1, "nit", "nit"], [4, "lag", "tag"], [6, "maniac", "maniac"]),
+      ),
     ).toBe(false);
   });
 

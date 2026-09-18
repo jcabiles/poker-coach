@@ -62,16 +62,16 @@ export default function SimDashboard() {
           Dashboard
         </h1>
         <p className="dash-sub">
-          Your all-time record across every graded Simulate decision — how often
-          you make a good call, and where the leaks are.
+          Your all-time record across every graded Simulate decision — how often you make a good
+          call, and where the leaks are.
         </p>
       </header>
 
       {report == null ? (
         failed ? (
           <p className="dash-note" role="status">
-            Couldn&rsquo;t load your record just now. It&rsquo;ll reappear once the
-            connection recovers.
+            Couldn&rsquo;t load your record just now. It&rsquo;ll reappear once the connection
+            recovers.
           </p>
         ) : (
           // Skeleton shaped to the real layout (two KPI cards, four ledger rows)
@@ -92,13 +92,13 @@ export default function SimDashboard() {
         <div className="dash-empty">
           <p className="dash-empty-lead">No graded decisions yet.</p>
           <p className="dash-empty-body">
-            Play some mapped spots — a heads-up preflop or a flop c-bet — and your
-            record fills in here.
+            Play some mapped spots — a heads-up preflop or a flop c-bet — and your record fills in
+            here.
           </p>
           {agg != null && agg.no_baseline > 0 && (
             <p className="dash-empty-nb">
-              {agg.no_baseline} decision{agg.no_baseline === 1 ? "" : "s"} seen so
-              far had no baseline to grade against.
+              {agg.no_baseline} decision{agg.no_baseline === 1 ? "" : "s"} seen so far had no
+              baseline to grade against.
             </p>
           )}
         </div>
@@ -116,9 +116,7 @@ export default function SimDashboard() {
                 {agg.graded === 1 ? "" : "s"}
               </p>
               {agg.no_baseline > 0 && (
-                <p className="dash-kpi-nb">
-                  +{agg.no_baseline} with no baseline — not counted
-                </p>
+                <p className="dash-kpi-nb">+{agg.no_baseline} with no baseline — not counted</p>
               )}
             </article>
 
@@ -127,9 +125,7 @@ export default function SimDashboard() {
               <p className="dash-kpi-value">
                 <span className="dash-kpi-num">{fmtRate(agg.optimalPct)}</span>
               </p>
-              <p className="dash-kpi-meta">
-                the best line, over {agg.graded} graded
-              </p>
+              <p className="dash-kpi-meta">the best line, over {agg.graded} graded</p>
             </article>
           </section>
 
@@ -144,9 +140,7 @@ export default function SimDashboard() {
                 return (
                   <li key={row.street} className="dash-street">
                     <div className="dash-street-head">
-                      <span className="dash-street-name">
-                        {streetLabel(row.street)}
-                      </span>
+                      <span className="dash-street-name">{streetLabel(row.street)}</span>
                       <span className="dash-street-count">
                         {row.graded} graded
                         {row.no_baseline > 0 && (
@@ -170,17 +164,18 @@ export default function SimDashboard() {
                       }
                     >
                       {good != null && (
-                        <span
-                          className="dash-bar-fill"
-                          style={{ width: `${good}%` }}
-                        />
+                        <span className="dash-bar-fill" style={{ width: `${good}%` }} />
                       )}
                     </div>
 
                     <div className="dash-street-rates" aria-hidden="true">
                       <span className="dash-rate dash-rate-good">
                         <span className="dash-rate-k">Good</span>
-                        <span className={good == null ? "dash-rate-v dash-rate-v--empty" : "dash-rate-v"}>
+                        <span
+                          className={
+                            good == null ? "dash-rate-v dash-rate-v--empty" : "dash-rate-v"
+                          }
+                        >
                           {fmtRate(good)}
                         </span>
                       </span>
@@ -191,9 +186,7 @@ export default function SimDashboard() {
                       {graded && (
                         <span className="dash-rate dash-rate-ev">
                           <span className="dash-rate-k">EV lost</span>
-                          <span className="dash-rate-v">
-                            {fmtEvLoss(row.ev_loss_bb)}
-                          </span>
+                          <span className="dash-rate-v">{fmtEvLoss(row.ev_loss_bb)}</span>
                         </span>
                       )}
                     </div>
@@ -202,8 +195,8 @@ export default function SimDashboard() {
               })}
             </ul>
             <p className="dash-foot">
-              Rates are exact verdict ratios. EV-loss figures are ≈ approximate
-              (heuristic baseline).
+              Rates are exact verdict ratios. EV-loss figures are ≈ approximate (heuristic
+              baseline).
             </p>
           </section>
 
@@ -212,8 +205,8 @@ export default function SimDashboard() {
             <h2 className="dash-streets-title">Your leaks</h2>
             {leaks == null || leaks.rows.length === 0 ? (
               <p className="dash-note">
-                Not enough graded decisions in any single spot yet — keep playing
-                and your weakest spots surface here to drill.
+                Not enough graded decisions in any single spot yet — keep playing and your weakest
+                spots surface here to drill.
               </p>
             ) : (
               <ul className="dash-leak-list">
@@ -228,8 +221,8 @@ export default function SimDashboard() {
                         it once, cleanly (design-review high — 1.3.1/1.1.1). */}
                     <span className="sim-sr-only">
                       {row.node_label} on the {streetLabel(row.street).toLowerCase()}:{" "}
-                      {Math.round(row.good_rate * 100)}% good over {row.graded} graded
-                      decision{row.graded === 1 ? "" : "s"}, {fmtEvLoss(row.ev_loss_bb)} lost.
+                      {Math.round(row.good_rate * 100)}% good over {row.graded} graded decision
+                      {row.graded === 1 ? "" : "s"}, {fmtEvLoss(row.ev_loss_bb)} lost.
                     </span>
                     <div className="dash-leak-stats" aria-hidden="true">
                       <span className="dash-leak-rate">

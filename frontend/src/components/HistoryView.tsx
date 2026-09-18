@@ -195,7 +195,9 @@ export default function HistoryView() {
       <header className="history-head">
         <div className="history-titleblock">
           <h1 className="history-title">Hand history</h1>
-          <p className="history-sub">Every completed hand, newest first — step back through any of them.</p>
+          <p className="history-sub">
+            Every completed hand, newest first — step back through any of them.
+          </p>
         </div>
         {items.length > 0 && (
           <button
@@ -241,7 +243,11 @@ export default function HistoryView() {
       ) : filtered.length === 0 ? (
         <div className="panel history-empty" role="status">
           <p className="history-empty-lead">No mistakes in this window — clean play.</p>
-          <button type="button" className="btn history-empty-cta" onClick={() => setMistakesOnly(false)}>
+          <button
+            type="button"
+            className="btn history-empty-cta"
+            onClick={() => setMistakesOnly(false)}
+          >
             Show all hands
           </button>
         </div>

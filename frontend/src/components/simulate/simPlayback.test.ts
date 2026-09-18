@@ -71,18 +71,22 @@ describe("stagedTableState", () => {
       event("river", "BTN"),
     ];
 
-    expect(
-      stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 1 }),
-    ).toEqual({ street: "preflop", board: [] });
-    expect(
-      stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 2 }),
-    ).toEqual({ street: "flop", board: finalBoard.slice(0, 3) });
-    expect(
-      stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 3 }),
-    ).toEqual({ street: "turn", board: finalBoard.slice(0, 4) });
-    expect(
-      stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 4 }),
-    ).toEqual({ street: "river", board: finalBoard });
+    expect(stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 1 })).toEqual({
+      street: "preflop",
+      board: [],
+    });
+    expect(stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 2 })).toEqual({
+      street: "flop",
+      board: finalBoard.slice(0, 3),
+    });
+    expect(stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 3 })).toEqual({
+      street: "turn",
+      board: finalBoard.slice(0, 4),
+    });
+    expect(stagedTableState({ finalStreet: "river", finalBoard, events, stagedIndex: 4 })).toEqual({
+      street: "river",
+      board: finalBoard,
+    });
   });
 
   it("keeps the current postflop board visible before the next bot action narrates", () => {

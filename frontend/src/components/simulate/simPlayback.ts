@@ -37,7 +37,7 @@ export function stagedTableState({
   const street =
     shown.length > 0
       ? shown[shown.length - 1].street
-      : startStreet ?? events[0]?.street ?? finalStreet;
+      : (startStreet ?? events[0]?.street ?? finalStreet);
   return {
     street,
     board: finalBoard.slice(0, Math.min(finalBoard.length, boardCountForStreet(street))),

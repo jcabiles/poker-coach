@@ -71,76 +71,76 @@ export default function PokerTable({ spot }: { spot: Spot }) {
           <div className="villain">Villain: {spot.villain_type.replace(/_/g, " ")}</div>
         )}
         <div className="tablering" role="group" aria-label="table seats">
-        <div className="rail" aria-hidden="true" />
-        <div className="table-center">
-          {spot.board.length > 0 && (
-            <div className="board" aria-label="community cards">
-              {spot.board.map((c, i) => (
-                <Card key={i} card={c} />
-              ))}
+          <div className="rail" aria-hidden="true" />
+          <div className="table-center">
+            {spot.board.length > 0 && (
+              <div className="board" aria-label="community cards">
+                {spot.board.map((c, i) => (
+                  <Card key={i} card={c} />
+                ))}
+              </div>
+            )}
+            <div className="pot">
+              Pot {spot.pot_bb}bb{spot.spr != null ? ` · SPR ${spot.spr}` : ""}
             </div>
-          )}
-          <div className="pot">
-            Pot {spot.pot_bb}bb{spot.spr != null ? ` · SPR ${spot.spr}` : ""}
           </div>
-        </div>
-        {seats.map((p, i) => {
-          const act = actions[p.position];
-          const folded = p.status === "folded";
-          if (p.is_hero) {
-            return (
-              <div className="tseat heroseat" key={p.position} style={slotStyle(i, seats.length)}>
-                {act && <span className={"actchip act-" + act.kind}>{act.label}</span>}
-                <div className="hero-ring">
-                  <div className="cards">
-                    {spot.hero.hole_cards.map((c, j) => (
-                      <Card key={j} card={c} />
-                    ))}
+          {seats.map((p, i) => {
+            const act = actions[p.position];
+            const folded = p.status === "folded";
+            if (p.is_hero) {
+              return (
+                <div className="tseat heroseat" key={p.position} style={slotStyle(i, seats.length)}>
+                  {act && <span className={"actchip act-" + act.kind}>{act.label}</span>}
+                  <div className="hero-ring">
+                    <div className="cards">
+                      {spot.hero.hole_cards.map((c, j) => (
+                        <Card key={j} card={c} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="herometa">
+                    {spot.hero.position}
+                    {spot.hero.position === "BTN" && (
+                      <span className="dealer" aria-label="dealer button">
+                        D
+                      </span>
+                    )}{" "}
+                    · {spot.hero.stack_bb}bb
+                    {spot.legal_actions.length > 0 && (
+                      <>
+                        {" "}
+                        · <span className="toact">you are to act</span>
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="herometa">
-                  {spot.hero.position}
-                  {spot.hero.position === "BTN" && (
+              );
+            }
+            return (
+              <div
+                className={"tseat" + (folded ? " tseat-folded" : "")}
+                key={p.position}
+                style={slotStyle(i, seats.length)}
+              >
+                {act && <span className={"actchip act-" + act.kind}>{act.label}</span>}
+                {!folded && (
+                  <span className="tseat-cards">
+                    <Card faceDown />
+                    <Card faceDown />
+                  </span>
+                )}
+                <span className="pos">
+                  {p.position}
+                  {p.position === "BTN" && (
                     <span className="dealer" aria-label="dealer button">
                       D
                     </span>
-                  )}{" "}
-                  · {spot.hero.stack_bb}bb
-                  {spot.legal_actions.length > 0 && (
-                    <>
-                      {" "}
-                      · <span className="toact">you are to act</span>
-                    </>
                   )}
-                </div>
+                </span>
+                <span className="stack">{p.stack_bb}bb</span>
               </div>
             );
-          }
-          return (
-            <div
-              className={"tseat" + (folded ? " tseat-folded" : "")}
-              key={p.position}
-              style={slotStyle(i, seats.length)}
-            >
-              {act && <span className={"actchip act-" + act.kind}>{act.label}</span>}
-              {!folded && (
-                <span className="tseat-cards">
-                  <Card faceDown />
-                  <Card faceDown />
-                </span>
-              )}
-              <span className="pos">
-                {p.position}
-                {p.position === "BTN" && (
-                  <span className="dealer" aria-label="dealer button">
-                    D
-                  </span>
-                )}
-              </span>
-              <span className="stack">{p.stack_bb}bb</span>
-            </div>
-          );
-        })}
+          })}
         </div>
       </div>
     </div>

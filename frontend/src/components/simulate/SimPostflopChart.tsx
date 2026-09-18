@@ -115,7 +115,9 @@ export default function SimPostflopChart({
   }, [collapsed, identityKey, sessionId]);
 
   const available = chart?.available === true && chart.actions.length > 0;
-  const category = chart?.hand_category ? (CATEGORY_LABEL[chart.hand_category] ?? chart.hand_category) : null;
+  const category = chart?.hand_category
+    ? (CATEGORY_LABEL[chart.hand_category] ?? chart.hand_category)
+    : null;
 
   return (
     <div className="gridwrap sim-chart sim-pfchart">

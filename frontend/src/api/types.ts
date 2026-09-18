@@ -371,13 +371,7 @@ export type SimMode = "training" | "challenge";
 
 // The six archetype wire values (backend/app/domain/archetypes.py VillainType).
 // A literal union, never a bare `string`, matching `SimMode`'s posture.
-export type ArchetypeGuess =
-  | "calling_station"
-  | "nit"
-  | "lag"
-  | "passive_fish"
-  | "tag"
-  | "maniac";
+export type ArchetypeGuess = "calling_station" | "nit" | "lag" | "passive_fish" | "tag" | "maniac";
 
 // One seat's scored answer in the hand-200 blind check (T4). `guess` is what
 // the player named; `actual` is what the seat really was. Both are narrowed to

@@ -7,6 +7,7 @@ import type {
   CoachExplainView,
   Decision,
   EvaluationResult,
+  HandRevealView,
   LeakReportView,
   LeakStat,
   Mode,
@@ -18,9 +19,8 @@ import type {
   QuizKind,
   QuizResult,
   RecapResponse,
-  ReviewPlanResponse,
-  HandRevealView,
   RevealView,
+  ReviewPlanResponse,
   SessionView,
   SimMode,
   Spot,
@@ -91,10 +91,7 @@ export async function getPlan(): Promise<ReviewPlanResponse> {
 
 // N8 — point-of-need concept-card lookup. Callers should treat this as
 // fire-and-forget/non-blocking: feedback must render even if this fails.
-export async function matchCard(
-  leakCategory: number,
-  tags: string[],
-): Promise<CardMatchResponse> {
+export async function matchCard(leakCategory: number, tags: string[]): Promise<CardMatchResponse> {
   const params = new URLSearchParams({ leak_category: String(leakCategory) });
   if (tags.length > 0) params.set("tags", tags.join(","));
   return json(await fetch(`${BASE}/cards/match?${params.toString()}`));
@@ -126,10 +123,7 @@ export async function getSession(sessionId: string): Promise<SessionView> {
 
 // Apply the hero's chosen action; the server resolves bots to the next hero
 // turn (or hand-over) and returns the resulting live view.
-export async function postHeroAction(
-  sessionId: string,
-  action: Decision,
-): Promise<SessionView> {
+export async function postHeroAction(sessionId: string, action: Decision): Promise<SessionView> {
   return json(
     await fetch(`${BASE}/simulate/session/${sessionId}/action`, {
       method: "POST",
@@ -239,10 +233,7 @@ export async function getVillainRange(
 // "last-in" = seats still live at hand end; "all" = every non-hero seat dealt
 // in. `available` false (empty seats) when the capability is off / the hand
 // isn't complete / the hero didn't fold — only a missing/ended session 404s.
-export async function getReveal(
-  sessionId: string,
-  scope: "last-in" | "all",
-): Promise<RevealView> {
+export async function getReveal(sessionId: string, scope: "last-in" | "all"): Promise<RevealView> {
   return json(await fetch(`${BASE}/simulate/${sessionId}/reveal/${scope}`));
 }
 
