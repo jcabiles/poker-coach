@@ -7,6 +7,8 @@ on:
 
 # Both jobs run the same targets a developer runs locally: `make check-backend` and
 # `make check-frontend`. The Makefile is the single definition of "passing".
+# Install steps surface their error text as a check annotation, because the raw job log is
+# served from a storage host that sandboxed sessions cannot reach.
 jobs:
   backend:
     name: Backend (format + lint + types + tests)
@@ -18,7 +20,12 @@ jobs:
           python-version: "3.12"
       - name: Install locked dependencies
         working-directory: backend
-        run: uv sync --locked --extra dev
+        run: |
+          uv sync --locked --extra dev 2>&1 | tee /tmp/install.log
+          if [ "${PIPESTATUS[0]}" != 0 ]; then
+            echo "::error title=uv sync failed::$(grep -iE 'error|failed' /tmp/install.log | head -5 | tr '\n' ' ')"
+            exit 1
+          fi
       - name: Check
         run: make check-backend
 
@@ -29,11 +36,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install locked dependencies
         working-directory: frontend
-        run: npm ci
+        run: |
+          npm ci 2>&1 | tee /tmp/install.log
+          if [ "${PIPESTATUS[0]}" != 0 ]; then
+            echo "::error title=npm ci failed::$(grep -E 'npm (error|ERR!)' /tmp/install.log | head -8 | tr '\n' ' ')"
+            exit 1
+          fi
       - name: Check
         run: make check-frontend
