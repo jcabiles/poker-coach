@@ -1,5 +1,16 @@
 # AI-Org log — poker-coach
 
+## 2026-09-18 — Two-mode Simulate merged; slice 3 closed; next: quality gates
+- The owner's play verdict ("pretty happy with how realistic the bots are as a base for future
+  iterations") closed flywheel slice 3 and the improvement phase. The owner then authorized
+  merging the already-built Two-mode Simulate branch after a fresh dual review, and chose the
+  cleanup project's quality-gates slice as the next work over the frozen table picker.
+- The shared tree's Resume block said nothing was built; the branch had all eight tickets for
+  three weeks. Lesson: `git log origin/main..feat/*` before rebuilding anything.
+- Fresh review found two real fixes (a triple-copied label helper, consolidated; a button
+  typeface leak, fixed app-wide with one line) and one pre-existing shell defect carried
+  forward (horizontal scroll at phone width). Ledger round 3.
+
 ## 2026-08-27 — Two-mode Simulate: all eight tickets built and reviewed (NOT merged, NOT played)
 - Owner approved the plan at the `/ai-org:build` go-gate on 2026-08-26. Eight tickets in one
   sequential chain, each built by a worker and checked by a fresh reviewer that never saw the

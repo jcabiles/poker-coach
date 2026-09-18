@@ -9,10 +9,10 @@ artifact_dir: docs/ai-dlc
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       bot-realism-flywheel
               # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
-              # current slice: Two-mode Simulate (Training / Challenge) —
-              #   spec'd 2026-08-26, awaiting owner approval at the plan gate.
-              # slice 3 (calldown): play session PLAYED 2026-08-25 (1050 hands);
-              #   OPEN pending only the owner's written per-persona verdict.
+              # current slice: Two-mode Simulate — MERGED 2026-09-18, box unticked
+              #   until the owner plays Challenge mode.
+              # slice 3 (calldown): CLOSED 2026-09-18 on the owner's verdict.
+              # next: cleanup quality gates (docs/cleanup-project-brief.md slice 2).
               # paused: persona-realism (see its top banner)
 
 verify:
@@ -48,35 +48,21 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-08-27
-commit:       496557a  (branch `feat/two-mode-simulate`, in a worktree, **NEVER PUSHED**)
-log-entry:    "2026-08-27 — Two-mode Simulate: all eight tickets built and reviewed"
-position:     **Two-mode Simulate is BUILT and REVIEWED, and stops there.** All eight tickets
-              are committed to `feat/two-mode-simulate`. Nothing is pushed, nothing is merged,
-              and the roadmap box is deliberately unticked.
-authorized:   The owner approved building, running migration `0015` against the local
-              development database, and committing to the branch. That is spent. **Merging was
-              explicitly excluded and still needs a separate confirmation.**
-gates:        backend `2239 passed, 2 skipped, 0 failed`, ruff clean; frontend typecheck and
-              build clean; frontend suite `60 passed` (35 when the slice started).
-chain:        T1 columns+migration `e3b3cde` · T2 mode on the wire `bc40c1c` · T3 hand count +
-              deal barrier `929bda1` · T4 blind-check endpoint `ca31800` · T5 frontend types
-              `6672ffa` · T6 sit-down screen `982c023` · T7 display gate + Labels toggle
-              `b3bef9d` · T8 hand-200 dialog `496557a`.
-records:      per-barrier detail in `reviews/two-mode-simulate-build.md`; forty-four
-              build-phase findings with their adjudications in `ledger/two-mode-simulate.md`.
-next action:  the owner plays it. This initiative's precedent is that the play session, not the
-              gate numbers, is the product verdict — the same rule keeping slice 3 open. Then a
-              merge decision.
-where:        the build ran in a worktree, NOT the main checkout, because another session was
-              writing to the shared tree. Its Python environment and Node packages are symlinks
-              into the main checkout; `PYTHONPATH=.` is mandatory or tests silently exercise the
-              main checkout's source. The worktree baseline is `0 failed` — two tests that FAIL
-              in the main checkout skip there for want of a machine-local data file.
-carried fwd:  three items, all in the ledger, none hidden — the preflop exploit note is
-              **structurally unreachable in Simulate** and always has been (pre-existing, not
-              this slice's); one display helper is now duplicated three ways across files the
-              slice froze; two modules stand well past the file-size guidance.
-awaiting John: (a) play the slice, then decide on merging; (b) the written per-persona verdict
-              that closes flywheel slice 3 — the 1050-hand session is already played, only the
-              verdict is owed; (c) two theory-contract items open since 2026-08-24.
+updated:      2026-09-18
+commit:       branch `feat/two-mode-simulate` — pushed and merged 2026-09-18 (see git log)
+log-entry:    "2026-09-18 — Two-mode Simulate merged; slice 3 closed; next: quality gates"
+position:     **Two-mode Simulate is MERGED.** Fresh dual review (refuter + browser design
+              review) both APPROVE-WITH-FIXES; the four should-fix findings fixed or recorded
+              (ledger round 3). The slice's box stays unticked until the owner plays Challenge
+              mode. **Flywheel slice 3 (calldown) is CLOSED** on the owner's 2026-09-18 verdict,
+              which closes the improvement phase.
+merged:       feat/two-mode-simulate (12 build commits + this session's review fixes).
+awaiting John: (a) play Challenge mode to the hand-200 check, then tick the slice; (b) the
+              finale detection run needs vendor keys and a go-ahead (not scheduled); (c) two
+              theory-contract items open since 2026-08-24 (ledger finding B1, and §10.2 of the
+              git-excluded persona-realism audit).
+authorized:   Owner, 2026-09-18: merge this run's PRs once gates are green and a fresh reviewer
+              approves (spent for this branch); next slice = cleanup quality gates
+              (`docs/cleanup-project-brief.md` slice 2) with its new dev dependencies
+              pre-approved. Nothing else. Lapses at the end of the 2026-09-18 session.
+next action:  spec → dual review → tickets → build the quality-gates slice.

@@ -53,7 +53,10 @@ and one that makes them earn the read over 200 hands.
 
 ### Training mode
 
-5. Identical to the app as it stands: archetype plate on every non-hero seat, range chip on
+5. Identical to the app as it stands (one exception, ruled during build as ledger B34: the rail
+   sheet's first column header reads **Pos**, not "Seat", because it has always rendered the
+   rotating position and the word "Seat" now belongs to the neutral identities of §9): archetype
+   plate on every non-hero seat, range chip on
    every live non-hero seat, preflop exploit note showing.
 6. The only addition is a quiet outlined **Training** stamp beside the "Simulate" heading.
 
@@ -66,7 +69,7 @@ and one that makes them earn the read over 200 hands.
 8. The villain-range **button** does not render, so the panel cannot be opened.
 9. The ledger's Player column shows a **stable neutral seat identity derived from
    `seat_index`** — "Seat 3". It must not show `seat.position`: position is already the
-   adjacent Seat column (`SimLedger.tsx:59`) and it rotates every hand
+   adjacent position column (`SimLedger.tsx`, header "Pos" since B34) and it rotates every hand
    (`sim_session.py:1407`), so using it would both duplicate a column and destroy the running
    per-opponent profit attribution, which is the exact faculty these 200 hands exist to train.
    It must not show `"You"`, which is what today's null-safe helper returns for a null persona

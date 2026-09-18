@@ -132,3 +132,30 @@ The seventeen findings above came from reviewing the *plan*. These come from rev
 - **At full progress the bar reads as one undifferentiated block in greyscale** — an accepted, measured consequence rather than an open defect. Removing the fill's top and bottom hairlines bought fifty percent more visible ink at the near-empty end, which is where the bar has to work; the top and bottom edges carry no information at any value. The informative leading edge survives, and at 100% there is no proportion left to lose, the exact count sits in words beside it, and the bar is removed a moment later by the unlock. The alternative — moving the separation into the track — hands back exactly the ink this bought. Recorded so the trade is visible rather than rediscovered.
 - **The archetype display-name transform now exists in three places, and a currency formatter in two.** The two existing copies are not exported and live in files T8 was forbidden to touch, so the third was written knowingly and disclosed rather than committed silently. The fix is to lift both into a shared module all callers import — a three-file change that gains one canonical spelling and a place to hang a test, and costs a diff touching two files this slice deliberately froze. Same shape and same reasoning as the ruling on the oversized backend service module.
 - **`frontend/src/components/SimulateView.tsx` is roughly 1,460 lines** after two helper extractions took about 40 out. Past the repository's guidance, flagged rather than grown silently, and the natural split — the table chrome versus the session lifecycle — should be its own change now that the slice has landed and the file is no longer contended.
+
+## Round 3 — fresh merge review, 2026-09-18
+
+The owner authorized merging on 2026-09-18 on condition of green gates and a fresh reviewer's
+approval. Two blind reviewers that never saw the build session: a Claude `refuter` (Opus) over
+the whole diff and a Claude `design-reviewer` (Opus) in a real browser. Raw reports:
+`../reviews/two-mode-simulate-merge-review-2026-09-18.md`. Both returned APPROVE-WITH-FIXES.
+Gates re-run on the branch the same day: backend 2239 passed / 2 skipped, ruff clean; frontend
+typecheck, build and 60 tests clean.
+
+| # | Source | Finding | Claimed | Adjudicated | Evidence checked |
+|---|---|---|---|---|---|
+| R1 | refuter | The rail sheet header "Seat" became "Pos", a visible change to Training, and spec §5/§9 still describe the old header | should-fix | **ACCEPTED as a documentation defect only** — the rename was ruled in B34; spec §5 and §9 amended to record it | `SimLedger.tsx` header comment; B34 above. Verified. |
+| R2 | refuter | The archetype Title-Case transform existed three times (`SimTable`, `SimLedger`, `blindCheck.ts`) and must agree or the dialog's names stop matching the plates | should-fix | **ACCEPTED and FIXED** — one `personaLabel.ts` helper; the two local copies deleted, `archetypeName` delegates to it | Typecheck, build and the 60 frontend tests green after the change. Verified. |
+| R3 | refuter | `models.py` declares `mode: str` non-optional while migration 0015 adds it nullable | low | **NOTED, no action** — `server_default` plus the view-layer normalisation make it harmless | `sim_session.py` `_view`. Accepted on the reviewer's reading. |
+| R4 | refuter | The barrier is skipped when a hand has no stored state, dealing one hand past the gate | low | **NOTED, no action** — documented and unreachable in normal play | Code read by reviewer. |
+| R5 | refuter | The "tab-local" Labels toggle lives in localStorage, so a second tab inherits it on reload | low | **NOTED, no action** — spec §23 says two tabs *may* differ, not that they must; inheriting on reload is within it | Spec §23. Verified. |
+| R6 | refuter | `blindCheck.ts` and `handCount.ts` fall outside the spec's file list | optional | **NOTED** — the extractions are the only testable shape; the file list is amended by their presence in the diff | `git diff --stat`. |
+| R7 | refuter | Six further optional notes (roadmap box unticked by design, modal during playback animation, progress wrapper on Training counter, unpruned storage keys, B30) | optional | **NOTED, no action** | — |
+| D1 | design | Mode-choice card text renders in Arial because the `<button>` sets no font-family | should-fix | **ACCEPTED and FIXED** — `font-family: inherit` on `.smc-room` | Computed style measured by the reviewer. |
+| D2 | design | The same leak reaches the dialog's `.btn` controls; app-wide and pre-existing | should-fix | **ACCEPTED and FIXED** — `font-family: inherit` on `.btn`; one line, benefits every button in the app | `app.css:593`. |
+| D3 | design | Every Simulate screen scrolls horizontally at 390px, from the shell's masthead, EV widget and section nav; the new components are innocent | should-fix | **RECORDED, NOT FIXED — pre-existing shell defect outside this slice's files.** Carried forward for a mobile-layout change of its own | `document.scrollWidth` 713 vs 390 measured by the reviewer. |
+| D4 | design | Four optional notes: inverted heading sizes (pre-existing), dialog primary action below the fold at 1280×900, silent 404 recovery, `SimGradingToggle` accessible-name mismatch (pre-existing golden path) | optional | **NOTED, no action** | — |
+
+Everything in spec §1–§23 was verified live by the design reviewer, including a zero-hit DOM
+sweep for archetype strings before the unlock, the server-barred deal at 200, the focus trap,
+and the range panel closing on re-hide. Zero console errors. Tightest contrast 4.62:1.

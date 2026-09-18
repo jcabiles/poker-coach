@@ -1,4 +1,4 @@
-# Bot-Realism Flywheel Roadmap — updated 2026-08-26 (rev 9)
+# Bot-Realism Flywheel Roadmap — updated 2026-09-18 (rev 10)
 status: approved (owner, 2026-08-05 — PR #169 merged). Rev-4 wording is pending owner review;
 the rulings it records were made 2026-08-09 through 2026-08-13. *(It was described here as
 uncommitted until 2026-08-17; it has in fact been committed since PR #180. Corrected in
@@ -41,6 +41,15 @@ the design actually intended: hidden by default, *revealing* unlocks at 100, cou
 The lane's freeze is untouched by these edits: nothing here schedules the work or lifts the
 2026-08-09 no-go, it only fixes what the slice will mean when the freeze lifts. Full ruling text
 sits under that entry in NEXT.
+
+**Rev 10 (2026-09-18): slice 3 is CLOSED and Two-mode Simulate is merged.** The owner's
+play-session verdict, given in writing on 2026-09-18, closes slice 3 (calldown) and with it the
+whole improvement phase — see the slice 3 entry and the improvement-phase header. The same day
+the owner authorized merging the already-built Two-mode Simulate branch after a fresh dual
+review (refuter + browser design review) and green gates; the slice's box stays unticked until
+the owner plays Challenge mode, per this initiative's standing rule that the play session is the
+product verdict. Next work: the cleanup project's quality-gates slice (`docs/cleanup-project-brief.md`,
+slice 2), which the owner chose 2026-09-18 over the frozen table-picker and the docs distillation.
 
 **Rev 9 (2026-08-26): the persona-label toggle is re-shaped into two named modes, and clause
 (b) is withdrawn.** The owner ruled that hiding labels in every session is the wrong default.
@@ -210,7 +219,7 @@ decide what comes next. What it bought is that diagnosis, written up in poker-an
 
 S6, the only planned measurement of it, is built but deferred — it now sits in NEXT.
 
-### Improvement phase (ruling A) — three slices in order; two closed, the third built and awaiting the owner's play session
+### Improvement phase (ruling A) — three slices in order; ALL THREE CLOSED (the third on the owner's 2026-09-18 verdict)
 
 > **Why this block exists (added 2026-08-17).** Ruling A defines three improvement slices and
 > the NOW lane had entries for none of them: the order lived in
@@ -376,8 +385,13 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       arithmetic derived, because a further owner ruling on 2026-08-19 capped it inside two
       frozen went-to-showdown bands. Measured: invest-then-fold events 1,084 → 1,015, pool
       went-to-showdown +0.94 points (54.14 → 55.09), inside the spec's 3.78-point bound.
-- [ ] **Slice 3 — Calldown — BUILT 2026-08-22, close packet committed 2026-08-23; stays OPEN
-      until the owner's blind play session.** All five tickets merged: S3-T1/T1b (#211/#212,
+- [x] **Slice 3 — Calldown — CLOSED 2026-09-18 on the owner's play-session verdict.** The
+      1050-hand session of 2026-08-25 (session `6188b557`) was the play; the verdict came on
+      2026-09-18, verbatim: *"I've tested the app and it's good. Pretty happy with how realistic
+      the bots are as a base for future iterations."* No per-persona breakdown was given and none
+      is now owed — the owner ruled the overall verdict sufficient when asked. Original entry
+      follows. ~~BUILT 2026-08-22, close packet committed 2026-08-23; stays OPEN
+      until the owner's blind play session.~~ All five tickets merged: S3-T1/T1b (#211/#212,
       price-conditioned strong-draw split), S3-T2 (#215, nit 0.45→0.32 and TAG 0.60→0.38 calling
       dials; LAG withdrawn on coupling), S3-T3 (#216, stack-to-pot value damp WITHDRAWN under
       triple review — instrument and contract limits shipped, engine byte-identical), S3-T4
@@ -511,8 +525,17 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > old frozen bands; see the slice 3 entry above.
 
 - [ ] **Two-mode Simulate (Training / Challenge) — supersedes the persona-label toggle. BUILT
-      AND REVIEWED 2026-08-27; the box stays unticked because the owner has neither played it
-      nor merged it.**
+      AND REVIEWED 2026-08-27, MERGED 2026-09-18; the box stays unticked until the owner plays
+      Challenge mode.**
+
+      > **State, 2026-09-18.** The owner authorized the merge on 2026-09-18, conditional on green
+      > gates and a fresh reviewer's approval; both were met the same day (a fresh Opus refuter
+      > over the whole diff and a fresh browser design review — records in
+      > `../reviews/two-mode-simulate-merge-review-2026-09-18.md`, adjudications in the ledger's
+      > round-3 section). Merging is what lets the owner play the slice at all, since the dev
+      > stack runs from the main checkout; it is not the product verdict. **What is owed before
+      > this can be ticked:** the owner sits down in Challenge mode and reaches the hand-200
+      > check.
 
       > **State, 2026-08-27.** All eight tickets are built, independently reviewed and committed
       > to `feat/two-mode-simulate` — a branch that has **never been pushed**. The owner's
@@ -566,8 +589,9 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
       · **Sequencing: RESOLVED, no longer a blocker.** The slice-3 blind play session this would
       have invalidated was played 2026-08-25 — session `6188b557`, 1050 completed hands with
       labels visible, on the unchanged engine (base `0561e8f`; the three commits after it are
-      documentation only). The like-for-like baseline against slice 2 is captured. What slice 3
-      still needs is the owner's written per-persona verdict, not another session.
+      documentation only). The like-for-like baseline against slice 2 is captured. ~~What slice 3
+      still needs is the owner's written per-persona verdict, not another session.~~ *(Slice 3
+      closed 2026-09-18 on the owner's overall verdict; see its entry.)*
       · **Open question, now settled:** whether hidden labels also suppress the grader's
       archetype references. Ruled yes for Challenge, and the surface is one field on one endpoint
       (`ExploitNoteView.villain_label`), not a sweep across grading.
