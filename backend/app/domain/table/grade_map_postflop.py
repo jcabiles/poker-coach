@@ -413,8 +413,8 @@ def _faced_bet_spot(
     bet: float,
     street: Street,
     ctx: NodeContext,
-    hero_range: str,
-    villain_range: str,
+    hero_range: str | None,
+    villain_range: str | None,
     mults: tuple[float, float] = FACING_RAISE_MULTS["raise"],
     call_amt: float | None = None,
 ) -> Spot | None:

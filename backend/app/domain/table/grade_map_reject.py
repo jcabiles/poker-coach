@@ -175,7 +175,10 @@ def street_fail(reason: RejectReason) -> StreetResult:
     return StreetResult(None, reason)
 
 
-def map_fail(reason: RejectReason) -> MapResult:
+def map_fail(reason: RejectReason | None) -> MapResult:
+    """`Optional` because the `_map_*` twins forward a failing gate's
+    `reason` straight through; a failing gate always carries one, but only the
+    construction sites can show that, not the `GateResult` type."""
     return MapResult(None, reason)
 
 
