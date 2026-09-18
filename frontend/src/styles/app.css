@@ -591,6 +591,7 @@
   }
 }
 .btn {
+  font-family: inherit;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
@@ -5761,6 +5762,7 @@ kbd {
 /* A reservation card. A real <button>, so keyboard, Enter/Space and the focus
    ring come from the platform; the card face is the whole target. */
 .smc-room {
+  font-family: inherit;
   display: grid;
   justify-items: start;
   align-content: start;

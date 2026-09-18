@@ -1,4 +1,5 @@
 import type { ArchetypeGuess, BlindCheckSubmitRequest, BlindCheckView } from "../../api/types";
+import { personaLabel } from "./personaLabel";
 
 // Two-mode Simulate (T8) — the hand-200 blind check's pure parts: the six names
 // the player picks from, the lineup the card discloses, and the one rule that
@@ -55,19 +56,12 @@ export const HOUSE_LINEUP: Record<ArchetypeGuess, number> = {
 export const HOUSE_SEATS = 8;
 
 /**
- * The player-facing name of an archetype: the SCREAMING_SNAKE wire value in
- * Title Case. Deliberately the same derivation the seat plate (SimTable) and
- * the rail sheet (SimLedger) apply, so the names the player picks from are
- * character-for-character the names they see when the labels come on. Neither
- * of those copies is exported and both live in files this ticket does not own,
- * so the transform is re-derived rather than imported; consolidating all three
- * is recorded as a follow-up.
+ * The player-facing name of an archetype, via the same helper the seat plate and
+ * the rail sheet use, so the names the player picks from are character-for-
+ * character the names they see when the labels come on.
  */
 export function archetypeName(value: ArchetypeGuess): string {
-  return value
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return personaLabel(value);
 }
 
 /**

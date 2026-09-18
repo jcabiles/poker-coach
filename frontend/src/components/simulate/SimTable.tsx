@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 import type { GradeView, SeatView, ShowdownSeatView, SimulateHandView } from "../../api/types";
 import Card from "../Card";
+import { personaLabel } from "./personaLabel";
 import { fmtBb, fmtEvLoss, tierOf } from "./simGrade";
 
 // Simulate S9 table. A purpose-built felt for the persistent session: it reuses
@@ -55,13 +56,6 @@ function actionLabel(action: string): string {
 
 // Persona archetypes arrive as SCREAMING_SNAKE VillainType values; render them
 // as short Title Case labels for the seat badge.
-function personaLabel(persona: string): string {
-  return persona
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 export default function SimTable({
   hand,

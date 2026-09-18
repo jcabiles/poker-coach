@@ -1,4 +1,5 @@
 import type { SeatView } from "../../api/types";
+import { personaLabel } from "./personaLabel";
 import { fmtBb } from "./simGrade";
 
 // Simulate S9 ledger — the club's rail sheet. A ruled P&L book: one row per
@@ -19,14 +20,6 @@ function fmtNet(net: number): string {
   return `${sign}${fmtBb(Math.abs(net))}`;
 }
 
-function personaLabel(persona: string | null): string {
-  if (!persona) return "You";
-  return persona
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 // Who a row is when the archetype labels are withheld (two-mode-simulate T7,
 // spec para 9). The identity must be STABLE across hands, because the whole
@@ -36,8 +29,8 @@ function personaLabel(persona: string | null): string {
 // check asks about. Two things it must not be:
 //   • `seat.position` — already the adjacent Seat column, and it rotates every
 //     hand as the button moves, which would scramble the attribution.
-//   • `"You"` — what personaLabel() returns for a null archetype, so reaching
-//     for the existing helper here would make every villain row read as hero.
+//   • `"You"` — the null-archetype rendering, which is the hero's and no one
+//     else's.
 // The hero keeps "You": the player is not the thing being withheld.
 function hiddenLabel(seat: SeatView): string {
   return seat.is_hero ? "You" : `Seat ${seat.seat_index}`;
@@ -93,7 +86,11 @@ export default function SimLedger({
               >
                 <td className="sim-led-seat">{seat.position}</td>
                 <td className="sim-led-who">
-                  {labelsVisible ? personaLabel(seat.persona_type) : hiddenLabel(seat)}
+                  {labelsVisible
+                    ? seat.persona_type
+                      ? personaLabel(seat.persona_type)
+                      : "You"
+                    : hiddenLabel(seat)}
                 </td>
                 <td className={"sim-led-net num sim-net-" + tone}>
                   {fmtNet(seat.net_bb)}
