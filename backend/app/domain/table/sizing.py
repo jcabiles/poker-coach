@@ -131,9 +131,7 @@ def pot_before_current_aggression(
     )
 
 
-def postflop_node_key(
-    board: list[str], legal: list[LegalAction], *, is_aggressor: bool
-) -> str:
+def postflop_node_key(board: list[str], legal: list[LegalAction], *, is_aggressor: bool) -> str:
     """Node name for a postflop BET/RAISE the actor is about to make.
 
     `is_aggressor` is REQUIRED — `board`+`legal` alone cannot separate a c-bet

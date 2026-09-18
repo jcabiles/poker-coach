@@ -66,18 +66,30 @@ def _write_spec(tmp_path: Path, **overrides) -> Path:
 
 def _fake_validated_config(config_hash: str) -> ValidatedConfig:
     return ValidatedConfig(
-        schema_version="1.0.0", base_pack_hash="x" * 64, overrides={},
-        probe_declarations=(), canonical={}, config_hash=config_hash, packs={},
+        schema_version="1.0.0",
+        base_pack_hash="x" * 64,
+        overrides={},
+        probe_declarations=(),
+        canonical={},
+        config_hash=config_hash,
+        packs={},
     )
 
 
 def _cp(returncode: int = 0, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
-    return subprocess.CompletedProcess(args=["x"], returncode=returncode,
-                                       stdout=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(
+        args=["x"], returncode=returncode, stdout=stdout, stderr=stderr
+    )
 
 
-def _score_payload(config_hash: str, seed: int, n_hands: int, run_id: str, lineup: dict,
-                   parquet_sha256: str = "deadbeef") -> dict:
+def _score_payload(
+    config_hash: str,
+    seed: int,
+    n_hands: int,
+    run_id: str,
+    lineup: dict,
+    parquet_sha256: str = "deadbeef",
+) -> dict:
     """A score OUT payload with a REAL, self-consistent `canonical_sha256`
     (recomputed the same way `sweep_runner._validate_score_payload` does) —
     fixtures must satisfy the same self-consistency check production
@@ -85,12 +97,20 @@ def _score_payload(config_hash: str, seed: int, n_hands: int, run_id: str, lineu
     canonical = {
         "scorer_version": "1.0.0",
         "score_status": "exploratory-surrogate",
-        "registry": {"version": "2.0.0", "content_sha256": "reg" * 10,
-                     "stat_definition_version": "statdef-2026-08-06"},
+        "registry": {
+            "version": "2.0.0",
+            "content_sha256": "reg" * 10,
+            "stat_definition_version": "statdef-2026-08-06",
+        },
         "covariance_artifact": {"id": "cov-abc123"},
-        "producer_run": {"run_id": run_id, "seed": seed, "n_hands": n_hands,
-                         "lineup": lineup, "engine_git_sha": "deadc0de",
-                         "config_hash": config_hash},
+        "producer_run": {
+            "run_id": run_id,
+            "seed": seed,
+            "n_hands": n_hands,
+            "lineup": lineup,
+            "engine_git_sha": "deadc0de",
+            "config_hash": config_hash,
+        },
         "gate": {"marker": "_GATE_OK.json", "parquet_sha256": parquet_sha256},
     }
     canonical_sha256 = sr.hashlib.sha256(sr.counterfactual.canonical_bytes(canonical)).hexdigest()
@@ -120,8 +140,13 @@ def _stub_pipeline(monkeypatch, config_hashes: dict[Path, str], *, fail_on: str 
             (item.out_dir / name).write_bytes(b"parquet-bytes")
         run_id = f"run-s{item.seed}-n{item.n_hands}-c{item.config_hash[:12]}"
         lineup = sr.resolve_lineup_dict(item.lineup)
-        success = {"run_id": run_id, "seed": item.seed, "n_hands": item.n_hands,
-                  "config_hash": item.config_hash, "lineup": lineup}
+        success = {
+            "run_id": run_id,
+            "seed": item.seed,
+            "n_hands": item.n_hands,
+            "config_hash": item.config_hash,
+            "lineup": lineup,
+        }
         (item.out_dir / "_SUCCESS").write_text(json.dumps(success))
         return _cp(0)
 
@@ -136,8 +161,13 @@ def _stub_pipeline(monkeypatch, config_hashes: dict[Path, str], *, fail_on: str 
         if fail_on == "score" and "run-000-" in str(batch_dir):
             return _cp(1, stderr="score exploded")
         success = json.loads((batch_dir / "_SUCCESS").read_text())
-        payload = _score_payload(success["config_hash"], success["seed"], success["n_hands"],
-                                 success["run_id"], success["lineup"])
+        payload = _score_payload(
+            success["config_hash"],
+            success["seed"],
+            success["n_hands"],
+            success["run_id"],
+            success["lineup"],
+        )
         out_file.write_text(json.dumps(payload))
         return _cp(0)
 
@@ -162,13 +192,17 @@ def test_load_spec_happy_path(tmp_path):
     assert spec.cov_artifact == "cov-fixture"
 
 
-@pytest.mark.parametrize("field", ["schema_version", "configs", "seeds",
-                                   "n_hands", "out_root", "analytics_repo"])
+@pytest.mark.parametrize(
+    "field", ["schema_version", "configs", "seeds", "n_hands", "out_root", "analytics_repo"]
+)
 def test_load_spec_missing_field_rejected(tmp_path, field):
     spec_path = tmp_path / "sweep.json"
     document = {
-        "schema_version": "1.0.0", "configs": [str(tmp_path / "a.json")],
-        "seeds": [1], "n_hands": 10, "out_root": str(tmp_path / "out"),
+        "schema_version": "1.0.0",
+        "configs": [str(tmp_path / "a.json")],
+        "seeds": [1],
+        "n_hands": 10,
+        "out_root": str(tmp_path / "out"),
         "analytics_repo": str(tmp_path / "an"),
     }
     del document[field]
@@ -345,9 +379,15 @@ def test_resolve_lineup_dict_default_matches_export_analytics_default():
 def test_resolve_lineup_dict_explicit_wraps_to_nine_seats():
     resolved = sr.resolve_lineup_dict("tag,lag,nit")
     assert resolved == {
-        "0": "tag", "1": "lag", "2": "nit",
-        "3": "tag", "4": "lag", "5": "nit",
-        "6": "tag", "7": "lag", "8": "nit",
+        "0": "tag",
+        "1": "lag",
+        "2": "nit",
+        "3": "tag",
+        "4": "lag",
+        "5": "nit",
+        "6": "tag",
+        "7": "lag",
+        "8": "nit",
     }
 
 
@@ -393,7 +433,8 @@ def test_validate_configs_duplicate_hash_refused(tmp_path, monkeypatch):
     cfg_b.write_text("{}")
 
     monkeypatch.setattr(
-        sr.counterfactual, "load_config",
+        sr.counterfactual,
+        "load_config",
         lambda path, packs=None: _fake_validated_config("same-hash"),
     )
     with pytest.raises(sr.SweepSpecError, match="duplicate"):
@@ -466,8 +507,9 @@ def test_run_sweep_partial_on_injected_export_failure(tmp_path, monkeypatch):
     assert "failed" in statuses
     failed_run = next(r for r in canonical["runs"] if r["run_status"] == "failed")
     assert failed_run["score_canonical_sha256"] is None
-    volatile_run = next(r for r in manifest["volatile"]["runs"]
-                        if r["config_hash"] == failed_run["config_hash"])
+    volatile_run = next(
+        r for r in manifest["volatile"]["runs"] if r["config_hash"] == failed_run["config_hash"]
+    )
     assert volatile_run["stderr_tail"] and "export exploded" in volatile_run["stderr_tail"]
 
 
@@ -583,7 +625,8 @@ def test_run_sweep_lineup_mismatch_fails_closed(tmp_path, monkeypatch):
     that run and drive the sweep to `partial` — lineup is identity-bearing,
     folded into the general identity cross-check."""
     spec, config_hashes = _spec_with_two_configs_one_seed(
-        tmp_path, lineup="tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac")
+        tmp_path, lineup="tag,tag,calling_station,tag,passive_fish,lag,passive_fish,nit,maniac"
+    )
     monkeypatch.setattr(sr, "parquet_batches_equal", lambda a, b: True)
     calls = _stub_pipeline(monkeypatch, config_hashes)
 
@@ -606,7 +649,8 @@ def test_run_sweep_lineup_mismatch_fails_closed(tmp_path, monkeypatch):
     assert canonical["sweep_status"] == "partial"
     failed = next(r for r in canonical["runs"] if r["run_status"] == "failed")
     volatile_run = next(
-        r for r in manifest["volatile"]["runs"]
+        r
+        for r in manifest["volatile"]["runs"]
         if r["config_hash"] == failed["config_hash"] and r["seed"] == failed["seed"]
     )
     assert volatile_run["failed_step"] == "identity_mismatch"
@@ -621,17 +665,28 @@ def test_run_sweep_lineup_mismatch_fails_closed(tmp_path, monkeypatch):
 def test_identity_mismatches_empty_when_matching():
     item = sr.RunItem(0, Path("cfg.json"), "a" * 64, 501, 10, Path("/out"), lineup=None)
     lineup = sr.resolve_lineup_dict(None)
-    manifest_like = {"seed": 501, "n_hands": 10, "config_hash": "a" * 64,
-                     "lineup": lineup, "run_id": "run-1"}
-    assert sr._identity_mismatches(manifest_like, item, lineup, "src",
-                                   expected_run_id="run-1") == []
+    manifest_like = {
+        "seed": 501,
+        "n_hands": 10,
+        "config_hash": "a" * 64,
+        "lineup": lineup,
+        "run_id": "run-1",
+    }
+    assert (
+        sr._identity_mismatches(manifest_like, item, lineup, "src", expected_run_id="run-1") == []
+    )
 
 
 def test_identity_mismatches_flags_seed_and_config_hash():
     item = sr.RunItem(0, Path("cfg.json"), "a" * 64, 501, 10, Path("/out"), lineup=None)
     lineup = sr.resolve_lineup_dict(None)
-    manifest_like = {"seed": 999, "n_hands": 10, "config_hash": "b" * 64,
-                     "lineup": lineup, "run_id": "run-1"}
+    manifest_like = {
+        "seed": 999,
+        "n_hands": 10,
+        "config_hash": "b" * 64,
+        "lineup": lineup,
+        "run_id": "run-1",
+    }
     problems = sr._identity_mismatches(manifest_like, item, lineup, "src")
     assert any("seed" in p for p in problems)
     assert any("config_hash" in p for p in problems)
@@ -660,8 +715,9 @@ def test_run_sweep_identity_mismatch_wrong_seed_in_success(tmp_path, monkeypatch
 
     manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=1)
     failed = next(r for r in manifest["canonical"]["runs"] if r["run_status"] == "failed")
-    volatile_run = next(r for r in manifest["volatile"]["runs"]
-                        if r["config_hash"] == failed["config_hash"])
+    volatile_run = next(
+        r for r in manifest["volatile"]["runs"] if r["config_hash"] == failed["config_hash"]
+    )
     assert volatile_run["failed_step"] == "identity_mismatch"
     assert "seed" in volatile_run["stderr_tail"]
 
@@ -712,8 +768,9 @@ def test_run_sweep_rejects_empty_json_score_out(tmp_path, monkeypatch):
     manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=1)
     assert manifest["canonical"]["sweep_status"] == "partial"
     failed = next(r for r in manifest["canonical"]["runs"] if r["run_status"] == "failed")
-    volatile_run = next(r for r in manifest["volatile"]["runs"]
-                        if r["config_hash"] == failed["config_hash"])
+    volatile_run = next(
+        r for r in manifest["volatile"]["runs"] if r["config_hash"] == failed["config_hash"]
+    )
     assert volatile_run["failed_step"] == "score_payload_invalid"
 
 
@@ -726,8 +783,13 @@ def test_run_sweep_rejects_claimed_hash_mismatch(tmp_path, monkeypatch):
     def corrupting_score(analytics_repo, batch_dir, out_file, cov):
         if "run-000-" in str(batch_dir):
             success = json.loads((batch_dir / "_SUCCESS").read_text())
-            payload = _score_payload(success["config_hash"], success["seed"],
-                                     success["n_hands"], success["run_id"], success["lineup"])
+            payload = _score_payload(
+                success["config_hash"],
+                success["seed"],
+                success["n_hands"],
+                success["run_id"],
+                success["lineup"],
+            )
             payload["canonical_sha256"] = "0" * 64  # wrong on purpose
             out_file.write_text(json.dumps(payload))
             return _cp(0)
@@ -737,8 +799,9 @@ def test_run_sweep_rejects_claimed_hash_mismatch(tmp_path, monkeypatch):
 
     manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=1)
     failed = next(r for r in manifest["canonical"]["runs"] if r["run_status"] == "failed")
-    volatile_run = next(r for r in manifest["volatile"]["runs"]
-                        if r["config_hash"] == failed["config_hash"])
+    volatile_run = next(
+        r for r in manifest["volatile"]["runs"] if r["config_hash"] == failed["config_hash"]
+    )
     assert volatile_run["failed_step"] == "score_payload_invalid"
     assert "canonical_sha256" in volatile_run["stderr_tail"]
 
@@ -789,6 +852,7 @@ def test_make_score_args_always_include_cov():
         return _cp(0)
 
     import subprocess as subprocess_module
+
     orig = subprocess_module.run
     subprocess_module.run = fake_run
     try:
@@ -823,8 +887,9 @@ def test_run_sweep_survives_export_worker_exception(tmp_path, monkeypatch):
     canonical = manifest["canonical"]
     assert canonical["sweep_status"] == "partial"
     failed = next(r for r in canonical["runs"] if r["run_status"] == "failed")
-    volatile_run = next(r for r in manifest["volatile"]["runs"]
-                        if r["config_hash"] == failed["config_hash"])
+    volatile_run = next(
+        r for r in manifest["volatile"]["runs"] if r["config_hash"] == failed["config_hash"]
+    )
     assert volatile_run["stderr_tail"] and "simulated worker crash" in volatile_run["stderr_tail"]
 
 
@@ -835,16 +900,21 @@ def test_run_sweep_survives_nonexistent_analytics_repo_at_runtime(tmp_path, monk
     must fail that run and still produce a well-formed manifest."""
     cfg_a = tmp_path / "cfg_a.json"
     cfg_a.write_text("{}")
-    monkeypatch.setattr(sr.counterfactual, "load_config",
-                        lambda path, packs=None: _fake_validated_config("a" * 64))
+    monkeypatch.setattr(
+        sr.counterfactual, "load_config", lambda path, packs=None: _fake_validated_config("a" * 64)
+    )
 
     def fake_export(item: sr.RunItem) -> subprocess.CompletedProcess:
         item.out_dir.mkdir(parents=True, exist_ok=True)
         for name in sr.PARQUET_TABLES:
             (item.out_dir / name).write_bytes(b"x")
-        success = {"run_id": f"run-s{item.seed}-n{item.n_hands}-c{item.config_hash[:12]}",
-                  "seed": item.seed, "n_hands": item.n_hands,
-                  "config_hash": item.config_hash, "lineup": sr.resolve_lineup_dict(item.lineup)}
+        success = {
+            "run_id": f"run-s{item.seed}-n{item.n_hands}-c{item.config_hash[:12]}",
+            "seed": item.seed,
+            "n_hands": item.n_hands,
+            "config_hash": item.config_hash,
+            "lineup": sr.resolve_lineup_dict(item.lineup),
+        }
         (item.out_dir / "_SUCCESS").write_text(json.dumps(success))
         return _cp(0)
 
@@ -853,9 +923,16 @@ def test_run_sweep_survives_nonexistent_analytics_repo_at_runtime(tmp_path, monk
     # `cwd=` into a directory that does not exist, raising FileNotFoundError.
 
     spec = sr.SweepSpec(
-        schema_version="1.0.0", configs=(cfg_a,), seeds=(501,), n_hands=10,
-        out_root=tmp_path / "out", analytics_repo=tmp_path / "does-not-exist",
-        cov_artifact="cov-fixture", lineup=None, workers=5, spec_path=tmp_path / "sweep.json",
+        schema_version="1.0.0",
+        configs=(cfg_a,),
+        seeds=(501,),
+        n_hands=10,
+        out_root=tmp_path / "out",
+        analytics_repo=tmp_path / "does-not-exist",
+        cov_artifact="cov-fixture",
+        lineup=None,
+        workers=5,
+        spec_path=tmp_path / "sweep.json",
     )
 
     manifest = sr.run_sweep(spec, keep_raw=False, rerun_check_index=0)
@@ -973,8 +1050,10 @@ def test_parquet_batches_equal_reads_from_disk(tmp_path):
 
 
 def test_mask_gate_hash_masks_only_parquet_sha256():
-    canonical = {"gate": {"marker": "_GATE_OK.json", "parquet_sha256": "abc"},
-                "score_status": "exploratory-surrogate"}
+    canonical = {
+        "gate": {"marker": "_GATE_OK.json", "parquet_sha256": "abc"},
+        "score_status": "exploratory-surrogate",
+    }
     masked = sr.mask_gate_hash(canonical)
     assert masked["gate"]["parquet_sha256"] is None
     assert masked["score_status"] == "exploratory-surrogate"
@@ -985,8 +1064,9 @@ def test_mask_gate_hash_masks_only_parquet_sha256():
 def test_score_payloads_equal_ignoring_gate_hash_true_when_only_hash_differs():
     lineup = sr.resolve_lineup_dict(None)
     a = _score_payload("cfg-a", 501, 10, "run-a", lineup)["canonical"]
-    b = _score_payload("cfg-a", 501, 10, "run-a", lineup,
-                       parquet_sha256="different-hash")["canonical"]
+    b = _score_payload("cfg-a", 501, 10, "run-a", lineup, parquet_sha256="different-hash")[
+        "canonical"
+    ]
     assert sr.score_payloads_equal_ignoring_gate_hash(a, b)
 
 

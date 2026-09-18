@@ -53,9 +53,15 @@ from app.domain.table.play import assign_lineup, bot_decision
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
@@ -64,9 +70,7 @@ _BUTTON_FOR_HERO = {
 
 def _state(hero_pos: Position, seed: int = 7, stacks: float = 100.0) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9)
 
 
 def _play(state: HandState, moves) -> HandState:
@@ -116,14 +120,16 @@ def _srp_preflop(opener=Position.CO, caller=Position.BTN, bb_in=True):
 
 
 def _flop_pot(opener, bb_in=True):
-    return round(
-        (3 * _OPEN_SIZE[opener] + 0.5) if bb_in else (2 * _OPEN_SIZE[opener] + 1.5), 2
-    )
+    return round((3 * _OPEN_SIZE[opener] + 0.5) if bb_in else (2 * _OPEN_SIZE[opener] + 1.5), 2)
 
 
 def _caller_raise_state(
-    opener=Position.CO, caller=Position.BTN, bb_in=True, bb_resp="fold",
-    cbet_frac=0.33, raise_mult=3.0,
+    opener=Position.CO,
+    caller=Position.BTN,
+    bb_in=True,
+    bb_resp="fold",
+    cbet_frac=0.33,
+    raise_mult=3.0,
 ):
     """Full line to hero's caller-raise decision point. Returns
     (state, cbet, raise_to)."""
@@ -165,12 +171,16 @@ def _facing_spot(hole, board, ctx, villain, faced=5.0, pot=16.5):
         facing=villain,
         action_history=[
             HistoryAction(
-                street=Street.FLOP, position=Position.CO,
-                action=ActionType.BET, amount_bb=2.5,
+                street=Street.FLOP,
+                position=Position.CO,
+                action=ActionType.BET,
+                amount_bb=2.5,
             ),
             HistoryAction(
-                street=Street.FLOP, position=villain,
-                action=ActionType.RAISE, amount_bb=round(2.5 + faced, 2),
+                street=Street.FLOP,
+                position=villain,
+                action=ActionType.RAISE,
+                amount_bb=round(2.5 + faced, 2),
             ),
         ],
         legal_actions=[
@@ -215,9 +225,7 @@ def test_mapper_fires_in_band_on_organic_play():
         lineup = assign_lineup(rng)
         seat_packs = {s: packs[t.value] for s, t in lineup.items()}
         seat_packs.setdefault(HERO_SEAT, packs["tag"])
-        state = start_hand(
-            deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9
-        )
+        state = start_hand(deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
         guard = 0
         while not state.hand_over and state.to_act_seat is not None:
             guard += 1
@@ -274,7 +282,9 @@ def test_grader_freq_ev_shape_and_is_mixed():
     spot = map_decision_point(state, HERO_SEAT)
     res = grade_vs_caller_raise(spot, spot.hero_range, spot.villain_range, None)
     assert [e.action for e in res.per_action] == [
-        ActionType.FOLD, ActionType.CALL, ActionType.RAISE,
+        ActionType.FOLD,
+        ActionType.CALL,
+        ActionType.RAISE,
     ]
     assert abs(sum(e.frequency for e in res.per_action) - 1.0) < 1e-6
     for e in res.per_action:
@@ -293,11 +303,11 @@ def test_grader_freq_ev_shape_and_is_mixed():
 def test_sizing_correctness_on_two_leg_raise():
     # A strong hand raising on a dry board: small leg = the RES-B teach.
     spot = _caller_spot(("As", "Ac"), ["Ah", "7d", "2c"])
-    small_leg = min(
-        la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE
-    )
+    small_leg = min(la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE)
     res = grade_vs_caller_raise(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=small_leg),
     )
     assert res.sizing_correctness is not None
@@ -343,10 +353,17 @@ def test_no_asymmetry_inversion_full_grid():
     from app.domain.texture import classify
 
     boards = [
-        ["Ks", "7d", "2c"], ["Ah", "Kd", "2c"], ["Qh", "8d", "3s"],
-        ["8h", "7h", "6c"], ["9h", "8h", "2c"], ["7h", "6d", "5s"],
-        ["Qd", "Jd", "Td"], ["2c", "2d", "9h"], ["Kh", "Jh", "7d"],
-        ["Ah", "7h", "2h"], ["Th", "9c", "8d"],
+        ["Ks", "7d", "2c"],
+        ["Ah", "Kd", "2c"],
+        ["Qh", "8d", "3s"],
+        ["8h", "7h", "6c"],
+        ["9h", "8h", "2c"],
+        ["7h", "6d", "5s"],
+        ["Qd", "Jd", "Td"],
+        ["2c", "2d", "9h"],
+        ["Kh", "Jh", "7d"],
+        ["Ah", "7h", "2h"],
+        ["Th", "9c", "8d"],
     ]
     prices = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
 
@@ -368,9 +385,15 @@ def test_no_asymmetry_inversion_full_grid():
                 assert car >= cr - 1e-12, (board, adv, price, car, cr)
 
     weak_made_hole = {
-        "Ks7d2c": ("Kh", "Qc"), "AhKd2c": ("As", "Qc"), "Qh8d3s": ("Qd", "Jc"),
-        "8h7h6c": ("As", "8d"), "9h8h2c": ("9s", "Ac"), "7h6d5s": ("7c", "Ad"),
-        "2c2d9h": ("9s", "Ac"), "KhJh7d": ("Ks", "Qc"), "Th9c8d": ("Tc", "5s"),
+        "Ks7d2c": ("Kh", "Qc"),
+        "AhKd2c": ("As", "Qc"),
+        "Qh8d3s": ("Qd", "Jc"),
+        "8h7h6c": ("As", "8d"),
+        "9h8h2c": ("9s", "Ac"),
+        "7h6d5s": ("7c", "Ad"),
+        "2c2d9h": ("9s", "Ac"),
+        "KhJh7d": ("Ks", "Qc"),
+        "Th9c8d": ("Tc", "5s"),
     }
     pot = 10.0
     for key, hole in weak_made_hole.items():
@@ -381,11 +404,13 @@ def test_no_asymmetry_inversion_full_grid():
             car = grade_vs_caller_raise(
                 _caller_spot(hole, board, faced=faced, pot=pot), None, None, None
             )
-            cr = grade_vs_check_raise(
-                _cr_spot(hole, board, faced=faced, pot=pot), None, None, None
-            )
+            cr = grade_vs_check_raise(_cr_spot(hole, board, faced=faced, pot=pot), None, None, None)
             assert _freq(car, ActionType.FOLD) >= _freq(cr, ActionType.FOLD), (
-                hole, board, faced, _freq(car, ActionType.FOLD), _freq(cr, ActionType.FOLD),
+                hole,
+                board,
+                faced,
+                _freq(car, ActionType.FOLD),
+                _freq(cr, ActionType.FOLD),
             )
 
 
@@ -445,7 +470,8 @@ def test_multiway_composes_on_three_live_spot():
     hu_like = spot.model_copy(
         update={
             "players": [
-                p if p.is_hero or p.position == spot.facing
+                p
+                if p.is_hero or p.position == spot.facing
                 else p.model_copy(update={"status": "folded"})
                 for p in spot.players
             ]
@@ -466,12 +492,15 @@ def test_donk_raise_stays_none():
     state = _srp_preflop()
     fp = _flop_pot(Position.CO)
     donk = round(0.33 * fp, 1)
-    state = _play(state, [
-        _bet(Position.BB, donk),
-        _raise_to(Position.CO, round(3 * donk, 1)),
-        _raise_to(Position.BTN, round(9 * donk, 1)),
-        _fold(Position.BB),
-    ])
+    state = _play(
+        state,
+        [
+            _bet(Position.BB, donk),
+            _raise_to(Position.CO, round(3 * donk, 1)),
+            _raise_to(Position.BTN, round(9 * donk, 1)),
+            _fold(Position.BB),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     assert map_flop_vs_caller_raise(state, HERO_SEAT) is None
     assert map_decision_point(state, HERO_SEAT) is None
@@ -488,12 +517,15 @@ def test_limped_pot_stays_none():
     moves += [_fold(Position.SB), _check(Position.BB)]
     state = _play(state, moves)
     pot = round(2.0 * 2 + 2.0 + 0.5, 2)
-    state = _play(state, [
-        _check(Position.BB),
-        _bet(Position.CO, round(0.33 * pot, 1)),
-        _raise_to(Position.BTN, round(round(0.33 * pot, 1) * 3, 1)),
-        _fold(Position.BB),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.CO, round(0.33 * pot, 1)),
+            _raise_to(Position.BTN, round(round(0.33 * pot, 1) * 3, 1)),
+            _fold(Position.BB),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     assert map_flop_vs_caller_raise(state, HERO_SEAT) is None
     assert map_decision_point(state, HERO_SEAT) is None
@@ -506,10 +538,15 @@ def test_delayed_cbet_raise_stays_none():
     state = _play(state, [_check(Position.BB), _check(Position.CO), _check(Position.BTN)])
     fp = _flop_pot(Position.CO)
     tbet = round(0.5 * fp, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.CO, tbet),
-        _raise_to(Position.BTN, round(3 * tbet, 1)), _fold(Position.BB),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.CO, tbet),
+            _raise_to(Position.BTN, round(3 * tbet, 1)),
+            _fold(Position.BB),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     assert map_flop_vs_caller_raise(state, HERO_SEAT) is None
     assert map_decision_point(state, HERO_SEAT) is None
@@ -534,9 +571,14 @@ def test_hero_not_opener_stays_none():
     state = _play(state, moves)
     fp = _flop_pot(opener)
     cbet = round(0.33 * fp, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(opener, cbet), _raise_to(caller, round(3 * cbet, 1)),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(opener, cbet),
+            _raise_to(caller, round(3 * cbet, 1)),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT  # hero (BB) faces the raise
     assert map_flop_vs_caller_raise(state, HERO_SEAT) is None
     assert map_decision_point(state, HERO_SEAT) is None
@@ -549,11 +591,15 @@ def test_bb_reraise_stays_none():
     fp = _flop_pot(Position.CO)
     cbet = round(0.33 * fp, 1)
     raise_to = round(3 * cbet, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.CO, cbet),
-        _raise_to(Position.BTN, raise_to),
-        _raise_to(Position.BB, round(3 * raise_to, 1)),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.CO, cbet),
+            _raise_to(Position.BTN, raise_to),
+            _raise_to(Position.BB, round(3 * raise_to, 1)),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     assert map_flop_vs_caller_raise(state, HERO_SEAT) is None
 

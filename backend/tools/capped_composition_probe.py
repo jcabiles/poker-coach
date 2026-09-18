@@ -80,12 +80,18 @@ from tools.export_analytics import play_one_hand
 
 # The ratified nine-seat lineup every flywheel measurement uses.
 RATIFIED_LINEUP = [
-    "tag", "tag", "calling_station", "tag", "passive_fish",
-    "lag", "passive_fish", "nit", "maniac",
+    "tag",
+    "tag",
+    "calling_station",
+    "tag",
+    "passive_fish",
+    "lag",
+    "passive_fish",
+    "nit",
+    "maniac",
 ]
 
-_ACTIONS = (ActionType.CHECK, ActionType.BET, ActionType.CALL,
-            ActionType.RAISE, ActionType.FOLD)
+_ACTIONS = (ActionType.CHECK, ActionType.BET, ActionType.CALL, ActionType.RAISE, ActionType.FOLD)
 _CLASSES = ("bluff_cell", "draw_cell", "made_value")
 
 
@@ -188,15 +194,17 @@ class _Probe:
 
     def wrap(self, original):
         def wrapper(pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, **kw):
-            decision = original(pack, hole, board, legal, pot_bb, stack_bb,
-                                opponents, rng, **kw)
-            self._record(original, pack, hole, board, legal, pot_bb, stack_bb,
-                         opponents, kw, decision)
+            decision = original(pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, **kw)
+            self._record(
+                original, pack, hole, board, legal, pot_bb, stack_bb, opponents, kw, decision
+            )
             return decision
+
         return wrapper
 
-    def _record(self, original, pack, hole, board, legal, pot_bb, stack_bb,
-                opponents, kw, decision) -> None:
+    def _record(
+        self, original, pack, hole, board, legal, pot_bb, stack_bb, opponents, kw, decision
+    ) -> None:
         if pot_bb <= 0:
             return
         by_kind = {la.action: la for la in legal}
@@ -241,9 +249,11 @@ def _composition(probe: _Probe, capped: bool) -> dict:
 
 
 def _headline(probe: _Probe) -> dict:
-    out = {"capped": _composition(probe, True),
-           "uncapped": _composition(probe, False),
-           "deep_nodes": probe.deep_nodes}
+    out = {
+        "capped": _composition(probe, True),
+        "uncapped": _composition(probe, False),
+        "deep_nodes": probe.deep_nodes,
+    }
     for field in ("bluff_cell_share", "normalised_bluff_share"):
         u = out["uncapped"][field]
         out["ratio_" + field] = (out["capped"][field] / u) if u else 0.0
@@ -256,8 +266,7 @@ def _detail(probe: _Probe) -> dict:
         tag = f"{shape}|{'capped' if capped else 'uncapped'}|{klass}"
         detail[tag] = {
             "nodes": n,
-            "expected_mix": {a.value: probe.mass[(shape, capped, klass, a)] / n
-                             for a in _ACTIONS},
+            "expected_mix": {a.value: probe.mass[(shape, capped, klass, a)] / n for a in _ACTIONS},
         }
     return detail
 
@@ -280,8 +289,13 @@ def run(hands: int, seeds: list[int]) -> dict:
             play_mod.sample_postflop_decision = original
         pooled.merge(probe)
         per_seed.append({"seed": seed, **_headline(probe)})
-    return {"hands_per_seed": hands, "seeds": seeds, "per_seed": per_seed,
-            "pooled": _headline(pooled), "pooled_detail": _detail(pooled)}
+    return {
+        "hands_per_seed": hands,
+        "seeds": seeds,
+        "per_seed": per_seed,
+        "pooled": _headline(pooled),
+        "pooled_detail": _detail(pooled),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -299,11 +313,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"hands/seed={args.hands} seeds={seeds}")
     for tag in ("capped", "uncapped"):
         c = p[tag]
-        print(f"  {tag:8s} wagers={c['wagers']:7d}  raw bluff share={c['bluff_cell_share']:.4f}"
-              f"  identity target at realised size={c['identity_target_at_realised_size']:.4f}"
-              f"  NORMALISED={c['normalised_bluff_share']:.4f}")
-    print(f"  capped/uncapped   raw ratio={p['ratio_bluff_cell_share']:.4f}"
-          f"   NORMALISED ratio={p['ratio_normalised_bluff_share']:.4f}")
+        print(
+            f"  {tag:8s} wagers={c['wagers']:7d}  raw bluff share={c['bluff_cell_share']:.4f}"
+            f"  identity target at realised size={c['identity_target_at_realised_size']:.4f}"
+            f"  NORMALISED={c['normalised_bluff_share']:.4f}"
+        )
+    print(
+        f"  capped/uncapped   raw ratio={p['ratio_bluff_cell_share']:.4f}"
+        f"   NORMALISED ratio={p['ratio_normalised_bluff_share']:.4f}"
+    )
     print(f"  nodes at or above spr_commit: {p['deep_nodes']}")
     return 0
 

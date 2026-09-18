@@ -86,9 +86,7 @@ def _play_current_hand(db, view, fold_if_possible: bool = False):
         # Persisted state is always at a hero decision boundary or hand-over.
         assert view.hand.is_hero_turn
         assert view.hand.legal_actions, "hero turn must carry legal actions"
-        view = apply_hero_action(
-            db, view.session_id, _hero_decision(view, fold_if_possible)
-        )
+        view = apply_hero_action(db, view.session_id, _hero_decision(view, fold_if_possible))
     return view
 
 
@@ -105,10 +103,7 @@ def test_create_session_seats_and_lineup(db):
     assert bots == sorted(v.value for v in play.LINEUP)
     # T-STACK: hand 1's deal already re-bought every seat inside the band, so
     # the seeded 100/100 is redrawn — but the ledger still starts at zero.
-    assert all(
-        sim_session._BUYIN_MIN_BB <= s.stack_bb <= sim_session._BUYIN_MAX_BB
-        for s in seats
-    )
+    assert all(sim_session._BUYIN_MIN_BB <= s.stack_bb <= sim_session._BUYIN_MAX_BB for s in seats)
     assert all(round(s.stack_bb - s.buyins_bb, 2) == 0.0 for s in seats)
     assert len(view.hand.seats) == 9
     assert view.hand.hero.hole_cards is not None
@@ -199,16 +194,20 @@ def test_restore_missing_or_ended_session_is_none(db):
 def test_settlement_writes_true_stacks_and_2dp_ledger():
     seats = [
         SimSeat(
-            session_id="s", seat_index=i, is_hero=i == 0,
+            session_id="s",
+            seat_index=i,
+            is_hero=i == 0,
             persona_type=None if i == 0 else "tag",
-            stack_bb=100.0, buyins_bb=100.0,
+            stack_bb=100.0,
+            buyins_bb=100.0,
         )
         for i in range(9)
     ]
     deltas = [0.0] * 9
     deltas[0], deltas[1] = -99.55, 99.55
     settlement = Settlement(
-        pots=[], winners_by_pot=[],
+        pots=[],
+        winners_by_pot=[],
         deltas=[SeatDelta(seat=i, delta_bb=deltas[i]) for i in range(9)],
         showdown_seats=[0, 1],
     )
@@ -327,9 +326,14 @@ def test_bot_decision_parity_with_harness():
                     if h.street is Street.PREFLOP and h.action is ActionType.CALL
                 )
                 expected = harness._preflop_decision(
-                    pack, seat_state.position, facing, seat_state.hole_cards,
-                    legal, random.Random(decision_seed),
-                    state.current_bet_bb, limpers,
+                    pack,
+                    seat_state.position,
+                    facing,
+                    seat_state.hole_cards,
+                    legal,
+                    random.Random(decision_seed),
+                    state.current_bet_bb,
+                    limpers,
                     is_opener=play._preflop_opener(state) == seat_state.position,
                 )
             else:
@@ -341,10 +345,7 @@ def test_bot_decision_parity_with_harness():
                 # real context-aware (W3-a/b/c/d) bot's ACTION. Without this the
                 # mirror is context-blind and diverges wherever position/street/
                 # texture flips the action (the W3R-1 stream shift exposed one).
-                is_aggressor = (
-                    last_aggressor_position(state.action_history)
-                    == seat_state.position
-                )
+                is_aggressor = last_aggressor_position(state.action_history) == seat_state.position
                 contribution = pot_before_current_aggression(
                     state.action_history, state.street
                 ).latest_aggressor_contribution_bb
@@ -355,15 +356,19 @@ def test_bot_decision_parity_with_harness():
                 # that derivation agrees with production's own
                 # `facing_raise()` call in `play.bot_decision` (a mismatch
                 # would break this parity assertion).
-                street_aggressions = street_aggression_count(
-                    state.action_history, state.street
-                )
+                street_aggressions = street_aggression_count(state.action_history, state.street)
                 assert (street_aggressions >= 2) == ctx_facing_raise(
                     state.action_history, state.street
                 )
                 expected = harness._postflop_decision(
-                    pack, seat_state.hole_cards, state.board, legal, pot_bb,
-                    seat_state.stack_bb, opponents, random.Random(decision_seed),
+                    pack,
+                    seat_state.hole_cards,
+                    state.board,
+                    legal,
+                    pot_bb,
+                    seat_state.stack_bb,
+                    opponents,
+                    random.Random(decision_seed),
                     state.current_bet_bb,
                     is_aggressor=is_aggressor,
                     latest_aggressor_contribution_bb=contribution,
@@ -621,11 +626,7 @@ def test_hero_fold_villain_showdown_autoreveals_compared_hands(db):
 
     seats = {sd.seat_index for sd in restored.hand.showdown}
     assert seats == {1, 2}
-    shown_cards = {
-        card
-        for sd in restored.hand.showdown
-        for card in sd.hole_cards
-    }
+    shown_cards = {card for sd in restored.hand.showdown for card in sd.hole_cards}
     for i in (1, 2):
         assert set(state.seats[i].hole_cards).issubset(shown_cards)
     assert all(sd.seat_index != 0 for sd in restored.hand.showdown)

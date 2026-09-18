@@ -202,9 +202,7 @@ def test_defect_gates_fail_at_pre_slice_head(head):
     """At pre-slice HEAD both defect gates FAIL: the station's call share and
     every persona's fold share are FLAT across the headcount sweep."""
     flat_call = p_call("calling_station", "TOP_PAIR", opponents=1)
-    assert p_call("calling_station", "TOP_PAIR", opponents=4) == pytest.approx(
-        flat_call, abs=1e-12
-    )
+    assert p_call("calling_station", "TOP_PAIR", opponents=4) == pytest.approx(flat_call, abs=1e-12)
     for persona in ("calling_station", "passive_fish", "nit"):
         folds = [p_fold(persona, "TOP_PAIR", opponents=n) for n in HEADCOUNTS]
         assert folds == pytest.approx([folds[0]] * len(HEADCOUNTS), abs=1e-12)
@@ -230,9 +228,10 @@ def test_defect_gate_2_fold_share_strictly_increases_with_headcount(persona):
 
 @pytest.mark.parametrize("persona", PERSONAS)
 def test_n_logit_raise_share_never_inflates_with_headcount(persona):
-    assert p_raise(persona, "TOP_PAIR", opponents=4) <= p_raise(
-        persona, "TOP_PAIR", opponents=1
-    ) + 1e-12
+    assert (
+        p_raise(persona, "TOP_PAIR", opponents=4)
+        <= p_raise(persona, "TOP_PAIR", opponents=1) + 1e-12
+    )
 
 
 @pytest.mark.parametrize("persona", PERSONAS)
@@ -253,9 +252,7 @@ def test_confounder_guard_gates_hold_below_spr_commit():
         p_call("calling_station", "TOP_PAIR", opponents=1, spr=SPR_BELOW) - 0.005
     )
     for persona in ("calling_station", "passive_fish", "nit"):
-        folds = [
-            p_fold(persona, "TOP_PAIR", opponents=n, spr=SPR_BELOW) for n in HEADCOUNTS
-        ]
+        folds = [p_fold(persona, "TOP_PAIR", opponents=n, spr=SPR_BELOW) for n in HEADCOUNTS]
         assert all(a < b for a, b in zip(folds, folds[1:], strict=False)), (
             persona,
             folds,

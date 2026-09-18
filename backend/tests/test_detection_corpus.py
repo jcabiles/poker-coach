@@ -136,8 +136,7 @@ def human_db(tmp_path_factory, human_states) -> Path:
 
 def _rows(human_states, count: int = 5) -> list[HumanHandRow]:
     return [
-        HumanHandRow(i + 1, "complete", human_states[i].model_dump_json())
-        for i in range(count)
+        HumanHandRow(i + 1, "complete", human_states[i].model_dump_json()) for i in range(count)
     ]
 
 
@@ -170,7 +169,11 @@ def test_derived_seed_is_stable_across_processes():
 def test_enumerate_windows_tiles_and_drops_the_remainder():
     windows = enumerate_windows(1, 25, 5)
     assert [(w.index, w.start, w.end) for w in windows] == [
-        (0, 1, 5), (1, 6, 10), (2, 11, 15), (3, 16, 20), (4, 21, 25)
+        (0, 1, 5),
+        (1, 6, 10),
+        (2, 11, 15),
+        (3, 16, 20),
+        (4, 21, 25),
     ]
     # A partial tail window is dropped, never padded out.
     assert enumerate_windows(1, 27, 5)[-1].end == 25
@@ -297,9 +300,7 @@ def _synthetic_options(start: int, size: int = 30) -> dict[int, tuple[str, ...]]
     checks this model against the phases observed in the real session.
     """
     return {
-        seat: tuple(
-            POSITIONS[(seat - h + 6) % N_SEATS] for h in range(start, start + size)
-        )
+        seat: tuple(POSITIONS[(seat - h + 6) % N_SEATS] for h in range(start, start + size))
         for seat in range(N_SEATS)
     }
 
@@ -362,21 +363,15 @@ def test_constrained_assignment_is_deterministic_and_seed_sensitive():
     allowed = _human_phases()
     windows = [_synthetic_options(1 + i * 31) for i in range(40)]
     first = assign_constrained_focus_seats(windows, allowed, derive_rng(1, "focus-seats"))
-    assert first == assign_constrained_focus_seats(
-        windows, allowed, derive_rng(1, "focus-seats")
-    )
-    assert first != assign_constrained_focus_seats(
-        windows, allowed, derive_rng(2, "focus-seats")
-    )
+    assert first == assign_constrained_focus_seats(windows, allowed, derive_rng(1, "focus-seats"))
+    assert first != assign_constrained_focus_seats(windows, allowed, derive_rng(2, "focus-seats"))
 
 
 def test_assignment_aborts_when_no_seat_can_match_a_human_phase():
     """Fail closed: an off-phase bundle is never emitted as a fallback."""
     windows = [_synthetic_options(1)]
     with pytest.raises(CorpusBuildError, match="no seat reproduces"):
-        assign_constrained_focus_seats(
-            windows, [("BTN",) * 30], derive_rng(1, "focus-seats")
-        )
+        assign_constrained_focus_seats(windows, [("BTN",) * 30], derive_rng(1, "focus-seats"))
     with pytest.raises(CorpusBuildError, match="no human phases"):
         assign_constrained_focus_seats(windows, [], derive_rng(1, "focus-seats"))
 
@@ -486,12 +481,8 @@ def test_presentation_document_marks_only_duplicate_entries(human_states):
         ),
         pytest.param(lambda d: d.update({"human_windows": [1]}), id="top-level-label"),
         pytest.param(lambda d: d["bundles"][0].pop("sha256"), id="missing-key"),
-        pytest.param(
-            lambda d: d["bundles"][0].update({"sha256": "0" * 64}), id="wrong-hash"
-        ),
-        pytest.param(
-            lambda d: d["bundles"].append(dict(d["bundles"][0])), id="duplicate-id"
-        ),
+        pytest.param(lambda d: d["bundles"][0].update({"sha256": "0" * 64}), id="wrong-hash"),
+        pytest.param(lambda d: d["bundles"].append(dict(d["bundles"][0])), id="duplicate-id"),
         pytest.param(
             lambda d: d["bundles"][0].update({"duplicate_for_slot": 0}), id="unclaimed-slot"
         ),
@@ -533,9 +524,7 @@ def test_label_bearing_key_scan_finds_nested_keys():
     from tools.detection_corpus import _label_bearing_keys
 
     assert _label_bearing_keys({"bundles": [{"presentation_id": "B001"}]}) == []
-    found = _label_bearing_keys(
-        {"bundles": [{"meta": {"is_control": True}}, {"focus_seat": 3}]}
-    )
+    found = _label_bearing_keys({"bundles": [{"meta": {"is_control": True}}, {"focus_seat": 3}]})
     assert sorted(found) == ["bundles.0.meta.is_control", "bundles.1.focus_seat"]
 
 
@@ -555,9 +544,7 @@ def test_presentation_manifest_writes_when_clean(tmp_path, human_states):
     assert doc["bundle_count"] == 1
 
 
-def test_presentation_manifest_requires_every_declared_slot_to_be_filled(
-    tmp_path, human_states
-):
+def test_presentation_manifest_requires_every_declared_slot_to_be_filled(tmp_path, human_states):
     """`judge_slots: N` is a promise about the entries; an unfilled or repeated
     slot is a broken schedule, not a cosmetic mismatch."""
     text = _records(human_states)[0].rendered_text
@@ -598,10 +585,7 @@ def test_render_bundles_pins_the_bundle_size(human_states):
 def test_snapshot_pins_n_at_the_last_complete_hand(tmp_path, human_states):
     """A live session always has an in-progress tail; N must exclude it and the
     rows above N must not even be candidates."""
-    rows = [
-        {"hand_no": i + 1, "state_json": human_states[i].model_dump_json()}
-        for i in range(6)
-    ]
+    rows = [{"hand_no": i + 1, "state_json": human_states[i].model_dump_json()} for i in range(6)]
     rows.append({"hand_no": 7, "status": "in_progress", "state_json": None})
     snapshot = read_human_snapshot(_write_db(tmp_path / "a.db", rows))
     assert snapshot.n_pinned == 6
@@ -691,8 +675,13 @@ def _export_and_replay(seed: int, n: int, packs, config_hash=None):
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)
         manifest = run_export(
-            n, seed, out, lineup=list(RATIFIED_LINEUP), buyin_spread=True,
-            packs=packs if config_hash else None, config_hash=config_hash,
+            n,
+            seed,
+            out,
+            lineup=list(RATIFIED_LINEUP),
+            buyin_spread=True,
+            packs=packs if config_hash else None,
+            config_hash=config_hash,
         )
         tables = {
             name: pq.read_table(out / f"{name}.parquet").to_pylist()
@@ -750,13 +739,9 @@ def _assert_run_equivalence(manifest, tables, states, seed, n):
                 seat.stack_bb + seat.invested_total_bb
             )
             assert seat_row["invested_bb"] == pytest.approx(seat.invested_total_bb)
-            assert seat_row["delta_bb"] == pytest.approx(
-                settlement.deltas[seat.seat].delta_bb
-            )
+            assert seat_row["delta_bb"] == pytest.approx(settlement.deltas[seat.seat].delta_bb)
             assert seat_row["final_status"] == seat.status.value
-            assert seat_row["went_to_showdown"] == (
-                seat.seat in settlement.showdown_seats
-            )
+            assert seat_row["went_to_showdown"] == (seat.seat in settlement.showdown_seats)
             assert seat_row["won_pot"] == (seat.seat in winners)
 
 
@@ -997,9 +982,7 @@ def _payload_trajectory(text: str) -> tuple[str, ...]:
     import re
 
     focus = re.search(r"^Player under review: (\S+)$", text, re.MULTILINE).group(1)
-    return tuple(
-        re.findall(rf"^{re.escape(focus)} \(([A-Z0-9]+)\) holds", text, re.MULTILINE)
-    )
+    return tuple(re.findall(rf"^{re.escape(focus)} \(([A-Z0-9]+)\) holds", text, re.MULTILINE))
 
 
 def test_e2e_no_position_phase_belongs_to_only_one_class(built):
@@ -1026,9 +1009,7 @@ def test_e2e_bundle_phase_ids_match_their_payloads(built):
     by_id = {b["presentation_id"]: b for b in unblinding["bundles"]}
     for bundle in _deck_entries(presentation):
         record = by_id[bundle["presentation_id"]]
-        assert record["phase_id"] == phase_id(
-            _payload_trajectory(bundle["rendered_text"])
-        )
+        assert record["phase_id"] == phase_id(_payload_trajectory(bundle["rendered_text"]))
 
 
 def test_e2e_every_seat_map_is_reproducible_from_its_recorded_seed(built):
@@ -1038,9 +1019,7 @@ def test_e2e_every_seat_map_is_reproducible_from_its_recorded_seed(built):
     assert "opaque-ids" not in unblinding["derived_seeds"]
     assert "opaque-ids" in unblinding["seed_derivation"]
     for bundle in unblinding["bundles"]:
-        expected = derive_seed(
-            success["master_seed"], "opaque-ids", bundle["bundle_key"]
-        )
+        expected = derive_seed(success["master_seed"], "opaque-ids", bundle["bundle_key"])
         assert bundle["seat_map_seed"] == f"{expected:032x}"
         rebuilt = build_seat_id_map(random.Random(expected))
         assert {str(s): o for s, o in rebuilt.items()} == bundle["seat_id_map"]
@@ -1063,7 +1042,8 @@ def test_e2e_a_different_master_seed_changes_the_deck(tmp_path, human_db, built)
     build_corpus(master_seed=2, db_path=human_db, out_dir=other, **BUILD_KWARGS)
     redo = json.loads((other / "unblinding.json").read_text())
     assert (redo["human_windows"]["selected"], redo["focus_seat_scheme"]["bot"]) != (
-        unblinding["human_windows"]["selected"], unblinding["focus_seat_scheme"]["bot"]
+        unblinding["human_windows"]["selected"],
+        unblinding["focus_seat_scheme"]["bot"],
     )
 
 
@@ -1073,7 +1053,9 @@ def test_e2e_a_different_master_seed_changes_the_deck(tmp_path, human_db, built)
 def test_build_rejects_an_oversized_bundle(tmp_path, human_db):
     with pytest.raises(CorpusBuildError, match="local-index grammar"):
         build_corpus(
-            master_seed=1, db_path=human_db, out_dir=tmp_path / "x",
+            master_seed=1,
+            db_path=human_db,
+            out_dir=tmp_path / "x",
             **{**BUILD_KWARGS, "bundle_size": 31},
         )
 
@@ -1081,7 +1063,9 @@ def test_build_rejects_an_oversized_bundle(tmp_path, human_db):
 def test_build_rejects_a_run_too_short_for_disjoint_windows(tmp_path, human_db):
     with pytest.raises(CorpusBuildError, match="disjoint"):
         build_corpus(
-            master_seed=1, db_path=human_db, out_dir=tmp_path / "y",
+            master_seed=1,
+            db_path=human_db,
+            out_dir=tmp_path / "y",
             **{**BUILD_KWARGS, "bot_hands": 10},
         )
 
@@ -1091,10 +1075,7 @@ def test_build_aborts_when_the_human_corpus_is_too_small(tmp_path, human_states)
     rather than a 38-bundle class quietly shipped as 40."""
     db = _write_db(
         tmp_path / "small.db",
-        [
-            {"hand_no": i + 1, "state_json": human_states[i].model_dump_json()}
-            for i in range(10)
-        ],
+        [{"hand_no": i + 1, "state_json": human_states[i].model_dump_json()} for i in range(10)],
     )
     with pytest.raises(CorpusBuildError, match="short deck"):
         build_corpus(master_seed=1, db_path=db, out_dir=tmp_path / "z", **BUILD_KWARGS)
@@ -1154,9 +1135,7 @@ def test_e2e_duplicates_are_one_human_repeat_per_slot(built):
         # own id, so the hash column cannot be used to pick the (human-only)
         # duplicates out of the blind manifest.
         assert entry["sha256"] != source["sha256"]
-        assert entry["sha256"] == payload_digest(
-            entry["presentation_id"], entry["rendered_text"]
-        )
+        assert entry["sha256"] == payload_digest(entry["presentation_id"], entry["rendered_text"])
 
 
 def test_no_two_presentation_entries_share_a_hash_even_when_text_is_identical(built):
@@ -1170,12 +1149,8 @@ def test_no_two_presentation_entries_share_a_hash_even_when_text_is_identical(bu
     assert len(set(hashes)) == len(hashes)
     assert len(set(texts)) < len(texts)  # text twins DO exist — by design
     for entry in presentation["bundles"]:
-        assert entry["sha256"] == payload_digest(
-            entry["presentation_id"], entry["rendered_text"]
-        )
-        assert entry["sha256"] != hashlib.sha256(
-            entry["rendered_text"].encode("utf-8")
-        ).hexdigest()
+        assert entry["sha256"] == payload_digest(entry["presentation_id"], entry["rendered_text"])
+        assert entry["sha256"] != hashlib.sha256(entry["rendered_text"].encode("utf-8")).hexdigest()
 
 
 def test_salted_digest_rule_is_uniform_and_id_sensitive(human_states):
@@ -1221,9 +1196,7 @@ def test_e2e_unblinding_carries_the_same_salted_digest(built):
     """T6 cross-checks the two manifests by EQUALITY of the recorded field (it
     never recomputes from text), so the unblinding copy must be the salted one."""
     _, _, presentation, unblinding = built
-    presentation_hashes = {
-        b["presentation_id"]: b["sha256"] for b in presentation["bundles"]
-    }
+    presentation_hashes = {b["presentation_id"]: b["sha256"] for b in presentation["bundles"]}
     for record in unblinding["bundles"]:
         assert record["sha256"] == presentation_hashes[record["presentation_id"]]
 
@@ -1249,11 +1222,13 @@ def test_e2e_build_aborts_when_a_duplicate_would_be_a_bot_bundle(
 
     _, _, _, unblinding = built
     bot_key = next(
-        b["bundle_key"] for b in unblinding["bundles"]
+        b["bundle_key"]
+        for b in unblinding["bundles"]
         if b["class"] == "bot" and not b["is_control"]
     )
     monkeypatch.setattr(
-        corpus, "select_duplicate_sources",
+        corpus,
+        "select_duplicate_sources",
         lambda human_keys, judges, master_seed: (bot_key,) * judges,
     )
     out = tmp_path / "dup-bot"
@@ -1266,7 +1241,9 @@ def test_e2e_build_aborts_when_a_duplicate_would_be_a_bot_bundle(
 def test_e2e_zero_judges_produces_no_duplicates(tmp_path, human_db):
     out = tmp_path / "no-judges"
     success = build_corpus(
-        master_seed=1, db_path=human_db, out_dir=out,
+        master_seed=1,
+        db_path=human_db,
+        out_dir=out,
         **{**BUILD_KWARGS, "judges": 0},
     )
     presentation = json.loads((out / "presentation.json").read_text())
@@ -1279,9 +1256,7 @@ def test_e2e_more_judges_add_entries_without_changing_the_deck(tmp_path, human_d
     """The deck itself must not depend on the judge count — only the extra
     entries do (ids are re-drawn over the larger space, membership is not)."""
     out = tmp_path / "more-judges"
-    build_corpus(
-        master_seed=1, db_path=human_db, out_dir=out, **{**BUILD_KWARGS, "judges": 4}
-    )
+    build_corpus(master_seed=1, db_path=human_db, out_dir=out, **{**BUILD_KWARGS, "judges": 4})
     _, _, _, unblinding = built
     redo = json.loads((out / "unblinding.json").read_text())
     assert len(redo["judge_duplicates"]["slots"]) == 4
@@ -1335,9 +1310,7 @@ def test_exactly_one_control_bundle_labelled_bot(built):
     """A control that plays like the bots is not a control, and a deck with two
     of them is not the deck the protocol pins."""
     _, _, _, unblinding = built
-    controls = [
-        b for b in unblinding["bundles"] if b.get("source", {}).get("kind") == "control"
-    ]
+    controls = [b for b in unblinding["bundles"] if b.get("source", {}).get("kind") == "control"]
     assert len(controls) == 1
     assert controls[0]["class"] == "bot"
 
@@ -1346,7 +1319,10 @@ def test_non_protocol_flag_stamps_both_manifests(tmp_path, human_db):
     """A dry-run deck must never be mistakable for the protocol deck."""
     out = tmp_path / "np2"
     success = build_corpus(
-        master_seed=1, db_path=human_db, out_dir=out, non_protocol_control=True,
+        master_seed=1,
+        db_path=human_db,
+        out_dir=out,
+        non_protocol_control=True,
         **BUILD_KWARGS,
     )
     unblinding = json.loads((out / "unblinding.json").read_text())
@@ -1366,6 +1342,9 @@ def test_the_flag_alone_does_not_relax_anything_else(tmp_path, human_db):
     """`--non-protocol-control` waives the control pin and NOTHING else."""
     with pytest.raises(CorpusBuildError, match="short deck"):
         build_corpus(
-            master_seed=1, db_path=human_db, out_dir=tmp_path / "np3",
-            non_protocol_control=True, **{**BUILD_KWARGS, "human_bundles": 99},
+            master_seed=1,
+            db_path=human_db,
+            out_dir=tmp_path / "np3",
+            non_protocol_control=True,
+            **{**BUILD_KWARGS, "human_bundles": 99},
         )

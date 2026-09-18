@@ -245,9 +245,7 @@ def _canonical(state: HandState, focus_seat: int) -> CanonicalHand:
             # both land in [95,105]bb).
             starting_stack_bb=_r2(s.stack_bb + s.invested_total_bb),
             net_bb=_r2(net_by_seat[s.seat]),
-            hole_cards=(
-                (s.hole_cards[0], s.hole_cards[1]) if s.seat in revealable else None
-            ),
+            hole_cards=((s.hole_cards[0], s.hole_cards[1]) if s.seat in revealable else None),
         )
         for s in sorted(state.seats, key=lambda s: s.seat)
     )
@@ -346,13 +344,9 @@ def _validate_terminal_state(state: HandState) -> None:
 
     for s in state.seats:
         if s.status is PlayerStatus.ALLIN and s.stack_bb > _ZERO_CHIPS:
-            raise CanonicalHandError(
-                f"seat {s.seat} is all-in but still holds {s.stack_bb} behind"
-            )
+            raise CanonicalHandError(f"seat {s.seat} is all-in but still holds {s.stack_bb} behind")
         if s.status is PlayerStatus.IN and s.stack_bb < _ZERO_CHIPS:
-            raise CanonicalHandError(
-                f"seat {s.seat} has no chips behind but is not marked all-in"
-            )
+            raise CanonicalHandError(f"seat {s.seat} has no chips behind but is not marked all-in")
         if s.invested_total_bb < s.invested_street_bb - _EPS:
             raise CanonicalHandError(
                 f"seat {s.seat} invested {s.invested_street_bb} this street but "
@@ -468,8 +462,7 @@ def render_bundle(
                 raise CanonicalHandError(f"seat_id_map is missing seat {seat.seat}")
         if seat_id_map[hand.focus_seat] != focus_seat_opaque_id:
             raise CanonicalHandError(
-                "every hand's focus seat must map to focus_seat_opaque_id "
-                f"{focus_seat_opaque_id!r}"
+                f"every hand's focus seat must map to focus_seat_opaque_id {focus_seat_opaque_id!r}"
             )
 
     lines = [
@@ -500,8 +493,7 @@ def _render_hand(
     )
     focus = next(s for s in hand.seats if s.seat == hand.focus_seat)
     lines.append(
-        f"{focus_seat_opaque_id} ({focus.position}) holds "
-        + " ".join(focus.hole_cards or ())
+        f"{focus_seat_opaque_id} ({focus.position}) holds " + " ".join(focus.hole_cards or ())
     )
 
     actions_by_street: dict[str, list[CanonicalAction]] = {}
@@ -519,9 +511,7 @@ def _render_hand(
         board_shown = len(hand.board) >= revealed[key] and revealed[key] > 0
         if not street_actions and not board_shown:
             continue
-        pot_before = (
-            street_actions[0].pot_before_bb if street_actions else hand.total_pot_bb
-        )
+        pot_before = street_actions[0].pot_before_bb if street_actions else hand.total_pot_bb
         header = f"{_STREET_LABEL[street]} (pot {pot_before:.2f})"
         if board_shown:
             header += ": " + " ".join(hand.board[: revealed[key]])
@@ -530,16 +520,10 @@ def _render_hand(
             lines.append("  " + _render_action(act, seat_id_map))
 
     if hand.showdown_seats:
-        shown = [
-            s
-            for s in ordered
-            if s.seat in hand.showdown_seats and s.hole_cards is not None
-        ]
+        shown = [s for s in ordered if s.seat in hand.showdown_seats and s.hole_cards is not None]
         lines.append(
             "Showdown: "
-            + " | ".join(
-                f"{seat_id_map[s.seat]} " + " ".join(s.hole_cards or ()) for s in shown
-            )
+            + " | ".join(f"{seat_id_map[s.seat]} " + " ".join(s.hole_cards or ()) for s in shown)
         )
     lines.append(_render_result(hand, focus_seat_opaque_id, seat_id_map))
     return lines

@@ -53,7 +53,7 @@ export default function SimVillainRange({
   const available = range?.available === true && range.weights != null;
   const weights = range?.weights ?? null;
   const persona = range?.persona_label ?? null;
-  const estimated = range != null && range.available && !range.exact;
+  const estimated = range?.available && !range.exact;
 
   // Peak weight normalizes the heat so the hottest class reads as fully inked
   // regardless of the raw scale (weights are relative, not probabilities that
@@ -86,10 +86,7 @@ export default function SimVillainRange({
         </div>
         <div className="sim-vrange-head-aside">
           {estimated && (
-            <span
-              className="sim-vrange-approx"
-              title="Postflop conditioning is approximate"
-            >
+            <span className="sim-vrange-approx" title="Postflop conditioning is approximate">
               estimated
             </span>
           )}
@@ -131,9 +128,7 @@ export default function SimVillainRange({
                     role="cell"
                     className={"sim-vrange-cell" + (on ? " sim-vrange-cell-on" : "")}
                     style={style}
-                    aria-label={
-                      on ? `${cls}: ${pct}% of peak weight` : `${cls}: not in range`
-                    }
+                    aria-label={on ? `${cls}: ${pct}% of peak weight` : `${cls}: not in range`}
                     title={on ? `${cls} · ${pct}%` : `${cls} · —`}
                   >
                     <span className="sim-vrange-fill" aria-hidden="true" />

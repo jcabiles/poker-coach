@@ -111,10 +111,7 @@ export default function SimEventLog({
               </div>
               <ol className="sim-log-list">
                 {g.items.map(({ e, gi }) => (
-                  <li
-                    key={gi}
-                    className={"sim-log-item sim-log-reveal sim-log-" + e.action}
-                  >
+                  <li key={gi} className={"sim-log-item sim-log-reveal sim-log-" + e.action}>
                     <span className="sim-log-pos">{e.position}</span>
                     <span className="sim-log-verb">{verb(e.action, e.amount_bb, e.all_in)}</span>
                   </li>

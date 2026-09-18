@@ -258,8 +258,7 @@ def apply(state: HandState, decision: Decision) -> HandState:
         if decision.action is ActionType.RAISE and kinds == {ActionType.FOLD, ActionType.CALL}:
             raise ValueError("raise not allowed: incomplete raise did not reopen action")
         raise ValueError(
-            f"illegal action {decision.action.value!r}; "
-            f"legal: {sorted(k.value for k in kinds)}"
+            f"illegal action {decision.action.value!r}; legal: {sorted(k.value for k in kinds)}"
         )
     new = state.model_copy(deep=True)
     seat = new.seats[new.to_act_seat]
@@ -351,9 +350,7 @@ def settle(state: HandState) -> Settlement:
     if len(non_folded) == 1:  # fold-out: hole cards never compared
         winners_by_pot = [[non_folded[0]] for _ in pots]
     else:
-        ranks = {
-            s: best7(list(state.seats[s].hole_cards) + list(state.board)) for s in non_folded
-        }
+        ranks = {s: best7(list(state.seats[s].hole_cards) + list(state.board)) for s in non_folded}
         for pot in pots:
             if len(pot.eligible_seats) == 1:  # uncalled top layer returns to bettor
                 winners_by_pot.append(list(pot.eligible_seats))

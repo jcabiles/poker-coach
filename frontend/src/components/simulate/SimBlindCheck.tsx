@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { ArchetypeGuess, BlindCheckAnswer, BlindCheckSubmitRequest, SeatView } from "../../api/types";
-import {
-  ARCHETYPE_OPTIONS,
-  HOUSE_LINEUP,
-  archetypeGloss,
-  archetypeName,
-} from "./blindCheck";
+import type {
+  ArchetypeGuess,
+  BlindCheckAnswer,
+  BlindCheckSubmitRequest,
+  SeatView,
+} from "../../api/types";
+import { ARCHETYPE_OPTIONS, archetypeGloss, archetypeName, HOUSE_LINEUP } from "./blindCheck";
 import { fmtBb } from "./simGrade";
 
 // Two-mode Simulate T8 — the hand-200 blind check: the moment a Challenge table
@@ -206,8 +206,8 @@ export default function SimBlindCheck({
           ))}
         </ul>
         <p className="sbc-lineup-note">
-          So you are picking out of a known set, not out of six equal chances — which is exactly
-          why what comes back is a souvenir of the session and not a score of your reading.
+          So you are picking out of a known set, not out of six equal chances — which is exactly why
+          what comes back is a souvenir of the session and not a score of your reading.
         </p>
       </section>
 
@@ -274,7 +274,9 @@ export default function SimBlindCheck({
         <p className="sbc-error" role="alert">
           That did not go through, so nothing was stored. Try again — if it keeps failing, reload
           the page.
-          {error.status != null && <span className="sbc-error-status"> (status {error.status})</span>}
+          {error.status != null && (
+            <span className="sbc-error-status"> (status {error.status})</span>
+          )}
         </p>
       )}
 
@@ -301,8 +303,8 @@ export default function SimBlindCheck({
           </button>
         </div>
         <p className="sbc-foot-note">
-          Either way the deal starts again and the names stay on. The check is asked once a
-          session, so there is no second run at it.
+          Either way the deal starts again and the names stay on. The check is asked once a session,
+          so there is no second run at it.
         </p>
         <div className="sbc-skip-row">
           <button

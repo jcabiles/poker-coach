@@ -49,8 +49,7 @@ const ROOMS: readonly Room[] = [
     eyebrow: "Play with the read",
     name: "Training",
     stamp: "1",
-    lede:
-      "Every seat is labelled with how that opponent plays — nit, TAG, maniac — from the very first hand. Read the label, watch what it does to you, and learn the type.",
+    lede: "Every seat is labelled with how that opponent plays — nit, TAG, maniac — from the very first hand. Read the label, watch what it does to you, and learn the type.",
     terms: "Names shown · from hand 1",
     cta: "Take this seat",
     spokenName: "Take this seat at the Training table",
@@ -60,8 +59,7 @@ const ROOMS: readonly Room[] = [
     eyebrow: "Earn the read",
     name: "Challenge",
     stamp: "200",
-    lede:
-      "The seats keep their names to themselves. You work out who you are up against from the way they play — then at 200 hands the table asks you to name three of them, and the names come out for the rest of the session.",
+    lede: "The seats keep their names to themselves. You work out who you are up against from the way they play — then at 200 hands the table asks you to name three of them, and the names come out for the rest of the session.",
     terms: "Names sealed · until hand 200",
     cta: "Take this seat",
     spokenName: "Take this seat at the Challenge table",
@@ -92,9 +90,9 @@ export default function SimModeChoice({
         Choose a table
       </h2>
       <p className="smc-intro">
-        Two rooms, the same felt and the same opponents. The difference is whether the house
-        tells you who you are sitting with. Your choice is fixed for the session — leaving the
-        table is the only way to change rooms.
+        Two rooms, the same felt and the same opponents. The difference is whether the house tells
+        you who you are sitting with. Your choice is fixed for the session — leaving the table is
+        the only way to change rooms.
       </p>
 
       <div className="smc-rooms">

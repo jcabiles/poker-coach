@@ -1,6 +1,6 @@
 import type { SeatView, ShowdownSeatView } from "../../api/types";
-import { fmtBb } from "./simGrade";
 import Card from "../Card";
+import { fmtBb } from "./simGrade";
 
 // Simulate S9 hand-over recap — the settlement slip. Lists the seats that
 // reached showdown with their revealed cards and this-hand chip delta. Dealing
@@ -75,9 +75,7 @@ export default function SimShowdown({
           <button
             key={scope}
             type="button"
-            className={
-              "btn sim-reveal-btn" + (revealScope === scope ? " sim-reveal-btn-on" : "")
-            }
+            className={"btn sim-reveal-btn" + (revealScope === scope ? " sim-reveal-btn-on" : "")}
             onClick={() => onReveal(scope)}
             aria-pressed={revealScope === scope}
           >

@@ -20,9 +20,9 @@ import PokerTable from "./components/PokerTable";
 import QuizPanel from "./components/QuizPanel";
 import RangeGrid from "./components/RangeGrid";
 import SimulateView from "./components/SimulateView";
-import SimDashboard from "./components/simulate/SimDashboard";
 import StatsStrip from "./components/StatsStrip";
 import StudyTestToggle, { type StudyTestMode } from "./components/StudyTestToggle";
+import SimDashboard from "./components/simulate/SimDashboard";
 import { legalDecisions } from "./lib/decisions";
 import { formatHash, parseHash, type View } from "./lib/hashRoute";
 
@@ -297,8 +297,24 @@ export default function App() {
         <div className="brand">
           <span className="brand-crest" aria-hidden="true">
             <svg viewBox="0 0 46 46" fill="none">
-              <rect x="1" y="1" width="44" height="44" rx="4" className="crest-frame" strokeWidth="1" />
-              <rect x="5" y="5" width="36" height="36" rx="2" className="crest-inner" strokeWidth="0.6" />
+              <rect
+                x="1"
+                y="1"
+                width="44"
+                height="44"
+                rx="4"
+                className="crest-frame"
+                strokeWidth="1"
+              />
+              <rect
+                x="5"
+                y="5"
+                width="36"
+                height="36"
+                rx="2"
+                className="crest-inner"
+                strokeWidth="0.6"
+              />
               <path d="M23 12 L31 23 L23 34 L15 23 Z" className="crest-mark" />
               <path d="M23 17 L27.5 23 L23 29 L18.5 23 Z" className="crest-eye" />
             </svg>
@@ -338,6 +354,7 @@ export default function App() {
         {VIEWS.map((v) => (
           <button
             key={v.id}
+            type="button"
             className={"nav-tab" + (v.id === view ? " active" : "")}
             aria-current={v.id === view ? "page" : undefined}
             onClick={() => {

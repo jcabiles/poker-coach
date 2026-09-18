@@ -76,7 +76,9 @@ def test_bb_facing_limpers_maps_to_builder_spot_verbatim(limpers):
     entry = _find_limp_entry(Position.BB, len(limpers))
     assert entry is not None
     expected = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert spot == expected

@@ -109,14 +109,10 @@ def test_metric_lock_practice_rows_dont_move_leaks_or_streets(engine):
         leaks_before = leak_by_spot(s, owner_id="")
         streets_before = street_report(s, owner_id="")
         s.add(
-            DrillAttempt(
-                spot_signature="x", chosen_action="fold", provider="h", source="practice"
-            )
+            DrillAttempt(spot_signature="x", chosen_action="fold", provider="h", source="practice")
         )
         s.add(
-            DrillAttempt(
-                spot_signature="y", chosen_action="fold", provider="h", source="simulate"
-            )
+            DrillAttempt(spot_signature="y", chosen_action="fold", provider="h", source="simulate")
         )
         s.commit()
         leaks_after = leak_by_spot(s, owner_id="")

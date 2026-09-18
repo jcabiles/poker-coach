@@ -82,9 +82,7 @@ async def create_session(
 
 
 @router.get("/session/{session_id}", response_model=SessionView)
-async def get_session_view(
-    session_id: str, db: Session = Depends(get_session)
-) -> SessionView:
+async def get_session_view(session_id: str, db: Session = Depends(get_session)) -> SessionView:
     view = sim_session.restore_session(db, session_id, owner_id=_OWNER_ID)
     if view is None:
         raise HTTPException(status_code=404, detail="session not found")
@@ -158,9 +156,7 @@ async def history(db: Session = Depends(get_session)) -> HistoryListView:
 
 
 @router.get("/hand/{sim_hand_id}/replay", response_model=HandReplayView)
-async def hand_replay(
-    sim_hand_id: int, db: Session = Depends(get_session)
-) -> HandReplayView:
+async def hand_replay(sim_hand_id: int, db: Session = Depends(get_session)) -> HandReplayView:
     # Step-by-step replay of one completed hand with graded hero verdicts
     # attached. 404 (SessionNotFound) on missing/not-owned/not-complete.
     try:
@@ -195,17 +191,13 @@ async def hand_replay_by_key(
     # sim_hand_id, so Wave B's "replay last hand" fetches by the pair it holds.
     # Same build+correlate as /hand/{id}/replay. 404 on missing/not-owned/not-complete.
     try:
-        return sim_session.get_hand_replay_by_hand_no(
-            db, session_id, hand_no, owner_id=_OWNER_ID
-        )
+        return sim_session.get_hand_replay_by_hand_no(db, session_id, hand_no, owner_id=_OWNER_ID)
     except SessionNotFound as exc:
         raise HTTPException(status_code=404, detail="hand not found") from exc
 
 
 @router.get("/{session_id}/preflop-chart", response_model=PreflopChartView)
-async def preflop_chart(
-    session_id: str, db: Session = Depends(get_session)
-) -> PreflopChartView:
+async def preflop_chart(session_id: str, db: Session = Depends(get_session)) -> PreflopChartView:
     # Availability (not-hero-turn / postflop / unmappable / hand over) is a
     # 200-body concern; 404 stays SessionNotFound-only.
     try:
@@ -215,9 +207,7 @@ async def preflop_chart(
 
 
 @router.get("/{session_id}/postflop-chart", response_model=PostflopChartView)
-async def postflop_chart(
-    session_id: str, db: Session = Depends(get_session)
-) -> PostflopChartView:
+async def postflop_chart(session_id: str, db: Session = Depends(get_session)) -> PostflopChartView:
     # R5: the grader's action mix for the hero's current postflop decision.
     # Availability (not-hero-turn / preflop / unmappable / hand over) is a
     # 200-body concern; 404 stays SessionNotFound-only. Read-only: zero writes.
@@ -228,9 +218,7 @@ async def postflop_chart(
 
 
 @router.get("/{session_id}/reveal/{scope}", response_model=RevealView)
-async def reveal(
-    session_id: str, scope: str, db: Session = Depends(get_session)
-) -> RevealView:
+async def reveal(session_id: str, scope: str, db: Session = Depends(get_session)) -> RevealView:
     # R1: reveal the just-completed hand's villain cards after a hero fold.
     # Availability (capability off / unknown scope / hand not complete / hero
     # didn't fold) is a 200-body concern; 404 stays SessionNotFound-only.

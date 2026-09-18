@@ -1,0 +1,36 @@
+# Fast checks on commit; the full gate is `make check`. Install once with:
+#   backend/.venv/bin/pre-commit install
+# Local hooks only: nothing is fetched from the network, every tool is already in the repo.
+# Each tool runs from its own directory over its whole tree (they take well under a second),
+# so hook results always match `make check` rather than depending on which files are staged.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format --check (backend)
+        entry: bash -c 'cd backend && .venv/bin/ruff format --check .'
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+      - id: ruff-check
+        name: ruff check (backend)
+        entry: bash -c 'cd backend && .venv/bin/ruff check .'
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+      - id: biome-ci
+        name: biome ci (frontend)
+        entry: bash -c 'cd frontend && node_modules/.bin/biome ci src'
+        language: system
+        pass_filenames: false
+        files: ^frontend/(src/.*|biome\.jsonc)$
+      - id: trailing-whitespace
+        name: trailing whitespace (code)
+        entry: backend/.venv/bin/python -c "import sys;bad=[p for p in sys.argv[1:] if any(l.rstrip(b'\r\n')!=l.rstrip() for l in open(p,'rb'))];print('\n'.join(bad));sys.exit(bool(bad))"
+        language: system
+        files: \.(py|ts|tsx|css|json|jsonc|toml|ya?ml|sh)$
+      - id: end-of-file
+        name: end of file newline (code)
+        entry: backend/.venv/bin/python -c "import sys;bad=[p for p in sys.argv[1:] if (d:=open(p,'rb').read()) and not d.endswith(b'\n')];print('\n'.join(bad));sys.exit(bool(bad))"
+        language: system
+        files: \.(py|ts|tsx|css|json|jsonc|toml|ya?ml|sh)$

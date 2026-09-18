@@ -20,7 +20,6 @@ function fmtNet(net: number): string {
   return `${sign}${fmtBb(Math.abs(net))}`;
 }
 
-
 // Who a row is when the archetype labels are withheld (two-mode-simulate T7,
 // spec para 9). The identity must be STABLE across hands, because the whole
 // point of the 200 hands is to build a running read on one opponent from their
@@ -77,8 +76,7 @@ export default function SimLedger({
         </thead>
         <tbody>
           {ordered.map((seat) => {
-            const tone =
-              seat.net_bb > 0 ? "up" : seat.net_bb < 0 ? "down" : "even";
+            const tone = seat.net_bb > 0 ? "up" : seat.net_bb < 0 ? "down" : "even";
             return (
               <tr
                 key={seat.seat_index}
@@ -92,9 +90,7 @@ export default function SimLedger({
                       : "You"
                     : hiddenLabel(seat)}
                 </td>
-                <td className={"sim-led-net num sim-net-" + tone}>
-                  {fmtNet(seat.net_bb)}
-                </td>
+                <td className={"sim-led-net num sim-net-" + tone}>{fmtNet(seat.net_bb)}</td>
               </tr>
             );
           })}

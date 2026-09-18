@@ -74,16 +74,11 @@ def map_preflop(state: HandState, hero_seat: int) -> Spot | None:
     hero = state.seats[hero_seat]
     acts = _street_actions(state, Street.PREFLOP)
     # CHECK/BET never appear in a well-formed preflop line before the hero acts.
-    if any(
-        h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL)
-        for h in acts
-    ):
+    if any(h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL) for h in acts):
         return None
     # A live all-in villain (short blind, jammed open/3-bet/4-bet) is
     # off-script for every preflop family.
-    if any(
-        s.seat != hero_seat and s.status is PlayerStatus.ALLIN for s in state.seats
-    ):
+    if any(s.seat != hero_seat and s.status is PlayerStatus.ALLIN for s in state.seats):
         return None
     raises = [h for h in acts if h.action is ActionType.RAISE]
     calls = [h for h in acts if h.action is ActionType.CALL]
@@ -111,9 +106,7 @@ def map_preflop(state: HandState, hero_seat: int) -> Spot | None:
     return None  # 5-bet+ pots are out of scope
 
 
-def _map_vs_open(
-    state: HandState, hero_seat: int, raises: list[HistoryAction]
-) -> Spot | None:
+def _map_vs_open(state: HandState, hero_seat: int, raises: list[HistoryAction]) -> Spot | None:
     hero = state.seats[hero_seat]
     opener_pos = raises[0].position
     canonical_open = _OPEN_SIZE.get(opener_pos)
@@ -128,20 +121,14 @@ def _map_vs_open(
         2.0 - _EPS <= state.current_bet_bb <= _OVERSIZE_OPEN_CAP + _EPS
     ):
         return None
-    ctx = (
-        NodeContext.BLIND_DEFENSE
-        if hero.position in _BLIND_POSITIONS
-        else NodeContext.VS_RFI
-    )
+    ctx = NodeContext.BLIND_DEFENSE if hero.position in _BLIND_POSITIONS else NodeContext.VS_RFI
     entry = _find_entry(ctx, hero.position, opener_pos)
     if entry is None:
         return None
     return _preflop_spot(entry, state, hero_seat)
 
 
-def _map_vs_3bet(
-    state: HandState, hero_seat: int, raises: list[HistoryAction]
-) -> Spot | None:
+def _map_vs_3bet(state: HandState, hero_seat: int, raises: list[HistoryAction]) -> Spot | None:
     """Hero opened, exactly one villain 3-bet, everyone else folded (no calls
     reach here). Content covers only non-blind hero openers (UTG/CO/BTN), so a
     blind-opener shape can never look up an entry; the explicit blind gate also
@@ -171,9 +158,7 @@ def _map_vs_3bet(
     return _preflop_spot(entry, state, hero_seat)
 
 
-def _map_vs_4bet(
-    state: HandState, hero_seat: int, raises: list[HistoryAction]
-) -> Spot | None:
+def _map_vs_4bet(state: HandState, hero_seat: int, raises: list[HistoryAction]) -> Spot | None:
     """Villain opened, hero 3-bet, the SAME villain 4-bet (a cold 4-bet from a
     third seat is a different node with no content), everyone else folded.
     Content openers are all non-blind (UTG/CO/BTN), so the opener's history
@@ -221,9 +206,7 @@ def _find_limp_entry(pos: Position, limper_count: int):
     return None
 
 
-def _map_vs_limpers(
-    state: HandState, hero_seat: int, calls: list[HistoryAction]
-) -> Spot | None:
+def _map_vs_limpers(state: HandState, hero_seat: int, calls: list[HistoryAction]) -> Spot | None:
     """Unraised pot with only limps in front of the hero. The content keys the
     node by (hero position, limper COUNT) alone — build_spot canonically seats
     the limpers at _LIMP_SEATS[:count] — so WHICH non-blind seats limped is

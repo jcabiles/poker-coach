@@ -13,6 +13,7 @@ Three legs, per the ticket:
    not all exactly 100bb across the run, deterministic across two runs with
    the same seed, run_id carries `-bspread-`, manifest records mode+bounds.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -357,34 +358,18 @@ def _hash_manifest(manifest: dict) -> str:
 # added it left all six packs unauthored and the whole suite green.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
-_GOLDEN_MANIFEST_SHA256 = (
-    "7e42a6243deb532ebbf6eaca4c64347bbe79fc9c2cc9e9b4bde27ac8c52c0193"
-)
-_GOLDEN_HANDS_SHA256 = (
-    "948372e1cfdec7b0b014b4e706210bd08af54413836d0b8b36a5353c7633d2ae"
-)
-_GOLDEN_SEAT_OUTCOMES_SHA256 = (
-    "32b645c7bc3173c5eec90ee849abea800bcbebacae6a8a0422dfb413645cda69"
-)
-_GOLDEN_DECISIONS_SHA256 = (
-    "e7d41831ea14007b01922e4a8b74f4e8187b9847a3c87b3653f4998db6ebdb76"
-)
+_GOLDEN_MANIFEST_SHA256 = "7e42a6243deb532ebbf6eaca4c64347bbe79fc9c2cc9e9b4bde27ac8c52c0193"
+_GOLDEN_HANDS_SHA256 = "948372e1cfdec7b0b014b4e706210bd08af54413836d0b8b36a5353c7633d2ae"
+_GOLDEN_SEAT_OUTCOMES_SHA256 = "32b645c7bc3173c5eec90ee849abea800bcbebacae6a8a0422dfb413645cda69"
+_GOLDEN_DECISIONS_SHA256 = "e7d41831ea14007b01922e4a8b74f4e8187b9847a3c87b3653f4998db6ebdb76"
 
 
 def test_default_path_matches_pinned_golden_digests(tmp_path):
-    manifest = run_export(
-        n_hands=_GOLDEN_N_HANDS, seed=_GOLDEN_SEED, out_dir=tmp_path / "batch"
-    )
+    manifest = run_export(n_hands=_GOLDEN_N_HANDS, seed=_GOLDEN_SEED, out_dir=tmp_path / "batch")
     assert _hash_manifest(manifest) == _GOLDEN_MANIFEST_SHA256
     assert _hash_table(tmp_path / "batch" / "hands.parquet") == _GOLDEN_HANDS_SHA256
-    assert (
-        _hash_table(tmp_path / "batch" / "seat_outcomes.parquet")
-        == _GOLDEN_SEAT_OUTCOMES_SHA256
-    )
-    assert (
-        _hash_table(tmp_path / "batch" / "decisions.parquet")
-        == _GOLDEN_DECISIONS_SHA256
-    )
+    assert _hash_table(tmp_path / "batch" / "seat_outcomes.parquet") == _GOLDEN_SEAT_OUTCOMES_SHA256
+    assert _hash_table(tmp_path / "batch" / "decisions.parquet") == _GOLDEN_DECISIONS_SHA256
 
 
 # ---------------------------------------------------------------------------
@@ -405,9 +390,7 @@ def test_spread_run_stacks_within_bounds_and_not_all_100(tmp_path):
 def test_spread_run_run_id_and_manifest_fields(tmp_path):
     manifest = run_export(n_hands=3, seed=9, out_dir=tmp_path / "batch", buyin_spread=True)
     assert "-bspread-" in manifest["run_id"]
-    assert manifest["run_id"] == (
-        f"run-s9-n3-bspread-c{manifest['config_hash'][:12]}"
-    )
+    assert manifest["run_id"] == (f"run-s9-n3-bspread-c{manifest['config_hash'][:12]}")
     assert manifest["buyin_spread"] is True
     assert manifest["buyin_min_bb"] == 95.0
     assert manifest["buyin_max_bb"] == 105.0
@@ -448,10 +431,21 @@ def test_cli_buyin_spread_flag(tmp_path, monkeypatch):
     import sys
 
     out_dir = tmp_path / "out"
-    monkeypatch.setattr(sys, "argv", [
-        "export_analytics.py", "--hands", "3", "--seed", "5",
-        "--out", str(out_dir), "--skip-contract-test", "--buyin-spread",
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "export_analytics.py",
+            "--hands",
+            "3",
+            "--seed",
+            "5",
+            "--out",
+            str(out_dir),
+            "--skip-contract-test",
+            "--buyin-spread",
+        ],
+    )
     ea.main()
 
     manifest = json.loads((out_dir / "_SUCCESS").read_text())

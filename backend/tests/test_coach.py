@@ -77,9 +77,7 @@ def test_template_non_tautological_reasoning_none():
 
 def test_template_optimal_row_reasoning_none():
     text = _run(
-        TemplateCoach().explain(
-            _ctx(correctness="optimal", chosen_action="call", reasoning=None)
-        )
+        TemplateCoach().explain(_ctx(correctness="optimal", chosen_action="call", reasoning=None))
     )
     low = text.lower()
     assert "standard" in low

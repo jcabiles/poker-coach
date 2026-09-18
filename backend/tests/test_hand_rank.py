@@ -33,6 +33,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 # --- ordering: doc-08 cited relations -------------------------------------
 
+
 def test_pairs_are_monotonic_aa_down_to_22() -> None:
     pairs = [r + r for r in "AKQJT98765432"]
     for stronger, weaker in zip(pairs, pairs[1:], strict=False):
@@ -72,6 +73,7 @@ def test_extremes_and_bounds() -> None:
 
 # --- table integrity -------------------------------------------------------
 
+
 def test_equity_table_covers_exactly_the_169_hand_classes() -> None:
     assert set(_EQUITY_VS_RANDOM) == all_hands()
     assert len(_EQUITY_VS_RANDOM) == 169
@@ -85,13 +87,10 @@ def test_hand_rank_values_are_distinct_percentiles() -> None:
 
 # --- determinism across hash seeds -----------------------------------------
 
+
 def _hand_rank_snapshot(seed: str) -> dict[str, float]:
     """Import HAND_RANK in a fresh subprocess under a given PYTHONHASHSEED."""
-    code = (
-        "import json\n"
-        "from app.domain.hand_rank import HAND_RANK\n"
-        "print(json.dumps(HAND_RANK))\n"
-    )
+    code = "import json\nfrom app.domain.hand_rank import HAND_RANK\nprint(json.dumps(HAND_RANK))\n"
     env = {**os.environ, "PYTHONHASHSEED": seed}
     result = subprocess.run(
         [sys.executable, "-c", code],

@@ -173,8 +173,16 @@ def _continues_call(pack, rng, hole, board_n, pot_pre, stack, street) -> bool:
     """
     bet = round(_CONT_FRAC * pot_pre, 2)
     d = sample_postflop_decision(
-        pack, hole, board_n, [_lf(), _lc(bet), _lr(2 * bet, stack)],
-        pot_pre + bet, stack, 1, rng, current_bet_to=bet, street=street,
+        pack,
+        hole,
+        board_n,
+        [_lf(), _lc(bet), _lr(2 * bet, stack)],
+        pot_pre + bet,
+        stack,
+        1,
+        rng,
+        current_bet_to=bet,
+        street=street,
     )
     return d.action is ActionType.CALL
 
@@ -194,14 +202,16 @@ def arrival() -> _Arrival:
         # Turn range: flop arrivals that flat-call the flop c-bet.
         rng = random.Random(4001)
         turn = [
-            s for s in flop
+            s
+            for s in flop
             if _continues_call(pack, rng, s[0], s[1][:3], _POT_FLOP, _STACK_START, Street.FLOP)
         ]
         a.turn[persona] = turn
         # River range: turn arrivals that flat-call the turn c-bet.
         rng = random.Random(4002)
         river = [
-            s for s in turn
+            s
+            for s in turn
             if _continues_call(pack, rng, s[0], s[1][:4], a.pot_turn, a.stack_turn, Street.TURN)
         ]
         a.river[persona] = river
@@ -222,9 +232,18 @@ def _fold_curve(pack, spots, board_slice, pot_pre, stack, street, seed):
         rng = random.Random(seed + fi)
         folds = sum(
             sample_postflop_decision(
-                pack, hole, board[:board_slice], legal, pot, stack, 1, rng,
-                current_bet_to=to_call, street=street,
-            ).action is ActionType.FOLD
+                pack,
+                hole,
+                board[:board_slice],
+                legal,
+                pot,
+                stack,
+                1,
+                rng,
+                current_bet_to=to_call,
+                street=street,
+            ).action
+            is ActionType.FOLD
             for hole, board in spots
         )
         out[frac] = folds / len(spots) if spots else float("nan")
@@ -244,12 +263,22 @@ def fold_curves(arrival):
                 pack, arrival.flop[persona], 3, _POT_FLOP, _STACK_START, Street.FLOP, 20260721
             ),
             "turn": _fold_curve(
-                pack, arrival.turn[persona], 4, arrival.pot_turn, arrival.stack_turn,
-                Street.TURN, 5000,
+                pack,
+                arrival.turn[persona],
+                4,
+                arrival.pot_turn,
+                arrival.stack_turn,
+                Street.TURN,
+                5000,
             ),
             "river": _fold_curve(
-                pack, arrival.river[persona], 5, arrival.pot_river, arrival.stack_river,
-                Street.RIVER, 6000,
+                pack,
+                arrival.river[persona],
+                5,
+                arrival.pot_river,
+                arrival.stack_river,
+                Street.RIVER,
+                6000,
             ),
         }
     return curves
@@ -458,8 +487,10 @@ def test_t4_flop_report_only_rows(fold_curves, arrival, persona, frac, note):
     that loosens fish defence should re-measure it rather than assume it.
     """
     rate = fold_curves[persona]["flop"][frac]
-    print(f"REPORT-ONLY  {persona} flop {frac}×pot fold {rate:.5f} "
-          f"(N={_ARRIVAL_N}, n_arrival={len(arrival.flop[persona])}) — {note}")
+    print(
+        f"REPORT-ONLY  {persona} flop {frac}×pot fold {rate:.5f} "
+        f"(N={_ARRIVAL_N}, n_arrival={len(arrival.flop[persona])}) — {note}"
+    )
     assert 0.0 <= rate <= 1.0, (persona, frac, rate)
 
 
@@ -480,13 +511,15 @@ def print_curves() -> None:
         a.flop[persona] = flop
         rng = random.Random(4001)
         turn = [
-            s for s in flop
+            s
+            for s in flop
             if _continues_call(pack, rng, s[0], s[1][:3], _POT_FLOP, _STACK_START, Street.FLOP)
         ]
         a.turn[persona] = turn
         rng = random.Random(4002)
         a.river[persona] = [
-            s for s in turn
+            s
+            for s in turn
             if _continues_call(pack, rng, s[0], s[1][:4], a.pot_turn, a.stack_turn, Street.TURN)
         ]
     header = "  ".join(f"{f}x" for f in FLOP_FRACS)

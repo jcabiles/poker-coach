@@ -102,9 +102,7 @@ export function toggleReveal(
 
 /** True when `meta` still describes what the user is currently asking for. */
 function isCurrent(state: RevealState, meta: RevealRequestMeta): boolean {
-  return (
-    meta.handId === state.handId && meta.scope === state.scope && meta.gen === state.gen
-  );
+  return meta.handId === state.handId && meta.scope === state.scope && meta.gen === state.gen;
 }
 
 /**
@@ -130,10 +128,7 @@ export function applyRevealResponse(
  * simply stays face-down. Same identity guard, so a stale failure cannot clear a
  * newer request's pending flag.
  */
-export function applyRevealError(
-  state: RevealState,
-  meta: RevealRequestMeta,
-): RevealState {
+export function applyRevealError(state: RevealState, meta: RevealRequestMeta): RevealState {
   if (!isCurrent(state, meta)) return state;
   return { ...state, scope: null, bySeat: NO_SEATS, pending: false, unavailable: false };
 }

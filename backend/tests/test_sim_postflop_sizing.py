@@ -31,17 +31,21 @@ from app.services.sim_session import _hero_legal_actions, apply_hero_action
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, stacks: float = 100.0, seed: int = 1) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9)
 
 
 def _play(state: HandState, moves) -> HandState:
@@ -72,19 +76,13 @@ def _before(pos):
     return _SEAT_ORDER[: _SEAT_ORDER.index(pos)]
 
 
-def _turn_barrel_state(
-    hero_pos: Position, stacks: float = 100.0, seed: int = 1
-) -> HandState:
+def _turn_barrel_state(hero_pos: Position, stacks: float = 100.0, seed: int = 1) -> HandState:
     """Hero opens canonically, c-bets the flop 0.33 (called); BB checks turn."""
     osize = _OPEN_SIZE[hero_pos]
     state = _state(hero_pos, stacks=stacks, seed=seed)
     moves = [_fold(p) for p in _before(hero_pos) if p not in _BLINDS]
     moves.append((hero_pos, Decision(action=ActionType.RAISE, size_bb=osize)))
-    moves += [
-        _fold(p)
-        for p in _SEAT_ORDER[_SEAT_ORDER.index(hero_pos) + 1 :]
-        if p not in _BLINDS
-    ]
+    moves += [_fold(p) for p in _SEAT_ORDER[_SEAT_ORDER.index(hero_pos) + 1 :] if p not in _BLINDS]
     moves += [_fold(Position.SB), _call(Position.BB)]
     state = _play(state, moves)
     fp = round(2 * osize + 0.5, 2)
@@ -115,15 +113,22 @@ def _persist_hand(db: Session, state: HandState, sid: str = "sess-sps") -> str:
     for i in range(9):
         db.add(
             SimSeat(
-                session_id=session.id, seat_index=i, is_hero=i == HERO_SEAT,
+                session_id=session.id,
+                seat_index=i,
+                is_hero=i == HERO_SEAT,
                 persona_type=None if i == HERO_SEAT else "tag",
-                stack_bb=100.0, buyins_bb=100.0,
+                stack_bb=100.0,
+                buyins_bb=100.0,
             )
         )
     db.add(
         SimHand(
-            session_id=session.id, hand_no=1, button_seat=state.button_seat,
-            rng_seed="1", status="in_progress", state_json=state.model_dump_json(),
+            session_id=session.id,
+            hand_no=1,
+            button_seat=state.button_seat,
+            rng_seed="1",
+            status="in_progress",
+            state_json=state.model_dump_json(),
         )
     )
     db.commit()
@@ -145,9 +150,7 @@ def test_turn_barrel_bet_persists_sizing_correctness(db):
     from app.domain.postflop import grade_turn_barrel
 
     ungraded = grade_turn_barrel(spot, spot.hero_range, spot.villain_range, None)
-    bet_freqs = {
-        e.size_bb: e.frequency for e in ungraded.per_action if e.action == ActionType.BET
-    }
+    bet_freqs = {e.size_bb: e.frequency for e in ungraded.per_action if e.action == ActionType.BET}
     top_size = max(bet_freqs, key=lambda s: bet_freqs[s])
     assert bet_freqs[top_size] > 0.0, "seed 1 has a positive-merit turn barrel size"
     other_size = min(bet_freqs, key=lambda s: bet_freqs[s])
@@ -155,18 +158,14 @@ def test_turn_barrel_bet_persists_sizing_correctness(db):
 
     # Hand A: bet the higher-merit size -> OPTIMAL.
     sid_a = _persist_hand(db, _turn_barrel_state(Position.BTN), sid="sps-a")
-    asyncio.run(
-        apply_hero_action(db, sid_a, Decision(action=ActionType.BET, size_bb=top_size))
-    )
+    asyncio.run(apply_hero_action(db, sid_a, Decision(action=ActionType.BET, size_bb=top_size)))
     row_a = db.exec(select(SimDecision).where(SimDecision.session_id == sid_a)).all()[-1]
     assert row_a.street == "turn"
     assert row_a.sizing_correctness == "optimal"
 
     # Hand B (identical hand): bet the lower-merit size -> ACCEPTABLE.
     sid_b = _persist_hand(db, _turn_barrel_state(Position.BTN), sid="sps-b")
-    asyncio.run(
-        apply_hero_action(db, sid_b, Decision(action=ActionType.BET, size_bb=other_size))
-    )
+    asyncio.run(apply_hero_action(db, sid_b, Decision(action=ActionType.BET, size_bb=other_size)))
     row_b = db.exec(select(SimDecision).where(SimDecision.session_id == sid_b)).all()[-1]
     assert row_b.sizing_correctness == "acceptable"
 
@@ -265,11 +264,7 @@ def _vs_cbet_state(
     state = _state(Position.BB, stacks=stacks, seed=seed)
     moves = [_fold(p) for p in _before(opener) if p not in _BLINDS]
     moves.append(_raise_move(opener, osize))
-    moves += [
-        _fold(p)
-        for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :]
-        if p not in _BLINDS
-    ]
+    moves += [_fold(p) for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :] if p not in _BLINDS]
     moves += [_fold(Position.SB), _call(Position.BB)]
     state = _play(state, moves)
     fp = round(2 * osize + 0.5, 2)
@@ -289,27 +284,19 @@ def test_vs_cbet_raise_persists_sizing_correctness(db):
     assert legs == [4.5, 6.3]  # check_raise mults 2.5x/3.5x the 1.8 c-bet
 
     # Displayed == graded: the offered RAISE sizes ARE the mapped spot's legs.
-    offered = [
-        la.size_bb
-        for la in _hero_legal_actions(state)
-        if la.action is ActionType.RAISE
-    ]
+    offered = [la.size_bb for la in _hero_legal_actions(state) if la.action is ActionType.RAISE]
     assert offered == legs
 
     # Hand A: the small (dry-optimal) check-raise -> OPTIMAL persists.
     sid_a = _persist_hand(db, _vs_cbet_state(), sid="n4b-a")
-    asyncio.run(
-        apply_hero_action(db, sid_a, Decision(action=ActionType.RAISE, size_bb=4.5))
-    )
+    asyncio.run(apply_hero_action(db, sid_a, Decision(action=ActionType.RAISE, size_bb=4.5)))
     row_a = db.exec(select(SimDecision).where(SimDecision.session_id == sid_a)).all()[-1]
     assert row_a.street == "flop"
     assert row_a.sizing_correctness == "optimal"
 
     # Hand B (identical): the big check-raise -> ACCEPTABLE persists.
     sid_b = _persist_hand(db, _vs_cbet_state(), sid="n4b-b")
-    asyncio.run(
-        apply_hero_action(db, sid_b, Decision(action=ActionType.RAISE, size_bb=6.3))
-    )
+    asyncio.run(apply_hero_action(db, sid_b, Decision(action=ActionType.RAISE, size_bb=6.3)))
     row_b = db.exec(select(SimDecision).where(SimDecision.session_id == sid_b)).all()[-1]
     assert row_b.sizing_correctness == "acceptable"
 
@@ -325,20 +312,14 @@ def test_short_stack_facing_raise_parity():
     assert spot is not None
     legs = [la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE]
     assert legs == [4.5]
-    offered = [
-        la.size_bb
-        for la in _hero_legal_actions(short)
-        if la.action is ActionType.RAISE
-    ]
+    offered = [la.size_bb for la in _hero_legal_actions(short) if la.action is ActionType.RAISE]
     assert offered == [4.5]
 
     # Too shallow for even the small leg: mapper None -> display falls back to
     # the generic single engine RAISE (no fabricated two-size offer).
     too_shallow = _vs_cbet_state(stacks=6.9)
     assert map_decision_point(too_shallow, HERO_SEAT) is None
-    raises = [
-        la for la in _hero_legal_actions(too_shallow) if la.action is ActionType.RAISE
-    ]
+    raises = [la for la in _hero_legal_actions(too_shallow) if la.action is ActionType.RAISE]
     assert len(raises) == 1
 
 
@@ -354,11 +335,7 @@ def test_grid_size_cbet_display_grade_parity():
     state = _state(Position.BB, seed=39)
     moves = [_fold(p) for p in _before(opener) if p not in _BLINDS]
     moves.append((opener, Decision(action=ActionType.RAISE, size_bb=osize)))
-    moves += [
-        _fold(p)
-        for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :]
-        if p not in _BLINDS
-    ]
+    moves += [_fold(p) for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :] if p not in _BLINDS]
     moves += [_fold(Position.SB), _call(Position.BB)]
     state = _play(state, moves)
     fp = round(2 * osize + 0.5, 2)
@@ -372,11 +349,7 @@ def test_grid_size_cbet_display_grade_parity():
     assert call.min_bb == cbet  # TRUE faced size — never collapsed to 0.33-pot
     legs = [la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE]
     assert legs == [round(2.5 * cbet, 1), round(3.5 * cbet, 1)]
-    offered = [
-        la.size_bb
-        for la in _hero_legal_actions(state)
-        if la.action is ActionType.RAISE
-    ]
+    offered = [la.size_bb for la in _hero_legal_actions(state) if la.action is ActionType.RAISE]
     assert offered == legs  # displayed sizes ARE the graded legs
 
 
@@ -386,9 +359,7 @@ def test_grid_size_cbet_display_grade_parity():
 def test_spot_dims_persist_on_graded_and_unmappable(db):
     # Graded decision: all four dims populated from the mapped spot.
     sid = _persist_hand(db, _vs_cbet_state(), sid="n5-dims")
-    asyncio.run(
-        apply_hero_action(db, sid, Decision(action=ActionType.RAISE, size_bb=4.5))
-    )
+    asyncio.run(apply_hero_action(db, sid, Decision(action=ActionType.RAISE, size_bb=4.5)))
     row = db.exec(select(SimDecision).where(SimDecision.session_id == sid)).all()[-1]
     assert row.position == "BB"
     assert row.facing_position == "CO"
@@ -445,17 +416,11 @@ def test_mw_vs_cbet_persists_graded_decision_with_dims(db):
     legs = [la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE]
     assert len(legs) == 2  # two check-raise sizes offered at the 3-way node
     # displayed == graded: the hero offer reads the mapped spot's legs
-    offered = [
-        la.size_bb
-        for la in _hero_legal_actions(state)
-        if la.action is ActionType.RAISE
-    ]
+    offered = [la.size_bb for la in _hero_legal_actions(state) if la.action is ActionType.RAISE]
     assert offered == legs
 
     sid = _persist_hand(db, _mw_vs_cbet_state(), sid="n5-mw")
-    asyncio.run(
-        apply_hero_action(db, sid, Decision(action=ActionType.RAISE, size_bb=legs[0]))
-    )
+    asyncio.run(apply_hero_action(db, sid, Decision(action=ActionType.RAISE, size_bb=legs[0])))
     row = db.exec(select(SimDecision).where(SimDecision.session_id == sid)).all()[-1]
     assert row.correctness is not None  # graded, not "no baseline yet"
     assert row.players_in_pot == 3

@@ -10,13 +10,17 @@
     "preview": "vite preview",
     "gen:api": "openapi-typescript ./openapi.json -o src/api/schema.d.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "biome ci src",
+    "format": "biome format --write src",
+    "check": "biome check --write src"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.14",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

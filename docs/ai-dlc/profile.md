@@ -12,21 +12,35 @@ active:       bot-realism-flywheel
               # current slice: Two-mode Simulate — MERGED 2026-09-18, box unticked
               #   until the owner plays Challenge mode.
               # slice 3 (calldown): CLOSED 2026-09-18 on the owner's verdict.
-              # next: cleanup quality gates (docs/cleanup-project-brief.md slice 2).
+              # cleanup slice 2 (quality gates): BUILT 2026-09-18 on chore/quality-gates.
+              # next: cleanup slice 3 or 1 (docs/cleanup-project-brief.md).
               # paused: persona-realism (see its top banner)
 
 verify:
-  test:  ./scripts/verify.sh          # backend pytest + boot probe → "BACKEND VERIFY OK"
-  lint:  cd backend && ruff check .
-  build: cd frontend && npm run typecheck && npm run build
-  boot:  ./scripts/serve.sh start     # backend :8008 (health GET /api/v1/health) + vite :5173, background (or: poker-coach)
+  check: make check                   # THE gate — format check + lint + types + tests, both halves (CI runs the same)
+  test:  ./scripts/verify.sh          # leaf: backend pytest + boot probe → "BACKEND VERIFY OK" (never two at once)
+  lint:  cd backend && ruff check . && ruff format --check . ; cd frontend && npm run lint   # ruff + Biome
+  types: cd backend && PYTHONPATH=. .venv/bin/mypy app ; cd frontend && npm run typecheck
+  build: cd frontend && npm run build
+  boot:  ./scripts/serve.sh start     # backend :8008 (health GET /api/v1/health) + vite :7777, background (or: poker-coach)
+
+conventions:                          # golden-path file per kind of thing — imitate, don't invent
+  route:            backend/app/api/v1/simulate.py
+  schema:           backend/app/schemas/simulate.py
+  service:          backend/app/services/sim_session.py
+  domain provider:  backend/app/domain/providers/turn.py
+  migration:        backend/alembic/versions/0015_sim_session_mode.py
+  backend test:     backend/tests/test_two_mode_simulate_gate.py
+  react component:  frontend/src/components/simulate/SimGradingToggle.tsx
+  pure FE module:   frontend/src/components/simulate/handCount.ts (+ handCount.test.ts)
+  baselines:        BASELINE(YYYY-MM-DD) markers in backend/pyproject.toml [[tool.mypy.overrides]] and frontend/biome.jsonc
 
 hotspots:
   - frontend/src/styles/tokens.css    # design tokens — single owner per pass
   - frontend/src/styles/app.css       # all component CSS
   - frontend/src/App.tsx              # shell, hash routing, all view state
   - frontend/src/api/types.ts         # hand-maintained FE API types
-  - backend/app/services/grading.py   # grading orchestration
+  - backend/app/domain/grading.py     # grading orchestration (was mis-listed as services/grading.py until 2026-09-18)
   - backend/alembic/versions/         # migrations — sequential, never parallel-owned
 
 invariants:
@@ -49,20 +63,23 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 ## Resume
 
 updated:      2026-09-18
-commit:       branch `feat/two-mode-simulate` — pushed and merged 2026-09-18 (see git log)
-log-entry:    "2026-09-18 — Two-mode Simulate merged; slice 3 closed; next: quality gates"
-position:     **Two-mode Simulate is MERGED.** Fresh dual review (refuter + browser design
-              review) both APPROVE-WITH-FIXES; the four should-fix findings fixed or recorded
-              (ledger round 3). The slice's box stays unticked until the owner plays Challenge
-              mode. **Flywheel slice 3 (calldown) is CLOSED** on the owner's 2026-09-18 verdict,
-              which closes the improvement phase.
-merged:       feat/two-mode-simulate (12 build commits + this session's review fixes).
-awaiting John: (a) play Challenge mode to the hand-200 check, then tick the slice; (b) the
-              finale detection run needs vendor keys and a go-ahead (not scheduled); (c) two
-              theory-contract items open since 2026-08-24 (ledger finding B1, and §10.2 of the
-              git-excluded persona-realism audit).
-authorized:   Owner, 2026-09-18: merge this run's PRs once gates are green and a fresh reviewer
-              approves (spent for this branch); next slice = cleanup quality gates
-              (`docs/cleanup-project-brief.md` slice 2) with its new dev dependencies
-              pre-approved. Nothing else. Lapses at the end of the 2026-09-18 session.
-next action:  spec → dual review → tickets → build the quality-gates slice.
+commit:       branch `chore/quality-gates` (stacked on `feat/two-mode-simulate`); NEITHER PUSHED —
+              no GitHub token on this machine (gh is logged out); owner re-auths, then push + PR
+log-entry:    "2026-09-18 — Cleanup slice 2 built: `make check` is the gate"
+position:     Two branches complete and locally committed. (1) `feat/two-mode-simulate`: built
+              2026-08-27, fresh dual review 2026-09-18, fixes applied, gates green — merge
+              authorized by the owner, blocked only on push. (2) `chore/quality-gates`: cleanup
+              slice 2 built end to end; `make check` green on the worktree; fresh refuter review
+              at the fan-in (ledger build record). Flywheel slice 3 CLOSED 2026-09-18.
+merged:       nothing new this session (push blocked).
+awaiting John: (a) `gh auth login --hostname github.com --git-protocol https --insecure-storage
+              --with-token` in a real terminal, then any session can push both branches and open
+              the PRs (two-mode first, gates second); (b) play Challenge mode to the hand-200
+              check, then tick the slice; (c) three worktree dev-server processes on ports
+              8018/7778 the sandbox could not kill (see the session's final report).
+authorized:   Owner 2026-09-18: merge this run's PRs once gates are green and a fresh reviewer
+              approves — both branches satisfy that; the merge itself still needs the push.
+              Lapses at the end of the 2026-09-18 session.
+next action:  push both branches, open PRs, merge two-mode then gates; then cleanup slice 3
+              (code findings) or slice 1 (docs distillation, deletions owner-approved) via
+              `/ai-org:spec --auto-build`.

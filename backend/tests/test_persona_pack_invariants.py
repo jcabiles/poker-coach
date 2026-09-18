@@ -38,6 +38,7 @@ def packs() -> dict:
 
 # --- 1. postflop sizes stay on the grader's recognised grid ------------------
 
+
 def _check_grid(pack: PersonaPack) -> list[str]:
     """Authored postflop pot-fractions that hero's grader cannot recognise.
 
@@ -74,6 +75,7 @@ def test_grid_check_catches_an_off_grid_fraction(packs):
 
 # --- 1b. authored preflop sizes stay gradeable ------------------------------
 
+
 def _check_preflop_sizes(pack: PersonaPack) -> list[str]:
     """Authored preflop size-mix values that hero's grader would refuse.
 
@@ -99,11 +101,12 @@ def _check_preflop_sizes(pack: PersonaPack) -> list[str]:
     )
     violations = []
     for field, cap, label in caps:
-        for key in (getattr(pack.sizing, field) or {}):
+        for key in getattr(pack.sizing, field) or {}:
             if float(key) > cap + 1e-9:
                 violations.append(
                     f"{pack.persona}: {label} {key} exceeds the grading cap "
-                    f"{cap} — hero would see 'no baseline yet'")
+                    f"{cap} — hero would see 'no baseline yet'"
+                )
     # The seat table is the open mix in another shape and gets the same cap.
     # Reading only the flat field would let a per-seat 9bb open through the one
     # check that exists to stop it.
@@ -113,7 +116,8 @@ def _check_preflop_sizes(pack: PersonaPack) -> list[str]:
                 violations.append(
                     f"{pack.persona}: open bb {key} at {seat} exceeds the "
                     f"grading cap {gmp._OVERSIZE_OPEN_CAP} — hero would see "
-                    f"'no baseline yet'")
+                    f"'no baseline yet'"
+                )
     return violations
 
 
@@ -190,8 +194,7 @@ def test_a_regulars_open_never_exceeds_the_hero_3bet_lines_cap(packs):
     for name, pack in packs.items():
         if pack.sizing.open_bb > gmp._STD_OPEN_CAP + 1e-9:
             continue  # recreational: already outside, by design
-        too_big = [s for s in _authored_opens(pack, blinds=False)
-                   if s > gmp._STD_OPEN_CAP + 1e-9]
+        too_big = [s for s in _authored_opens(pack, blinds=False) if s > gmp._STD_OPEN_CAP + 1e-9]
         if too_big:
             offenders.append(f"{name}: {too_big} above {gmp._STD_OPEN_CAP}")
     assert not offenders, "\n".join(offenders)
@@ -220,6 +223,7 @@ def test_no_authored_seat_mix_plays_as_one_size(packs):
 
 # --- 2. no preflop mix is shadowed dead -------------------------------------
 
+
 def _check_shadowed_mixes(pack: PersonaPack) -> list[str]:
     """Mixes that can never be selected.
 
@@ -235,8 +239,10 @@ def _check_shadowed_mixes(pack: PersonaPack) -> list[str]:
         covered: set[str] = set()
         for index, mix in enumerate(node.mixes):
             combos = _combos(mix.combos)
-            where = (f"{pack.persona}: facing={node.facing} "
-                     f"positions={node.positions} role={node.role} mix[{index}]")
+            where = (
+                f"{pack.persona}: facing={node.facing} "
+                f"positions={node.positions} role={node.role} mix[{index}]"
+            )
             if not combos:
                 # An empty range expands to the empty set, so the mix can never
                 # match any hand — dead on arrival rather than shadowed.
@@ -263,6 +269,7 @@ def test_shadowing_check_catches_a_dead_mix(packs):
 
 
 # --- 3. every position is answered ------------------------------------------
+
 
 def _check_position_coverage(pack: PersonaPack) -> list[str]:
     """Positions that would fall through to the implicit-fold path.
@@ -295,15 +302,16 @@ def _check_position_coverage(pack: PersonaPack) -> list[str]:
     for facing in sorted({n.facing for n in pack.preflop}):
         for want_role in ("opener", "cold"):
             missing = [
-                position for position in sorted(ALL_POSITIONS, key=lambda p: p.value)
-                if not any(matches(n, facing, position, want_role)
-                           for n in pack.preflop)
+                position
+                for position in sorted(ALL_POSITIONS, key=lambda p: p.value)
+                if not any(matches(n, facing, position, want_role) for n in pack.preflop)
             ]
             if missing:
                 names = [p.value for p in missing]
                 violations.append(
                     f"{pack.persona}: facing={facing!r} role={want_role!r} has "
-                    f"no node for {names} — those seats fold 100% silently")
+                    f"no node for {names} — those seats fold 100% silently"
+                )
     return violations
 
 
@@ -317,9 +325,13 @@ def test_coverage_check_catches_a_dropped_seat(packs):
     no wildcard to catch it."""
     pack = packs["lag"].model_copy(deep=True)
     target = next(
-        (n for n in pack.preflop
-         if n.facing == "unopened" and n.positions and Position.BTN in n.positions),
-        None)
+        (
+            n
+            for n in pack.preflop
+            if n.facing == "unopened" and n.positions and Position.BTN in n.positions
+        ),
+        None,
+    )
     assert target is not None, "fixture assumption: lag has an explicit BTN open node"
     target.positions = [p for p in target.positions if p is not Position.BTN]
     violations = _check_position_coverage(pack)

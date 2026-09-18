@@ -26,17 +26,21 @@ from app.domain.table.grade_map import map_decision_point
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7, stacks: float = 100.0) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9)
 
 
 def _play(state: HandState, moves) -> HandState:
@@ -126,9 +130,15 @@ def test_mw_turn_and_river_map_on_continuation_line():
     state, _o, _c = _mw_preflop(opener, caller)
     fp = _flop_pot(opener)
     fbet = round(0.33 * fp, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(opener, fbet), _call(caller), _call(Position.BB),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(opener, fbet),
+            _call(caller),
+            _call(Position.BB),
+        ],
+    )
     turn_pot = round(fp + 3 * fbet, 2)
     tbet = round(0.5 * turn_pot, 1)
     state = _play(state, [_check(Position.BB), _bet(opener, tbet), _call(caller)])
@@ -158,7 +168,8 @@ def test_mw_signature_distinct_from_hu_and_stable():
     hu_like = spot.model_copy(
         update={
             "players": [
-                p if p.is_hero or p.position == spot.facing
+                p
+                if p.is_hero or p.position == spot.facing
                 else p.model_copy(update={"status": "folded"})
                 for p in spot.players
             ]
@@ -178,8 +189,13 @@ def test_mw_ranges_all_caller_pairs_present():
     from app.domain.table.grade_map_postflop import _mw_ranges
 
     order = [
-        Position.UTG, Position.UTG1, Position.UTG2, Position.LJ,
-        Position.HJ, Position.CO, Position.BTN,
+        Position.UTG,
+        Position.UTG1,
+        Position.UTG2,
+        Position.LJ,
+        Position.HJ,
+        Position.CO,
+        Position.BTN,
     ]
     for i, opener in enumerate(order[:-1]):
         for caller in order[i + 1 :]:
@@ -208,9 +224,7 @@ def test_recognized_fracs_map_to_res_e_buckets():
         assert set(pair) <= set(RECOGNIZED_BET_FRACS)
 
 
-@pytest.mark.parametrize(
-    "frac,bucket_name", [(0.5, "medium"), (1.0, "large"), (1.5, "overbet")]
-)
+@pytest.mark.parametrize("frac,bucket_name", [(0.5, "medium"), (1.0, "large"), (1.5, "overbet")])
 def test_mw_grid_size_cbet_maps_with_true_price(frac, bucket_name):
     # L4: persona-grid c-bet sizes beyond the hero pair (0.33/0.75) now map,
     # and the built spot carries the TRUE bet in its CALL leg + pot math — the
@@ -295,9 +309,15 @@ def test_four_way_hero_closes_now_maps():
     state = _play(state, moves)
     pot = round(4 * _OPEN_SIZE[opener] + 0.5, 2)
     cbet = round(0.33 * pot, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(opener, cbet), _call(Position.CO), _call(Position.BTN),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(opener, cbet),
+            _call(Position.CO),
+            _call(Position.BTN),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None and spot.node_context == [NodeContext.VS_CBET]
@@ -308,9 +328,14 @@ def test_caller_raise_stays_none():
     state, opener, caller = _mw_preflop()
     fp = _flop_pot(opener)
     cbet = round(0.33 * fp, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(opener, cbet), _raise_to(caller, round(3 * cbet, 1)),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(opener, cbet),
+            _raise_to(caller, round(3 * cbet, 1)),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     assert map_decision_point(state, HERO_SEAT) is None
 

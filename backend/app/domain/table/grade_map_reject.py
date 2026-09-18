@@ -175,7 +175,10 @@ def street_fail(reason: RejectReason) -> StreetResult:
     return StreetResult(None, reason)
 
 
-def map_fail(reason: RejectReason) -> MapResult:
+def map_fail(reason: RejectReason | None) -> MapResult:
+    """`Optional` because the `_map_*` twins forward a failing gate's
+    `reason` straight through; a failing gate always carries one, but only the
+    construction sites can show that, not the `GateResult` type."""
     return MapResult(None, reason)
 
 
@@ -270,7 +273,7 @@ def classify_with_evidence(state: HandState, hero_seat: int) -> Classification:
 #: the fallback. Deliberately derived from the enum so a new member cannot be
 #: silently omitted.
 _DEPTH_CONTEST: frozenset[RejectReason] = frozenset(
-    REASON_ORDER[REASON_ORDER.index(RejectReason.PREFLOP_SHAPE_UNGATED):]
+    REASON_ORDER[REASON_ORDER.index(RejectReason.PREFLOP_SHAPE_UNGATED) :]
 ) - {RejectReason.ALL_IN_IN_LINE, RejectReason.UNCLASSIFIED}
 
 
@@ -325,9 +328,7 @@ def _street_twins(gp: Any, street: Street) -> tuple:
     river mappers and come back with a confident, meaningless reason. The
     classifier's precondition says postflop; say so loudly (refuter LOW-3)."""
     if street is Street.PREFLOP:
-        raise ValueError(
-            "classify_postflop_rejection is POSTFLOP-only; got street=preflop"
-        )
+        raise ValueError("classify_postflop_rejection is POSTFLOP-only; got street=preflop")
     if street is Street.FLOP:
         return (
             gp._map_flop_cbet,

@@ -24,9 +24,7 @@ export default function SimGradingToggle({
       type="button"
       className="sim-watch"
       aria-pressed={coachMode}
-      aria-label={
-        coachMode ? "Grading feedback: coach mode" : "Grading feedback: real-play mode"
-      }
+      aria-label={coachMode ? "Grading feedback: coach mode" : "Grading feedback: real-play mode"}
       title="Coach mode shows live grading; Real play hides it (grading is still recorded)"
       onClick={() => onChange(!coachMode)}
     >

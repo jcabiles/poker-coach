@@ -121,8 +121,12 @@ def _self_play_bundle(
     # ways nobody authored, and a judge cannot tell those differences apart from
     # the ones the experiment meant to create.
     states = replay_run(
-        seed, PROBE_RUN_HANDS, persona_by_seat, packs,
-        keep=set(window.keys()), decision_fn=decision_fn,
+        seed,
+        PROBE_RUN_HANDS,
+        persona_by_seat,
+        packs,
+        keep=set(window.keys()),
+        decision_fn=decision_fn,
     )
     focus = assign_constrained_focus_seats(
         [seat_trajectories(states, window.keys())],
@@ -158,7 +162,9 @@ def build_human_stimulus(db_path: Path, deck_dir: Path) -> tuple[Bundle, dict]:
     }
     recorded = {
         rec["window_index"]: {
-            "start": rec["start"], "end": rec["end"], "valid": rec["valid"],
+            "start": rec["start"],
+            "end": rec["end"],
+            "valid": rec["valid"],
         }
         for rec in unblinding["human_windows"]["candidates"]
     }
@@ -216,18 +222,29 @@ def build_probe_deck(
 
     bundles = {
         "rule-breaker": _self_play_bundle(
-            "probe-rb/w0000", RULEBREAKER_SEED, packs, human_phases,
+            "probe-rb/w0000",
+            RULEBREAKER_SEED,
+            packs,
+            human_phases,
             decision_fn=rule_breaker_decision,
             provenance={"kind": "probe-rule-breaker", "seed": RULEBREAKER_SEED},
         ),
         "t1-control": _self_play_bundle(
-            "probe-t1/w0000", T1_SEED, validated.packs, human_phases,
+            "probe-t1/w0000",
+            T1_SEED,
+            validated.packs,
+            human_phases,
             provenance={
-                "kind": "probe-t1", "seed": T1_SEED, "config_hash": validated.config_hash,
+                "kind": "probe-t1",
+                "seed": T1_SEED,
+                "config_hash": validated.config_hash,
             },
         ),
         "production": _self_play_bundle(
-            "probe-prod/w0000", PRODUCTION_SEED, packs, human_phases,
+            "probe-prod/w0000",
+            PRODUCTION_SEED,
+            packs,
+            human_phases,
             provenance={"kind": "probe-production", "seed": PRODUCTION_SEED},
         ),
         "human-anchor": human_bundle,
@@ -258,9 +275,7 @@ def build_probe_deck(
 
     probe_deck = out_root / "deck"
     probe_deck.mkdir(parents=True, exist_ok=True)
-    write_presentation_manifest(
-        probe_deck / "presentation.json", records, forbidden, judge_slots=0
-    )
+    write_presentation_manifest(probe_deck / "presentation.json", records, forbidden, judge_slots=0)
     (out_root / "probe_key.json").write_text(
         json.dumps({"answer_key": answer_key, "human_meta": human_meta}, indent=2)
     )

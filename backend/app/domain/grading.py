@@ -254,11 +254,9 @@ def grade(spot: Spot, entry: Entry | None, decision: Decision | None) -> Evaluat
     sizing_correctness: Correctness | None = None
     raise_evals = [e for e in evals if e.action == ActionType.RAISE]
     if decision.action == ActionType.RAISE and len(raise_evals) >= 2 and ce is not None:
-        smallest = min(raise_evals, key=lambda e: (e.size_bb or 0.0))
+        smallest = min(raise_evals, key=lambda e: e.size_bb or 0.0)
         matched_recommended = (ce.size_bb or 0.0) == (smallest.size_bb or 0.0)
-        sizing_correctness = (
-            Correctness.OPTIMAL if matched_recommended else Correctness.ACCEPTABLE
-        )
+        sizing_correctness = Correctness.OPTIMAL if matched_recommended else Correctness.ACCEPTABLE
 
     if decision.action == top:
         correctness = Correctness.OPTIMAL

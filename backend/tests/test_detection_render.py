@@ -95,10 +95,21 @@ def hand_side_pot() -> HandState:
         BUTTON,
         stacks,
         [
-            raise_to(12.0), FOLD, FOLD, CALL, FOLD, FOLD, CALL, FOLD, FOLD,  # preflop
-            bet(15.0), CALL,  # flop
-            CHECK, CHECK,  # turn
-            CHECK, CHECK,  # river
+            raise_to(12.0),
+            FOLD,
+            FOLD,
+            CALL,
+            FOLD,
+            FOLD,
+            CALL,
+            FOLD,
+            FOLD,  # preflop
+            bet(15.0),
+            CALL,  # flop
+            CHECK,
+            CHECK,  # turn
+            CHECK,
+            CHECK,  # river
         ],
     )
 
@@ -110,10 +121,24 @@ def hand_multiway_showdown() -> HandState:
         BUTTON,
         FLAT,
         [
-            CALL, FOLD, FOLD, CALL, FOLD, FOLD, FOLD, FOLD, CHECK,  # preflop
-            CHECK, CHECK, CHECK,  # flop
-            CHECK, CHECK, CHECK,  # turn
-            CHECK, CHECK, CHECK,  # river
+            CALL,
+            FOLD,
+            FOLD,
+            CALL,
+            FOLD,
+            FOLD,
+            FOLD,
+            FOLD,
+            CHECK,  # preflop
+            CHECK,
+            CHECK,
+            CHECK,  # flop
+            CHECK,
+            CHECK,
+            CHECK,  # turn
+            CHECK,
+            CHECK,
+            CHECK,  # river
         ],
     )
 
@@ -125,10 +150,21 @@ def hand_no_showdown_river() -> HandState:
         BUTTON,
         FLAT,
         [
-            raise_to(3.0), FOLD, FOLD, CALL, FOLD, FOLD, FOLD, FOLD, FOLD,  # preflop
-            bet(4.0), CALL,  # flop
-            bet(9.0), CALL,  # turn
-            bet(25.0), FOLD,  # river
+            raise_to(3.0),
+            FOLD,
+            FOLD,
+            CALL,
+            FOLD,
+            FOLD,
+            FOLD,
+            FOLD,
+            FOLD,  # preflop
+            bet(4.0),
+            CALL,  # flop
+            bet(9.0),
+            CALL,  # turn
+            bet(25.0),
+            FOLD,  # river
         ],
     )
 
@@ -155,9 +191,7 @@ SEAT_ID_MAP = {
 
 
 def render_one(state: HandState, focus_seat: int) -> str:
-    return render_bundle(
-        [from_bot(state, focus_seat)], SEAT_ID_MAP[focus_seat], SEAT_ID_MAP
-    )
+    return render_bundle([from_bot(state, focus_seat)], SEAT_ID_MAP[focus_seat], SEAT_ID_MAP)
 
 
 # --- 1. cross-source identity (the load-bearing test) -----------------------
@@ -174,9 +208,7 @@ def test_cross_source_bytes_identical(name):
     bot = from_bot(state, focus)
     assert human == bot, f"{name}: canonical records diverge across sources"
     opaque = SEAT_ID_MAP[focus]
-    assert render_bundle([human], opaque, SEAT_ID_MAP) == render_bundle(
-        [bot], opaque, SEAT_ID_MAP
-    )
+    assert render_bundle([human], opaque, SEAT_ID_MAP) == render_bundle([bot], opaque, SEAT_ID_MAP)
 
 
 def test_cross_source_identical_for_a_whole_bundle():
@@ -232,9 +264,7 @@ def real_bot_hands(seed: int = 905, n: int = REAL_HANDS) -> list[HandState]:
         )
         while not state.hand_over:
             seat = state.to_act_seat
-            state = apply(
-                state, bot_decision(state, seat, packs[persona_by_seat[seat]], rng)
-            )
+            state = apply(state, bot_decision(state, seat, packs[persona_by_seat[seat]], rng))
         states.append(state)
     return states
 
@@ -427,8 +457,7 @@ def test_leak_check_clean_on_a_full_bundle_with_forbidden_tokens_supplied():
         ("### Hand 1\nSeat 4 (BTN) folds", "raw seat index"),
         ("### Hand 1\nrun-s42-n1200-c0123456789ab", "run id"),
         (
-            "### Hand 1\n"
-            "3a64601cbe060373d06a93fd7cd285bd6b0d47b58b23c53ad2e1031ef088b3f8",
+            "### Hand 1\n3a64601cbe060373d06a93fd7cd285bd6b0d47b58b23c53ad2e1031ef088b3f8",
             "config-hash-like token",
         ),
         ("### Hand 1\nsession 9f2c", "session metadata"),
@@ -451,9 +480,7 @@ def test_leak_check_catches_caller_supplied_forbidden_tokens():
 
 
 def test_leak_check_allows_local_indices_up_to_the_bundle_size():
-    text = "\n".join(
-        f"### Hand {i}\nP1 folds" for i in range(1, MAX_LOCAL_HAND_INDEX + 1)
-    )
+    text = "\n".join(f"### Hand {i}\nP1 folds" for i in range(1, MAX_LOCAL_HAND_INDEX + 1))
     assert leak_check(text) == []
 
 
@@ -801,13 +828,9 @@ def test_one_cent_seat_is_not_labelled_all_in():
     with a cent behind is not all-in and must not read as such."""
     state = hand_one_cent_behind()
     hand = from_bot(state, 5)
-    bb_call = next(
-        a for a in hand.actions if a.seat == 5 and a.action == ActionType.CALL.value
-    )
+    bb_call = next(a for a in hand.actions if a.seat == 5 and a.action == ActionType.CALL.value)
     assert not bb_call.all_in
-    utg_jam = next(
-        a for a in hand.actions if a.seat == 6 and a.action == ActionType.RAISE.value
-    )
+    utg_jam = next(a for a in hand.actions if a.seat == 6 and a.action == ActionType.RAISE.value)
     assert utg_jam.all_in  # the genuinely all-in seat still reads all-in
     text = render_one(state, 5)
     assert "(all-in)" in text  # UTG's jam

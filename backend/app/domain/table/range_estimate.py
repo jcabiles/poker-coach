@@ -250,7 +250,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     # derivation is postflop-only and returns 0 there.
                     aggressor_bet_prev_street=street_aggressor is not None
                     and aggressor_barrel_run(
-                        history.actions[:i],  # type: ignore[arg-type] — HistoryAction-shaped
+                        history.actions[:i],  # type: ignore[arg-type]  # HistoryAction-shaped
                         street,
                         street_aggressor,
                     )
@@ -414,7 +414,7 @@ def _postflop_action_dist(
         ctx.pot_bb,
         ctx.stack_bb,
         ctx.opponents,
-        cap,  # type: ignore[arg-type] — duck-typed capture rng
+        cap,  # type: ignore[arg-type]  # duck-typed capture rng
         current_bet_to=ctx.current_bet_to,
         street=ctx.street,
         latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
@@ -469,9 +469,7 @@ def estimate_range(
             for combo in live:
                 cls = hole_cards_to_class(*combo)
                 if cls not in factor_by_class:
-                    mix = _preflop_mix(
-                        pack, ctx.position, ctx.facing, cls, is_opener=ctx.is_opener
-                    )
+                    mix = _preflop_mix(pack, ctx.position, ctx.facing, cls, is_opener=ctx.is_opener)
                     factor_by_class[cls] = _preflop_observed_prob(mix, ctx.kinds, ctx.observed)
                 weights[combo] *= factor_by_class[cls]
         else:

@@ -99,8 +99,7 @@
   border: 1px solid var(--primary);
   border-radius: var(--radius-pill);
   background:
-    radial-gradient(120% 140% at 50% 0%, var(--gold-glow), transparent 70%),
-    var(--surface-2);
+    radial-gradient(120% 140% at 50% 0%, var(--gold-glow), transparent 70%), var(--surface-2);
   box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
@@ -203,8 +202,7 @@
   position: relative;
   background:
     radial-gradient(120% 90% at 50% 26%, var(--gold-glow), transparent 60%),
-    radial-gradient(90% 80% at 50% 46%, var(--page-glow), transparent 72%),
-    var(--stage-bg);
+    radial-gradient(90% 80% at 50% 46%, var(--page-glow), transparent 72%), var(--stage-bg);
   border: 1px solid color-mix(in srgb, var(--felt-text) 10%, transparent);
   border-radius: calc(var(--radius) * 1.8);
   /* Zero vertical padding — the felt-staged's own (trimmed) inset supplies the
@@ -247,8 +245,7 @@
       color-mix(in srgb, var(--felt-text) 6%, transparent),
       transparent 62%
     ),
-    radial-gradient(140% 130% at 50% 45%, transparent 55%, var(--felt-chip-bg) 100%),
-    var(--felt);
+    radial-gradient(140% 130% at 50% 45%, transparent 55%, var(--felt-chip-bg) 100%), var(--felt);
   color: var(--felt-text);
   border-radius: calc(var(--radius) * 2); /* generous table curve — 2× the lg step */
   padding: var(--space-4) var(--space-6);
@@ -459,11 +456,7 @@
 .hero-ring {
   padding: var(--space-1);
   border-radius: var(--radius-md);
-  background: radial-gradient(
-    circle at 50% 0%,
-    var(--gold-glow),
-    transparent 72%
-  );
+  background: radial-gradient(circle at 50% 0%, var(--gold-glow), transparent 72%);
 }
 .heroseat .herometa {
   margin-top: var(--space-1);
@@ -1010,8 +1003,16 @@ kbd {
   margin: var(--space-4) 0 0;
   background:
     /* top-left bracket: a horizontal + vertical gilt bar meeting at the inset */
-    linear-gradient(color-mix(in srgb, var(--primary) 70%, transparent), color-mix(in srgb, var(--primary) 70%, transparent)) var(--space-2) var(--space-2) / var(--space-4) 1px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--primary) 70%, transparent), color-mix(in srgb, var(--primary) 70%, transparent)) var(--space-2) var(--space-2) / 1px var(--space-4) no-repeat,
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 70%, transparent),
+      color-mix(in srgb, var(--primary) 70%, transparent)
+    )
+    var(--space-2) var(--space-2) / var(--space-4) 1px no-repeat,
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 70%, transparent),
+      color-mix(in srgb, var(--primary) 70%, transparent)
+    )
+    var(--space-2) var(--space-2) / 1px var(--space-4) no-repeat,
     linear-gradient(180deg, var(--gold-glow), transparent 40%),
     var(--surface);
   border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
@@ -1120,8 +1121,16 @@ kbd {
   position: relative;
   background:
     /* top-left bracket: horizontal + vertical gilt bar meeting at the inset */
-    linear-gradient(color-mix(in srgb, var(--primary) 70%, transparent), color-mix(in srgb, var(--primary) 70%, transparent)) var(--space-2) var(--space-2) / var(--space-4) 1px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--primary) 70%, transparent), color-mix(in srgb, var(--primary) 70%, transparent)) var(--space-2) var(--space-2) / 1px var(--space-4) no-repeat,
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 70%, transparent),
+      color-mix(in srgb, var(--primary) 70%, transparent)
+    )
+    var(--space-2) var(--space-2) / var(--space-4) 1px no-repeat,
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 70%, transparent),
+      color-mix(in srgb, var(--primary) 70%, transparent)
+    )
+    var(--space-2) var(--space-2) / 1px var(--space-4) no-repeat,
     linear-gradient(180deg, var(--gold-glow), transparent 40%),
     var(--surface-2);
   border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border));
@@ -1460,8 +1469,7 @@ kbd {
   align-items: stretch;
   flex-wrap: nowrap;
   background:
-    radial-gradient(140% 180% at 12% -40%, var(--gold-glow), transparent 62%),
-    var(--surface);
+    radial-gradient(140% 180% at 12% -40%, var(--gold-glow), transparent 62%), var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-panel);
@@ -1575,12 +1583,27 @@ kbd {
    (`.cell.sample.action-*`, no children, so the flat background applies
    directly). Actual grid cells color their `.cell-segment` children instead
    (see N5 proportional-mix rules above `.cell.hero`). */
-.cell.action-raise { background: var(--act-raise); color: var(--act-on); }
-.cell.action-call { background: var(--act-call); color: var(--act-on); }
-.cell.action-fold { background: var(--act-fold); color: var(--act-on); }
-.cell-segment.action-raise { background: var(--act-raise); }
-.cell-segment.action-call { background: var(--act-call); }
-.cell-segment.action-fold { background: var(--act-fold); }
+.cell.action-raise {
+  background: var(--act-raise);
+  color: var(--act-on);
+}
+.cell.action-call {
+  background: var(--act-call);
+  color: var(--act-on);
+}
+.cell.action-fold {
+  background: var(--act-fold);
+  color: var(--act-on);
+}
+.cell-segment.action-raise {
+  background: var(--act-raise);
+}
+.cell-segment.action-call {
+  background: var(--act-call);
+}
+.cell-segment.action-fold {
+  background: var(--act-fold);
+}
 /* (.cell.hero's marker lives with the grid rules above — ::after ring,
    hazard-7 fix; the old `outline` version is gone on purpose. The legend's
    .lgi layout lives with the .gridlegend block above.) */
@@ -1656,8 +1679,16 @@ kbd {
   position: relative;
   margin-top: var(--space-4);
   background:
-    linear-gradient(color-mix(in srgb, var(--primary) 60%, transparent), color-mix(in srgb, var(--primary) 60%, transparent)) var(--space-2) var(--space-2) / var(--space-4) 1px no-repeat,
-    linear-gradient(color-mix(in srgb, var(--primary) 60%, transparent), color-mix(in srgb, var(--primary) 60%, transparent)) var(--space-2) var(--space-2) / 1px var(--space-4) no-repeat,
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 60%, transparent),
+      color-mix(in srgb, var(--primary) 60%, transparent)
+    )
+    var(--space-2) var(--space-2) / var(--space-4) 1px no-repeat,
+    linear-gradient(
+      color-mix(in srgb, var(--primary) 60%, transparent),
+      color-mix(in srgb, var(--primary) 60%, transparent)
+    )
+    var(--space-2) var(--space-2) / 1px var(--space-4) no-repeat,
     linear-gradient(180deg, var(--gold-glow), transparent 40%),
     var(--surface);
   border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--border));
@@ -1935,8 +1966,7 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background:
-    radial-gradient(120% 160% at 100% 0%, var(--gold-glow), transparent 60%),
-    var(--surface-2);
+    radial-gradient(120% 160% at 100% 0%, var(--gold-glow), transparent 60%), var(--surface-2);
   box-shadow: var(--shadow-panel);
 }
 .elw-body {
@@ -2833,11 +2863,7 @@ kbd {
   font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--primary-text);
-  background: linear-gradient(
-    180deg,
-    var(--gold-bright),
-    var(--primary) 70%
-  );
+  background: linear-gradient(180deg, var(--gold-bright), var(--primary) 70%);
   border-radius: var(--radius-pill);
   padding: 0 var(--space-2);
   box-shadow:
@@ -3425,7 +3451,9 @@ kbd {
   font-weight: 600;
   color: var(--muted);
   background: transparent;
-  transition: color var(--dur-1) var(--ease-1), background var(--dur-1) var(--ease-1);
+  transition:
+    color var(--dur-1) var(--ease-1),
+    background var(--dur-1) var(--ease-1);
 }
 .sim-speed-opt:hover .sim-speed-face {
   color: var(--text);
@@ -3479,7 +3507,9 @@ kbd {
   font-weight: 600;
   color: var(--muted);
   background: transparent;
-  transition: color var(--dur-1) var(--ease-1), background var(--dur-1) var(--ease-1);
+  transition:
+    color var(--dur-1) var(--ease-1),
+    background var(--dur-1) var(--ease-1);
 }
 .sim-watch:hover .sim-watch-face {
   color: var(--text);
@@ -4404,8 +4434,7 @@ kbd {
 .dash-kpi-primary {
   border-top: 3px solid var(--primary);
   background:
-    radial-gradient(120% 140% at 100% 0%, var(--gold-glow), transparent 60%),
-    var(--surface);
+    radial-gradient(120% 140% at 100% 0%, var(--gold-glow), transparent 60%), var(--surface);
   box-shadow: var(--shadow-card);
 }
 .dash-kpi-secondary {
@@ -4525,11 +4554,7 @@ kbd {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(
-    90deg,
-    var(--primary),
-    var(--gold-bright)
-  );
+  background: linear-gradient(90deg, var(--primary), var(--gold-bright));
 }
 /* Figure trio — Good / Optimal / EV-lost as small labelled mono numerals. */
 .dash-street-rates {
@@ -5140,11 +5165,7 @@ kbd {
 }
 .hr-rail-seg.on {
   border-color: color-mix(in srgb, var(--primary) 78%, var(--stage-bg));
-  background: linear-gradient(
-    180deg,
-    var(--gold-bright),
-    var(--primary) 70%
-  );
+  background: linear-gradient(180deg, var(--gold-bright), var(--primary) 70%);
 }
 .hr-rail-label {
   font-family: var(--font-display);
@@ -5802,8 +5823,7 @@ kbd {
    elevation step up, with the gilt hairline. */
 .smc-room-challenge {
   background:
-    radial-gradient(120% 150% at 100% 0%, var(--gold-glow), transparent 60%),
-    var(--surface);
+    radial-gradient(120% 150% at 100% 0%, var(--gold-glow), transparent 60%), var(--surface);
   /* Same 3:1 obligation, kept in the room's gilt hue. */
   border-color: color-mix(in srgb, var(--primary) 88%, var(--border));
   box-shadow: var(--shadow-card);

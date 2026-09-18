@@ -231,9 +231,7 @@ def build_spot(
         else:
             legal = [
                 LegalAction(action=ActionType.FOLD),
-                LegalAction(
-                    action=ActionType.CALL, min_bb=round(1.0 - _posted(entry.position), 2)
-                ),
+                LegalAction(action=ActionType.CALL, min_bb=round(1.0 - _posted(entry.position), 2)),
                 LegalAction(action=ActionType.RAISE, min_bb=entry.sizing_bb or 5.0, max_bb=eff_bb),
             ]
     elif ctx == NodeContext.VS_3BET:
@@ -438,9 +436,7 @@ def build_cbet_spot(
         caller_stack=remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
 
     return Spot(
         game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
@@ -515,9 +511,7 @@ def build_vs_cbet_spot(
         caller_stack=hero_remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
     history.append(
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet)
     )
@@ -605,9 +599,7 @@ def build_check_raise_spot(
         caller_stack=villain_remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
     history += [
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
         HistoryAction(
@@ -689,9 +681,7 @@ def build_turn_barrel_spot(
         caller_stack=remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
     history += [
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
         HistoryAction(street=Street.FLOP, position=caller, action=ActionType.CALL, amount_bb=cbet),
@@ -768,9 +758,7 @@ def build_vs_turn_bet_spot(
         caller_stack=hero_remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
     history += [
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
         HistoryAction(street=Street.FLOP, position=caller, action=ActionType.CALL, amount_bb=cbet),
@@ -854,18 +842,14 @@ def build_river_barrel_spot(
         caller_stack=remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
     history += [
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
         HistoryAction(street=Street.FLOP, position=caller, action=ActionType.CALL, amount_bb=cbet),
         HistoryAction(street=Street.TURN, position=caller, action=ActionType.CHECK, amount_bb=0.0),
         HistoryAction(street=Street.TURN, position=opener, action=ActionType.BET, amount_bb=tbet),
         HistoryAction(street=Street.TURN, position=caller, action=ActionType.CALL, amount_bb=tbet),
-        HistoryAction(
-            street=Street.RIVER, position=caller, action=ActionType.CHECK, amount_bb=0.0
-        ),
+        HistoryAction(street=Street.RIVER, position=caller, action=ActionType.CHECK, amount_bb=0.0),
     ]
 
     return Spot(
@@ -947,18 +931,14 @@ def build_vs_river_bet_spot(
         caller_stack=hero_remaining,
         eff_bb=eff_bb,
     )
-    players = _multiway_seats(
-        players, players_in_pot=players_in_pot, opener=opener, caller=caller
-    )
+    players = _multiway_seats(players, players_in_pot=players_in_pot, opener=opener, caller=caller)
     history += [
         HistoryAction(street=Street.FLOP, position=opener, action=ActionType.BET, amount_bb=cbet),
         HistoryAction(street=Street.FLOP, position=caller, action=ActionType.CALL, amount_bb=cbet),
         HistoryAction(street=Street.TURN, position=caller, action=ActionType.CHECK, amount_bb=0.0),
         HistoryAction(street=Street.TURN, position=opener, action=ActionType.BET, amount_bb=tbet),
         HistoryAction(street=Street.TURN, position=caller, action=ActionType.CALL, amount_bb=tbet),
-        HistoryAction(
-            street=Street.RIVER, position=caller, action=ActionType.CHECK, amount_bb=0.0
-        ),
+        HistoryAction(street=Street.RIVER, position=caller, action=ActionType.CHECK, amount_bb=0.0),
         HistoryAction(street=Street.RIVER, position=opener, action=ActionType.BET, amount_bb=rbet),
     ]
 

@@ -83,11 +83,7 @@ def _node_key(persona: str, node) -> tuple[str, str, str]:
     silently dedupe against) the other stratum's. The role rides in the
     position key as a `@role` suffix, which leaves every UNTAGGED node's key —
     i.e. every entry frozen in the inventory below — byte-identical."""
-    poskey = (
-        "*"
-        if node.positions is None
-        else "/".join(sorted(p.value for p in node.positions))
-    )
+    poskey = "*" if node.positions is None else "/".join(sorted(p.value for p in node.positions))
     if node.role is not None:
         poskey = f"{poskey}@{node.role}"
     return (persona, node.facing, poskey)
@@ -123,8 +119,7 @@ def _scan_packs():
                 missing_stronger = tuple(
                     cls
                     for idx, cls in enumerate(ordered)
-                    if cls not in played
-                    and any(c in played for c in ordered[idx + 1 :])
+                    if cls not in played and any(c in played for c in ordered[idx + 1 :])
                 )
                 if missing_stronger:
                     gaps.add(key + (rname, missing_stronger))
@@ -137,9 +132,7 @@ def _scan_packs():
                 for act in sorted(a for a, w in nonfold.items() if w >= peak - 1e-9):
                     w = nonfold[act]
                     if act in prev_weight and w > prev_weight[act] + 1e-9:
-                        interleave.add(
-                            key + (_mix_id(mix), act, prev_weight[act], w)
-                        )
+                        interleave.add(key + (_mix_id(mix), act, prev_weight[act], w))
                     prev_weight[act] = w
     return gaps, inert, interleave
 

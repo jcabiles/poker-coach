@@ -111,6 +111,7 @@ def _draw_buyin_targets(hand_seed: int) -> list[float]:
     rng = random.Random(hand_seed ^ 1)
     return [rng.randint(lo, hi) / 100 for _ in range(9)]
 
+
 # Default lineup mirrors the persona test harness: the 6 personas in sorted
 # order, wrapped around 9 seats. The button rotates hand-by-hand so every
 # persona plays every position.
@@ -132,13 +133,11 @@ def _preflop_facing_label(action_history) -> str:
     grouping key, not a policy input.
     """
     raises = [
-        h for h in action_history
-        if h.street is Street.PREFLOP and h.action == ActionType.RAISE
+        h for h in action_history if h.street is Street.PREFLOP and h.action == ActionType.RAISE
     ]
     if not raises:
         limped = any(
-            h.action == ActionType.CALL for h in action_history
-            if h.street is Street.PREFLOP
+            h.action == ActionType.CALL for h in action_history if h.street is Street.PREFLOP
         )
         return "vs_limpers" if limped else "unopened"
     return "vs_raise" if len(raises) == 1 else "vs_3bet_plus"
@@ -169,16 +168,23 @@ def _git_sha() -> str:
     try:
         return subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
             cwd=Path(__file__).resolve().parent,
         ).stdout.strip()
     except Exception:
         return "unknown"
 
 
-def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
-                  persona_by_seat: dict[int, str], packs,
-                  stacks_bb: list[float] | None = None) -> dict:
+def play_one_hand(
+    rng: random.Random,
+    hand_seed: int,
+    button_seat: int,
+    persona_by_seat: dict[int, str],
+    packs,
+    stacks_bb: list[float] | None = None,
+) -> dict:
     """One full production-policy playout. Returns the raw rows for all
     three tables. Deliberately thin: derivations that SQL can do (facing,
     aggression, VPIP flags...) belong downstream in dbt, not here.
@@ -187,23 +193,30 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
     the flat 100bb reset (F1 default path); `run_export`'s `--buyin-spread`
     path supplies `_draw_buyin_targets(hand_seed)` instead."""
     stacks_bb = stacks_bb if stacks_bb is not None else [STACKS_BB] * 9
-    state = start_hand(deal_hand(random.Random(hand_seed)), button_seat,
-                       stacks_bb=stacks_bb)
+    state = start_hand(deal_hand(random.Random(hand_seed)), button_seat, stacks_bb=stacks_bb)
     decision_rows: list[dict] = []
     seq = 0
     # Blind posts happen inside start_hand; emit them as action rows so the
     # decisions table reconciles to the pot (action='post').
     for h in state.action_history:
         seat = next(s.seat for s in state.seats if s.position is h.position)
-        decision_rows.append({
-            "seq": seq, "seat": seat, "street": h.street.value,
-            "position": h.position.value, "action": h.action.value,
-            "raise_to_bb": None, "chips_committed_bb": h.amount_bb,
-            "pot_before_bb": 0.0, "to_call_bb": 0.0,
-            # T2: forced blind posts carry no node key / hand-class bucket —
-            # they are excluded from the determinism-guard contexts.
-            "engine_node_key": None, "hand_class_bucket": None,
-        })
+        decision_rows.append(
+            {
+                "seq": seq,
+                "seat": seat,
+                "street": h.street.value,
+                "position": h.position.value,
+                "action": h.action.value,
+                "raise_to_bb": None,
+                "chips_committed_bb": h.amount_bb,
+                "pot_before_bb": 0.0,
+                "to_call_bb": 0.0,
+                # T2: forced blind posts carry no node key / hand-class bucket —
+                # they are excluded from the determinism-guard contexts.
+                "engine_node_key": None,
+                "hand_class_bucket": None,
+            }
+        )
         seq += 1
     saw_flop: set[int] = set()
     guard = 0
@@ -212,8 +225,9 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
         if guard > 500:
             raise RuntimeError(f"hand did not terminate (seed={hand_seed})")
         if len(state.board) >= 3 and not saw_flop:
-            saw_flop = {s.seat for s in state.seats
-                        if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)}
+            saw_flop = {
+                s.seat for s in state.seats if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
+            }
         seat = state.to_act_seat
         seat_state = state.seats[seat]
         pot_before = sum(s.invested_total_bb for s in state.seats)
@@ -228,11 +242,8 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
             hand_class_bucket = _hand_class_bucket(seat_state.hole_cards)
         else:
             legal = legal_actions(state)
-            is_aggressor = (
-                last_aggressor_position(state.action_history) == seat_state.position
-            )
-            engine_node_key = postflop_node_key(
-                state.board, legal, is_aggressor=is_aggressor)
+            is_aggressor = last_aggressor_position(state.action_history) == seat_state.position
+            engine_node_key = postflop_node_key(state.board, legal, is_aggressor=is_aggressor)
             # Postflop hand_class_bucket: read-only reuse of the domain's
             # pure `strength_bucket` (made-hand ladder + draw category).
             # Encoded as "<strength>|<draw>" (e.g. "top_pair|weak",
@@ -242,41 +253,50 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
             hand_class_bucket = f"{made.value}|{draw.value}"
         decision = bot_decision(state, seat, packs[persona_by_seat[seat]], rng)
         state = apply(state, decision)
-        decision_rows.append({
-            "seq": seq, "seat": seat, "street": state.action_history[-1].street.value,
-            "position": seat_state.position.value,
-            "action": decision.action.value,
-            "raise_to_bb": decision.size_bb,
-            "chips_committed_bb": round(
-                state.seats[seat].invested_total_bb - invested_before, 2),
-            "pot_before_bb": round(pot_before, 2),
-            "to_call_bb": round(to_call, 2),
-            "engine_node_key": engine_node_key,
-            "hand_class_bucket": hand_class_bucket,
-        })
+        decision_rows.append(
+            {
+                "seq": seq,
+                "seat": seat,
+                "street": state.action_history[-1].street.value,
+                "position": seat_state.position.value,
+                "action": decision.action.value,
+                "raise_to_bb": decision.size_bb,
+                "chips_committed_bb": round(
+                    state.seats[seat].invested_total_bb - invested_before, 2
+                ),
+                "pot_before_bb": round(pot_before, 2),
+                "to_call_bb": round(to_call, 2),
+                "engine_node_key": engine_node_key,
+                "hand_class_bucket": hand_class_bucket,
+            }
+        )
         seq += 1
     # All-in run-outs can reveal the flop on the same apply() that ends the
     # hand, skipping the loop-top capture — catch that here.
     if len(state.board) >= 3 and not saw_flop:
-        saw_flop = {s.seat for s in state.seats
-                    if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)}
+        saw_flop = {
+            s.seat for s in state.seats if s.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
+        }
     settlement = settle(state)
     winners = {s for pot in settlement.winners_by_pot for s in pot}
     seat_rows = []
     for s in state.seats:
         delta = settlement.deltas[s.seat].delta_bb
-        seat_rows.append({
-            "seat": s.seat, "persona": persona_by_seat[s.seat],
-            "position": s.position.value,
-            "hole_cards": " ".join(s.hole_cards),
-            "starting_stack_bb": stacks_bb[s.seat],
-            "invested_bb": round(s.invested_total_bb, 2),
-            "delta_bb": delta,
-            "final_status": s.status.value,
-            "saw_flop": s.seat in saw_flop,
-            "went_to_showdown": s.seat in settlement.showdown_seats,
-            "won_pot": s.seat in winners,
-        })
+        seat_rows.append(
+            {
+                "seat": s.seat,
+                "persona": persona_by_seat[s.seat],
+                "position": s.position.value,
+                "hole_cards": " ".join(s.hole_cards),
+                "starting_stack_bb": stacks_bb[s.seat],
+                "invested_bb": round(s.invested_total_bb, 2),
+                "delta_bb": delta,
+                "final_status": s.status.value,
+                "saw_flop": s.seat in saw_flop,
+                "went_to_showdown": s.seat in settlement.showdown_seats,
+                "won_pot": s.seat in winners,
+            }
+        )
     hand_row = {
         "button_seat": button_seat,
         "hand_seed": hand_seed,
@@ -289,11 +309,15 @@ def play_one_hand(rng: random.Random, hand_seed: int, button_seat: int,
     return {"hand": hand_row, "seats": seat_rows, "decisions": decision_rows}
 
 
-def run_export(n_hands: int, seed: int, out_dir: Path,
-               lineup: list[str] | None = None,
-               packs: dict[VillainType, PersonaPack] | None = None,
-               config_hash: str | None = None,
-               buyin_spread: bool = False) -> dict:
+def run_export(
+    n_hands: int,
+    seed: int,
+    out_dir: Path,
+    lineup: list[str] | None = None,
+    packs: dict[VillainType, PersonaPack] | None = None,
+    config_hash: str | None = None,
+    buyin_spread: bool = False,
+) -> dict:
     """T2 (flywheel S4): `packs`/`config_hash` travel together — both given
     (sweep path: already-validated in-memory pack overlays + their §c.6
     hash), or both omitted (default path: simulate the RAW as-loaded packs
@@ -346,10 +370,16 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
         hand_id = f"{run_id}-h{i:07d}"
         hand_seed = rng.randrange(1_000_000_000)
         stacks_bb = _draw_buyin_targets(hand_seed) if buyin_spread else None
-        res = play_one_hand(rng, hand_seed, i % 9,
-                            persona_by_seat, packs, stacks_bb=stacks_bb)
-        hands.append({"hand_id": hand_id, "run_id": run_id, "hand_no": i,
-                      **res["hand"], "exported_at": exported_at})
+        res = play_one_hand(rng, hand_seed, i % 9, persona_by_seat, packs, stacks_bb=stacks_bb)
+        hands.append(
+            {
+                "hand_id": hand_id,
+                "run_id": run_id,
+                "hand_no": i,
+                **res["hand"],
+                "exported_at": exported_at,
+            }
+        )
         for r in res["seats"]:
             seats.append({"hand_id": hand_id, **r, "exported_at": exported_at})
         for r in res["decisions"]:
@@ -360,8 +390,7 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
     success.unlink(missing_ok=True)  # invalidate the batch before rewriting it
     (out_dir / "_TIMING.json").unlink(missing_ok=True)
     row_counts = {}
-    for name, rows in (("hands", hands), ("seat_outcomes", seats),
-                       ("decisions", decisions)):
+    for name, rows in (("hands", hands), ("seat_outcomes", seats), ("decisions", decisions)):
         table = pa.Table.from_pylist(rows)
         pq.write_table(table, out_dir / f"{name}.parquet", compression="zstd")
         row_counts[name] = len(rows)
@@ -397,7 +426,9 @@ def run_export(n_hands: int, seed: int, out_dir: Path,
         "run_id": run_id,
     }
     if (timing["n_hands"], timing["seed"], timing["run_id"]) != (
-        manifest["n_hands"], manifest["seed"], manifest["run_id"]
+        manifest["n_hands"],
+        manifest["seed"],
+        manifest["run_id"],
     ):
         raise RuntimeError("_TIMING.json/_SUCCESS n_hands/seed/run_id mismatch")
     # Written BEFORE _SUCCESS: the scorer's throughput check (§a.5 rule 5(a))
@@ -416,8 +447,10 @@ def _advisory_contract_test(out_dir: Path) -> None:
 
     contract = Path(__file__).resolve().parent / "poker_events.odcs.yaml"
     if shutil.which("datacontract") is None:
-        print("ADVISORY: datacontract-cli not on PATH — producer-side contract "
-              "check skipped (pip install 'datacontract-cli[duckdb,parquet]').")
+        print(
+            "ADVISORY: datacontract-cli not on PATH — producer-side contract "
+            "check skipped (pip install 'datacontract-cli[duckdb,parquet]')."
+        )
         return
     # The vendored contract's server paths are consumer-repo-relative; point a
     # temp copy at the actual export directory instead.
@@ -428,12 +461,13 @@ def _advisory_contract_test(out_dir: Path) -> None:
     with tempfile.NamedTemporaryFile("w", suffix=".odcs.yaml", delete=False) as f:
         f.write(text)
         tmp = f.name
-    res = subprocess.run(
-        ["datacontract", "test", tmp, "--server", "local-sample"])
+    res = subprocess.run(["datacontract", "test", tmp, "--server", "local-sample"])
     Path(tmp).unlink(missing_ok=True)
     if res.returncode != 0:
-        print("ADVISORY: export does NOT conform to the vendored contract — "
-              "the consumer's ingestion gate will reject this batch.")
+        print(
+            "ADVISORY: export does NOT conform to the vendored contract — "
+            "the consumer's ingestion gate will reject this batch."
+        )
     else:
         print("Producer-side contract check passed.")
 
@@ -442,24 +476,42 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--hands", type=int, default=5000)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--out", type=Path, required=True,
-                    help="target directory, e.g. <analytics-repo>/data/raw/v1/sample")
-    ap.add_argument("--skip-contract-test", action="store_true",
-                    help="skip the advisory producer-side datacontract test")
-    ap.add_argument("--lineup", type=str, default=None,
-                    help="comma-separated persona names for the 9 seats "
-                         "(wraps if fewer than 9; default: DEFAULT_LINEUP)")
-    ap.add_argument("--config", type=Path, default=None,
-                    help="path to a §c counterfactual-config JSON file "
-                         "(backend/tools/counterfactual.py); validated and "
-                         "overlaid onto the baseline packs before export. "
-                         "Omit for the default (raw baseline packs) path.")
-    ap.add_argument("--buyin-spread", action="store_true",
-                    help="F1: every seat re-buys to a fresh per-hand target "
-                         "on [95,105]bb, mirroring the live table's re-buy "
-                         "exactly, instead of the flat 100bb reset. Adds a "
-                         "-bspread- run_id token + manifest fields; default "
-                         "path is unaffected.")
+    ap.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="target directory, e.g. <analytics-repo>/data/raw/v1/sample",
+    )
+    ap.add_argument(
+        "--skip-contract-test",
+        action="store_true",
+        help="skip the advisory producer-side datacontract test",
+    )
+    ap.add_argument(
+        "--lineup",
+        type=str,
+        default=None,
+        help="comma-separated persona names for the 9 seats "
+        "(wraps if fewer than 9; default: DEFAULT_LINEUP)",
+    )
+    ap.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="path to a §c counterfactual-config JSON file "
+        "(backend/tools/counterfactual.py); validated and "
+        "overlaid onto the baseline packs before export. "
+        "Omit for the default (raw baseline packs) path.",
+    )
+    ap.add_argument(
+        "--buyin-spread",
+        action="store_true",
+        help="F1: every seat re-buys to a fresh per-hand target "
+        "on [95,105]bb, mirroring the live table's re-buy "
+        "exactly, instead of the flat 100bb reset. Adds a "
+        "-bspread- run_id token + manifest fields; default "
+        "path is unaffected.",
+    )
     args = ap.parse_args()
     lineup = args.lineup.split(",") if args.lineup else None
     packs = config_hash = None
@@ -470,9 +522,15 @@ def main() -> None:
             print(f"ERROR: {args.config}: {exc}", file=sys.stderr)
             raise SystemExit(1) from exc
         packs, config_hash = validated.packs, validated.config_hash
-    manifest = run_export(args.hands, args.seed, args.out, lineup=lineup,
-                          packs=packs, config_hash=config_hash,
-                          buyin_spread=args.buyin_spread)
+    manifest = run_export(
+        args.hands,
+        args.seed,
+        args.out,
+        lineup=lineup,
+        packs=packs,
+        config_hash=config_hash,
+        buyin_spread=args.buyin_spread,
+    )
     print(json.dumps(manifest, indent=2))
     if not args.skip_contract_test:
         _advisory_contract_test(args.out)

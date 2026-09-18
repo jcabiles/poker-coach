@@ -54,8 +54,11 @@ def measure_degeneracy(
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp)
         run_export(
-            n_hands, seed, out_dir,
-            packs=validated.packs, config_hash=validated.config_hash,
+            n_hands,
+            seed,
+            out_dir,
+            packs=validated.packs,
+            config_hash=validated.config_hash,
             buyin_spread=buyin_spread,
         )
         decisions = pq.read_table(out_dir / "decisions.parquet").to_pylist()
@@ -83,9 +86,12 @@ def main() -> None:
     ap.add_argument("config", type=Path, help="path to a §c counterfactual-config JSON file")
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--n-hands", type=int, default=500)
-    ap.add_argument("--buyin-spread", action="store_true",
-                     help="export with the F1 buy-in spread (matches the corpus's "
-                          "control-bundle treatment) instead of the flat-100bb default")
+    ap.add_argument(
+        "--buyin-spread",
+        action="store_true",
+        help="export with the F1 buy-in spread (matches the corpus's "
+        "control-bundle treatment) instead of the flat-100bb default",
+    )
     args = ap.parse_args()
 
     result = measure_degeneracy(args.config, args.seed, args.n_hands, args.buyin_spread)

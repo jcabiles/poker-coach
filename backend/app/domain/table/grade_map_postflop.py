@@ -122,31 +122,34 @@ def _map_flop_cbet(state: HandState, hero_seat: int) -> MapResult:
     spr = round(effective / pot, 1)
 
     players = _players(state, hero_seat)
-    return MapResult(Spot(
-        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
-        street=Street.FLOP,
-        board=list(state.board),
-        pot_bb=pot,
-        hero=Hero(
-            position=hero.position,
-            hole_cards=hero.hole_cards,
-            stack_bb=hero_remaining,
+    return MapResult(
+        Spot(
+            game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+            street=Street.FLOP,
+            board=list(state.board),
+            pot_bb=pot,
+            hero=Hero(
+                position=hero.position,
+                hole_cards=hero.hole_cards,
+                stack_bb=hero_remaining,
+            ),
+            players=players,
+            effective_stack_bb=effective,
+            spr=spr,
+            action_history=list(state.action_history),
+            to_act=hero.position,
+            legal_actions=[
+                LegalAction(action=ActionType.CHECK),
+                LegalAction(action=ActionType.BET, min_bb=small, max_bb=hero_remaining),
+                LegalAction(action=ActionType.BET, min_bb=big, max_bb=hero_remaining),
+            ],
+            node_context=[NodeContext.CBET],
+            facing=Position.BB,
+            hero_range=hero_range,
+            villain_range=villain_range,
         ),
-        players=players,
-        effective_stack_bb=effective,
-        spr=spr,
-        action_history=list(state.action_history),
-        to_act=hero.position,
-        legal_actions=[
-            LegalAction(action=ActionType.CHECK),
-            LegalAction(action=ActionType.BET, min_bb=small, max_bb=hero_remaining),
-            LegalAction(action=ActionType.BET, min_bb=big, max_bb=hero_remaining),
-        ],
-        node_context=[NodeContext.CBET],
-        facing=Position.BB,
-        hero_range=hero_range,
-        villain_range=villain_range,
-    ), None)
+        None,
+    )
 
 
 # --- R5: turn/river mappers (HU SRP continuation line only) -----------------
@@ -178,10 +181,7 @@ def _is_canonical_bet(amount_bb: float, pot_before: float, street: Street) -> bo
     Adjacent grid fractions are ≥0.17·pot apart, so at any postflop pot
     (≥4.5bb) the 0.06bb tolerance can never match two fractions at once."""
     del street
-    return any(
-        abs(amount_bb - f * pot_before) <= _CANON_BET_TOL
-        for f in RECOGNIZED_BET_FRACS
-    )
+    return any(abs(amount_bb - f * pot_before) <= _CANON_BET_TOL for f in RECOGNIZED_BET_FRACS)
 
 
 def _hu_srp_preflop(state: HandState) -> GateResult:
@@ -204,10 +204,7 @@ def _hu_srp_preflop(state: HandState) -> GateResult:
         # an all-in anywhere in the line is off-shape (live ⇒ not FOLDED)
         return gate_fail(RejectReason.ALL_IN_IN_LINE)
     pre = _street_actions(state, Street.PREFLOP)
-    if any(
-        h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL)
-        for h in pre
-    ):
+    if any(h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL) for h in pre):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     raises = [h for h in pre if h.action is ActionType.RAISE]
     calls = [h for h in pre if h.action is ActionType.CALL]
@@ -315,11 +312,7 @@ def _check_bet_raise(
 def _bb_checked_only(state: HandState, street: Street) -> bool:
     """Gate: this street's only action so far is the BB's check to the hero."""
     acts = _street_actions(state, street)
-    return (
-        len(acts) == 1
-        and acts[0].action is ActionType.CHECK
-        and acts[0].position is Position.BB
-    )
+    return len(acts) == 1 and acts[0].action is ActionType.CHECK and acts[0].position is Position.BB
 
 
 def _srp_ranges(opener_pos: Position) -> tuple[str, str] | None:
@@ -394,9 +387,7 @@ def _barrel_spot(
         street=street,
         board=list(state.board),
         pot_bb=pot,
-        hero=Hero(
-            position=hero.position, hole_cards=hero.hole_cards, stack_bb=hero_remaining
-        ),
+        hero=Hero(position=hero.position, hole_cards=hero.hole_cards, stack_bb=hero_remaining),
         players=_players(state, hero_seat),
         effective_stack_bb=effective,
         spr=round(effective / pot, 1),
@@ -422,8 +413,8 @@ def _faced_bet_spot(
     bet: float,
     street: Street,
     ctx: NodeContext,
-    hero_range: str,
-    villain_range: str,
+    hero_range: str | None,
+    villain_range: str | None,
     mults: tuple[float, float] = FACING_RAISE_MULTS["raise"],
     call_amt: float | None = None,
 ) -> Spot | None:
@@ -465,9 +456,7 @@ def _faced_bet_spot(
         street=street,
         board=list(state.board),
         pot_bb=pot,
-        hero=Hero(
-            position=hero.position, hole_cards=hero.hole_cards, stack_bb=hero_remaining
-        ),
+        hero=Hero(position=hero.position, hole_cards=hero.hole_cards, stack_bb=hero_remaining),
         players=_players(state, hero_seat),
         effective_stack_bb=effective,
         spr=round(effective / pot, 1),
@@ -518,11 +507,20 @@ def _map_flop_vs_cbet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     opener_range, bb_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, cbet,
-        Street.FLOP, NodeContext.VS_CBET, bb_range, opener_range,
-        mults=FACING_RAISE_MULTS["check_raise"],
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            cbet,
+            Street.FLOP,
+            NodeContext.VS_CBET,
+            bb_range,
+            opener_range,
+            mults=FACING_RAISE_MULTS["check_raise"],
+        )
+    )
 
 
 def map_flop_vs_check_raise(state: HandState, hero_seat: int) -> Spot | None:
@@ -556,12 +554,21 @@ def _map_flop_vs_check_raise(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     opener_range, bb_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, bb, pot, raise_to,
-        Street.FLOP, NodeContext.VS_CHECK_RAISE, opener_range, bb_range,
-        mults=FACING_RAISE_MULTS["raise"],
-        call_amt=round(raise_to - cbet, 2),
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            bb,
+            pot,
+            raise_to,
+            Street.FLOP,
+            NodeContext.VS_CHECK_RAISE,
+            opener_range,
+            bb_range,
+            mults=FACING_RAISE_MULTS["raise"],
+            call_amt=round(raise_to - cbet, 2),
+        )
+    )
 
 
 def map_turn_barrel(state: HandState, hero_seat: int) -> Spot | None:
@@ -594,9 +601,9 @@ def _map_turn_barrel(state: HandState, hero_seat: int) -> MapResult:
     ranges = _srp_ranges(hero.position)
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
-    return _spot_or_shallow(_barrel_spot(
-        state, hero_seat, bb, pot, Street.TURN, NodeContext.TURN_BARREL, *ranges
-    ))
+    return _spot_or_shallow(
+        _barrel_spot(state, hero_seat, bb, pot, Street.TURN, NodeContext.TURN_BARREL, *ranges)
+    )
 
 
 def map_vs_turn_bet(state: HandState, hero_seat: int) -> Spot | None:
@@ -632,10 +639,19 @@ def _map_vs_turn_bet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     opener_range, bb_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, tbet,
-        Street.TURN, NodeContext.VS_TURN_BET, bb_range, opener_range,
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            tbet,
+            Street.TURN,
+            NodeContext.VS_TURN_BET,
+            bb_range,
+            opener_range,
+        )
+    )
 
 
 def map_river_barrel(state: HandState, hero_seat: int) -> Spot | None:
@@ -672,9 +688,9 @@ def _map_river_barrel(state: HandState, hero_seat: int) -> MapResult:
     ranges = _srp_ranges(hero.position)
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
-    return _spot_or_shallow(_barrel_spot(
-        state, hero_seat, bb, pot, Street.RIVER, NodeContext.RIVER_BARREL, *ranges
-    ))
+    return _spot_or_shallow(
+        _barrel_spot(state, hero_seat, bb, pot, Street.RIVER, NodeContext.RIVER_BARREL, *ranges)
+    )
 
 
 def map_vs_river_bet(state: HandState, hero_seat: int) -> Spot | None:
@@ -716,10 +732,19 @@ def _map_vs_river_bet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     opener_range, bb_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, rbet,
-        Street.RIVER, NodeContext.VS_RIVER_BET, bb_range, opener_range,
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            rbet,
+            Street.RIVER,
+            NodeContext.VS_RIVER_BET,
+            bb_range,
+            opener_range,
+        )
+    )
 
 
 # --- N5/M6: 3- and 4-way multiway BB-defense line ("minimum honest MW") ----
@@ -751,10 +776,7 @@ def _mw_srp_preflop(state: HandState) -> GateResult:
     tier (RES-H §2.4) -> None. `.value` is (opener, callers, bb, open_to) —
     `callers` a tuple in preflop call order — else a `.reason`."""
     pre = _street_actions(state, Street.PREFLOP)
-    if any(
-        h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL)
-        for h in pre
-    ):
+    if any(h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL) for h in pre):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     raises = [h for h in pre if h.action is ActionType.RAISE]
     calls = [h for h in pre if h.action is ActionType.CALL]
@@ -766,15 +788,11 @@ def _mw_srp_preflop(state: HandState) -> GateResult:
     if len(caller_pos) != len(calls) - 1 or len(set(caller_pos)) != len(caller_pos):
         # BB didn't call, or a duplicate caller (limp-then-call)
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
-    if opener_pos in _BLIND_POSITIONS or any(
-        p in _BLIND_POSITIONS for p in caller_pos
-    ):
+    if opener_pos in _BLIND_POSITIONS or any(p in _BLIND_POSITIONS for p in caller_pos):
         # blind entrants (SB open/complete, BB raise) are off-shape
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     opener = next((s for s in state.seats if s.position is opener_pos), None)
-    callers = tuple(
-        s for p in caller_pos for s in state.seats if s.position is p
-    )
+    callers = tuple(s for p in caller_pos for s in state.seats if s.position is p)
     bb = next((s for s in state.seats if s.position is Position.BB), None)
     if opener is None or len(callers) != len(caller_pos) or bb is None:
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
@@ -784,11 +802,7 @@ def _mw_srp_preflop(state: HandState) -> GateResult:
         # an all-in anywhere in the line is off-shape
         return gate_fail(RejectReason.ALL_IN_IN_LINE)
     entrants = {opener.seat, bb.seat} | {c.seat for c in callers}
-    if any(
-        s.status is not PlayerStatus.FOLDED
-        for s in state.seats
-        if s.seat not in entrants
-    ):
+    if any(s.status is not PlayerStatus.FOLDED for s in state.seats if s.seat not in entrants):
         # an extra live player — not the gated 3/4-way shape
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     open_to = raises[0].amount_bb
@@ -893,9 +907,7 @@ def _map_mw_flop_vs_cbet(state: HandState, hero_seat: int) -> MapResult:
     if bb.seat != hero_seat:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     flop_pot = round((2 + len(callers)) * open_to + 0.5, 2)
-    faced = _mw_check_bet_responded(
-        state, Street.FLOP, opener.position, callers, flop_pot
-    )
+    faced = _mw_check_bet_responded(state, Street.FLOP, opener.position, callers, flop_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     cbet, n_called = faced.value
@@ -907,11 +919,20 @@ def _map_mw_flop_vs_cbet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     bb_range, opener_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, cbet,
-        Street.FLOP, NodeContext.VS_CBET, bb_range, opener_range,
-        mults=FACING_RAISE_MULTS["check_raise"],
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            cbet,
+            Street.FLOP,
+            NodeContext.VS_CBET,
+            bb_range,
+            opener_range,
+            mults=FACING_RAISE_MULTS["check_raise"],
+        )
+    )
 
 
 def map_mw_vs_turn_bet(state: HandState, hero_seat: int) -> Spot | None:
@@ -932,16 +953,12 @@ def _map_mw_vs_turn_bet(state: HandState, hero_seat: int) -> MapResult:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     n_way = 2 + len(callers)
     flop_pot = round(n_way * open_to + 0.5, 2)
-    flop = _mw_check_bet_call_call(
-        state, Street.FLOP, opener.position, callers, flop_pot
-    )
+    flop = _mw_check_bet_call_call(state, Street.FLOP, opener.position, callers, flop_pot)
     if flop.value is None:
         return map_fail(flop.reason)
     fbet = flop.value
     turn_pot = round(flop_pot + n_way * fbet, 2)
-    faced = _mw_check_bet_responded(
-        state, Street.TURN, opener.position, callers, turn_pot
-    )
+    faced = _mw_check_bet_responded(state, Street.TURN, opener.position, callers, turn_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     tbet, n_called = faced.value
@@ -953,10 +970,19 @@ def _map_mw_vs_turn_bet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     bb_range, opener_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, tbet,
-        Street.TURN, NodeContext.VS_TURN_BET, bb_range, opener_range,
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            tbet,
+            Street.TURN,
+            NodeContext.VS_TURN_BET,
+            bb_range,
+            opener_range,
+        )
+    )
 
 
 def map_mw_vs_river_bet(state: HandState, hero_seat: int) -> Spot | None:
@@ -977,23 +1003,17 @@ def _map_mw_vs_river_bet(state: HandState, hero_seat: int) -> MapResult:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     n_way = 2 + len(callers)
     flop_pot = round(n_way * open_to + 0.5, 2)
-    flop = _mw_check_bet_call_call(
-        state, Street.FLOP, opener.position, callers, flop_pot
-    )
+    flop = _mw_check_bet_call_call(state, Street.FLOP, opener.position, callers, flop_pot)
     if flop.value is None:
         return map_fail(flop.reason)
     fbet = flop.value
     turn_pot = round(flop_pot + n_way * fbet, 2)
-    turn = _mw_check_bet_call_call(
-        state, Street.TURN, opener.position, callers, turn_pot
-    )
+    turn = _mw_check_bet_call_call(state, Street.TURN, opener.position, callers, turn_pot)
     if turn.value is None:
         return map_fail(turn.reason)
     tbet = turn.value
     river_pot = round(turn_pot + n_way * tbet, 2)
-    faced = _mw_check_bet_responded(
-        state, Street.RIVER, opener.position, callers, river_pot
-    )
+    faced = _mw_check_bet_responded(state, Street.RIVER, opener.position, callers, river_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     rbet, n_called = faced.value
@@ -1005,10 +1025,19 @@ def _map_mw_vs_river_bet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     bb_range, opener_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, rbet,
-        Street.RIVER, NodeContext.VS_RIVER_BET, bb_range, opener_range,
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            rbet,
+            Street.RIVER,
+            NodeContext.VS_RIVER_BET,
+            bb_range,
+            opener_range,
+        )
+    )
 
 
 # --- M7 (RES-I L5): hero-seat widening — opener + cold-caller MW mappers ----
@@ -1070,10 +1099,18 @@ def _map_mw_flop_cbet(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     bb_range, opener_range = ranges
-    return _spot_or_shallow(_barrel_spot(
-        state, hero_seat, bb, pot, Street.FLOP, NodeContext.CBET,
-        opener_range, bb_range,
-    ))
+    return _spot_or_shallow(
+        _barrel_spot(
+            state,
+            hero_seat,
+            bb,
+            pot,
+            Street.FLOP,
+            NodeContext.CBET,
+            opener_range,
+            bb_range,
+        )
+    )
 
 
 def map_mw_turn_barrel(state: HandState, hero_seat: int) -> Spot | None:
@@ -1094,9 +1131,7 @@ def _map_mw_turn_barrel(state: HandState, hero_seat: int) -> MapResult:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     n_way = 2 + len(callers)
     flop_pot = round(n_way * open_to + 0.5, 2)
-    flop = _mw_check_bet_call_call(
-        state, Street.FLOP, hero.position, callers, flop_pot
-    )
+    flop = _mw_check_bet_call_call(state, Street.FLOP, hero.position, callers, flop_pot)
     if flop.value is None:
         return map_fail(flop.reason)
     fbet = flop.value
@@ -1109,10 +1144,18 @@ def _map_mw_turn_barrel(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     bb_range, opener_range = ranges
-    return _spot_or_shallow(_barrel_spot(
-        state, hero_seat, bb, pot, Street.TURN, NodeContext.TURN_BARREL,
-        opener_range, bb_range,
-    ))
+    return _spot_or_shallow(
+        _barrel_spot(
+            state,
+            hero_seat,
+            bb,
+            pot,
+            Street.TURN,
+            NodeContext.TURN_BARREL,
+            opener_range,
+            bb_range,
+        )
+    )
 
 
 def map_mw_river_barrel(state: HandState, hero_seat: int) -> Spot | None:
@@ -1133,16 +1176,12 @@ def _map_mw_river_barrel(state: HandState, hero_seat: int) -> MapResult:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     n_way = 2 + len(callers)
     flop_pot = round(n_way * open_to + 0.5, 2)
-    flop = _mw_check_bet_call_call(
-        state, Street.FLOP, hero.position, callers, flop_pot
-    )
+    flop = _mw_check_bet_call_call(state, Street.FLOP, hero.position, callers, flop_pot)
     if flop.value is None:
         return map_fail(flop.reason)
     fbet = flop.value
     turn_pot = round(flop_pot + n_way * fbet, 2)
-    turn = _mw_check_bet_call_call(
-        state, Street.TURN, hero.position, callers, turn_pot
-    )
+    turn = _mw_check_bet_call_call(state, Street.TURN, hero.position, callers, turn_pot)
     if turn.value is None:
         return map_fail(turn.reason)
     tbet = turn.value
@@ -1155,10 +1194,18 @@ def _map_mw_river_barrel(state: HandState, hero_seat: int) -> MapResult:
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     bb_range, opener_range = ranges
-    return _spot_or_shallow(_barrel_spot(
-        state, hero_seat, bb, pot, Street.RIVER, NodeContext.RIVER_BARREL,
-        opener_range, bb_range,
-    ))
+    return _spot_or_shallow(
+        _barrel_spot(
+            state,
+            hero_seat,
+            bb,
+            pot,
+            Street.RIVER,
+            NodeContext.RIVER_BARREL,
+            opener_range,
+            bb_range,
+        )
+    )
 
 
 def _mw_nobb_srp_preflop(state: HandState) -> GateResult:
@@ -1170,10 +1217,7 @@ def _mw_nobb_srp_preflop(state: HandState) -> GateResult:
     (opener, callers, open_to) — `callers` a tuple in preflop call order,
     which equals position/postflop-act order — else a `.reason`."""
     pre = _street_actions(state, Street.PREFLOP)
-    if any(
-        h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL)
-        for h in pre
-    ):
+    if any(h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL) for h in pre):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     raises = [h for h in pre if h.action is ActionType.RAISE]
     calls = [h for h in pre if h.action is ActionType.CALL]
@@ -1182,18 +1226,14 @@ def _mw_nobb_srp_preflop(state: HandState) -> GateResult:
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     opener_pos = raises[0].position
     caller_pos = [c.position for c in calls]
-    if opener_pos in _BLIND_POSITIONS or any(
-        p in _BLIND_POSITIONS for p in caller_pos
-    ):
+    if opener_pos in _BLIND_POSITIONS or any(p in _BLIND_POSITIONS for p in caller_pos):
         # a blind entrant is the `_mw_srp_preflop` family instead
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     if len(set(caller_pos)) != 2:
         # duplicate caller (limp-then-call chain)
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     opener = next((s for s in state.seats if s.position is opener_pos), None)
-    callers = tuple(
-        s for p in caller_pos for s in state.seats if s.position is p
-    )
+    callers = tuple(s for p in caller_pos for s in state.seats if s.position is p)
     if opener is None or len(callers) != 2:
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     if opener.status is not PlayerStatus.IN:
@@ -1202,11 +1242,7 @@ def _mw_nobb_srp_preflop(state: HandState) -> GateResult:
         # an all-in anywhere in the line is off-shape
         return gate_fail(RejectReason.ALL_IN_IN_LINE)
     entrants = {opener.seat} | {c.seat for c in callers}
-    if any(
-        s.status is not PlayerStatus.FOLDED
-        for s in state.seats
-        if s.seat not in entrants
-    ):
+    if any(s.status is not PlayerStatus.FOLDED for s in state.seats if s.seat not in entrants):
         # blinds (or anyone else) must be dead
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     open_to = raises[0].amount_bb
@@ -1312,26 +1348,31 @@ def _map_mw_caller_vs_cbet(state: HandState, hero_seat: int) -> MapResult:
         # the earlier caller never closes (hero-not-closing -> None)
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     flop_pot = round(3 * open_to + 1.5, 2)  # both blinds dead
-    faced = _mw_nobb_bet_responded(
-        state, Street.FLOP, opener.position, callers[:-1], flop_pot
-    )
+    faced = _mw_nobb_bet_responded(state, Street.FLOP, opener.position, callers[:-1], flop_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     cbet, n_called = faced.value
     pot = _live_pot(state)
     if abs(pot - (flop_pot + cbet * (1 + n_called))) > _EPS:
         return map_fail(RejectReason.UNCLASSIFIED)
-    ranges = _mw_caller_ranges(
-        opener.position, hero.position, [c.position for c in callers[:-1]]
-    )
+    ranges = _mw_caller_ranges(opener.position, hero.position, [c.position for c in callers[:-1]])
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     hero_range, opener_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, cbet,
-        Street.FLOP, NodeContext.VS_CBET, hero_range, opener_range,
-        mults=FACING_RAISE_MULTS["raise"],
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            cbet,
+            Street.FLOP,
+            NodeContext.VS_CBET,
+            hero_range,
+            opener_range,
+            mults=FACING_RAISE_MULTS["raise"],
+        )
+    )
 
 
 def map_mw_caller_vs_turn_bet(state: HandState, hero_seat: int) -> Spot | None:
@@ -1351,32 +1392,35 @@ def _map_mw_caller_vs_turn_bet(state: HandState, hero_seat: int) -> MapResult:
     if callers[-1].seat != hero_seat:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     flop_pot = round(3 * open_to + 1.5, 2)
-    flop = _mw_nobb_bet_call_call(
-        state, Street.FLOP, opener.position, callers, flop_pot
-    )
+    flop = _mw_nobb_bet_call_call(state, Street.FLOP, opener.position, callers, flop_pot)
     if flop.value is None:
         return map_fail(flop.reason)
     fbet = flop.value
     turn_pot = round(flop_pot + 3 * fbet, 2)
-    faced = _mw_nobb_bet_responded(
-        state, Street.TURN, opener.position, callers[:-1], turn_pot
-    )
+    faced = _mw_nobb_bet_responded(state, Street.TURN, opener.position, callers[:-1], turn_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     tbet, n_called = faced.value
     pot = _live_pot(state)
     if abs(pot - (turn_pot + tbet * (1 + n_called))) > _EPS:
         return map_fail(RejectReason.UNCLASSIFIED)
-    ranges = _mw_caller_ranges(
-        opener.position, hero.position, [c.position for c in callers[:-1]]
-    )
+    ranges = _mw_caller_ranges(opener.position, hero.position, [c.position for c in callers[:-1]])
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     hero_range, opener_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, tbet,
-        Street.TURN, NodeContext.VS_TURN_BET, hero_range, opener_range,
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            tbet,
+            Street.TURN,
+            NodeContext.VS_TURN_BET,
+            hero_range,
+            opener_range,
+        )
+    )
 
 
 def map_mw_caller_vs_river_bet(state: HandState, hero_seat: int) -> Spot | None:
@@ -1396,39 +1440,40 @@ def _map_mw_caller_vs_river_bet(state: HandState, hero_seat: int) -> MapResult:
     if callers[-1].seat != hero_seat:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
     flop_pot = round(3 * open_to + 1.5, 2)
-    flop = _mw_nobb_bet_call_call(
-        state, Street.FLOP, opener.position, callers, flop_pot
-    )
+    flop = _mw_nobb_bet_call_call(state, Street.FLOP, opener.position, callers, flop_pot)
     if flop.value is None:
         return map_fail(flop.reason)
     fbet = flop.value
     turn_pot = round(flop_pot + 3 * fbet, 2)
-    turn = _mw_nobb_bet_call_call(
-        state, Street.TURN, opener.position, callers, turn_pot
-    )
+    turn = _mw_nobb_bet_call_call(state, Street.TURN, opener.position, callers, turn_pot)
     if turn.value is None:
         return map_fail(turn.reason)
     tbet = turn.value
     river_pot = round(turn_pot + 3 * tbet, 2)
-    faced = _mw_nobb_bet_responded(
-        state, Street.RIVER, opener.position, callers[:-1], river_pot
-    )
+    faced = _mw_nobb_bet_responded(state, Street.RIVER, opener.position, callers[:-1], river_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     rbet, n_called = faced.value
     pot = _live_pot(state)
     if abs(pot - (river_pot + rbet * (1 + n_called))) > _EPS:
         return map_fail(RejectReason.UNCLASSIFIED)
-    ranges = _mw_caller_ranges(
-        opener.position, hero.position, [c.position for c in callers[:-1]]
-    )
+    ranges = _mw_caller_ranges(opener.position, hero.position, [c.position for c in callers[:-1]])
     if ranges is None:
         return map_fail(RejectReason.UNCLASSIFIED)
     hero_range, opener_range = ranges
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, opener, pot, rbet,
-        Street.RIVER, NodeContext.VS_RIVER_BET, hero_range, opener_range,
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            opener,
+            pot,
+            rbet,
+            Street.RIVER,
+            NodeContext.VS_RIVER_BET,
+            hero_range,
+            opener_range,
+        )
+    )
 
 
 # --- M4 (RES-H H1): caller-re-raises-c-bet — hero = opener facing the raise --
@@ -1455,10 +1500,7 @@ def _flop_caller_raise_preflop(state: HandState) -> GateResult:
     the BB optional. `.value` is (opener, caller, bb_or_None, open_to) — bb is
     None when the BB folded preflop — else a `.reason`."""
     pre = _street_actions(state, Street.PREFLOP)
-    if any(
-        h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL)
-        for h in pre
-    ):
+    if any(h.action not in (ActionType.FOLD, ActionType.RAISE, ActionType.CALL) for h in pre):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     raises = [h for h in pre if h.action is ActionType.RAISE]
     calls = [h for h in pre if h.action is ActionType.CALL]
@@ -1478,11 +1520,7 @@ def _flop_caller_raise_preflop(state: HandState) -> GateResult:
     bb_called = len(calls) == 2  # the other call can only be the BB's
     opener = next((s for s in state.seats if s.position is opener_pos), None)
     caller = next((s for s in state.seats if s.position is caller_pos), None)
-    bb = (
-        next((s for s in state.seats if s.position is Position.BB), None)
-        if bb_called
-        else None
-    )
+    bb = next((s for s in state.seats if s.position is Position.BB), None) if bb_called else None
     if opener is None or caller is None or (bb_called and bb is None):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     if opener.status is not PlayerStatus.IN or caller.status is not PlayerStatus.IN:
@@ -1492,11 +1530,7 @@ def _flop_caller_raise_preflop(state: HandState) -> GateResult:
         # BB may fold to the flop raise, never be all-in
         return gate_fail(RejectReason.ALL_IN_IN_LINE)
     entrants = {opener.seat, caller.seat} | ({bb.seat} if bb is not None else set())
-    if any(
-        s.status is not PlayerStatus.FOLDED
-        for s in state.seats
-        if s.seat not in entrants
-    ):
+    if any(s.status is not PlayerStatus.FOLDED for s in state.seats if s.seat not in entrants):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     open_to = raises[0].amount_bb
     if not (2.0 - _EPS <= open_to <= _OVERSIZE_OPEN_CAP + _EPS):
@@ -1574,12 +1608,8 @@ def _map_flop_vs_caller_raise(state: HandState, hero_seat: int) -> MapResult:
     opener, caller, bb, open_to = gate.value
     if opener.seat != hero_seat:
         return map_fail(RejectReason.HERO_ROLE_UNGATED)
-    flop_pot = round(
-        (3 * open_to + 0.5) if bb is not None else (2 * open_to + 1.5), 2
-    )
-    faced = _flop_cbet_caller_raise(
-        state, hero.position, caller.position, bb is not None, flop_pot
-    )
+    flop_pot = round((3 * open_to + 0.5) if bb is not None else (2 * open_to + 1.5), 2)
+    faced = _flop_cbet_caller_raise(state, hero.position, caller.position, bb is not None, flop_pot)
     if faced.value is None:
         return map_fail(faced.reason)
     cbet, raise_to, bb_called_raise = faced.value
@@ -1596,12 +1626,21 @@ def _map_flop_vs_caller_raise(state: HandState, hero_seat: int) -> MapResult:
     caller_range = _combos_for(caller_entry, ActionType.CALL)
     if not hero_range or not caller_range:
         return map_fail(RejectReason.UNCLASSIFIED)
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, caller, pot, raise_to,
-        Street.FLOP, NodeContext.VS_CALLER_RAISE, hero_range, caller_range,
-        mults=FACING_RAISE_MULTS["raise"],
-        call_amt=round(raise_to - cbet, 2),
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            caller,
+            pot,
+            raise_to,
+            Street.FLOP,
+            NodeContext.VS_CALLER_RAISE,
+            hero_range,
+            caller_range,
+            mults=FACING_RAISE_MULTS["raise"],
+            call_amt=round(raise_to - cbet, 2),
+        )
+    )
 
 
 # --- M5 (Epic 5, RES-G Slice C): HU limped-pot flop mappers -----------------
@@ -1622,15 +1661,10 @@ def _limped_flop_hu_preflop(state: HandState) -> GateResult:
     pot is 2.0 (SB completed) or 2.5 (one limper + the folded SB's dead 0.5) —
     else a `.reason`."""
     pre = _street_actions(state, Street.PREFLOP)
-    if any(
-        h.action not in (ActionType.FOLD, ActionType.CALL, ActionType.CHECK)
-        for h in pre
-    ):
+    if any(h.action not in (ActionType.FOLD, ActionType.CALL, ActionType.CHECK) for h in pre):
         # any raise/bet: not a limped pot
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
-    if any(
-        h.action is ActionType.CHECK and h.position is not Position.BB for h in pre
-    ):
+    if any(h.action is ActionType.CHECK and h.position is not Position.BB for h in pre):
         # only the BB holds a free preflop option
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     calls = [h for h in pre if h.action is ActionType.CALL]
@@ -1645,9 +1679,7 @@ def _limped_flop_hu_preflop(state: HandState) -> GateResult:
         # an all-in (or an entrant already folded) is off-shape
         return gate_fail(_line_status_reason(entrants))
     if any(
-        s.status is not PlayerStatus.FOLDED
-        for s in state.seats
-        if s.position not in entrant_pos
+        s.status is not PlayerStatus.FOLDED for s in state.seats if s.position not in entrant_pos
     ):
         return gate_fail(RejectReason.PREFLOP_SHAPE_UNGATED)
     sb_dead = 0.0 if Position.SB in entrant_pos else 0.5
@@ -1655,9 +1687,7 @@ def _limped_flop_hu_preflop(state: HandState) -> GateResult:
     return GateResult((entrants[0], entrants[1], pre_pot), None)
 
 
-def _limped_lead_spot(
-    state: HandState, hero_seat: int, villain, pot: float
-) -> Spot | None:
+def _limped_lead_spot(state: HandState, hero_seat: int, villain, pot: float) -> Spot | None:
     """Hero can lead the limped flop: check / bet small / bet big (mirrors
     `_barrel_spot`'s legal-action shape, but `facing` is the LIVE villain —
     hero may itself be the BB here). The small leg clamps up to the engine's
@@ -1679,9 +1709,7 @@ def _limped_lead_spot(
         street=Street.FLOP,
         board=list(state.board),
         pot_bb=pot,
-        hero=Hero(
-            position=hero.position, hole_cards=hero.hole_cards, stack_bb=hero_remaining
-        ),
+        hero=Hero(position=hero.position, hole_cards=hero.hole_cards, stack_bb=hero_remaining),
         players=_players(state, hero_seat),
         effective_stack_bb=effective,
         spr=round(effective / pot, 1),
@@ -1766,8 +1794,17 @@ def _map_limped_flop_vs_lead(state: HandState, hero_seat: int) -> MapResult:
     pot = _live_pot(state)
     if abs(pot - (pre_pot + lead.amount_bb)) > _EPS:
         return map_fail(RejectReason.UNCLASSIFIED)
-    return _spot_or_shallow(_faced_bet_spot(
-        state, hero_seat, villain, pot, lead.amount_bb,
-        Street.FLOP, NodeContext.LIMPED_VS_LEAD, None, None,
-        mults=FACING_RAISE_MULTS["check_raise" if hero_checked else "raise"],
-    ))
+    return _spot_or_shallow(
+        _faced_bet_spot(
+            state,
+            hero_seat,
+            villain,
+            pot,
+            lead.amount_bb,
+            Street.FLOP,
+            NodeContext.LIMPED_VS_LEAD,
+            None,
+            None,
+            mults=FACING_RAISE_MULTS["check_raise" if hero_checked else "raise"],
+        )
+    )

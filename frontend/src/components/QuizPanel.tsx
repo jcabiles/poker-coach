@@ -157,6 +157,7 @@ export default function QuizPanel({ kind }: { kind: QuizKind }) {
             return (
               <button
                 key={o}
+                type="button"
                 className={"btn answer-btn" + graded}
                 disabled={!!res}
                 onClick={() => answerTexture(o)}
@@ -185,7 +186,7 @@ export default function QuizPanel({ kind }: { kind: QuizKind }) {
             }}
             onKeyDown={(e) => e.key === "Enter" && answerEquity()}
           />
-          <button className="btn btn-primary" disabled={!!res} onClick={answerEquity}>
+          <button type="button" className="btn btn-primary" disabled={!!res} onClick={answerEquity}>
             Submit estimate
           </button>
           {inputError && (
@@ -218,7 +219,7 @@ export default function QuizPanel({ kind }: { kind: QuizKind }) {
             </span>
           </div>
           <p className="why">{res.explanation}</p>
-          <button className="btn btn-primary" onClick={load}>
+          <button type="button" className="btn btn-primary" onClick={load}>
             Next ▸
           </button>
         </div>

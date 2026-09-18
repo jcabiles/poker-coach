@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ActionType, LegalAction, Spot } from "../../api/types";
 import { legalDecisions } from "../../lib/decisions";

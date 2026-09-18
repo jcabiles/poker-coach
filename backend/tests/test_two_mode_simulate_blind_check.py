@@ -393,9 +393,7 @@ def test_two_overlapping_submissions_agree_on_the_first_result(db, temp_engine):
     session = _settled_at(db, BLIND_CHECK_HAND_GATE)
     session_id = session.id
     right = BlindCheckSubmitRequest.model_validate({"guesses": _answers(db, session_id)})
-    wrong = BlindCheckSubmitRequest.model_validate(
-        {"guesses": _answers(db, session_id, wrong=3)}
-    )
+    wrong = BlindCheckSubmitRequest.model_validate({"guesses": _answers(db, session_id, wrong=3)})
 
     with Session(temp_engine) as db_a, Session(temp_engine) as db_b:
         # Both requests read the row while it is still empty — the race window.
