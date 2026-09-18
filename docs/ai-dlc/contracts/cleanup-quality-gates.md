@@ -38,7 +38,7 @@ documentation; nothing parses `BACKEND VERIFY OK` mechanically.
 - No mypy/pyright config anywhere. 68 modules, ~17.3k lines under `backend/app/`.
 - `mypy app --ignore-missing-imports` (mypy 2.3.1, venv Python 3.14): **~337 errors**, of which
   295 are `[arg-type]`, clustered: `app/domain/postflop.py` 210, `table/grade_map_postflop.py`
-  47, `services/sim_session.py` 33, `domain/personas_postflop.py` 31, `domain/scenarios.py` 12.
+  47, `services/sim_session.py` 33, `domain/personas_postflop.py` 17 (an earlier 31 counted note lines), `domain/scenarios.py` 12.
   Two dominant patterns: `map_fail(reason)` called with `RejectReason | None` (45 sites) and
   `EvaluationResult(**dict[str, object])` unpacking (210 errors across 20 call sites — corrected 2026-09-18 from an earlier "~100" estimate). Two
   `[syntax]` errors are malformed `# type: ignore` comments in `table/range_estimate.py`.
