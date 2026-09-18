@@ -58,6 +58,7 @@ export default function SimRangeChart({
   sessionId,
   identityKey,
   heroCards,
+  labelsVisible,
 }: {
   sessionId: string;
   /** (session_id, hand_no, is_hero_turn) snapshot — changes when the hero acts
@@ -66,6 +67,14 @@ export default function SimRangeChart({
   identityKey: string;
   /** live hero hole cards — the highlighted "your hand" cell in the grid. */
   heroCards: [string, string];
+  /** Two-mode Simulate (T7): whether the opponents' archetype labels may
+   * render. False withholds the exploit note ENTIRELY — spec para 7. Stripping
+   * `villain_label` out of its lines and keeping the read would not do: "a LAG
+   * opens too many hands" still says LAG, and so does "this opponent opens too
+   * many hands" to anyone paying attention. The baseline grid itself is
+   * villain-agnostic (the server maps the spot with villain_type=None), so it
+   * keeps rendering in both states. */
+  labelsVisible: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [chart, setChart] = useState<PreflopChartView | null>(null);
@@ -209,7 +218,7 @@ export default function SimRangeChart({
               ))}
             </div>
 
-            {note && (
+            {labelsVisible && note && (
               <div className="sim-chart-exploit">
                 <span className="sim-chart-exploit-villain">vs {note.villain_label}</span>
                 <ReasoningText

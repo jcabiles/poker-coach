@@ -54,6 +54,13 @@ class SimSession(SQLModel, table=True):
     hand_no: int
     status: str = Field(default="active")  # "active" | "ended"
     created_at: datetime = Field(default_factory=_utcnow)
+    # Session mode (two-mode-simulate T1). NOTE: DB column is intentionally
+    # nullable (migration 0010 add-column pattern) — readers must treat NULL
+    # as 'training', since every pre-0015 session predates this column.
+    mode: str = Field(default="training")
+    # Stored result of the hand-200 blind check (T4 fills it), JSON-serialized.
+    # NULL means no check has been stored yet — not backfilled.
+    blind_check_json: str | None = Field(default=None)
 
 
 class SimSeat(SQLModel, table=True):

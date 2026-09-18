@@ -1,4 +1,6 @@
 import type {
+  BlindCheckSubmitRequest,
+  BlindCheckView,
   CalendarDay,
   CardMatchResponse,
   CoachExplainRequest,
@@ -20,6 +22,7 @@ import type {
   HandRevealView,
   RevealView,
   SessionView,
+  SimMode,
   Spot,
   StatsSummary,
   StreetReportView,
@@ -103,8 +106,16 @@ export async function matchCard(
 // return the full SessionView (its `hand` is the live decision point).
 
 // Create a fresh session (mints a session_id; deals hand 1; advances to hero).
-export async function postSimulateSession(): Promise<SessionView> {
-  return json(await fetch(`${BASE}/simulate/session`, { method: "POST" }));
+// `mode` is required, not defaulted, so a caller can never silently create a
+// Training session without saying so (two-mode-simulate spec para 4).
+export async function postSimulateSession(mode: SimMode): Promise<SessionView> {
+  return json(
+    await fetch(`${BASE}/simulate/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    }),
+  );
 }
 
 // Restore an existing session by id (reload recovery). Throws "... -> 404" when
@@ -132,6 +143,24 @@ export async function postHeroAction(
 // stacks, moves the button, increments hand_no.
 export async function postNextHand(sessionId: string): Promise<SessionView> {
   return json(await fetch(`${BASE}/simulate/session/${sessionId}/hand`, { method: "POST" }));
+}
+
+// Two-mode Simulate (T4): submit (or skip) the hand-200 blind check. Singular
+// `/session/`, like every other call above. First write wins server-side: a
+// duplicate submission returns the stored result, not an overwrite. Throws
+// "... -> 409" before the gate is open and "... -> 400" for seats the digest
+// didn't pick.
+export async function postBlindCheck(
+  sessionId: string,
+  body: BlindCheckSubmitRequest,
+): Promise<BlindCheckView> {
+  return json(
+    await fetch(`${BASE}/simulate/session/${sessionId}/blind-check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
 }
 
 // Leave the table: ends the session server-side (subsequent restore → 404).

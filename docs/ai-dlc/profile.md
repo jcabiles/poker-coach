@@ -9,9 +9,10 @@ artifact_dir: docs/ai-dlc
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       bot-realism-flywheel
               # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
-              # current slice: improvement slice 3, calldown — BUILT (#211–#218)
-              #   and close-packeted 2026-08-23; OPEN until the owner's blind
-              #   play session. See ## Resume below.
+              # current slice: Two-mode Simulate — MERGED 2026-09-18, box unticked
+              #   until the owner plays Challenge mode.
+              # slice 3 (calldown): CLOSED 2026-09-18 on the owner's verdict.
+              # next: cleanup quality gates (docs/cleanup-project-brief.md slice 2).
               # paused: persona-realism (see its top banner)
 
 verify:
@@ -47,34 +48,21 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-08-24
-commit:       branch `chore/slice3-decisions-execution` (base 2b4fefe = origin/main)
-log-entry:    /ai-org:build of tickets/slice3-decisions-execution.md, Lane A + Lane B
-position:     BUILD COMPLETE, all three tickets merged into the branch and a PR opened.
-              The ticket file was approved 2026-08-24 for **Lane A + Lane B only** — chain 1,
-              tickets E1 → E2 → E3, all in poker-coach. **Chain 2 (tickets P1–P4, the
-              poker-analytics publication-readiness lane, which the spec calls Lane C) was
-              NOT authorized and is still unbuilt** — it needs its own build run.
-              E1: the six 2026-08-24 rulings recorded in the theory contract (amendment A9,
-              a cross-reference on A8 item 5, a §4 row-P8 parking note, §11 item 16, the §7
-              factor-order correction, §9 ledger entry 18). E2: the three tests enforcing the
-              withdrawn per-bucket α rule deleted with their orphaned helpers, and the engine
-              comments corrected — engine syntax tree proven identical, so zero behaviour
-              change. E3: eleven dated adjudication notes in the slice-3 finding ledger, the
-              two documents still asserting the withdrawn rule resolved, the roadmap's
-              statistics-ingestion entry marked satisfied-2026-08-06 with four residual
-              limitations, and a tree-wide sweep.
-verified:     `./scripts/verify.sh` green on the branch — 2189 passed / 2 skipped / 0 xfailed,
-              BACKEND VERIFY OK, ruff clean. That figure was predicted before any work started
-              (baseline 2191 / 2 / 6, minus the 8 deleted cases) rather than fitted after.
-reviews:      every wave reviewed by a fresh agent that never saw the maker's reasoning.
-              E1 APPROVE-WITH-FIXES (2), E2 APPROVE (0), E3 APPROVE-WITH-FIXES (6, reviewer on
-              Opus). All ten findings accepted and fixed before commit; ledger is
-              ledger/slice3-decisions-execution.md, reports under reviews/.
-owner still owes: (a) confirm or overrule ONE marked-unratified interpretation in the theory
-              contract — how the commitment-slope ruling reconciles with amendment A6 (ledger
-              finding B1); (b) correct §10.2 of research/persona-realism-audit-2026-07-24.md
-              in the main checkout — it is git-excluded, so no branch can reach it, and it
-              still carries the superseded multiplier order the contract now contradicts;
-              (c) unchanged and NOT part of this build — the blind play session that closes
-              slice 3, then the single finale detection run (vendor keys + go-ahead).
+updated:      2026-09-18
+commit:       branch `feat/two-mode-simulate` — pushed and merged 2026-09-18 (see git log)
+log-entry:    "2026-09-18 — Two-mode Simulate merged; slice 3 closed; next: quality gates"
+position:     **Two-mode Simulate is MERGED.** Fresh dual review (refuter + browser design
+              review) both APPROVE-WITH-FIXES; the four should-fix findings fixed or recorded
+              (ledger round 3). The slice's box stays unticked until the owner plays Challenge
+              mode. **Flywheel slice 3 (calldown) is CLOSED** on the owner's 2026-09-18 verdict,
+              which closes the improvement phase.
+merged:       feat/two-mode-simulate (12 build commits + this session's review fixes).
+awaiting John: (a) play Challenge mode to the hand-200 check, then tick the slice; (b) the
+              finale detection run needs vendor keys and a go-ahead (not scheduled); (c) two
+              theory-contract items open since 2026-08-24 (ledger finding B1, and §10.2 of the
+              git-excluded persona-realism audit).
+authorized:   Owner, 2026-09-18: merge this run's PRs once gates are green and a fresh reviewer
+              approves (spent for this branch); next slice = cleanup quality gates
+              (`docs/cleanup-project-brief.md` slice 2) with its new dev dependencies
+              pre-approved. Nothing else. Lapses at the end of the 2026-09-18 session.
+next action:  spec → dual review → tickets → build the quality-gates slice.

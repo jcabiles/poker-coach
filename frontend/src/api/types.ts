@@ -364,8 +364,66 @@ export interface SimulateHandView {
   recap?: GradeView[];
 }
 
+// Two-mode Simulate (two-mode-simulate T2/T4) — the session's persona-label
+// visibility mode. A literal union, never a bare `string`, so an invalid value
+// is a compile error rather than a value silently traveling to the wire.
+export type SimMode = "training" | "challenge";
+
+// The six archetype wire values (backend/app/domain/archetypes.py VillainType).
+// A literal union, never a bare `string`, matching `SimMode`'s posture.
+export type ArchetypeGuess =
+  | "calling_station"
+  | "nit"
+  | "lag"
+  | "passive_fish"
+  | "tag"
+  | "maniac";
+
+// One seat's scored answer in the hand-200 blind check (T4). `guess` is what
+// the player named; `actual` is what the seat really was. Both are narrowed to
+// the six wire values even though the backend types them as bare `str` — this
+// file already tightens every closed-set backend string the same way (see
+// GradeView.correctness), and `actual` is one of the six by construction,
+// since the table's composition is a fixed multiset. The narrowing is what
+// makes a label lookup that misses a case a compile error rather than an
+// undefined label on screen.
+export interface BlindCheckGuess {
+  seat_index: number;
+  guess: ArchetypeGuess;
+  actual: ArchetypeGuess;
+  correct: boolean;
+}
+
+// The hand-200 quiz as it appears on the wire (T2/T4). `guesses` is [] until
+// `submitted` — it carries each seat's ACTUAL archetype, so a populated list
+// before submission would give away the answers. `score` is null until
+// submitted (and stays null on a skip).
+export interface BlindCheckView {
+  seats: number[]; // the three seat numbers the player is asked to identify
+  submitted: boolean; // lets a stale tab discover the check was already answered
+  skipped: boolean;
+  guesses: BlindCheckGuess[]; // [] when skipped or not yet submitted
+  score: number | null; // null when not yet submitted or skipped
+}
+
+// One seat the player names, as it goes OUT on the wire (T4 request body).
+export interface BlindCheckAnswer {
+  seat_index: number;
+  guess: ArchetypeGuess;
+}
+
+// Body of POST .../blind-check (T4). Either three answers, or `skipped: true`
+// with an empty `guesses` — the two are mutually exclusive, enforced by the
+// backend schema (422 otherwise), matching `BlindCheckSubmitRequest` server-side.
+export interface BlindCheckSubmitRequest {
+  skipped: boolean;
+  guesses: BlindCheckAnswer[];
+}
+
 export interface SessionView {
   session_id: string; // uuid4 hex
+  mode: SimMode;
+  blind_check: BlindCheckView | null;
   hand: SimulateHandView;
 }
 
