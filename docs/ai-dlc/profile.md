@@ -12,7 +12,7 @@ active:       bot-realism-flywheel
               # current slice: Two-mode Simulate — MERGED 2026-09-18, box unticked
               #   until the owner plays Challenge mode.
               # slice 3 (calldown): CLOSED 2026-09-18 on the owner's verdict.
-              # cleanup slice 2 (quality gates): BUILT 2026-09-18 on chore/quality-gates.
+              # cleanup slice 2 (quality gates): MERGED 2026-09-18 (#224).
               # next: cleanup slice 3 or 1 (docs/cleanup-project-brief.md).
               # paused: persona-realism (see its top banner)
 
@@ -62,24 +62,18 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-18
-commit:       branch `chore/quality-gates` (stacked on `feat/two-mode-simulate`); NEITHER PUSHED —
-              no GitHub token on this machine (gh is logged out); owner re-auths, then push + PR
+updated:      2026-09-18 (post-merge)
+commit:       main 9f26713 — PR #222 (Two-mode Simulate) and PR #224 (make check gates) merged
 log-entry:    "2026-09-18 — Cleanup slice 2 built: `make check` is the gate"
-position:     Two branches complete and locally committed. (1) `feat/two-mode-simulate`: built
-              2026-08-27, fresh dual review 2026-09-18, fixes applied, gates green — merge
-              authorized by the owner, blocked only on push. (2) `chore/quality-gates`: cleanup
-              slice 2 built end to end; `make check` green on the worktree; fresh refuter review
-              at the fan-in (ledger build record). Flywheel slice 3 CLOSED 2026-09-18.
-merged:       nothing new this session (push blocked).
-awaiting John: (a) `gh auth login --hostname github.com --git-protocol https --insecure-storage
-              --with-token` in a real terminal, then any session can push both branches and open
-              the PRs (two-mode first, gates second); (b) play Challenge mode to the hand-200
-              check, then tick the slice; (c) three worktree dev-server processes on ports
-              8018/7778 the sandbox could not kill (see the session's final report).
-authorized:   Owner 2026-09-18: merge this run's PRs once gates are green and a fresh reviewer
-              approves — both branches satisfy that; the merge itself still needs the push.
-              Lapses at the end of the 2026-09-18 session.
-next action:  push both branches, open PRs, merge two-mode then gates; then cleanup slice 3
-              (code findings) or slice 1 (docs distillation, deletions owner-approved) via
-              `/ai-org:spec --auto-build`.
+position:     Two-mode Simulate is on main; its roadmap box stays unticked until the owner plays
+              Challenge mode to the hand-200 check. Cleanup slice 2 is DONE: `make check` is the
+              one gate, CI runs the same targets (frontend on Node 24 — Node 20's npm 10 fails
+              `npm ci` on the npm-11 lockfile). Flywheel slice 3 CLOSED 2026-09-18.
+merged:       #222 (squash de9cb71), #224 (squash 9f26713); #223 closed as superseded.
+awaiting John: (a) play Challenge mode, then tick the slice; (b) two theory-contract items open
+              since 2026-08-24 (ledger finding B1; §10.2 of the git-excluded audit).
+authorized:   nothing standing. The 2026-09-18 merge grant is spent.
+next action:  cleanup slice 3 (code findings; the two stale root-file deletions need per-file
+              owner approval) or slice 1 (docs distillation, deletions held for the owner), via
+              `/ai-org:spec --auto-build`. Burn-down lists: mypy overrides in backend/pyproject.toml,
+              Biome warn rules in frontend/biome.jsonc.
