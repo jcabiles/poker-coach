@@ -167,16 +167,12 @@ def load(
     per-call engine (never the shared `app.db.session.engine` singleton)
     is required for `--db`/`POKER_COACH_DB` to actually take effect."""
     db_path = db_path or resolve_db_path(None)
-    local_engine = create_engine(
-        f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
-    )
+    local_engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     with Session(local_engine) as db:
         seat_rows = db.exec(select(SimSeat).where(SimSeat.session_id == session_id)).all()
         seats = {r.seat_index: (r.persona_type or "HERO") for r in seat_rows}
 
-        hand_rows = db.exec(
-            select(SimHand).where(SimHand.session_id == session_id)
-        ).all()
+        hand_rows = db.exec(select(SimHand).where(SimHand.session_id == session_id)).all()
 
     if max_hand_no is not None:
         hand_rows = [r for r in hand_rows if r.hand_no <= max_hand_no]
@@ -531,9 +527,7 @@ def build_packets(
                 voluntary = any(a["action"] in ("call", "raise", "bet") for a in mine)
                 hc = h.seats[seat].hole_cards
                 if voluntary:
-                    block = hand_block(
-                        h, seats, seat, nets[h.hand_no], shows[h.hand_no], acts
-                    )
+                    block = hand_block(h, seats, seat, nets[h.hand_no], shows[h.hand_no], acts)
                     played.append(block)
                 else:
                     # A LIMP ahead routes to the vs_limpers node, NOT unopened.

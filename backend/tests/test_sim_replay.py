@@ -84,9 +84,7 @@ def _play_hands(s: Session, n_hands: int, *, aggressive: bool = True) -> str:
                 view = deal_next_hand(s, view.session_id)
             continue
         view = _sync(
-            apply_hero_action(
-                s, view.session_id, _hero_decision(view, aggressive=aggressive)
-            )
+            apply_hero_action(s, view.session_id, _hero_decision(view, aggressive=aggressive))
         )
     return view.session_id
 
@@ -135,9 +133,7 @@ def test_migration_0013_up_down_up_and_index_absent_after_downgrade(tmp_path):
             )
         ).fetchone()
         assert row == (None, None, "call")
-        idx = {
-            r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()
-        }
+        idx = {r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()}
         assert "ix_sim_hand_created_at" in idx
     engine.dispose()
 
@@ -145,14 +141,10 @@ def test_migration_0013_up_down_up_and_index_absent_after_downgrade(tmp_path):
     command.downgrade(cfg, "0012")
     engine = create_engine(url, connect_args={"check_same_thread": False})
     with engine.begin() as conn:
-        cols = {
-            r[1] for r in conn.execute(text("PRAGMA table_info(sim_decision)")).fetchall()
-        }
+        cols = {r[1] for r in conn.execute(text("PRAGMA table_info(sim_decision)")).fetchall()}
         assert "verdict_tier_text" not in cols and "reasoning_text" not in cols
         assert "reasoning_parts_json" not in cols  # 0014 down is clean too
-        idx = {
-            r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()
-        }
+        idx = {r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()}
         assert "ix_sim_hand_created_at" not in idx  # index absent after downgrade
     engine.dispose()
 
@@ -160,9 +152,7 @@ def test_migration_0013_up_down_up_and_index_absent_after_downgrade(tmp_path):
     command.upgrade(cfg, "head")
     engine = create_engine(url, connect_args={"check_same_thread": False})
     with engine.begin() as conn:
-        idx = {
-            r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()
-        }
+        idx = {r[1] for r in conn.execute(text("PRAGMA index_list('sim_hand')")).fetchall()}
         assert "ix_sim_hand_created_at" in idx
     engine.dispose()
 
@@ -256,9 +246,7 @@ def test_pre_0014_rows_fall_back_to_flat_reasoning(db):
 # --------------------------------------------- T3: per-day ordinal bucketing
 
 
-def _seed_completed_hand(
-    s: Session, session_id: str, hand_no: int, created_at: datetime
-) -> int:
+def _seed_completed_hand(s: Session, session_id: str, hand_no: int, created_at: datetime) -> int:
     dealt = deal_hand(random.Random(hand_no))
     state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
     hand = SimHand(
@@ -366,9 +354,7 @@ def test_seat_map_total_and_correct_and_verdict_aligned(db):
         for step in replay.steps:
             assert pos2seat[state.seats[step.seat].position] == step.seat
         # Hero non-POST steps == number of decisions (post-0010).
-        decisions = list(
-            db.exec(select(SimDecision).where(SimDecision.sim_hand_id == hand.id))
-        )
+        decisions = list(db.exec(select(SimDecision).where(SimDecision.sim_hand_id == hand.id)))
         hero_steps = [s for s in replay.steps if s.is_hero and not s.is_post]
         assert len(hero_steps) == len(decisions)
         # A POST step never carries a verdict.
@@ -397,12 +383,16 @@ def test_legacy_hand_with_no_decision_rows_is_ungraded_not_crash(db):
         legal = eng_legal(st)
         kinds = {la.action for la in legal}
         if st.to_act_seat == HERO_SEAT:
-            act = ActionType.CHECK if ActionType.CHECK in kinds else (
-                ActionType.CALL if ActionType.CALL in kinds else ActionType.FOLD
+            act = (
+                ActionType.CHECK
+                if ActionType.CHECK in kinds
+                else (ActionType.CALL if ActionType.CALL in kinds else ActionType.FOLD)
             )
         else:
-            act = ActionType.FOLD if ActionType.FOLD in kinds else (
-                ActionType.CHECK if ActionType.CHECK in kinds else ActionType.CALL
+            act = (
+                ActionType.FOLD
+                if ActionType.FOLD in kinds
+                else (ActionType.CHECK if ActionType.CHECK in kinds else ActionType.CALL)
             )
         size = None
         st = engine_apply(st, Decision(action=act, size_bb=size))
@@ -524,15 +514,11 @@ def test_all_in_flop_terminal_step_shows_full_board(db):
         if seat in (HERO_SEAT, 3):
             if ActionType.RAISE in kinds:
                 ra = next(la for la in legal if la.action is ActionType.RAISE)
-                st = engine_apply(
-                    st, Decision(action=ActionType.RAISE, size_bb=ra.max_bb)
-                )
+                st = engine_apply(st, Decision(action=ActionType.RAISE, size_bb=ra.max_bb))
                 continue
             if ActionType.BET in kinds:
                 ba = next(la for la in legal if la.action is ActionType.BET)
-                st = engine_apply(
-                    st, Decision(action=ActionType.BET, size_bb=ba.max_bb)
-                )
+                st = engine_apply(st, Decision(action=ActionType.BET, size_bb=ba.max_bb))
                 continue
             if ActionType.CALL in kinds:
                 st = engine_apply(st, Decision(action=ActionType.CALL))
@@ -572,15 +558,36 @@ def test_mistakes_filter_matches_mistake_and_blunder_only(db):
     hid3 = _seed_completed_hand(db, "sFilter", 3, datetime(2026, 7, 22, 3, tzinfo=UTC))
     db.add_all(
         [
-            SimDecision(session_id="sFilter", sim_hand_id=hid, street="preflop",
-                        ordinal=0, chosen_action="raise", correctness="mistake",
-                        ev_loss_bb=1.0, coverage="full"),
-            SimDecision(session_id="sFilter", sim_hand_id=hid2, street="preflop",
-                        ordinal=0, chosen_action="raise", correctness="acceptable",
-                        ev_loss_bb=0.0, coverage="full"),
-            SimDecision(session_id="sFilter", sim_hand_id=hid3, street="preflop",
-                        ordinal=0, chosen_action="raise", correctness="blunder",
-                        ev_loss_bb=3.0, coverage="full"),
+            SimDecision(
+                session_id="sFilter",
+                sim_hand_id=hid,
+                street="preflop",
+                ordinal=0,
+                chosen_action="raise",
+                correctness="mistake",
+                ev_loss_bb=1.0,
+                coverage="full",
+            ),
+            SimDecision(
+                session_id="sFilter",
+                sim_hand_id=hid2,
+                street="preflop",
+                ordinal=0,
+                chosen_action="raise",
+                correctness="acceptable",
+                ev_loss_bb=0.0,
+                coverage="full",
+            ),
+            SimDecision(
+                session_id="sFilter",
+                sim_hand_id=hid3,
+                street="preflop",
+                ordinal=0,
+                chosen_action="raise",
+                correctness="blunder",
+                ev_loss_bb=3.0,
+                coverage="full",
+            ),
         ]
     )
     db.commit()
@@ -608,9 +615,15 @@ def test_404_on_missing_not_owned_and_in_progress(db):
     _seed_session(db, "sProg")
     dealt = deal_hand(random.Random(9))
     state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
-    prog = SimHand(session_id="sProg", hand_no=1, button_seat=0, rng_seed="9",
-                   status="in_progress", state_json=state.model_dump_json(),
-                   created_at=datetime.now(UTC))
+    prog = SimHand(
+        session_id="sProg",
+        hand_no=1,
+        button_seat=0,
+        rng_seed="9",
+        status="in_progress",
+        state_json=state.model_dump_json(),
+        created_at=datetime.now(UTC),
+    )
     db.add(prog)
     db.commit()
     db.refresh(prog)

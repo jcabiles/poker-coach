@@ -85,11 +85,14 @@ def _wide_deterministic_blocks(pack) -> list[str]:
             example.setdefault(actions[0], mix.combos[:60])
         for action, mass in deterministic.items():
             if mass > MAX_DETERMINISTIC_WIDTH:
-                where = (f"{pack.persona.value} {node.facing} "
-                         f"{[p.value for p in node.positions] if node.positions else '*'}")
+                where = (
+                    f"{pack.persona.value} {node.facing} "
+                    f"{[p.value for p in node.positions] if node.positions else '*'}"
+                )
                 out.append(
                     f"{where}: {mass * 100:.2f}% of the deck always plays "
-                    f"{action!r} — e.g. {example[action]}")
+                    f"{action!r} — e.g. {example[action]}"
+                )
     return out
 
 
@@ -102,8 +105,7 @@ def test_the_width_rule_can_fail(packs):
     """Negative case. Before this slice the calling station answered 56% of the
     deck with `call` at weight 1.0 facing a raise; restoring that must fail."""
     pack = packs["calling_station"].model_copy(deep=True)
-    node = next(n for n in pack.preflop
-                if n.facing == "vs_rfi" and n.positions is not None)
+    node = next(n for n in pack.preflop if n.facing == "vs_rfi" and n.positions is not None)
     node.mixes[1].weights = {"call": 1.0}
     violations = _wide_deterministic_blocks(pack)
     assert violations and "vs_rfi" in violations[0], violations
@@ -116,23 +118,30 @@ def test_the_width_rule_cannot_be_evaded_by_splitting_the_block(packs):
     nothing about how the persona plays, so it must not change the verdict.
     """
     pack = packs["calling_station"].model_copy(deep=True)
-    node = next(n for n in pack.preflop
-                if n.facing == "vs_rfi" and n.positions is not None)
+    node = next(n for n in pack.preflop if n.facing == "vs_rfi" and n.positions is not None)
     core = node.mixes[1]
-    quarters = ["22+, A2s+, K2s+", "Q2s+, J2s+, T2s+",
-                "92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s",
-                "A2o+", "K7o+, Q7o+", "J8o+, T8o+, 98o, 87o"]
-    node.mixes = ([node.mixes[0]]
-                  + [core.model_copy(update={"combos": c, "weights": {"call": 1.0}})
-                     for c in quarters]
-                  + list(node.mixes[2:]))
+    quarters = [
+        "22+, A2s+, K2s+",
+        "Q2s+, J2s+, T2s+",
+        "92s+, 82s+, 72s+, 62s+, 54s, 53s, 52s, 43s, 42s, 32s",
+        "A2o+",
+        "K7o+, Q7o+",
+        "J8o+, T8o+, 98o, 87o",
+    ]
+    node.mixes = (
+        [node.mixes[0]]
+        + [core.model_copy(update={"combos": c, "weights": {"call": 1.0}}) for c in quarters]
+        + list(node.mixes[2:])
+    )
     for spelling in quarters:
         assert _width(spelling, frozenset()) < MAX_DETERMINISTIC_WIDTH, (
             f"fixture assumption: {spelling[:30]} must be under the per-mix "
-            f"threshold, or this test proves nothing")
+            f"threshold, or this test proves nothing"
+        )
     violations = _wide_deterministic_blocks(pack)
     assert violations and "vs_rfi" in violations[0], (
-        "sub-threshold mixes summing past the threshold must still fail")
+        "sub-threshold mixes summing past the threshold must still fail"
+    )
 
 
 # (persona, facing, is the node position-explicit) -> the boundary this slice
@@ -164,9 +173,11 @@ def _node(pack, facing, positions):
     return None
 
 
-@pytest.mark.parametrize(("persona", "facing", "positions"), SOFTENED,
-                         ids=[f"{p}-{f}-{'-'.join(x) if x else 'wildcard'}"
-                              for p, f, x in SOFTENED])
+@pytest.mark.parametrize(
+    ("persona", "facing", "positions"),
+    SOFTENED,
+    ids=[f"{p}-{f}-{'-'.join(x) if x else 'wildcard'}" for p, f, x in SOFTENED],
+)
 def test_softened_nodes_end_in_a_graded_edge(packs, persona, facing, positions):
     """The outermost band a node plays must be a mix, and the node must offer
     at least three distinct continue probabilities — core, middle, fringe.
@@ -187,7 +198,8 @@ def test_softened_nodes_end_in_a_graded_edge(packs, persona, facing, positions):
     assert continues, f"{persona} {facing} {positions} plays nothing at all"
     assert 0.0 < continues[-1] < 1.0, (
         f"{persona} {facing} {positions}: the outermost band plays at "
-        f"{continues[-1]} — the boundary is still a step")
+        f"{continues[-1]} — the boundary is still a step"
+    )
     # Count only levels STRICTLY between 0 and 1. Counting every distinct level
     # let the untouched premium tier — always 1.0 — supply one of the three, so
     # a node that got exactly one softened step passed as a ramp. Review caught
@@ -197,7 +209,8 @@ def test_softened_nodes_end_in_a_graded_edge(packs, persona, facing, positions):
     assert len(graded) >= 2, (
         f"{persona} {facing} {positions}: continue levels {sorted(set(continues))} "
         f"contain only {sorted(graded)} strictly between 0 and 1 — that is one "
-        f"step, not a ramp. The premium tier at 1.0 does not count.")
+        f"step, not a ramp. The premium tier at 1.0 does not count."
+    )
 
 
 # The tier ABOVE each softened block, pinned byte-for-byte. Softening an edge
@@ -227,6 +240,7 @@ def test_softening_an_edge_did_not_move_the_core(packs):
         assert node is not None, f"{persona} {facing} {pos} is missing"
         first = node.mixes[0]
         if first.combos != combos or dict(first.weights) != weights:
-            wrong.append(f"{persona} {facing} {pos}: core is now "
-                         f"{first.combos!r} {dict(first.weights)}")
+            wrong.append(
+                f"{persona} {facing} {pos}: core is now {first.combos!r} {dict(first.weights)}"
+            )
     assert not wrong, "\n".join(wrong)

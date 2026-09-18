@@ -90,8 +90,10 @@ def test_migration_0010_up_down_clean_and_existing_rows_read_back_unchanged(tmp_
     engine = create_engine(url, connect_args={"check_same_thread": False})
     with engine.begin() as conn:
         row = conn.execute(
-            text("SELECT source, chosen_action, ev_loss_bb FROM drill_attempt "
-                 "WHERE spot_signature='presig'")
+            text(
+                "SELECT source, chosen_action, ev_loss_bb FROM drill_attempt "
+                "WHERE spot_signature='presig'"
+            )
         ).fetchone()
         assert row == ("practice", "raise", 1.0)
     engine.dispose()
@@ -100,9 +102,7 @@ def test_migration_0010_up_down_clean_and_existing_rows_read_back_unchanged(tmp_
     command.downgrade(cfg, "0009")
     engine = create_engine(url, connect_args={"check_same_thread": False})
     with engine.begin() as conn:
-        cols = {
-            row[1] for row in conn.execute(text("PRAGMA table_info(drill_attempt)")).fetchall()
-        }
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(drill_attempt)")).fetchall()}
         assert "source" not in cols
         tables = {
             row[0]
@@ -147,9 +147,7 @@ def test_simulate_session_creates_zero_srs_rows(engine):
                 continue
             assert view.hand.is_hero_turn
             # apply_hero_action went async in S10 T1 (awaits the grading provider).
-            view = asyncio.run(
-                apply_hero_action(s, view.session_id, _fold_or_check_decision(view))
-            )
+            view = asyncio.run(apply_hero_action(s, view.session_id, _fold_or_check_decision(view)))
         srs_rows = list(s.exec(select(SRSItemRow)))
         assert srs_rows == []
 
@@ -363,9 +361,7 @@ def test_migration_0012_up_down_up_spot_dims(tmp_path):
     command.downgrade(cfg, "0011")
     engine = create_engine(url, connect_args={"check_same_thread": False})
     with engine.begin() as conn:
-        cols = {
-            r[1] for r in conn.execute(text("PRAGMA table_info(sim_decision)")).fetchall()
-        }
+        cols = {r[1] for r in conn.execute(text("PRAGMA table_info(sim_decision)")).fetchall()}
         assert "players_in_pot" not in cols and "node_context" not in cols
     engine.dispose()
     command.upgrade(cfg, "head")

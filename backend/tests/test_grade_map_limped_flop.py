@@ -32,17 +32,21 @@ from app.domain.table.grade_map import map_decision_point
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7, stacks: float = 100.0) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9)
 
 
 def _play(state: HandState, moves) -> HandState:
@@ -105,9 +109,7 @@ def test_hero_bb_lead_maps_and_grades():
     assert len(res.per_action) == 3
     assert abs(sum(e.frequency for e in res.per_action) - 1.0) < 1e-6
     assert all(isinstance(e.ev_bb, float) for e in res.per_action)
-    graded = grade_limped_lead(
-        spot, None, None, Decision(action=ActionType.CHECK)
-    )
+    graded = grade_limped_lead(spot, None, None, Decision(action=ActionType.CHECK))
     assert graded.correctness in tuple(Correctness)
     assert graded.chosen_eval is not None
     assert graded.leak_category == 208
@@ -148,9 +150,7 @@ def test_hero_bb_vs_lead_maps_and_grades():
     assert spot.pot_bb == 3.75
     call = next(la for la in spot.legal_actions if la.action is ActionType.CALL)
     assert call.min_bb == 1.25  # the ACTUAL bet — true price preserved
-    res = grade_limped_vs_lead(
-        spot, None, None, Decision(action=ActionType.FOLD)
-    )
+    res = grade_limped_vs_lead(spot, None, None, Decision(action=ActionType.FOLD))
     assert res.correctness in tuple(Correctness)
     assert res.chosen_eval is not None
     assert res.leak_category == 209
@@ -363,9 +363,7 @@ def test_limped_flop_mappers_fire_on_organic_play():
     for hand_no in range(1500):
         lineup = assign_lineup(rng)
         seat_packs = {s: packs[t.value] for s, t in lineup.items()}
-        state = start_hand(
-            deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9
-        )
+        state = start_hand(deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
         guard = 0
         while not state.hand_over and state.to_act_seat is not None:
             guard += 1
@@ -375,7 +373,8 @@ def test_limped_flop_mappers_fire_on_organic_play():
                 if state.street is Street.FLOP:
                     spot = map_decision_point(state, HERO_SEAT)
                     if spot is not None and spot.node_context[0] in (
-                        NodeContext.LIMPED_LEAD, NodeContext.LIMPED_VS_LEAD
+                        NodeContext.LIMPED_LEAD,
+                        NodeContext.LIMPED_VS_LEAD,
                     ):
                         key = spot.node_context[0].value
                         fires[key] = fires.get(key, 0) + 1

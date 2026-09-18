@@ -36,9 +36,15 @@ from app.services.sim_session import (
 
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 _SEAT_BEFORE = {p: _SEAT_ORDER[: _SEAT_ORDER.index(p)] for p in _SEAT_ORDER}
 _SEAT_AFTER = {p: _SEAT_ORDER[_SEAT_ORDER.index(p) + 1 :] for p in _SEAT_ORDER}
@@ -46,9 +52,7 @@ _SEAT_AFTER = {p: _SEAT_ORDER[_SEAT_ORDER.index(p) + 1 :] for p in _SEAT_ORDER}
 
 def _state(hero_pos: Position, seed: int = 7) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9)
 
 
 def _play(state: HandState, moves: list[tuple[Position, Decision]]) -> HandState:
@@ -117,22 +121,27 @@ def db(tmp_path):
 
 
 def _persist(db: Session, state: HandState) -> str:
-    session = SimSession(
-        id=uuid.uuid4().hex, button_seat=state.button_seat, hand_no=1
-    )
+    session = SimSession(id=uuid.uuid4().hex, button_seat=state.button_seat, hand_no=1)
     db.add(session)
     for i in range(9):
         db.add(
             SimSeat(
-                session_id=session.id, seat_index=i, is_hero=i == HERO_SEAT,
+                session_id=session.id,
+                seat_index=i,
+                is_hero=i == HERO_SEAT,
                 persona_type=None if i == HERO_SEAT else "tag",
-                stack_bb=100.0, buyins_bb=100.0,
+                stack_bb=100.0,
+                buyins_bb=100.0,
             )
         )
     db.add(
         SimHand(
-            session_id=session.id, hand_no=1, button_seat=state.button_seat,
-            rng_seed="1", status="in_progress", state_json=state.model_dump_json(),
+            session_id=session.id,
+            hand_no=1,
+            button_seat=state.button_seat,
+            rng_seed="1",
+            status="in_progress",
+            state_json=state.model_dump_json(),
         )
     )
     db.commit()
@@ -163,15 +172,9 @@ def test_chart_actions_equal_grader_per_action(db, state_fn, street, label):
     # per_action, so chart == grader for the live verdict too.
     spot = map_decision_point(state, HERO_SEAT)
     optimal = asyncio.run(_grading_provider().optimal(spot))
-    graded = asyncio.run(
-        _grading_provider().evaluate(spot, Decision(action=ActionType.CHECK))
-    )
-    expected = [
-        (a.action.value, a.size_bb, a.frequency, a.ev_bb) for a in optimal.per_action
-    ]
-    assert [
-        (a.action, a.size_bb, a.frequency, a.ev_bb) for a in view.actions
-    ] == expected
+    graded = asyncio.run(_grading_provider().evaluate(spot, Decision(action=ActionType.CHECK)))
+    expected = [(a.action.value, a.size_bb, a.frequency, a.ev_bb) for a in optimal.per_action]
+    assert [(a.action, a.size_bb, a.frequency, a.ev_bb) for a in view.actions] == expected
     assert [
         (a.action.value, a.size_bb, a.frequency, a.ev_bb) for a in graded.per_action
     ] == expected
@@ -224,9 +227,7 @@ def test_chart_fetch_writes_nothing(db):
 
 def test_preflop_turn_is_unavailable(db):
     state = _state(Position.BTN)
-    state = _play(
-        state, [_fold(p) for p in _SEAT_BEFORE[Position.BTN] if p not in _BLINDS]
-    )
+    state = _play(state, [_fold(p) for p in _SEAT_BEFORE[Position.BTN] if p not in _BLINDS])
     assert state.street is Street.PREFLOP and state.to_act_seat == HERO_SEAT
     session_id = _persist(db, state)
     view = asyncio.run(postflop_chart(db, session_id))

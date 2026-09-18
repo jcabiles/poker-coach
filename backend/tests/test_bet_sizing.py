@@ -71,9 +71,7 @@ def test_preflop_raise_to_nodes_and_two_sided_clamp():
     # clamp UP to min_bb (a tiny 3bet base)
     assert sizing.preflop_raise_to(S(), "3bet", last_raise_to=0.1, limpers=0, **kw) == 2.0
     # clamp DOWN to max_bb (huge base must not exceed the bracket / jam)
-    assert (
-        sizing.preflop_raise_to(S(), "3bet", last_raise_to=1000.0, limpers=0, **kw) == 100.0
-    )
+    assert sizing.preflop_raise_to(S(), "3bet", last_raise_to=1000.0, limpers=0, **kw) == 100.0
     # forced-jam bracket (min==max) collapses to the single legal value
     jam = sizing.preflop_raise_to(
         S(), "4bet", last_raise_to=50.0, limpers=0, min_bb=40.0, max_bb=40.0
@@ -130,8 +128,8 @@ def test_bot_open_size_is_a_persona_lever_not_min_raise():
                 # test's business.
                 continue
             assert d.size_bb in authored, (
-                f"{pack.persona} opened {d.size_bb}, which it did not author: "
-                f"{sorted(authored)}")
+                f"{pack.persona} opened {d.size_bb}, which it did not author: {sorted(authored)}"
+            )
             assert d.size_bb != 2.0  # the min-raise, which is what this guards
             drawn.append(d.size_bb)
         assert len(drawn) > 20, f"{pack.persona} raised only {len(drawn)}/200 times"

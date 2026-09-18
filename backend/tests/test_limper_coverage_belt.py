@@ -538,8 +538,14 @@ _PRE_M3_FIRES = {
     # content changed and every _WANT_* coverage shape still fires (verified:
     # BB x1 49, BB x2 21, BB x3 4) — stream displacement, not a coverage
     # regression.
-    ("UTG2", 1): 91, ("LJ", 1): 104, ("HJ", 1): 127, ("CO", 1): 90,
-    ("CO", 2): 33, ("SB", 1): 70, ("SB", 2): 31, ("BTN", 1): 85,
+    ("UTG2", 1): 91,
+    ("LJ", 1): 104,
+    ("HJ", 1): 127,
+    ("CO", 1): 90,
+    ("CO", 2): 33,
+    ("SB", 1): 70,
+    ("SB", 2): 31,
+    ("BTN", 1): 85,
     ("BTN", 2): 39,
 }
 
@@ -552,9 +558,7 @@ def _count_limper_coverage(proxy: str, seed: int, hands: int) -> dict[tuple[str,
     for hand_no in range(hands):
         lineup = assign_lineup(rng)
         seat_packs = {s: packs[t.value] for s, t in lineup.items()}
-        state = start_hand(
-            deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9
-        )
+        state = start_hand(deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
         guard = 0
         while not state.hand_over and state.to_act_seat is not None:
             guard += 1

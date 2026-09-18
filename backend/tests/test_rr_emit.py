@@ -116,8 +116,7 @@ def test_proving_gate_nit_unopened_is_semantically_identical(emitted, shipped):
     for emit_node, ship_node in zip(emitted, shipped, strict=True):
         seat = ship_node["positions"][0]
         assert len(emit_node["mixes"]) == len(ship_node["mixes"]), (
-            f"{seat}: emitted {len(emit_node['mixes'])} mixes, "
-            f"shipped {len(ship_node['mixes'])}"
+            f"{seat}: emitted {len(emit_node['mixes'])} mixes, shipped {len(ship_node['mixes'])}"
         )
         for i, (emit_mix, ship_mix) in enumerate(
             zip(emit_node["mixes"], ship_node["mixes"], strict=True)
@@ -135,12 +134,10 @@ def test_proving_gate_nit_unopened_is_semantically_identical(emitted, shipped):
 def test_proving_gate_covers_every_shipped_hand_class(emitted, shipped):
     """Belt on the gate itself: a mismatch must be impossible to pass by
     emitting an EMPTY ladder, so assert the corpus is actually non-trivial."""
+
     def union(nodes):
         return {
-            cls
-            for node in nodes
-            for mix in node["mixes"]
-            for cls in parse_range(mix["combos"])
+            cls for node in nodes for mix in node["mixes"] for cls in parse_range(mix["combos"])
         }
 
     played = union(shipped)
@@ -320,9 +317,7 @@ def test_validator_rejects_unknown_required_slope_row():
 # spec fails here, which is what keeps the spec from rotting into a fiction.
 
 LAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "lag.unopened.json"
-LAG_PACK_PATH = CONTENT.parent / json.loads(
-    LAG_SPEC_PATH.read_text(encoding="utf-8")
-)["emits"]
+LAG_PACK_PATH = CONTENT.parent / json.loads(LAG_SPEC_PATH.read_text(encoding="utf-8"))["emits"]
 # Review fold (3-way convergent: Codex, theory, lane-B precedent): deriving the
 # pack path from the spec's own `emits` makes the metadata audited rather than
 # dead, but ONLY if the resolved target is itself pinned — otherwise repointing
@@ -349,9 +344,7 @@ def lag_shipped() -> list[dict]:
 
 
 def test_lag_proving_gate_seat_list_matches_shipped(lag_emitted, lag_shipped):
-    assert [n["positions"] for n in lag_emitted] == [
-        n["positions"] for n in lag_shipped
-    ]
+    assert [n["positions"] for n in lag_emitted] == [n["positions"] for n in lag_shipped]
     assert all(n["facing"] == "unopened" for n in lag_emitted)
 
 
@@ -360,8 +353,7 @@ def test_lag_proving_gate_unopened_is_semantically_identical(lag_emitted, lag_sh
     for emit_node, ship_node in zip(lag_emitted, lag_shipped, strict=True):
         seat = ship_node["positions"][0]
         assert len(emit_node["mixes"]) == len(ship_node["mixes"]), (
-            f"{seat}: emitted {len(emit_node['mixes'])} mixes, "
-            f"shipped {len(ship_node['mixes'])}"
+            f"{seat}: emitted {len(emit_node['mixes'])} mixes, shipped {len(ship_node['mixes'])}"
         )
         for i, (emit_mix, ship_mix) in enumerate(
             zip(emit_node["mixes"], ship_node["mixes"], strict=True)
@@ -379,12 +371,10 @@ def test_lag_proving_gate_unopened_is_semantically_identical(lag_emitted, lag_sh
 def test_lag_proving_gate_corpus_is_non_trivial(lag_emitted, lag_shipped):
     """Belt on the gate itself (the nit gate's rule): a mismatch must not be
     passable by emitting an empty ladder."""
+
     def union(nodes):
         return {
-            cls
-            for node in nodes
-            for mix in node["mixes"]
-            for cls in parse_range(mix["combos"])
+            cls for node in nodes for mix in node["mixes"] for cls in parse_range(mix["combos"])
         }
 
     played = union(lag_shipped)
@@ -454,9 +444,7 @@ def test_lag_authored_raise_pct_annotations_match_emitted_widths(lag_emitted):
 # classes (see its note).
 
 TAG_SPEC_PATH = CONTENT / "personas" / "ladders" / "tag.unopened.json"
-TAG_PACK_PATH = CONTENT.parent / json.loads(
-    TAG_SPEC_PATH.read_text(encoding="utf-8")
-)["emits"]
+TAG_PACK_PATH = CONTENT.parent / json.loads(TAG_SPEC_PATH.read_text(encoding="utf-8"))["emits"]
 # Review law (3-way convergent on the lag/nit specs: Codex, theory, lane B):
 # deriving the pack path from the spec's own `emits` makes the metadata audited
 # rather than dead, but ONLY if the resolved target is itself pinned —
@@ -484,9 +472,7 @@ def tag_shipped() -> list[dict]:
 
 
 def test_tag_proving_gate_seat_list_matches_shipped(tag_emitted, tag_shipped):
-    assert [n["positions"] for n in tag_emitted] == [
-        n["positions"] for n in tag_shipped
-    ]
+    assert [n["positions"] for n in tag_emitted] == [n["positions"] for n in tag_shipped]
     assert all(n["facing"] == "unopened" for n in tag_emitted)
 
 
@@ -495,8 +481,7 @@ def test_tag_proving_gate_unopened_is_semantically_identical(tag_emitted, tag_sh
     for emit_node, ship_node in zip(tag_emitted, tag_shipped, strict=True):
         seat = ship_node["positions"][0]
         assert len(emit_node["mixes"]) == len(ship_node["mixes"]), (
-            f"{seat}: emitted {len(emit_node['mixes'])} mixes, "
-            f"shipped {len(ship_node['mixes'])}"
+            f"{seat}: emitted {len(emit_node['mixes'])} mixes, shipped {len(ship_node['mixes'])}"
         )
         for i, (emit_mix, ship_mix) in enumerate(
             zip(emit_node["mixes"], ship_node["mixes"], strict=True)
@@ -514,12 +499,10 @@ def test_tag_proving_gate_unopened_is_semantically_identical(tag_emitted, tag_sh
 def test_tag_proving_gate_corpus_is_non_trivial(tag_emitted, tag_shipped):
     """Belt on the gate itself (the nit gate's rule): a mismatch must not be
     passable by emitting an empty ladder."""
+
     def union(nodes):
         return {
-            cls
-            for node in nodes
-            for mix in node["mixes"]
-            for cls in parse_range(mix["combos"])
+            cls for node in nodes for mix in node["mixes"] for cls in parse_range(mix["combos"])
         }
 
     played = union(tag_shipped)

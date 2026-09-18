@@ -153,8 +153,7 @@ def load_spec(path: Path | str) -> SweepSpec:
     if not isinstance(document, dict):
         raise SweepSpecError(f"{path}: sweep spec must be a JSON object")
 
-    required = ("schema_version", "configs", "seeds", "n_hands", "out_root",
-                "analytics_repo")
+    required = ("schema_version", "configs", "seeds", "n_hands", "out_root", "analytics_repo")
     missing = [k for k in required if k not in document]
     if missing:
         raise SweepSpecError(f"{path}: missing required field(s): {missing}")
@@ -171,13 +170,14 @@ def load_spec(path: Path | str) -> SweepSpec:
         raise SweepSpecError(f"{path}: `configs` must be a non-empty list of paths")
     base_dir = path.resolve().parent
     configs = tuple(
-        (base_dir / c).resolve() if not Path(c).is_absolute() else Path(c)
-        for c in configs_raw
+        (base_dir / c).resolve() if not Path(c).is_absolute() else Path(c) for c in configs_raw
     )
 
     seeds_raw = document["seeds"]
-    if not isinstance(seeds_raw, list) or not seeds_raw or not all(
-        isinstance(s, int) and not isinstance(s, bool) for s in seeds_raw
+    if (
+        not isinstance(seeds_raw, list)
+        or not seeds_raw
+        or not all(isinstance(s, int) and not isinstance(s, bool) for s in seeds_raw)
     ):
         raise SweepSpecError(f"{path}: `seeds` must be a non-empty list of ints")
     if len(set(seeds_raw)) != len(seeds_raw):
@@ -204,8 +204,7 @@ def load_spec(path: Path | str) -> SweepSpec:
     out_root_parent = out_root.parent
     if not out_root_parent.is_dir() or not os.access(out_root_parent, os.W_OK):
         raise SweepSpecError(
-            f"{path}: out_root's parent {out_root_parent} does not exist or "
-            f"is not writable"
+            f"{path}: out_root's parent {out_root_parent} does not exist or is not writable"
         )
 
     cov_artifact = document.get("cov_artifact")
@@ -221,8 +220,8 @@ def load_spec(path: Path | str) -> SweepSpec:
         lineup = None
     elif isinstance(lineup_raw, str):
         lineup = lineup_raw
-    elif isinstance(lineup_raw, list) and lineup_raw and all(
-        isinstance(x, str) for x in lineup_raw
+    elif (
+        isinstance(lineup_raw, list) and lineup_raw and all(isinstance(x, str) for x in lineup_raw)
     ):
         # Normalize to the exporter's `--lineup` comma-separated format.
         lineup = ",".join(lineup_raw)
@@ -233,8 +232,11 @@ def load_spec(path: Path | str) -> SweepSpec:
         )
 
     workers_raw = document.get("workers", MAX_WORKERS)
-    if (not isinstance(workers_raw, int) or isinstance(workers_raw, bool)
-            or not (1 <= workers_raw <= 5)):
+    if (
+        not isinstance(workers_raw, int)
+        or isinstance(workers_raw, bool)
+        or not (1 <= workers_raw <= 5)
+    ):
         raise SweepSpecError(
             f"{path}: `workers` must be an int in 1..5 (an engine-health "
             f"benchmark, not a throughput knob — got {workers_raw!r})"
@@ -269,8 +271,7 @@ def validate_configs(configs: tuple[Path, ...]) -> list[tuple[Path, str]]:
         chash = validated.config_hash
         if chash in seen:
             raise SweepSpecError(
-                f"{config_path}: config_hash {chash} duplicates {seen[chash]} "
-                f"(duplicate sweep arm)"
+                f"{config_path}: config_hash {chash} duplicates {seen[chash]} (duplicate sweep arm)"
             )
         seen[chash] = config_path
         resolved.append((config_path, chash))
@@ -302,19 +303,29 @@ def build_items(spec: SweepSpec, resolved_configs: list[tuple[Path, str]]) -> li
     for config_path, chash in resolved_configs:
         for seed in spec.seeds:
             out_dir = spec.out_root / f"run-{idx:03d}-c{chash[:12]}-s{seed}"
-            items.append(RunItem(idx, config_path, chash, seed, spec.n_hands, out_dir,
-                                 lineup=spec.lineup))
+            items.append(
+                RunItem(idx, config_path, chash, seed, spec.n_hands, out_dir, lineup=spec.lineup)
+            )
             idx += 1
     return items
 
 
 def build_rerun_dup_item(designated: RunItem) -> RunItem:
-    scratch = designated.out_dir.parent / "_rerun_check" / (
-        f"dup-c{designated.config_hash[:12]}-s{designated.seed}"
+    scratch = (
+        designated.out_dir.parent
+        / "_rerun_check"
+        / (f"dup-c{designated.config_hash[:12]}-s{designated.seed}")
     )
-    return RunItem(-1, designated.config_path, designated.config_hash,
-                   designated.seed, designated.n_hands, scratch,
-                   lineup=designated.lineup, kind="rerun_dup")
+    return RunItem(
+        -1,
+        designated.config_path,
+        designated.config_hash,
+        designated.seed,
+        designated.n_hands,
+        scratch,
+        lineup=designated.lineup,
+        kind="rerun_dup",
+    )
 
 
 def resolve_lineup_dict(lineup: str | None) -> dict[str, str]:
@@ -337,9 +348,17 @@ def resolve_lineup_dict(lineup: str | None) -> dict[str, str]:
 
 def _export_subprocess(item: RunItem) -> subprocess.CompletedProcess:
     cmd = [
-        sys.executable, "-m", "tools.export_analytics",
-        "--hands", str(item.n_hands), "--seed", str(item.seed),
-        "--out", str(item.out_dir), "--config", str(item.config_path),
+        sys.executable,
+        "-m",
+        "tools.export_analytics",
+        "--hands",
+        str(item.n_hands),
+        "--seed",
+        str(item.seed),
+        "--out",
+        str(item.out_dir),
+        "--config",
+        str(item.config_path),
         "--skip-contract-test",
     ]
     if item.lineup is not None:
@@ -356,8 +375,9 @@ def _make_validate(analytics_repo: Path, batch_dir: Path) -> subprocess.Complete
     return _make_subprocess(analytics_repo, [f"DIR={batch_dir}", "validate"])
 
 
-def _make_score(analytics_repo: Path, batch_dir: Path, out_file: Path,
-                cov: str | None) -> subprocess.CompletedProcess:
+def _make_score(
+    analytics_repo: Path, batch_dir: Path, out_file: Path, cov: str | None
+) -> subprocess.CompletedProcess:
     args = [f"DIR={batch_dir}", f"OUT={out_file}"]
     if cov is not None:
         args.append(f"COV={cov}")
@@ -387,8 +407,9 @@ def tables_equal(a: Any, b: Any, drop_column: str = EXPORTED_AT_COLUMN) -> bool:
     return _drop_column(a, drop_column).equals(_drop_column(b, drop_column))
 
 
-def parquet_batches_equal(dir_a: Path, dir_b: Path,
-                          tables: tuple[str, ...] = PARQUET_TABLES) -> bool:
+def parquet_batches_equal(
+    dir_a: Path, dir_b: Path, tables: tuple[str, ...] = PARQUET_TABLES
+) -> bool:
     import pyarrow.parquet as pq
 
     for name in tables:
@@ -421,8 +442,9 @@ def score_payloads_equal_ignoring_gate_hash(a: dict, b: dict) -> bool:
     `True` in Python but the two serialize to different JSON, and the claim
     this function proves ("scored twice, byte-identical") is a claim about
     bytes."""
-    return (counterfactual.canonical_bytes(mask_gate_hash(a))
-            == counterfactual.canonical_bytes(mask_gate_hash(b)))
+    return counterfactual.canonical_bytes(mask_gate_hash(a)) == counterfactual.canonical_bytes(
+        mask_gate_hash(b)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -459,8 +481,13 @@ def _validate_score_payload(payload: Any) -> str | None:
     return None
 
 
-def _identity_mismatches(manifest_like: dict, item: RunItem, canonical_lineup: dict[str, str],
-                         source: str, expected_run_id: str | None = None) -> list[str]:
+def _identity_mismatches(
+    manifest_like: dict,
+    item: RunItem,
+    canonical_lineup: dict[str, str],
+    source: str,
+    expected_run_id: str | None = None,
+) -> list[str]:
     """Cross-check a `_SUCCESS` manifest (or a score payload's
     `producer_run`) against the arm that was actually requested. A config
     edited after prevalidation, a wrong-seed export, or a stale/foreign batch
@@ -472,7 +499,8 @@ def _identity_mismatches(manifest_like: dict, item: RunItem, canonical_lineup: d
         problems.append(f"{source}.seed {manifest_like.get('seed')!r} != requested {item.seed!r}")
     if manifest_like.get("n_hands") != item.n_hands:
         problems.append(
-            f"{source}.n_hands {manifest_like.get('n_hands')!r} != requested {item.n_hands!r}")
+            f"{source}.n_hands {manifest_like.get('n_hands')!r} != requested {item.n_hands!r}"
+        )
     if manifest_like.get("config_hash") != item.config_hash:
         problems.append(
             f"{source}.config_hash {manifest_like.get('config_hash')!r} != "
@@ -485,7 +513,8 @@ def _identity_mismatches(manifest_like: dict, item: RunItem, canonical_lineup: d
         )
     if expected_run_id is not None and manifest_like.get("run_id") != expected_run_id:
         problems.append(
-            f"{source}.run_id {manifest_like.get('run_id')!r} != expected {expected_run_id!r}")
+            f"{source}.run_id {manifest_like.get('run_id')!r} != expected {expected_run_id!r}"
+        )
     return problems
 
 
@@ -507,73 +536,134 @@ class RunOutcome:
     failed_step: str | None = None
 
 
-def _score_batch(spec: SweepSpec, item: RunItem, export_cp: subprocess.CompletedProcess,
-                 keep_raw: bool, canonical_lineup: dict[str, str]) -> RunOutcome:
+def _score_batch(
+    spec: SweepSpec,
+    item: RunItem,
+    export_cp: subprocess.CompletedProcess,
+    keep_raw: bool,
+    canonical_lineup: dict[str, str],
+) -> RunOutcome:
     started = time.monotonic()
     if export_cp.returncode != 0:
-        return RunOutcome(item, "failed", stderr_tail=_stderr_tail(export_cp),
-                          wall_seconds=time.monotonic() - started, failed_step="export")
+        return RunOutcome(
+            item,
+            "failed",
+            stderr_tail=_stderr_tail(export_cp),
+            wall_seconds=time.monotonic() - started,
+            failed_step="export",
+        )
     try:
         return _score_batch_body(spec, item, keep_raw, canonical_lineup, started)
     except Exception:  # noqa: BLE001 - fail-closed: NO unhandled exception may abort the sweep
         return RunOutcome(
-            item, "failed", stderr_tail=traceback.format_exc()[-STDERR_TAIL_CHARS:],
-            wall_seconds=time.monotonic() - started, failed_step="crash")
+            item,
+            "failed",
+            stderr_tail=traceback.format_exc()[-STDERR_TAIL_CHARS:],
+            wall_seconds=time.monotonic() - started,
+            failed_step="crash",
+        )
 
 
-def _score_batch_body(spec: SweepSpec, item: RunItem, keep_raw: bool,
-                      canonical_lineup: dict[str, str], started: float) -> RunOutcome:
+def _score_batch_body(
+    spec: SweepSpec, item: RunItem, keep_raw: bool, canonical_lineup: dict[str, str], started: float
+) -> RunOutcome:
     success_path = item.out_dir / "_SUCCESS"
     try:
         success_manifest = json.loads(success_path.read_text(encoding="utf-8"))
         run_id = success_manifest["run_id"]
     except Exception as exc:  # noqa: BLE001 - fail-closed on any manifest defect
-        return RunOutcome(item, "failed", stderr_tail=f"_SUCCESS unreadable: {exc}",
-                          wall_seconds=time.monotonic() - started, failed_step="export")
+        return RunOutcome(
+            item,
+            "failed",
+            stderr_tail=f"_SUCCESS unreadable: {exc}",
+            wall_seconds=time.monotonic() - started,
+            failed_step="export",
+        )
 
     mismatches = _identity_mismatches(success_manifest, item, canonical_lineup, "_SUCCESS")
     if mismatches:
-        return RunOutcome(item, "failed", run_id=run_id, stderr_tail="; ".join(mismatches),
-                          wall_seconds=time.monotonic() - started, failed_step="identity_mismatch")
+        return RunOutcome(
+            item,
+            "failed",
+            run_id=run_id,
+            stderr_tail="; ".join(mismatches),
+            wall_seconds=time.monotonic() - started,
+            failed_step="identity_mismatch",
+        )
 
     validate_cp = _make_validate(spec.analytics_repo, item.out_dir)
     if validate_cp.returncode != 0:
-        return RunOutcome(item, "failed", run_id=run_id, stderr_tail=_stderr_tail(validate_cp),
-                          wall_seconds=time.monotonic() - started, failed_step="validate")
+        return RunOutcome(
+            item,
+            "failed",
+            run_id=run_id,
+            stderr_tail=_stderr_tail(validate_cp),
+            wall_seconds=time.monotonic() - started,
+            failed_step="validate",
+        )
 
     score_out = item.out_dir / "score.json"
     score_out.unlink(missing_ok=True)  # never trust a stale leftover OUT file
     score_cp = _make_score(spec.analytics_repo, item.out_dir, score_out, spec.cov_artifact)
     if score_cp.returncode != 0:
-        return RunOutcome(item, "failed", run_id=run_id, stderr_tail=_stderr_tail(score_cp),
-                          wall_seconds=time.monotonic() - started, failed_step="score")
+        return RunOutcome(
+            item,
+            "failed",
+            run_id=run_id,
+            stderr_tail=_stderr_tail(score_cp),
+            wall_seconds=time.monotonic() - started,
+            failed_step="score",
+        )
     if not score_out.is_file():
         return RunOutcome(
-            item, "failed", run_id=run_id,
+            item,
+            "failed",
+            run_id=run_id,
             stderr_tail=f"make score exited 0 but {score_out} was not written",
-            wall_seconds=time.monotonic() - started, failed_step="score")
+            wall_seconds=time.monotonic() - started,
+            failed_step="score",
+        )
 
     try:
         payload = json.loads(score_out.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
-        return RunOutcome(item, "failed", run_id=run_id, stderr_tail=f"score OUT unreadable: {exc}",
-                          wall_seconds=time.monotonic() - started, failed_step="score")
+        return RunOutcome(
+            item,
+            "failed",
+            run_id=run_id,
+            stderr_tail=f"score OUT unreadable: {exc}",
+            wall_seconds=time.monotonic() - started,
+            failed_step="score",
+        )
 
     payload_error = _validate_score_payload(payload)
     if payload_error:
-        return RunOutcome(item, "failed", run_id=run_id, stderr_tail=payload_error,
-                          wall_seconds=time.monotonic() - started,
-                          failed_step="score_payload_invalid")
+        return RunOutcome(
+            item,
+            "failed",
+            run_id=run_id,
+            stderr_tail=payload_error,
+            wall_seconds=time.monotonic() - started,
+            failed_step="score_payload_invalid",
+        )
 
     producer_run = payload["canonical"]["producer_run"]
-    mismatches = _identity_mismatches(producer_run, item, canonical_lineup, "score producer_run",
-                                      expected_run_id=run_id)
+    mismatches = _identity_mismatches(
+        producer_run, item, canonical_lineup, "score producer_run", expected_run_id=run_id
+    )
     if mismatches:
-        return RunOutcome(item, "failed", run_id=run_id, stderr_tail="; ".join(mismatches),
-                          wall_seconds=time.monotonic() - started, failed_step="identity_mismatch")
+        return RunOutcome(
+            item,
+            "failed",
+            run_id=run_id,
+            stderr_tail="; ".join(mismatches),
+            wall_seconds=time.monotonic() - started,
+            failed_step="identity_mismatch",
+        )
 
-    outcome = RunOutcome(item, "ok", run_id=run_id, score_payload=payload,
-                         wall_seconds=time.monotonic() - started)
+    outcome = RunOutcome(
+        item, "ok", run_id=run_id, score_payload=payload, wall_seconds=time.monotonic() - started
+    )
     if not keep_raw and item.kind == "primary":
         _delete_raw_parquet(item.out_dir)
     return outcome
@@ -619,9 +709,14 @@ def _run_canonical_entry(outcome: RunOutcome) -> dict[str, Any]:
     return entry
 
 
-def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
-                   outcomes: list[RunOutcome], rerun_check: dict[str, Any],
-                   sweep_status: str, canonical_lineup: dict[str, str]) -> dict[str, Any]:
+def build_manifest(
+    spec: SweepSpec,
+    resolved_configs: list[tuple[Path, str]],
+    outcomes: list[RunOutcome],
+    rerun_check: dict[str, Any],
+    sweep_status: str,
+    canonical_lineup: dict[str, str],
+) -> dict[str, Any]:
     cov_artifact_id = None
     for outcome in outcomes:
         if outcome.score_payload is not None:
@@ -659,14 +754,16 @@ def build_manifest(spec: SweepSpec, resolved_configs: list[tuple[Path, str]],
 
     volatile_runs = []
     for outcome in outcomes:
-        volatile_runs.append({
-            "config_hash": outcome.item.config_hash,
-            "seed": outcome.item.seed,
-            "run_dir": str(outcome.item.out_dir),
-            "wall_seconds": round(outcome.wall_seconds, 3),
-            "stderr_tail": outcome.stderr_tail,
-            "failed_step": outcome.failed_step,
-        })
+        volatile_runs.append(
+            {
+                "config_hash": outcome.item.config_hash,
+                "seed": outcome.item.seed,
+                "run_dir": str(outcome.item.out_dir),
+                "wall_seconds": round(outcome.wall_seconds, 3),
+                "stderr_tail": outcome.stderr_tail,
+                "failed_step": outcome.failed_step,
+            }
+        )
 
     volatile = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -701,8 +798,12 @@ def _crash_manifest(spec: SweepSpec, tb_text: str) -> dict[str, Any]:
         "score_authority": SCORE_AUTHORITY,
         "sweep_status": "partial",
         "producer_rerun_check": {
-            "config_hash": None, "seed": None, "parquet_equal": False,
-            "score_equal": False, "passed": False, "check_status": "crash",
+            "config_hash": None,
+            "seed": None,
+            "parquet_equal": False,
+            "score_equal": False,
+            "passed": False,
+            "check_status": "crash",
         },
         "runs": [],
     }
@@ -714,8 +815,13 @@ def _crash_manifest(spec: SweepSpec, tb_text: str) -> dict[str, Any]:
         "analytics_repo": str(spec.analytics_repo),
         "canonical_sha256": canonical_sha256,
         "runs": [],
-        "producer_rerun_check": {"run_dir": None, "dup_dir": None, "dup_status": None,
-                                 "dup_failed_step": None, "dup_stderr_tail": None},
+        "producer_rerun_check": {
+            "run_dir": None,
+            "dup_dir": None,
+            "dup_status": None,
+            "dup_failed_step": None,
+            "dup_stderr_tail": None,
+        },
         "crash_traceback_tail": tb_text[-STDERR_TAIL_CHARS:],
     }
     return {"canonical": canonical, "volatile": volatile}
@@ -726,8 +832,9 @@ def _crash_manifest(spec: SweepSpec, tb_text: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def run_sweep(spec: SweepSpec, keep_raw: bool = False,
-             rerun_check_index: int = 0) -> dict[str, Any]:
+def run_sweep(
+    spec: SweepSpec, keep_raw: bool = False, rerun_check_index: int = 0
+) -> dict[str, Any]:
     resolved_configs = validate_configs(spec.configs)  # fail closed, up front
     items = build_items(spec, resolved_configs)
     if not (0 <= rerun_check_index < len(items)):
@@ -755,7 +862,9 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
                 cp = future.result()
             except Exception:  # noqa: BLE001 - fail-closed
                 cp = subprocess.CompletedProcess(
-                    args=[], returncode=1, stdout="",
+                    args=[],
+                    returncode=1,
+                    stdout="",
                     stderr=f"export worker raised an exception:\n{traceback.format_exc()}",
                 )
             export_results[it.index if it.kind == "primary" else -1] = cp
@@ -796,14 +905,17 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
             rerun_check["check_status"] = "dup_pipeline_failed"
         else:
             rerun_check["parquet_equal"] = parquet_batches_equal(
-                designated.out_dir, dup_item.out_dir)
+                designated.out_dir, dup_item.out_dir
+            )
             rerun_check["score_equal"] = score_payloads_equal_ignoring_gate_hash(
                 designated_outcome.score_payload["canonical"],
                 dup_outcome.score_payload["canonical"],
             )
             rerun_check["check_status"] = (
-                "passed" if rerun_check["parquet_equal"] and rerun_check["score_equal"]
-                else "batches_differ")
+                "passed"
+                if rerun_check["parquet_equal"] and rerun_check["score_equal"]
+                else "batches_differ"
+            )
     except Exception:  # noqa: BLE001 - fail-closed
         rerun_check["check_status"] = "crash"
         rerun_check["error"] = traceback.format_exc()[-STDERR_TAIL_CHARS:]
@@ -831,30 +943,39 @@ def run_sweep(spec: SweepSpec, keep_raw: bool = False,
         else "partial"
     )
 
-    return build_manifest(spec, resolved_configs, outcomes, rerun_check, sweep_status,
-                          canonical_lineup)
+    return build_manifest(
+        spec, resolved_configs, outcomes, rerun_check, sweep_status, canonical_lineup
+    )
 
 
 def write_manifest(spec: SweepSpec, manifest: dict[str, Any]) -> Path:
     spec.out_root.mkdir(parents=True, exist_ok=True)  # crash paths may predate this
     out_path = spec.out_root / "sweep_manifest.json"
-    out_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-                        encoding="utf-8")
+    out_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return out_path
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--spec", type=Path, required=True,
-                    help="sweep-spec JSON (schema_version, configs, seeds, "
-                         "n_hands, out_root, analytics_repo, cov_artifact"
-                         "[, lineup])")
-    ap.add_argument("--keep-raw", action="store_true",
-                    help="do not delete raw Parquet after a successful score")
-    ap.add_argument("--rerun-check-index", type=int, default=0,
-                    help="index (config-major, seed-minor) of the (config, "
-                         "seed) arm to export twice for the producer-rerun "
-                         "determinism check")
+    ap.add_argument(
+        "--spec",
+        type=Path,
+        required=True,
+        help="sweep-spec JSON (schema_version, configs, seeds, "
+        "n_hands, out_root, analytics_repo, cov_artifact"
+        "[, lineup])",
+    )
+    ap.add_argument(
+        "--keep-raw", action="store_true", help="do not delete raw Parquet after a successful score"
+    )
+    ap.add_argument(
+        "--rerun-check-index",
+        type=int,
+        default=0,
+        help="index (config-major, seed-minor) of the (config, "
+        "seed) arm to export twice for the producer-rerun "
+        "determinism check",
+    )
     args = ap.parse_args()
 
     try:
@@ -864,8 +985,7 @@ def main() -> None:
         raise SystemExit(1) from exc
 
     try:
-        manifest = run_sweep(spec, keep_raw=args.keep_raw,
-                             rerun_check_index=args.rerun_check_index)
+        manifest = run_sweep(spec, keep_raw=args.keep_raw, rerun_check_index=args.rerun_check_index)
     except SweepSpecError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc

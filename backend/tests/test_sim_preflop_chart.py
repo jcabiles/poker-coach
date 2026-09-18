@@ -29,17 +29,21 @@ from app.services.sim_session import HERO_SEAT, SessionNotFound, preflop_chart
 
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9)
 
 
 def _play(state: HandState, moves: list[tuple[Position, Decision]]) -> HandState:
@@ -99,15 +103,22 @@ def _persist(
         pos = state.seats[i].position
         db.add(
             SimSeat(
-                session_id=session.id, seat_index=i, is_hero=i == HERO_SEAT,
+                session_id=session.id,
+                seat_index=i,
+                is_hero=i == HERO_SEAT,
                 persona_type=None if i == HERO_SEAT else by_pos.get(pos, "tag"),
-                stack_bb=100.0, buyins_bb=100.0,
+                stack_bb=100.0,
+                buyins_bb=100.0,
             )
         )
     db.add(
         SimHand(
-            session_id=session.id, hand_no=1, button_seat=state.button_seat,
-            rng_seed="1", status="in_progress", state_json=state.model_dump_json(),
+            session_id=session.id,
+            hand_no=1,
+            button_seat=state.button_seat,
+            rng_seed="1",
+            status="in_progress",
+            state_json=state.model_dump_json(),
         )
     )
     db.commit()
@@ -125,7 +136,9 @@ def test_chart_grid_equals_practice_drill_grid_rfi(db):
     # Practice's grid for the SAME Spot: drill.py:317's exact pattern.
     entry = _find_entry(NodeContext.RFI, Position.BTN, None)
     spot = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert view.grid == range_grid(lookup(_INDEX, spot))
@@ -142,7 +155,9 @@ def test_chart_grid_populated_for_utg1_rfi(db):
     assert view.available is True
     entry = _find_entry(NodeContext.RFI, Position.UTG1, None)
     spot = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert view.grid == range_grid(lookup(_INDEX, spot))
@@ -156,7 +171,9 @@ def test_chart_grid_equals_practice_drill_grid_vs_rfi(db):
     assert view.available is True
     entry = _find_entry(NodeContext.BLIND_DEFENSE, Position.BB, Position.BTN)
     spot = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert view.grid == range_grid(lookup(_INDEX, spot))
@@ -302,7 +319,9 @@ def test_chart_grid_and_note_vs_3bet(db):
     assert view.available is True
     entry = _find_entry(NodeContext.VS_3BET, Position.CO, Position.BTN)
     spot = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert view.grid == range_grid(lookup(_INDEX, spot))
@@ -333,7 +352,9 @@ def test_chart_grid_vs_4bet(db):
     assert view.available is True
     entry = _find_entry(NodeContext.VS_4BET, Position.CO, Position.UTG)
     spot = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert view.grid == range_grid(lookup(_INDEX, spot))
@@ -355,9 +376,7 @@ def test_chart_grid_vs_limpers_note_omitted(db):
     ]
     state = _play(state, moves)
     assert state.to_act_seat == HERO_SEAT
-    session_id = _persist(
-        db, state, personas_by_position={Position.UTG2: "passive_fish"}
-    )
+    session_id = _persist(db, state, personas_by_position={Position.UTG2: "passive_fish"})
     view = preflop_chart(db, session_id)
     assert view.available is True
     from app.domain.table.grade_map import _find_limp_entry
@@ -365,7 +384,9 @@ def test_chart_grid_vs_limpers_note_omitted(db):
     entry = _find_limp_entry(Position.BTN, 1)
     assert entry is not None
     spot = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert view.grid == range_grid(lookup(_INDEX, spot))

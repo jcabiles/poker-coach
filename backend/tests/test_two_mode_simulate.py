@@ -58,7 +58,8 @@ def test_create_session_challenge_mode_keeps_persona_type_in_db(
     with Session(temp_engine) as s:
         villain_seats = s.exec(
             select(SimSeat).where(
-                SimSeat.session_id == session_id, SimSeat.is_hero == False  # noqa: E712
+                SimSeat.session_id == session_id,
+                SimSeat.is_hero == False,  # noqa: E712
             )
         ).all()
         assert len(villain_seats) == 8

@@ -376,8 +376,7 @@ def evaluate_control(
         )
     if not majority_conjunct_ok:
         reasons.append(
-            f"only {bot_label_count}/{k} judges labeled the control 'bot' "
-            f"(need >= {threshold})"
+            f"only {bot_label_count}/{k} judges labeled the control 'bot' (need >= {threshold})"
         )
     return {
         "presentation_id": control.presentation_id,
@@ -542,9 +541,8 @@ def bootstrap_deck(
     rng = random.Random(seed)
     replicate_values: dict[str, list[float]] = {name: [] for name in METRIC_FUNCS}
     for _ in range(b_iterations):
-        sample = (
-            (rng.choices(human, k=len(human)) if human else [])
-            + (rng.choices(bot, k=len(bot)) if bot else [])
+        sample = (rng.choices(human, k=len(human)) if human else []) + (
+            rng.choices(bot, k=len(bot)) if bot else []
         )
         for name, func in METRIC_FUNCS.items():
             value = func(sample)
@@ -712,9 +710,7 @@ def per_judge_deck_stats(
                 "bot_recall": bot_recall,
                 "human_misclassification_rate": human_misclass,
                 "mean_confidence_human": {
-                    "human": (
-                        statistics.mean(human_confidences) if human_confidences else None
-                    ),
+                    "human": (statistics.mean(human_confidences) if human_confidences else None),
                     "bot": statistics.mean(bot_confidences) if bot_confidences else None,
                 },
             }
@@ -762,9 +758,7 @@ def duplicate_consistency(
             "label_match_rate": (
                 sum(label_matches) / len(label_matches) if label_matches else None
             ),
-            "mean_abs_confidence_delta": (
-                statistics.mean(abs_deltas) if abs_deltas else None
-            ),
+            "mean_abs_confidence_delta": (statistics.mean(abs_deltas) if abs_deltas else None),
         },
     }
 
@@ -860,8 +854,7 @@ def run_analysis(
     control_bundles = [b for b in unblinding.bundles if b.is_control]
     if len(control_bundles) != 1:
         raise AnalysisError(
-            f"expected exactly one control bundle in unblinding.json, found "
-            f"{len(control_bundles)}"
+            f"expected exactly one control bundle in unblinding.json, found {len(control_bundles)}"
         )
     control = control_bundles[0]
     deck_bundles = [b for b in unblinding.bundles if not b.is_control]
@@ -937,8 +930,7 @@ def run_analysis(
         "basis": "n_eff",
         "value": n_eff_info["n_eff"],
         "note": (
-            "panel evidential weight is stated in n_eff (effective independent "
-            "judges), never raw k"
+            "panel evidential weight is stated in n_eff (effective independent judges), never raw k"
         ),
     }
 
@@ -995,7 +987,9 @@ def render_report(analysis: Mapping) -> str:
     else:
         deck = analysis["deck"]
         lines += [
-            "", "Deck statistics (n_eff shown beside k, never used alone)", "-" * 60,
+            "",
+            "Deck statistics (n_eff shown beside k, never used alone)",
+            "-" * 60,
             f"  {deck['n_eff_population_note']}",
         ]
         for name in ("balanced_accuracy", "human_misclassification_rate", "auc", "d_prime"):
@@ -1016,7 +1010,7 @@ def render_report(analysis: Mapping) -> str:
         per_judge = analysis["per_judge"]
         lines += [
             "",
-            "Per-judge deck performance (§d.3 \"reported alongside\")",
+            'Per-judge deck performance (§d.3 "reported alongside")',
             "-" * 60,
             f"  {per_judge['population_note']}",
         ]

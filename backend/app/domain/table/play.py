@@ -216,9 +216,7 @@ def _live_opponents(state: HandState, seat: int) -> int:
 # ------------------------------------------------------------- public API
 
 
-def bot_decision(
-    state: HandState, seat: int, pack: PersonaPack, rng: random.Random
-) -> Decision:
+def bot_decision(state: HandState, seat: int, pack: PersonaPack, rng: random.Random) -> Decision:
     """One bot seat's action for the current decision point."""
     legal = legal_actions(state)
     seat_state = state.seats[seat]
@@ -309,11 +307,7 @@ def advance_to_hero(
     """
     events: list[ActionEvent] = []
     guard = 0
-    while (
-        not state.hand_over
-        and state.to_act_seat is not None
-        and state.to_act_seat != hero_seat
-    ):
+    while not state.hand_over and state.to_act_seat is not None and state.to_act_seat != hero_seat:
         guard += 1
         if guard >= 500:
             raise RuntimeError("bot playout did not terminate")

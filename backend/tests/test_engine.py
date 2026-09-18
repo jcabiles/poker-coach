@@ -58,9 +58,7 @@ def _crafted_deal(hole_by_seat: dict[int, tuple[str, str]], board: list[str]) ->
 
 def _act(state, seat: int, action: ActionType, size_bb: float | None = None):
     """Assert it's `seat`'s turn, then apply the decision. Returns new state."""
-    assert state.to_act_seat == seat, (
-        f"expected seat {seat} to act, got {state.to_act_seat}"
-    )
+    assert state.to_act_seat == seat, f"expected seat {seat} to act, got {state.to_act_seat}"
     return apply(state, Decision(action=action, size_bb=size_bb))
 
 

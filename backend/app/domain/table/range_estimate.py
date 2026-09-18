@@ -469,9 +469,7 @@ def estimate_range(
             for combo in live:
                 cls = hole_cards_to_class(*combo)
                 if cls not in factor_by_class:
-                    mix = _preflop_mix(
-                        pack, ctx.position, ctx.facing, cls, is_opener=ctx.is_opener
-                    )
+                    mix = _preflop_mix(pack, ctx.position, ctx.facing, cls, is_opener=ctx.is_opener)
                     factor_by_class[cls] = _preflop_observed_prob(mix, ctx.kinds, ctx.observed)
                 weights[combo] *= factor_by_class[cls]
         else:

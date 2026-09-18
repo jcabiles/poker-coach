@@ -39,7 +39,10 @@ def _sha(text: str) -> str:
 
 
 def _bundle(
-    pid: str, seat: str, extra_hands: str = "", duplicate_for_slot: int | None = None,
+    pid: str,
+    seat: str,
+    extra_hands: str = "",
+    duplicate_for_slot: int | None = None,
 ) -> dict:
     text = (
         f"Player under review: {seat}\n"
@@ -166,7 +169,9 @@ class TestParseJudgeResponse:
     def test_valid(self) -> None:
         raw = '{"label": "human", "confidence_human": 73, "reason": "steady sizing"}'
         assert dj.parse_judge_response(raw) == {
-            "label": "human", "confidence_human": 73, "reason": "steady sizing",
+            "label": "human",
+            "confidence_human": 73,
+            "reason": "steady sizing",
         }
 
     def test_valid_fenced(self) -> None:
@@ -259,7 +264,14 @@ class TestJudgePair:
     def test_ok_first_try(self) -> None:
         adapter = _FakeAdapter(['{"label": "human", "confidence_human": 80, "reason": "x"}'])
         result = dj.judge_pair(
-            adapter, "m", "key", None, "P1", SAMPLE_RENDERED_TEXT, "B001", 0,
+            adapter,
+            "m",
+            "key",
+            None,
+            "P1",
+            SAMPLE_RENDERED_TEXT,
+            "B001",
+            0,
             sleep=lambda s: None,
         )
         assert result["status"] == "ok"
@@ -273,7 +285,14 @@ class TestJudgePair:
             ["not json", '{"label": "bot", "confidence_human": 5, "reason": "x"}']
         )
         result = dj.judge_pair(
-            adapter, "m", "key", None, "P1", SAMPLE_RENDERED_TEXT, "B001", 0,
+            adapter,
+            "m",
+            "key",
+            None,
+            "P1",
+            SAMPLE_RENDERED_TEXT,
+            "B001",
+            0,
             sleep=lambda s: None,
         )
         assert result["status"] == "ok"
@@ -285,7 +304,14 @@ class TestJudgePair:
     def test_malformed_twice_becomes_recorded_missing(self) -> None:
         adapter = _FakeAdapter(["not json", "still not json"])
         result = dj.judge_pair(
-            adapter, "m", "key", None, "P1", SAMPLE_RENDERED_TEXT, "B001", 0,
+            adapter,
+            "m",
+            "key",
+            None,
+            "P1",
+            SAMPLE_RENDERED_TEXT,
+            "B001",
+            0,
             sleep=lambda s: None,
         )
         assert result["status"] == "malformed-final"
@@ -298,7 +324,14 @@ class TestJudgePair:
         adapter = _FakeAdapter([timeout_error, timeout_error, timeout_error])
         sleeps: list[float] = []
         result = dj.judge_pair(
-            adapter, "m", "key", None, "P1", SAMPLE_RENDERED_TEXT, "B001", 0,
+            adapter,
+            "m",
+            "key",
+            None,
+            "P1",
+            SAMPLE_RENDERED_TEXT,
+            "B001",
+            0,
             sleep=sleeps.append,
         )
         assert result["status"] == "transport_failed"
@@ -309,7 +342,14 @@ class TestJudgePair:
         ok_text = '{"label": "human", "confidence_human": 60, "reason": "x"}'
         adapter = _FakeAdapter([dj.TransportError("blip"), ok_text])
         result = dj.judge_pair(
-            adapter, "m", "key", None, "P1", SAMPLE_RENDERED_TEXT, "B001", 0,
+            adapter,
+            "m",
+            "key",
+            None,
+            "P1",
+            SAMPLE_RENDERED_TEXT,
+            "B001",
+            0,
             sleep=lambda s: None,
         )
         assert result["status"] == "ok"
@@ -319,7 +359,14 @@ class TestJudgePair:
         history, not just the pinned instructions."""
         adapter = _FakeAdapter(['{"label": "human", "confidence_human": 80, "reason": "x"}'])
         dj.judge_pair(
-            adapter, "m", "key", None, "P1", SAMPLE_RENDERED_TEXT, "B001", 0,
+            adapter,
+            "m",
+            "key",
+            None,
+            "P1",
+            SAMPLE_RENDERED_TEXT,
+            "B001",
+            0,
             sleep=lambda s: None,
         )
         assert adapter.calls == 1
@@ -378,7 +425,10 @@ def test_stub_vendor_varies_by_presentation_and_slot() -> None:
 
 class TestEndToEnd:
     def test_run_sends_actual_rendered_text_to_vendor(
-        self, deck_dir: Path, tmp_path: Path, monkeypatch,
+        self,
+        deck_dir: Path,
+        tmp_path: Path,
+        monkeypatch,
     ) -> None:
         """End-to-end re-check of the refuter-found HIGH: `run()` must pass
         each bundle's real `rendered_text` all the way to the vendor call,
@@ -387,22 +437,41 @@ class TestEndToEnd:
         real_call_stub = dj.call_stub
 
         def _recording_call_stub(
-            model, system_prompt, user_prompt, api_key, base_url, timeout, *, context=None,
+            model,
+            system_prompt,
+            user_prompt,
+            api_key,
+            base_url,
+            timeout,
+            *,
+            context=None,
         ):
             captured.append((system_prompt, user_prompt))
             return real_call_stub(
-                model, system_prompt, user_prompt, api_key, base_url, timeout, context=context,
+                model,
+                system_prompt,
+                user_prompt,
+                api_key,
+                base_url,
+                timeout,
+                context=context,
             )
 
         monkeypatch.setitem(
-            dj.VENDOR_ADAPTERS, "stub",
+            dj.VENDOR_ADAPTERS,
+            "stub",
             dj.VendorAdapter("stub", None, _recording_call_stub),
         )
 
         out = tmp_path / "out"
         dj.run(
-            deck_dir, STUB_JUDGES_ARG, order_seed=17, out_dir=out, env={},
-            only_slot=0, only_presentation_id="B002",
+            deck_dir,
+            STUB_JUDGES_ARG,
+            order_seed=17,
+            out_dir=out,
+            env={},
+            only_slot=0,
+            only_presentation_id="B002",
         )
 
         doc = make_presentation_document()
@@ -434,9 +503,10 @@ class TestEndToEnd:
 
         # Rerun: launch.json content is byte-identical (never overwritten).
         dj.run(deck_dir, STUB_JUDGES_ARG, order_seed=42, out_dir=out, env={})
-        assert launch_path.read_text(encoding="utf-8") == json.dumps(
-            launch1, indent=2, sort_keys=True
-        ) + "\n"
+        assert (
+            launch_path.read_text(encoding="utf-8")
+            == json.dumps(launch1, indent=2, sort_keys=True) + "\n"
+        )
 
     def test_launch_refuses_a_different_presentation(self, deck_dir: Path, tmp_path: Path) -> None:
         out = tmp_path / "out"
@@ -453,7 +523,9 @@ class TestEndToEnd:
             dj.run(other_deck, STUB_JUDGES_ARG, order_seed=1, out_dir=out, env={})
 
     def test_per_slot_order_deterministic_and_duplicate_routed(
-        self, deck_dir: Path, tmp_path: Path,
+        self,
+        deck_dir: Path,
+        tmp_path: Path,
     ) -> None:
         out1 = tmp_path / "out1"
         out2 = tmp_path / "out2"
@@ -478,7 +550,9 @@ class TestEndToEnd:
         assert order0_c["presentation_ids"] != order0_a["presentation_ids"]
 
     def test_atomic_resume_skips_finished_pairs_byte_stable(
-        self, deck_dir: Path, tmp_path: Path,
+        self,
+        deck_dir: Path,
+        tmp_path: Path,
     ) -> None:
         out = tmp_path / "out"
         dj.run(deck_dir, STUB_JUDGES_ARG, order_seed=3, out_dir=out, env={})
@@ -497,7 +571,9 @@ class TestEndToEnd:
         assert (out / "judging_complete.json").exists()
 
     def test_resume_does_not_recompute_order_or_duplicate(
-        self, deck_dir: Path, tmp_path: Path,
+        self,
+        deck_dir: Path,
+        tmp_path: Path,
     ) -> None:
         out = tmp_path / "out"
         dj.run(deck_dir, STUB_JUDGES_ARG, order_seed=11, out_dir=out, env={})
@@ -513,12 +589,19 @@ class TestEndToEnd:
         assert one_response.exists()
 
     def test_only_slot_and_only_presentation_id_control_prescreen(
-        self, deck_dir: Path, tmp_path: Path,
+        self,
+        deck_dir: Path,
+        tmp_path: Path,
     ) -> None:
         out = tmp_path / "out"
         completion = dj.run(
-            deck_dir, STUB_JUDGES_ARG, order_seed=5, out_dir=out, env={},
-            only_slot=0, only_presentation_id="B003",
+            deck_dir,
+            STUB_JUDGES_ARG,
+            order_seed=5,
+            out_dir=out,
+            env={},
+            only_slot=0,
+            only_presentation_id="B003",
         )
         assert completion["per_slot"] == {
             "0": {"ok": 1, "malformed": 0, "transport_failed": 0},
@@ -528,7 +611,10 @@ class TestEndToEnd:
         assert not (out / "responses" / "slot-1").exists()
 
     def test_transport_failure_path_via_mocked_urlopen(
-        self, deck_dir: Path, tmp_path: Path, monkeypatch,
+        self,
+        deck_dir: Path,
+        tmp_path: Path,
+        monkeypatch,
     ) -> None:
         """Uses the REAL openai adapter (network path) with urlopen mocked at
         the function boundary — never touches the network."""
@@ -551,15 +637,20 @@ class TestPostJsonHTTPErrorBody:
     @staticmethod
     def _http_error(body: bytes) -> dj.urllib.error.HTTPError:
         import io
+
         return dj.urllib.error.HTTPError(
-            "https://api.example.com/v1/x", 400, "Bad Request", hdrs=None,  # type: ignore[arg-type]
+            "https://api.example.com/v1/x",
+            400,
+            "Bad Request",
+            hdrs=None,  # type: ignore[arg-type]
             fp=io.BytesIO(body),
         )
 
     def test_body_is_surfaced(self, monkeypatch) -> None:  # noqa: ANN001
         err = self._http_error(b'{"error": {"message": "model not found"}}')
         monkeypatch.setattr(
-            dj.urllib.request, "urlopen",
+            dj.urllib.request,
+            "urlopen",
             lambda request, timeout=None: (_ for _ in ()).throw(err),
         )
         with pytest.raises(dj.TransportError, match="model not found"):
@@ -568,7 +659,8 @@ class TestPostJsonHTTPErrorBody:
     def test_body_is_truncated_to_2000_chars(self, monkeypatch) -> None:  # noqa: ANN001
         err = self._http_error(b"x" * 5000)
         monkeypatch.setattr(
-            dj.urllib.request, "urlopen",
+            dj.urllib.request,
+            "urlopen",
             lambda request, timeout=None: (_ for _ in ()).throw(err),
         )
         with pytest.raises(dj.TransportError) as excinfo:
@@ -578,7 +670,8 @@ class TestPostJsonHTTPErrorBody:
     def test_key_shaped_tokens_are_redacted(self, monkeypatch) -> None:  # noqa: ANN001
         err = self._http_error(b'{"message": "bad key sk-ant-abcdef1234567890"}')
         monkeypatch.setattr(
-            dj.urllib.request, "urlopen",
+            dj.urllib.request,
+            "urlopen",
             lambda request, timeout=None: (_ for _ in ()).throw(err),
         )
         with pytest.raises(dj.TransportError) as excinfo:
@@ -592,7 +685,8 @@ class TestPostJsonHTTPErrorBody:
         body = b"x" * 1995 + b"sk-ant-abcdef1234567890" + b"y" * 100
         err = self._http_error(body)
         monkeypatch.setattr(
-            dj.urllib.request, "urlopen",
+            dj.urllib.request,
+            "urlopen",
             lambda request, timeout=None: (_ for _ in ()).throw(err),
         )
         with pytest.raises(dj.TransportError) as excinfo:
@@ -605,7 +699,8 @@ class TestPostJsonHTTPErrorBody:
             dj.urllib.error.ContentTooShortError("truncated", None),
         )
         monkeypatch.setattr(
-            dj.urllib.request, "urlopen",
+            dj.urllib.request,
+            "urlopen",
             lambda request, timeout=None: (_ for _ in ()).throw(err),
         )
         with pytest.raises(dj.TransportError, match="error body unreadable"):
@@ -618,9 +713,11 @@ class TestCallAnthropicContentBlocks:
     @staticmethod
     def _mock_response(monkeypatch, content: list) -> None:  # noqa: ANN001
         import io
+
         body = json.dumps({"content": content, "model": "resolved-m"}).encode()
         monkeypatch.setattr(
-            dj.urllib.request, "urlopen",
+            dj.urllib.request,
+            "urlopen",
             lambda request, timeout=None: io.BytesIO(body),
         )
 
@@ -630,10 +727,13 @@ class TestCallAnthropicContentBlocks:
         assert raw == "hi" and resolved == "resolved-m"
 
     def test_thinking_block_precedes_text(self, monkeypatch) -> None:  # noqa: ANN001
-        self._mock_response(monkeypatch, [
-            {"type": "thinking", "thinking": "mulling"},
-            {"type": "text", "text": "answer"},
-        ])
+        self._mock_response(
+            monkeypatch,
+            [
+                {"type": "thinking", "thinking": "mulling"},
+                {"type": "text", "text": "answer"},
+            ],
+        )
         raw, _ = dj.call_anthropic("m", "sys", "user", "sk-x", None, 1.0)
         assert raw == "answer"
 

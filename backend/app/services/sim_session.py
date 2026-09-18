@@ -210,9 +210,7 @@ def _load_seats(db: Session, session_id: str) -> list[SimSeat]:
 def _seat_personas(seats: list[SimSeat]) -> dict[int, PersonaPack]:
     packs = _packs()
     return {
-        row.seat_index: packs[row.persona_type]
-        for row in seats
-        if row.persona_type is not None
+        row.seat_index: packs[row.persona_type] for row in seats if row.persona_type is not None
     }
 
 
@@ -373,10 +371,7 @@ def _blind_check_gate_open(session: SimSession, hand: SimHand | None) -> bool:
     nothing is stored; `_view()` emits the seats so the client knows what to ask;
     `submit_blind_check()` refuses an early submission with 409.
     """
-    return (
-        session.mode == "challenge"
-        and _completed_hands(session, hand) >= BLIND_CHECK_HAND_GATE
-    )
+    return session.mode == "challenge" and _completed_hands(session, hand) >= BLIND_CHECK_HAND_GATE
 
 
 def _get_session(db: Session, session_id: str, owner_id: str) -> SimSession | None:
@@ -439,9 +434,7 @@ def _parse_reasoning_parts(raw: str | None) -> ReasoningParts | None:
 
 
 def _hand_decisions(db: Session, sim_hand_id: int) -> list[SimDecision]:
-    rows = db.exec(
-        select(SimDecision).where(SimDecision.sim_hand_id == sim_hand_id)
-    ).all()
+    rows = db.exec(select(SimDecision).where(SimDecision.sim_hand_id == sim_hand_id)).all()
     return sorted(rows, key=lambda r: r.ordinal)
 
 
@@ -493,9 +486,7 @@ def _sim_decision_row(
         ordinal=ordinal,
         chosen_action=decision.action.value,
         correctness=result.correctness.value if result.correctness else None,
-        sizing_correctness=(
-            result.sizing_correctness.value if result.sizing_correctness else None
-        ),
+        sizing_correctness=(result.sizing_correctness.value if result.sizing_correctness else None),
         ev_loss_bb=result.ev_loss_bb,
         leak_category=result.leak_category,
         coverage=result.coverage.value,
@@ -671,9 +662,7 @@ def _facing_raise_legal_actions(la: LegalAction, spot: Spot) -> list[LegalAction
     Defensive fallback: if a leg somehow falls outside the engine's legal
     bracket (never in practice — mapper legs are proven within it), keep the
     single engine option rather than offer an illegal size."""
-    legs = [
-        x.min_bb for x in spot.legal_actions if x.action is ActionType.RAISE and x.min_bb
-    ]
+    legs = [x.min_bb for x in spot.legal_actions if x.action is ActionType.RAISE and x.min_bb]
     lo = la.min_bb if la.min_bb is not None else 0.0
     hi = la.max_bb if la.max_bb is not None else float("inf")
     if not legs or any(leg < lo - 0.01 or leg > hi + 0.01 for leg in legs):
@@ -971,11 +960,7 @@ def restore_session(db: Session, session_id: str, owner_id: str = "") -> Session
     if hand is None or hand.state_json is None:
         return None
     state = HandState.model_validate_json(hand.state_json)
-    recap = (
-        [_grade_view(r) for r in _hand_decisions(db, hand.id)]
-        if state.hand_over
-        else None
-    )
+    recap = [_grade_view(r) for r in _hand_decisions(db, hand.id)] if state.hand_over else None
     return _view(session, hand, state, _load_seats(db, session_id), events=[], recap=recap)
 
 
@@ -1006,8 +991,14 @@ async def apply_hero_action(
     if spot is not None:
         result = await _grading_provider().evaluate(spot, decision)
     sim_row = _sim_decision_row(
-        session, hand, state.street.value, len(prior), decision, result,
-        spot=spot, hero_position=state.seats[HERO_SEAT].position.value,
+        session,
+        hand,
+        state.street.value,
+        len(prior),
+        decision,
+        result,
+        spot=spot,
+        hero_position=state.seats[HERO_SEAT].position.value,
     )
     graded = result is not None and result.coverage != Coverage.NOT_FOUND
     if graded and result.tiers is not None:
@@ -1187,13 +1178,9 @@ def leak_by_spot(
         agg["ev_loss_bb"] = round(agg["ev_loss_bb"] + r.ev_loss_bb, 2)
 
     ranked = [
-        (node, pos, agg)
-        for (node, pos), agg in groups.items()
-        if agg["graded"] >= min_sample
+        (node, pos, agg) for (node, pos), agg in groups.items() if agg["graded"] >= min_sample
     ]
-    ranked.sort(
-        key=lambda t: (t[2]["good"] / t[2]["graded"], -t[2]["ev_loss_bb"], t[0], t[1])
-    )
+    ranked.sort(key=lambda t: (t[2]["good"] / t[2]["graded"], -t[2]["ev_loss_bb"], t[0], t[1]))
     return LeakReportView(
         rows=[
             LeakSpotRow(
@@ -1239,9 +1226,7 @@ def _node_label(spot: Spot) -> str:
     return f"{pos} vs {facing} open"  # VS_RFI / BLIND_DEFENSE
 
 
-def _exploit_note(
-    spot: Spot, state: HandState, seats: list[SimSeat]
-) -> ExploitNoteView | None:
+def _exploit_note(spot: Spot, state: HandState, seats: list[SimSeat]) -> ExploitNoteView | None:
     """The authored exploit rationale for (mapped node, LIVE villain persona).
 
     Villain resolution (spec med-1): the mapped Spot carries villain_type=None;
@@ -1279,11 +1264,7 @@ def preflop_chart(db: Session, session_id: str, owner_id: str = "") -> PreflopCh
     if hand is None or hand.state_json is None:
         return PreflopChartView(available=False)
     state = HandState.model_validate_json(hand.state_json)
-    if (
-        state.hand_over
-        or state.street is not Street.PREFLOP
-        or state.to_act_seat != HERO_SEAT
-    ):
+    if state.hand_over or state.street is not Street.PREFLOP or state.to_act_seat != HERO_SEAT:
         return PreflopChartView(available=False)
     spot = map_decision_point(state, HERO_SEAT)
     if spot is None:
@@ -1318,9 +1299,7 @@ def _postflop_node_label(spot: Spot) -> str:
     return f"{pos} {ctx.value}"  # future postflop contexts: honest fallback
 
 
-async def postflop_chart(
-    db: Session, session_id: str, owner_id: str = ""
-) -> PostflopChartView:
+async def postflop_chart(db: Session, session_id: str, owner_id: str = "") -> PostflopChartView:
     """Read-only: the grader's action mix for the hero's CURRENT postflop
     decision (R5). available=false when it is not the hero's postflop turn,
     the hand is over, or the decision point is unmappable — chart availability
@@ -1337,11 +1316,7 @@ async def postflop_chart(
     if hand is None or hand.state_json is None:
         return PostflopChartView(available=False)
     state = HandState.model_validate_json(hand.state_json)
-    if (
-        state.hand_over
-        or state.street not in _POSTFLOP_STREETS
-        or state.to_act_seat != HERO_SEAT
-    ):
+    if state.hand_over or state.street not in _POSTFLOP_STREETS or state.to_act_seat != HERO_SEAT:
         return PostflopChartView(available=False)
     spot = map_decision_point(state, HERO_SEAT)
     if spot is None:
@@ -1509,10 +1484,7 @@ def reveal(
         RevealedSeatView(seat_index=i, hole_cards=eng.hole_cards)
         for i, eng in enumerate(state.seats)
         if i != HERO_SEAT
-        and (
-            scope == "all"
-            or eng.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
-        )
+        and (scope == "all" or eng.status in (PlayerStatus.IN, PlayerStatus.ALLIN))
     ]
     return RevealView(available=True, scope=scope, seats=seats)
 
@@ -1716,9 +1688,7 @@ def list_history(db: Session, owner_id: str = "") -> HistoryListView:
         per_day[day] = per_day.get(day, 0) + 1
         decisions = _hand_decisions(db, hand.id)
         tiers = [d.correctness for d in decisions if d.correctness is not None]
-        worst = (
-            max(tiers, key=lambda t: _TIER_SEVERITY.get(t, 0)) if tiers else None
-        )
+        worst = max(tiers, key=lambda t: _TIER_SEVERITY.get(t, 0)) if tiers else None
         # Hero seat/position from the reconstructed state (HERO_SEAT is fixed 0,
         # but read position from state so it survives a future seating change).
         state = HandState.model_validate_json(hand.state_json)
@@ -1742,9 +1712,7 @@ def list_history(db: Session, owner_id: str = "") -> HistoryListView:
     return HistoryListView(items=items)
 
 
-def _load_owned_complete_hand(
-    db: Session, sim_hand_id: int, owner_id: str
-) -> SimHand:
+def _load_owned_complete_hand(db: Session, sim_hand_id: int, owner_id: str) -> SimHand:
     """Load a completed, owner-scoped SimHand or raise SessionNotFound (→404)."""
     hand = db.get(SimHand, sim_hand_id)
     if hand is None or hand.state_json is None or hand.status != "complete":
@@ -1765,9 +1733,7 @@ def _resolve_hand_by_session_hand_no(
     if session is None or session.owner_id != owner_id:
         raise SessionNotFound(session_id)
     hand = db.exec(
-        select(SimHand)
-        .where(SimHand.session_id == session_id)
-        .where(SimHand.hand_no == hand_no)
+        select(SimHand).where(SimHand.session_id == session_id).where(SimHand.hand_no == hand_no)
     ).first()
     if hand is None or hand.state_json is None or hand.status != "complete":
         raise SessionNotFound(session_id)
@@ -1800,11 +1766,7 @@ def _build_replay(hand: SimHand) -> HandReplayView:
     n = len(state.action_history)
     steps: list[ReplayStepView] = []
     for i, h in enumerate(state.action_history):
-        is_terminal = (
-            i == n - 1
-            and state.hand_over
-            and bool(showdown_seats)
-        )
+        is_terminal = i == n - 1 and state.hand_over and bool(showdown_seats)
         if is_terminal:
             board = list(state.board)  # full runout at showdown
             revealed = [
@@ -1856,9 +1818,7 @@ def _attach_verdicts(replay: HandReplayView, decisions: list[SimDecision]) -> No
     surplus hero steps ungraded; raise only on an impossible surplus (more
     decisions than hero non-POST steps) or an ordinal/action-street mismatch on
     the overlapping prefix."""
-    hero_steps = [
-        s for s in replay.steps if s.is_hero and not s.is_post
-    ]
+    hero_steps = [s for s in replay.steps if s.is_hero and not s.is_post]
     if len(decisions) > len(hero_steps):
         raise ValueError(
             f"more decisions ({len(decisions)}) than hero non-POST actions "
@@ -1879,9 +1839,7 @@ def _attach_verdicts(replay: HandReplayView, decisions: list[SimDecision]) -> No
         step.reasoning_parts = _parse_reasoning_parts(dec.reasoning_parts_json)
 
 
-def get_hand_replay(
-    db: Session, sim_hand_id: int, owner_id: str = ""
-) -> HandReplayView:
+def get_hand_replay(db: Session, sim_hand_id: int, owner_id: str = "") -> HandReplayView:
     """A completed, owner-scoped hand reconstructed step-by-step with graded hero
     verdicts attached. 404 (SessionNotFound) if missing/not-owned/not-complete."""
     hand = _load_owned_complete_hand(db, sim_hand_id, owner_id)
@@ -1957,9 +1915,6 @@ def reveal_hand(
         )
         for i, eng in enumerate(state.seats)
         if i != HERO_SEAT
-        and (
-            scope == "all"
-            or eng.status in (PlayerStatus.IN, PlayerStatus.ALLIN)
-        )
+        and (scope == "all" or eng.status in (PlayerStatus.IN, PlayerStatus.ALLIN))
     ]
     return HandRevealView(available=True, scope=scope, seats=seats)

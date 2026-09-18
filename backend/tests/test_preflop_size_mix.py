@@ -36,28 +36,37 @@ def _sizing(**overrides) -> PersonaSizing:
     return PersonaSizing(**{**base, **overrides})
 
 
-def _draw_many(sizing, node, rng, *, limpers=0, last_raise_to=3.0, n=600,
-               min_bb=2.0, max_bb=200.0):
+def _draw_many(sizing, node, rng, *, limpers=0, last_raise_to=3.0, n=600, min_bb=2.0, max_bb=200.0):
     return [
-        preflop_raise_to(sizing, node, last_raise_to=last_raise_to,
-                         limpers=limpers, min_bb=min_bb, max_bb=max_bb, rng=rng)
+        preflop_raise_to(
+            sizing,
+            node,
+            last_raise_to=last_raise_to,
+            limpers=limpers,
+            min_bb=min_bb,
+            max_bb=max_bb,
+            rng=rng,
+        )
         for _ in range(n)
     ]
 
 
 # --- the default path is byte-identical -------------------------------------
 
-@pytest.mark.parametrize("node,expected", [
-    ("open", 3.0),
-    ("iso", 3.0),
-    ("3bet", 10.5),
-    ("4bet", 7.2),
-])
+
+@pytest.mark.parametrize(
+    "node,expected",
+    [
+        ("open", 3.0),
+        ("iso", 3.0),
+        ("3bet", 10.5),
+        ("4bet", 7.2),
+    ],
+)
 def test_without_an_rng_the_scalar_is_used(node, expected):
     """Every caller that passes no rng — the statistical harness, the range
     estimator, every test predating this — must be unchanged."""
-    got = preflop_raise_to(_sizing(), node, last_raise_to=3.0, limpers=0,
-                           min_bb=2.0, max_bb=200.0)
+    got = preflop_raise_to(_sizing(), node, last_raise_to=3.0, limpers=0, min_bb=2.0, max_bb=200.0)
     assert got == pytest.approx(expected)
 
 
@@ -102,16 +111,29 @@ def test_a_stand_in_sizing_object_must_declare_its_opt_out():
         open_bb, threebet_mult, fourbet_mult = 2.5, 3.0, 2.0
 
     with pytest.raises(AttributeError):
-        preflop_raise_to(BareSizing(), "open", last_raise_to=3.0, limpers=0,
-                         min_bb=2.0, max_bb=200.0, rng=random.Random(1))
+        preflop_raise_to(
+            BareSizing(),
+            "open",
+            last_raise_to=3.0,
+            limpers=0,
+            min_bb=2.0,
+            max_bb=200.0,
+            rng=random.Random(1),
+        )
 
     class DeclaredSizing(BareSizing):
         open_bb_mix = open_bb_mix_by_position = None
         threebet_mult_mix = fourbet_mult_mix = None
 
-    got = preflop_raise_to(DeclaredSizing(), "open", last_raise_to=3.0,
-                           limpers=0, min_bb=2.0, max_bb=200.0,
-                           rng=random.Random(1))
+    got = preflop_raise_to(
+        DeclaredSizing(),
+        "open",
+        last_raise_to=3.0,
+        limpers=0,
+        min_bb=2.0,
+        max_bb=200.0,
+        rng=random.Random(1),
+    )
     assert got == pytest.approx(2.5)
 
 
@@ -137,6 +159,7 @@ def test_every_shipped_pack_authors_an_open_and_a_3bet_mix():
 
 # --- with a mix, sizes vary as authored -------------------------------------
 
+
 def test_the_drawn_size_comes_from_the_mix():
     sizing = _sizing(open_bb_mix={"2.5": 0.3, "3.0": 0.5, "3.5": 0.2})
     drawn = set(_draw_many(sizing, "open", random.Random(8), n=500))
@@ -145,16 +168,14 @@ def test_the_drawn_size_comes_from_the_mix():
 
 def test_observed_frequencies_track_the_authored_weights():
     mix = {"2.5": 0.3, "3.0": 0.5, "3.5": 0.2}
-    counts = Counter(_draw_many(_sizing(open_bb_mix=mix), "open",
-                                random.Random(1234), n=4000))
+    counts = Counter(_draw_many(_sizing(open_bb_mix=mix), "open", random.Random(1234), n=4000))
     for key, weight in mix.items():
         assert abs(counts[float(key)] / 4000 - weight) < 0.03, key
 
 
 def test_multipliers_are_drawn_and_applied_to_the_faced_raise():
     sizing = _sizing(threebet_mult_mix={"3.0": 0.5, "3.5": 0.5})
-    drawn = set(_draw_many(sizing, "3bet", random.Random(2), last_raise_to=4.0,
-                           n=400))
+    drawn = set(_draw_many(sizing, "3bet", random.Random(2), last_raise_to=4.0, n=400))
     assert drawn == {12.0, 14.0}
 
 
@@ -177,8 +198,7 @@ def test_a_forced_jam_bracket_collapses_and_is_not_a_variance_failure():
     """When the engine forces a jam the legal bracket is one value, so every
     draw lands there. That is correct, not a determinism defect."""
     sizing = _sizing(open_bb_mix={"2.5": 0.5, "3.5": 0.5})
-    jam = set(_draw_many(sizing, "open", random.Random(2), n=50,
-                         min_bb=17.0, max_bb=17.0))
+    jam = set(_draw_many(sizing, "open", random.Random(2), n=50, min_bb=17.0, max_bb=17.0))
     assert jam == {17.0}
 
 
@@ -193,9 +213,15 @@ def test_the_engine_clamp_is_not_a_grading_bound():
 # --- the open, keyed by seat (T2b) ------------------------------------------
 
 _SEAT_TABLE = {
-    "UTG": {"3.0": 1.0}, "UTG1": {"3.0": 1.0}, "UTG2": {"3.0": 1.0},
-    "LJ": {"3.0": 1.0}, "HJ": {"2.5": 1.0}, "CO": {"2.5": 1.0},
-    "BTN": {"2.5": 1.0}, "SB": {"3.0": 1.0}, "BB": {"3.5": 1.0},
+    "UTG": {"3.0": 1.0},
+    "UTG1": {"3.0": 1.0},
+    "UTG2": {"3.0": 1.0},
+    "LJ": {"3.0": 1.0},
+    "HJ": {"2.5": 1.0},
+    "CO": {"2.5": 1.0},
+    "BTN": {"2.5": 1.0},
+    "SB": {"3.0": 1.0},
+    "BB": {"3.5": 1.0},
 }
 
 
@@ -203,23 +229,40 @@ def _seat_sizing(**overrides) -> PersonaSizing:
     return _sizing(open_bb_mix_by_position=_SEAT_TABLE, **overrides)
 
 
-@pytest.mark.parametrize("position,expected", [
-    (Position.UTG, 3.0), (Position.LJ, 3.0), (Position.SB, 3.0),
-    (Position.HJ, 2.5), (Position.CO, 2.5), (Position.BTN, 2.5),
-])
+@pytest.mark.parametrize(
+    "position,expected",
+    [
+        (Position.UTG, 3.0),
+        (Position.LJ, 3.0),
+        (Position.SB, 3.0),
+        (Position.HJ, 2.5),
+        (Position.CO, 2.5),
+        (Position.BTN, 2.5),
+    ],
+)
 def test_the_seat_selects_its_own_open(position, expected):
     """Each seat draws from its own entry. Degenerate one-value mixes are used
     here so the assertion is about SELECTION, not about the sampler."""
-    got = preflop_raise_to(_seat_sizing(), "open", last_raise_to=1.0, limpers=0,
-                           min_bb=2.0, max_bb=200.0, rng=random.Random(1),
-                           position=position)
+    got = preflop_raise_to(
+        _seat_sizing(),
+        "open",
+        last_raise_to=1.0,
+        limpers=0,
+        min_bb=2.0,
+        max_bb=200.0,
+        rng=random.Random(1),
+        position=position,
+    )
     assert got == pytest.approx(expected)
 
 
-@pytest.mark.parametrize("position,expected", [
-    (Position.BTN, 4.5),   # 2.5 + 2 limpers
-    (Position.BB, 5.5),    # 3.5 + 2 limpers — the seat that cannot OPEN at all
-])
+@pytest.mark.parametrize(
+    "position,expected",
+    [
+        (Position.BTN, 4.5),  # 2.5 + 2 limpers
+        (Position.BB, 5.5),  # 3.5 + 2 limpers — the seat that cannot OPEN at all
+    ],
+)
 def test_the_iso_uses_the_seats_open_too(position, expected):
     """The iso is the open plus a bb per limper, so it inherits the seat.
 
@@ -229,9 +272,16 @@ def test_the_iso_uses_the_seats_open_too(position, expected):
     isolation raise fell back to the fixed scalar, at share 1.000, for the three
     packs that ship a seat table.
     """
-    got = preflop_raise_to(_seat_sizing(), "iso", last_raise_to=1.0, limpers=2,
-                           min_bb=2.0, max_bb=200.0, rng=random.Random(1),
-                           position=position)
+    got = preflop_raise_to(
+        _seat_sizing(),
+        "iso",
+        last_raise_to=1.0,
+        limpers=2,
+        min_bb=2.0,
+        max_bb=200.0,
+        rng=random.Random(1),
+        position=position,
+    )
     assert got == pytest.approx(expected)
 
 
@@ -240,9 +290,16 @@ def test_the_3bet_multiplier_ignores_the_seat():
     and nothing in this function should make it vary by chair."""
     sizing = _seat_sizing(threebet_mult_mix={"3.0": 1.0})
     sizes = {
-        preflop_raise_to(sizing, "3bet", last_raise_to=4.0, limpers=0,
-                         min_bb=2.0, max_bb=200.0, rng=random.Random(1),
-                         position=p)
+        preflop_raise_to(
+            sizing,
+            "3bet",
+            last_raise_to=4.0,
+            limpers=0,
+            min_bb=2.0,
+            max_bb=200.0,
+            rng=random.Random(1),
+            position=p,
+        )
         for p in (Position.UTG, Position.BTN, Position.SB)
     }
     assert sizes == {12.0}
@@ -252,8 +309,15 @@ def test_without_a_position_the_seat_table_falls_back_to_the_scalar():
     """The range estimator and the older tests pass no seat. They also pass no
     rng, so they were already on the scalar; this pins that a seat table does
     not change what they see."""
-    got = preflop_raise_to(_seat_sizing(), "open", last_raise_to=1.0, limpers=0,
-                           min_bb=2.0, max_bb=200.0, rng=random.Random(1))
+    got = preflop_raise_to(
+        _seat_sizing(),
+        "open",
+        last_raise_to=1.0,
+        limpers=0,
+        min_bb=2.0,
+        max_bb=200.0,
+        rng=random.Random(1),
+    )
     assert got == pytest.approx(3.0)  # the `open_bb` scalar, not a seat entry
 
 
@@ -278,9 +342,17 @@ def test_the_live_bot_loop_actually_passes_the_seat():
     for position in (Position.UTG, Position.BTN):
         counts: Counter = Counter()
         for seed in range(400):
-            d = _preflop_decision(pack, position, "unopened",
-                                  (Card("As"), Card("Ks")), legal,
-                                  random.Random(seed), 1.0, 0, is_opener=True)
+            d = _preflop_decision(
+                pack,
+                position,
+                "unopened",
+                (Card("As"), Card("Ks")),
+                legal,
+                random.Random(seed),
+                1.0,
+                0,
+                is_opener=True,
+            )
             if d.action is ActionType.RAISE:
                 counts[d.size_bb] += 1
         seen[position] = counts
@@ -294,17 +366,21 @@ def test_the_live_bot_loop_actually_passes_the_seat():
 
 # --- schema validation ------------------------------------------------------
 
-@pytest.mark.parametrize("bad", [
-    {"3.0": 0.5},                    # weights do not sum to 1
-    {"3.0": 0.5, "3.5": 0.6},        # weights sum above 1
-    {"3.0": 1.0, "-1": 0.0},         # non-positive fraction and weight
-    {"not-a-number": 1.0},           # key is not a float
-    {},                              # empty
-    {"nan": 1.0},                    # a legal JSON key that parses to NaN
-    {"inf": 1.0},
-    {"3.0": float("nan")},           # NaN weight
-    {"3.0": float("inf")},
-])
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"3.0": 0.5},  # weights do not sum to 1
+        {"3.0": 0.5, "3.5": 0.6},  # weights sum above 1
+        {"3.0": 1.0, "-1": 0.0},  # non-positive fraction and weight
+        {"not-a-number": 1.0},  # key is not a float
+        {},  # empty
+        {"nan": 1.0},  # a legal JSON key that parses to NaN
+        {"inf": 1.0},
+        {"3.0": float("nan")},  # NaN weight
+        {"3.0": float("inf")},
+    ],
+)
 def test_a_malformed_mix_is_rejected(bad):
     """`"nan"` and `"inf"` are legal JSON object keys and `float()` accepts
     both. A NaN size would reach the engine and pass its legality comparisons,
@@ -317,8 +393,7 @@ def test_a_misspelled_mix_field_is_rejected():
     """Without `extra="forbid"` a typo loads cleanly, leaves the real field at
     None, and silently turns the whole feature into a no-op nothing reports."""
     with pytest.raises(ValidationError):
-        PersonaSizing(open_bb=3.0, threebet_mult=3.5, fourbet_mult=2.4,
-                      open_bb_mxi={"2.5": 1.0})
+        PersonaSizing(open_bb=3.0, threebet_mult=3.5, fourbet_mult=2.4, open_bb_mxi={"2.5": 1.0})
 
 
 def test_a_well_formed_mix_is_accepted():
@@ -377,6 +452,7 @@ def test_authoring_both_open_forms_is_rejected():
 
 # --- the size draw never precedes the action draw ---------------------------
 
+
 class _RecordingRng(random.Random):
     """Records the population of every `choices()` call, in order."""
 
@@ -410,15 +486,16 @@ def _mixed_pack():
     return pack
 
 
-@pytest.mark.parametrize("facing,current_bet_to,limpers", [
-    ("unopened", 0.0, 0),
-    ("vs_limpers", 1.0, 2),
-    ("vs_rfi", 3.0, 0),
-    ("vs_3bet", 10.0, 0),
-])
-def test_the_action_is_drawn_before_the_size_on_the_live_path(facing,
-                                                              current_bet_to,
-                                                              limpers):
+@pytest.mark.parametrize(
+    "facing,current_bet_to,limpers",
+    [
+        ("unopened", 0.0, 0),
+        ("vs_limpers", 1.0, 2),
+        ("vs_rfi", 3.0, 0),
+        ("vs_3bet", 10.0, 0),
+    ],
+)
+def test_the_action_is_drawn_before_the_size_on_the_live_path(facing, current_bet_to, limpers):
     """Exercises `_preflop_decision`, the code the change actually wired.
 
     Asserting on `sample_preflop_action` alone would pass even if `rng=rng`
@@ -435,18 +512,28 @@ def test_the_action_is_drawn_before_the_size_on_the_live_path(facing,
     seen_size_draw = False
     for seed in range(40):
         rng = _RecordingRng(seed)
-        _preflop_decision(_mixed_pack(), Position.BTN, facing,
-                          (Card("As"), Card("Kd")), legal, rng,
-                          current_bet_to, limpers, is_opener=False)
+        _preflop_decision(
+            _mixed_pack(),
+            Position.BTN,
+            facing,
+            (Card("As"), Card("Kd")),
+            legal,
+            rng,
+            current_bet_to,
+            limpers,
+            is_opener=False,
+        )
         assert rng.calls, "the action draw must consume the rng"
         assert set(rng.calls[0]) & _ACTION_NAMES, rng.calls[0]
         for population in rng.calls[1:]:
             assert not (set(population) & _ACTION_NAMES), (
-                "only the first draw may be the action draw")
+                "only the first draw may be the action draw"
+            )
             seen_size_draw = True
     assert seen_size_draw, (
         f"no size draw ever happened for facing={facing}; the rng is not "
-        "reaching preflop_raise_to, so this path is untested")
+        "reaching preflop_raise_to, so this path is untested"
+    )
 
 
 def test_a_forced_jam_draws_the_action_only():
@@ -461,13 +548,22 @@ def test_a_forced_jam_draws_the_action_only():
     ]
     for seed in range(20):
         rng = _RecordingRng(seed)
-        _preflop_decision(_mixed_pack(), Position.BTN, "vs_4bet",
-                          (Card("As"), Card("Kd")), legal, rng, 25.0, 0,
-                          is_opener=False)
+        _preflop_decision(
+            _mixed_pack(),
+            Position.BTN,
+            "vs_4bet",
+            (Card("As"), Card("Kd")),
+            legal,
+            rng,
+            25.0,
+            0,
+            is_opener=False,
+        )
         assert len(rng.calls) == 1, rng.calls
 
 
 # --- the bands T2b's values will have to respect ----------------------------
+
 
 def test_checked_in_persona_schema_matches_the_model():
     """Nothing in the app reads `persona.schema.json`, so drift is otherwise
@@ -479,12 +575,14 @@ def test_checked_in_persona_schema_matches_the_model():
     from app.domain.content.models import PersonaPack
 
     committed = json.loads(
-        (Path(__file__).resolve().parents[2] / "content" / "schema"
-         / "persona.schema.json").read_text()
+        (
+            Path(__file__).resolve().parents[2] / "content" / "schema" / "persona.schema.json"
+        ).read_text()
     )
     assert committed == PersonaPack.model_json_schema(), (
         "content/schema/persona.schema.json is stale — regenerate it from "
-        "PersonaPack.model_json_schema()")
+        "PersonaPack.model_json_schema()"
+    )
 
 
 def test_a_rejected_size_mix_does_not_talk_about_pot_fractions():

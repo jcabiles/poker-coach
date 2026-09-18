@@ -54,8 +54,9 @@ def test_probe_does_not_perturb_the_playout_it_measures():
         out = []
         for i in range(n):
             hand_seed = rng.randrange(1_000_000_000)
-            out.append(probe_mod.play_one_hand(
-                rng, hand_seed, i % 9, persona_by_seat, packs)["decisions"])
+            out.append(
+                probe_mod.play_one_hand(rng, hand_seed, i % 9, persona_by_seat, packs)["decisions"]
+            )
         return out
 
     unmeasured = play(25, 4242)
@@ -82,8 +83,10 @@ def test_capped_means_the_seat_cannot_make_its_largest_authored_size():
     assert biggest > 0
 
     def f_max(stack: float, pot: float) -> float:
-        legal = [type("L", (), {"action": ActionType.CHECK, "min_bb": None, "max_bb": None})(),
-                 type("L", (), {"action": ActionType.BET, "min_bb": 0.5, "max_bb": stack})()]
+        legal = [
+            type("L", (), {"action": ActionType.CHECK, "min_bb": None, "max_bb": None})(),
+            type("L", (), {"action": ActionType.BET, "min_bb": 0.5, "max_bb": stack})(),
+        ]
         by_kind = {la.action: la for la in legal}
         return probe_mod._max_wagerable_fraction(by_kind, pot, 0.0)
 

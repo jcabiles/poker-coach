@@ -638,13 +638,17 @@ def test_bet_sizing_verdict_none_when_both_merits_zero():
 def test_grade_cbet_populates_sizing_correctness_optimal():
     spot = _cbet_spot(("Ah", "Qc"), ["As", "Kd", "2c"])  # top pair, dry, hero adv
     res = grade_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.BET, size_bb=SMALL),
     )
     # Small is the higher-frequency c-bet size on a dry hero-adv board.
     assert res.sizing_correctness == Correctness.OPTIMAL
     other = grade_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.BET, size_bb=BIG),
     )
     assert other.sizing_correctness == Correctness.ACCEPTABLE
@@ -652,9 +656,7 @@ def test_grade_cbet_populates_sizing_correctness_optimal():
 
 def test_grade_cbet_check_has_no_sizing_verdict():
     spot = _cbet_spot(("Ah", "Qc"), ["As", "Kd", "2c"])
-    res = grade_cbet(
-        spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.CHECK)
-    )
+    res = grade_cbet(spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.CHECK))
     assert res.sizing_correctness is None
 
 
@@ -663,7 +665,9 @@ def test_grade_cbet_action_verdict_unchanged_by_sizing_retrofit():
     # c-bet non-regression): re-assert the R3 anchor cases hold byte-for-byte.
     dry = _cbet_spot(("Ah", "Qc"), ["As", "Kd", "2c"])
     res = grade_cbet(
-        dry, dry.hero_range, dry.villain_range,
+        dry,
+        dry.hero_range,
+        dry.villain_range,
         Decision(action=ActionType.BET, size_bb=SMALL),
     )
     assert res.correctness == Correctness.OPTIMAL
@@ -673,7 +677,9 @@ def test_grade_cbet_action_verdict_unchanged_by_sizing_retrofit():
         ("As", "Kd"), ["9h", "8h", "6c"], hero_pos=Position.CO, villain_pos=Position.BTN
     )
     bad = grade_cbet(
-        wet, wet.hero_range, wet.villain_range,
+        wet,
+        wet.hero_range,
+        wet.villain_range,
         Decision(action=ActionType.BET, size_bb=BIG),
     )
     assert bad.best_action.action == ActionType.CHECK
@@ -695,19 +701,21 @@ def _river_barrel_spot(hole, board, hero_pos=Position.BTN, villain_pos=Position.
 def test_grade_turn_barrel_populates_sizing_correctness():
     spot = _turn_barrel_spot(("Ah", "Ks"), ["Ac", "Kd", "Qh", "2s"])
     ungraded = grade_turn_barrel(spot, spot.hero_range, spot.villain_range, None)
-    bet_freqs = {
-        e.size_bb: e.frequency for e in ungraded.per_action if e.action == ActionType.BET
-    }
+    bet_freqs = {e.size_bb: e.frequency for e in ungraded.per_action if e.action == ActionType.BET}
     top = max(bet_freqs, key=lambda s: bet_freqs[s])
     if bet_freqs[top] <= 0.0:  # degenerate spot — no size verdict at all
         res = grade_turn_barrel(
-            spot, spot.hero_range, spot.villain_range,
+            spot,
+            spot.hero_range,
+            spot.villain_range,
             Decision(action=ActionType.BET, size_bb=top),
         )
         assert res.sizing_correctness is None
         return
     hi = grade_turn_barrel(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.BET, size_bb=top),
     )
     assert hi.sizing_correctness == Correctness.OPTIMAL
@@ -730,14 +738,18 @@ def test_grade_river_barrel_no_size_verdict_beside_a_bet_blunder():
     # BOTH bet sizes clamp to 0 frequency, so betting is a BLUNDER and NO size
     # verdict prints beside it (no "· size: Best" next to "Blunder").
     spot = _river_barrel_spot(
-        ("7c", "2d"), ["9h", "8h", "6c", "Ah", "Ks"],
-        hero_pos=Position.CO, villain_pos=Position.BTN,
+        ("7c", "2d"),
+        ["9h", "8h", "6c", "Ah", "Ks"],
+        hero_pos=Position.CO,
+        villain_pos=Position.BTN,
     )
     ungraded = grade_river_barrel(spot, spot.hero_range, spot.villain_range, None)
     bet_freqs = [e.frequency for e in ungraded.per_action if e.action == ActionType.BET]
     assert all(f == 0.0 for f in bet_freqs)  # air: both sizes zero-frequency
     res = grade_river_barrel(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.BET, size_bb=SMALL),
     )
     assert res.correctness == Correctness.BLUNDER
@@ -760,9 +772,7 @@ def _two_raise_legs(spot, small, big):
 def test_two_leg_raise_eval_keys_on_big_leg():
     # Refuter HIGH-2 regression: with two RAISE legs the action-level RAISE eval
     # must key on the BIG leg (max), never ordering-dependently grab the first.
-    spot = _two_raise_legs(
-        _vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], faced=SMALL), 5.0, 6.0
-    )
+    spot = _two_raise_legs(_vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], faced=SMALL), 5.0, 6.0)
     res = grade_vs_cbet(spot, spot.hero_range, spot.villain_range, None)
     raise_eval = next(e for e in res.per_action if e.action == ActionType.RAISE)
     assert raise_eval.size_bb == 6.0
@@ -773,7 +783,9 @@ def test_single_leg_facing_flow_has_no_sizing_verdict():
     # same RAISE eval size, sizing_correctness stays unset.
     spot = _vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], faced=SMALL)
     res = grade_vs_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=3 * SMALL),
     )
     raise_eval = next(e for e in res.per_action if e.action == ActionType.RAISE)
@@ -787,11 +799,15 @@ def test_raise_sizing_verdict_dry_small_optimal():
     )  # Ah Kd 2c classifies dry
     assert classify(spot.board).wetness == "dry"
     small_res = grade_vs_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=5.0),
     )
     big_res = grade_vs_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=6.0),
     )
     assert small_res.sizing_correctness == Correctness.OPTIMAL
@@ -806,11 +822,15 @@ def test_raise_sizing_verdict_wet_big_optimal():
     )  # 8h 7h 6c classifies wet; top set keeps the raise frequency positive
     assert classify(spot.board).wetness == "wet"
     small_res = grade_vs_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=5.0),
     )
     big_res = grade_vs_cbet(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=6.0),
     )
     assert big_res.sizing_correctness == Correctness.OPTIMAL
@@ -824,7 +844,9 @@ def test_raise_sizing_verdict_medium_both_acceptable():
     assert classify(spot.board).wetness == "medium"
     for size in (5.0, 6.0):
         res = grade_vs_cbet(
-            spot, spot.hero_range, spot.villain_range,
+            spot,
+            spot.hero_range,
+            spot.villain_range,
             Decision(action=ActionType.RAISE, size_bb=size),
         )
         assert res.sizing_correctness == Correctness.ACCEPTABLE
@@ -833,11 +855,11 @@ def test_raise_sizing_verdict_medium_both_acceptable():
 def test_raise_sizing_verdict_none_beside_raise_blunder():
     # Air facing a check-raise on a dry board: raise frequency clamps to 0 —
     # raising is the mistake, so no size verdict prints beside it.
-    spot = _two_raise_legs(
-        _vscr_spot(("7d", "2h"), ["Ah", "Kd", "4c"], faced=SMALL), 12.0, 14.0
-    )
+    spot = _two_raise_legs(_vscr_spot(("7d", "2h"), ["Ah", "Kd", "4c"], faced=SMALL), 12.0, 14.0)
     res = grade_vs_check_raise(
-        spot, spot.hero_range, spot.villain_range,
+        spot,
+        spot.hero_range,
+        spot.villain_range,
         Decision(action=ActionType.RAISE, size_bb=12.0),
     )
     raise_eval = next(e for e in res.per_action if e.action == ActionType.RAISE)
@@ -846,12 +868,8 @@ def test_raise_sizing_verdict_none_beside_raise_blunder():
 
 
 def test_raise_sizing_verdict_non_raise_decision_none():
-    spot = _two_raise_legs(
-        _vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], faced=SMALL), 5.0, 6.0
-    )
-    res = grade_vs_cbet(
-        spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.CALL)
-    )
+    spot = _two_raise_legs(_vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], faced=SMALL), 5.0, 6.0)
+    res = grade_vs_cbet(spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.CALL))
     assert res.sizing_correctness is None
 
 
@@ -976,7 +994,9 @@ def test_f5_calibration_scoped_to_marginal_catcher():
     assert _freq(air, ActionType.FOLD) > 0.25 + 0.02  # ceiling not applied to air
     strong = grade_vs_cbet(
         _vscbet_spot(("As", "Ac"), ["Ah", "Kd", "2c"], 2.0),
-        None, None, Decision(action=ActionType.FOLD),
+        None,
+        None,
+        Decision(action=ActionType.FOLD),
     )
     assert strong.correctness in (Correctness.MISTAKE, Correctness.BLUNDER)
 
@@ -998,7 +1018,9 @@ def test_f5_tiny_bet_fold_graded_by_ev_ladder_not_a1():
         )
         turn = grade_vs_turn_bet(
             _vsturn_spot(hole, [*board, "2s"], faced),
-            None, None, Decision(action=ActionType.FOLD),
+            None,
+            None,
+            Decision(action=ActionType.FOLD),
         )
         for res in (flop, turn):
             assert _freq(res, ActionType.FOLD) == pytest.approx(alpha, abs=0.02), faced
@@ -1092,8 +1114,10 @@ def test_f7_boat_vs_trips_fold_grade_inversion_gone():
             spot, spot.hero_range, spot.villain_range, Decision(action=ActionType.FOLD)
         ).correctness
 
-    boat, trips, catcher = fold_grade(("3h", "3c")), fold_grade(("Ac", "8c")), fold_grade(
-        ("Ac", "3c")
+    boat, trips, catcher = (
+        fold_grade(("3h", "3c")),
+        fold_grade(("Ac", "8c")),
+        fold_grade(("Ac", "3c")),
     )
     assert severity[trips] >= severity[boat]  # inversion gone
     assert severity[boat] > severity[catcher]  # strong folds punished, catcher fold OK

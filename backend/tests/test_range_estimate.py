@@ -297,9 +297,7 @@ def _true_ctx(state: HandState, seat: int):
     kinds = frozenset(la.action for la in legal)
     # ESTIM-PRICE ground truth: the two faced-price inputs, taken from the same
     # two production sources play.bot_decision takes them from.
-    to_call = next(
-        (la.min_bb or 0.0 for la in legal if la.action is ActionType.CALL), 0.0
-    )
+    to_call = next((la.min_bb or 0.0 for la in legal if la.action is ActionType.CALL), 0.0)
     contribution = pot_before_current_aggression(
         state.action_history, state.street
     ).latest_aggressor_contribution_bb
@@ -608,11 +606,17 @@ def test_estimator_facing_raise_parity_with_live_sampler(packs):
     assert state.to_act_seat == 3 and state.street is Street.FLOP
     assert ctx_facing_raise(state.action_history, state.street) is True
     # ...and a bare bet on the same street is NOT a raise (the discriminating half).
-    assert ctx_facing_raise(
-        [h for h in state.action_history if h.action is not ActionType.RAISE
-         or h.street is not Street.FLOP],
-        Street.FLOP,
-    ) is False
+    assert (
+        ctx_facing_raise(
+            [
+                h
+                for h in state.action_history
+                if h.action is not ActionType.RAISE or h.street is not Street.FLOP
+            ],
+            Street.FLOP,
+        )
+        is False
+    )
 
     state = _script(state, [(3, _CALL)])
     hist = _project(state)
@@ -629,17 +633,33 @@ def test_estimator_facing_raise_parity_with_live_sampler(packs):
         legal = _live_legal(ctx)
         live = _CaptureFirstChoices()
         sample_postflop_decision(
-            tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+            tag,
+            hole,
+            list(ctx.board),
+            legal,
+            ctx.pot_bb,
+            ctx.stack_bb,
+            ctx.opponents,
             live,  # type: ignore[arg-type] — duck-typed capture rng
-            current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=True,
+            current_bet_to=ctx.current_bet_to,
+            street=Street.FLOP,
+            facing_raise=True,
             latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         )
         assert estimator == live.dist, hole
         blind = _CaptureFirstChoices()
         sample_postflop_decision(
-            tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+            tag,
+            hole,
+            list(ctx.board),
+            legal,
+            ctx.pot_bb,
+            ctx.stack_bb,
+            ctx.opponents,
             blind,  # type: ignore[arg-type]
-            current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=False,
+            current_bet_to=ctx.current_bet_to,
+            street=Street.FLOP,
+            facing_raise=False,
             latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         )
         assert estimator != blind.dist, hole  # the damp is visible in the reveal
@@ -686,10 +706,16 @@ def test_estimator_prices_the_faced_bet(packs):
             estimator = _postflop_action_dist(tag, hole, ctx)
             live = _CaptureFirstChoices()
             sample_postflop_decision(
-                tag, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+                tag,
+                hole,
+                list(ctx.board),
+                _live_legal(ctx),
+                ctx.pot_bb,
+                ctx.stack_bb,
                 ctx.opponents,
                 live,  # type: ignore[arg-type] — duck-typed capture rng
-                current_bet_to=ctx.current_bet_to, street=Street.FLOP,
+                current_bet_to=ctx.current_bet_to,
+                street=Street.FLOP,
                 latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
                 facing_raise=ctx.facing_raise,
             )
@@ -806,10 +832,16 @@ def test_estimator_prices_a_self_reraise_by_the_increment_not_the_bet_to(packs):
         ):
             cap = _CaptureFirstChoices()
             sample_postflop_decision(
-                tag, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+                tag,
+                hole,
+                list(ctx.board),
+                _live_legal(ctx),
+                ctx.pot_bb,
+                ctx.stack_bb,
                 ctx.opponents,
                 cap,  # type: ignore[arg-type] — duck-typed capture rng
-                current_bet_to=ctx.current_bet_to, street=Street.FLOP,
+                current_bet_to=ctx.current_bet_to,
+                street=Street.FLOP,
                 latest_aggressor_contribution_bb=contribution,
                 facing_raise=ctx.facing_raise,
             )
@@ -958,11 +990,19 @@ def test_estimator_barrel_run_signal_is_wired_and_moves_the_reveal(packs):
         for flag in (False, True):
             live = _CaptureFirstChoices()
             sample_postflop_decision(
-                tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+                tag,
+                hole,
+                list(ctx.board),
+                legal,
+                ctx.pot_bb,
+                ctx.stack_bb,
+                ctx.opponents,
                 live,  # type: ignore[arg-type] — duck-typed capture rng
-                current_bet_to=ctx.current_bet_to, street=Street.TURN,
+                current_bet_to=ctx.current_bet_to,
+                street=Street.TURN,
                 latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
-                facing_raise=ctx.facing_raise, aggressor_bet_prev_street=flag,
+                facing_raise=ctx.facing_raise,
+                aggressor_bet_prev_street=flag,
             )
             dists[flag] = live.dist
         # the replay derived the flag True at this node (asserted above via
@@ -1022,9 +1062,9 @@ def test_estimator_barrel_flag_matches_shipped_derivation_under_discriminators()
         for a in same_seat.actions
         if a.street is Street.FLOP and a.action is ActionType.BET
     )
-    assert (
-        aggressor_barrel_run(same_seat.actions[:-1], Street.TURN, seat4_pos) >= 1
-    ), "fixture must satisfy S-6(a): a node with aggressor_barrel_run(...) >= 1"
+    assert aggressor_barrel_run(same_seat.actions[:-1], Street.TURN, seat4_pos) >= 1, (
+        "fixture must satisfy S-6(a): a node with aggressor_barrel_run(...) >= 1"
+    )
     assert ctx1.aggressor_bet_prev_street is True
 
     # Case 2 — DIFFERENT seat bet the previous street, multiway: seat 5 (a
@@ -1287,30 +1327,34 @@ def test_estimator_multiway_flop_bet_parity_with_live_sampler(packs):
     state = start_hand(dealt, button_seat=0, stacks_bb=[100.0] * 9)
     moves = [(3, _raise_to(3.0))]
     moves += [(s, _FOLD) for s in (4, 5, 6, 7, 8, 0)]
-    moves += [(1, _CALL), (2, _CALL)]                      # three-handed to the flop
-    moves += [(1, _CHECK), (2, _CHECK), (3, _bet(4.0))]    # seat 1 now faces a BET
+    moves += [(1, _CALL), (2, _CALL)]  # three-handed to the flop
+    moves += [(1, _CHECK), (2, _CHECK), (3, _bet(4.0))]  # seat 1 now faces a BET
     moves += [(1, _CALL)]
     state = _script(state, moves)
     hist = _project(state)
     ctx = _replay_contexts(hist, seat=1, n=len(hist.actions))[-1]
     assert ctx.street is Street.FLOP
     assert ctx.facing_raise is False, "this node must be a bare BET, not a raise"
-    assert ctx.opponents > 1, (
-        f"the point of this test is opponents > 1; got {ctx.opponents}"
-    )
+    assert ctx.opponents > 1, f"the point of this test is opponents > 1; got {ctx.opponents}"
 
     hole = ("Ah", "5c")  # naked ace-high, no draw, on Kh7d2c
-    assert strength_bucket(hole, list(ctx.board)) == (
-        StrengthBucket.ACE_HIGH, DrawCategory.NONE
-    )
+    assert strength_bucket(hole, list(ctx.board)) == (StrengthBucket.ACE_HIGH, DrawCategory.NONE)
 
     estimator = _postflop_action_dist(tag, hole, ctx)
     legal = _live_legal(ctx)
     live = _CaptureFirstChoices()
     sample_postflop_decision(
-        tag, hole, list(ctx.board), legal, ctx.pot_bb, ctx.stack_bb, ctx.opponents,
+        tag,
+        hole,
+        list(ctx.board),
+        legal,
+        ctx.pot_bb,
+        ctx.stack_bb,
+        ctx.opponents,
         live,  # type: ignore[arg-type] — duck-typed capture rng
-        current_bet_to=ctx.current_bet_to, street=Street.FLOP, facing_raise=False,
+        current_bet_to=ctx.current_bet_to,
+        street=Street.FLOP,
+        facing_raise=False,
         latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
     )
     assert estimator == live.dist
@@ -1322,8 +1366,7 @@ def test_estimator_multiway_flop_bet_parity_with_live_sampler(packs):
     finally:
         personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = saved
     assert estimator != undamped, (
-        "the multiway damp is not reaching the estimator — this parity test is "
-        "vacuous as written"
+        "the multiway damp is not reaching the estimator — this parity test is vacuous as written"
     )
 
 
@@ -1365,8 +1408,9 @@ def _short_stack_node(kind: str):
 
 
 @pytest.mark.parametrize("kind", ["bet", "raise"])
-@pytest.mark.parametrize("persona", ["calling_station", "passive_fish", "nit",
-                                     "tag", "lag", "maniac"])
+@pytest.mark.parametrize(
+    "persona", ["calling_station", "passive_fish", "nit", "tag", "lag", "maniac"]
+)
 def test_no_aggressive_bracket_field_is_read_before_the_action_draw(packs, persona, kind):
     """🔴 The assumption `_legal_from_ctx` and `_live_legal` both rest on, finally
     asserted: no field of the BET/RAISE bracket reaches the merit vector.
@@ -1411,10 +1455,16 @@ def test_no_aggressive_bracket_field_is_read_before_the_action_draw(packs, perso
     hole = ("6h", "4c")  # naked air, no draw — the bluff cell
     cap = _CaptureFirstChoices()
     sample_postflop_decision(
-        pack, hole, list(ctx.board), engine_legal, ctx.pot_bb, ctx.stack_bb,
+        pack,
+        hole,
+        list(ctx.board),
+        engine_legal,
+        ctx.pot_bb,
+        ctx.stack_bb,
         ctx.opponents,
         cap,  # type: ignore[arg-type] — duck-typed capture rng
-        current_bet_to=ctx.current_bet_to, street=ctx.street,
+        current_bet_to=ctx.current_bet_to,
+        street=ctx.street,
         latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
         facing_raise=ctx.facing_raise,
         aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,
@@ -1457,6 +1507,7 @@ def test_late_street_bet_estimator_parity_unopened(packs, street):
     asserted to differ from the lever-on one first, so the parity claim is not a
     comparison of two identical vectors, and both sides of the lever — the
     value multiply and the bluff-side companion — are probed."""
+
     def _dialled(value):
         pack = packs[VillainType.TAG].model_copy(deep=True)
         pack.postflop = pack.postflop.model_copy(update={"late_street_bet": value})
@@ -1495,10 +1546,16 @@ def test_late_street_bet_estimator_parity_unopened(packs, street):
 
         live = _CaptureFirstChoices()
         sample_postflop_decision(
-            levered, hole, list(ctx.board), _live_legal(ctx), ctx.pot_bb, ctx.stack_bb,
+            levered,
+            hole,
+            list(ctx.board),
+            _live_legal(ctx),
+            ctx.pot_bb,
+            ctx.stack_bb,
             ctx.opponents,
             live,  # type: ignore[arg-type] — duck-typed capture rng
-            current_bet_to=ctx.current_bet_to, street=ctx.street,
+            current_bet_to=ctx.current_bet_to,
+            street=ctx.street,
             latest_aggressor_contribution_bb=ctx.aggressor_contribution_bb,
             facing_raise=ctx.facing_raise,
             aggressor_bet_prev_street=ctx.aggressor_bet_prev_street,

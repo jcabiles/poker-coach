@@ -242,12 +242,8 @@ def test_vs_turn_bet_leak_category_is_204():
 def test_leak_category_for_maps_both_turn_contexts():
     # Proves the SECOND mapping site (grading.py::leak_category_for), the one
     # this ticket owns — independent of the grader-local hardcoded leak= lines.
-    assert leak_category_for(NodeContext.TURN_BARREL, Position.BTN) == int(
-        LeakCategory.TURN_BARREL
-    )
-    assert leak_category_for(NodeContext.VS_TURN_BET, Position.BTN) == int(
-        LeakCategory.VS_TURN_BET
-    )
+    assert leak_category_for(NodeContext.TURN_BARREL, Position.BTN) == int(LeakCategory.TURN_BARREL)
+    assert leak_category_for(NodeContext.VS_TURN_BET, Position.BTN) == int(LeakCategory.VS_TURN_BET)
 
 
 # --- TurnHeuristicProvider (supports gating) ---

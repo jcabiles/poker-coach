@@ -157,6 +157,4 @@ def fold_equity_ev(fold_pct: float, equity_if_called: float, pot_bb: float, bet_
     dimensionally-correct chip-EV formula (bb in, bb out), unlike a hand-tuned
     unitless merit score. `pot_bb` is the pot BEFORE `bet_bb` is added.
     """
-    return fold_pct * pot_bb + (1 - fold_pct) * (
-        equity_if_called * (pot_bb + 2 * bet_bb) - bet_bb
-    )
+    return fold_pct * pot_bb + (1 - fold_pct) * (equity_if_called * (pot_bb + 2 * bet_bb) - bet_bb)

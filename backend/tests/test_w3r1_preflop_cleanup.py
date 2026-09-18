@@ -84,9 +84,9 @@ def test_maniac_vs_rfi_offsuit_trash_folds_never_calls(packs, hand):
     pack = packs[VillainType("maniac")]
     cls = hole_cards_to_class(*_cards(hand))
     node = next(
-        n for n in pack.preflop
-        if n.facing == "vs_rfi"
-        and (n.positions is None or Position.CO in n.positions)
+        n
+        for n in pack.preflop
+        if n.facing == "vs_rfi" and (n.positions is None or Position.CO in n.positions)
     )
     mix = next(m for m in node.mixes if cls in parse_range(m.combos))
     assert mix.weights.get("call", 0.0) == 0.0, (
@@ -189,40 +189,61 @@ def test_maniac_suited_ace_control_still_opens(packs, position):
 _MANIAC_UNTOUCHED_OPENS = {
     Position.UTG: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 76s, A6o+, K9o+, QTo+, JTo",
-         {"raise": 0.9, "fold": 0.1}),
-        ("K2s, K3s, Q5s, Q6s, J6s, T6s, 75s, 65s, 54s, A4o, A5o, K8o, Q9o, J9o, T9o",
-         {"raise": 0.7, "fold": 0.3}),
+        (
+            "22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 76s, A6o+, K9o+, QTo+, JTo",
+            {"raise": 0.9, "fold": 0.1},
+        ),
+        (
+            "K2s, K3s, Q5s, Q6s, J6s, T6s, 75s, 65s, 54s, A4o, A5o, K8o, Q9o, J9o, T9o",
+            {"raise": 0.7, "fold": 0.3},
+        ),
     ],
     Position.UTG1: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, A6o+, K9o+, Q9o+, J9o+, T9o",
-         {"raise": 0.9, "fold": 0.1}),
-        ("K2s, K3s, Q5s, Q6s, J6s, T6s, 54s, A4o, A5o, K8o, Q8o, J8o, T8o, 98o",
-         {"raise": 0.7, "fold": 0.3}),
+        (
+            "22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, A6o+, K9o+, Q9o+, J9o+, T9o",
+            {"raise": 0.9, "fold": 0.1},
+        ),
+        (
+            "K2s, K3s, Q5s, Q6s, J6s, T6s, 54s, A4o, A5o, K8o, Q8o, J8o, T8o, 98o",
+            {"raise": 0.7, "fold": 0.3},
+        ),
     ],
     Position.UTG2: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("22+, A2s+, K3s+, Q6s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, A5o+, K8o+, Q9o+, J9o+, T9o",
-         {"raise": 0.9, "fold": 0.1}),
-        ("K2s, Q4s, Q5s, J5s, T5s, 54s, A3o, A4o, K7o, Q8o, J8o, T8o, 98o",
-         {"raise": 0.7, "fold": 0.3}),
+        (
+            "22+, A2s+, K3s+, Q6s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, "
+            "A5o+, K8o+, Q9o+, J9o+, T9o",
+            {"raise": 0.9, "fold": 0.1},
+        ),
+        (
+            "K2s, Q4s, Q5s, J5s, T5s, 54s, A3o, A4o, K7o, Q8o, J8o, T8o, 98o",
+            {"raise": 0.7, "fold": 0.3},
+        ),
     ],
     Position.LJ: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("22+, A2s+, K2s+, Q4s+, J5s+, T5s+, 95s+, 85s+, 74s+, 64s+, 53s+, "
-         "A4o+, K7o+, Q8o+, J8o+, T8o+, 98o",
-         {"raise": 0.9, "fold": 0.1}),
-        ("Q2s, Q3s, J3s, J4s, T4s, 43s, A2o, A3o, K5o, K6o, Q7o, J7o, T7o, 97o, 87o",
-         {"raise": 0.7, "fold": 0.3}),
+        (
+            "22+, A2s+, K2s+, Q4s+, J5s+, T5s+, 95s+, 85s+, 74s+, 64s+, 53s+, "
+            "A4o+, K7o+, Q8o+, J8o+, T8o+, 98o",
+            {"raise": 0.9, "fold": 0.1},
+        ),
+        (
+            "Q2s, Q3s, J3s, J4s, T4s, 43s, A2o, A3o, K5o, K6o, Q7o, J7o, T7o, 97o, 87o",
+            {"raise": 0.7, "fold": 0.3},
+        ),
     ],
     Position.BB: [
         ("TT+, AQs+, AKo", {"raise": 1.0}),  # R10-PRE1 premium carve-out
-        ("22+, A2s+, K2s+, Q3s+, J5s+, T5s+, 95s+, 85s+, 74s+, 64s+, 53s+, "
-         "A3o+, K6o+, Q8o+, J8o+, T8o+, 98o",
-         {"raise": 0.9, "fold": 0.1}),
-        ("Q2s, J3s, J4s, T4s, 43s, A2o, K4o, K5o, Q6o, Q7o, J7o, T7o, 97o, 87o",
-         {"raise": 0.7, "fold": 0.3}),
+        (
+            "22+, A2s+, K2s+, Q3s+, J5s+, T5s+, 95s+, 85s+, 74s+, 64s+, 53s+, "
+            "A3o+, K6o+, Q8o+, J8o+, T8o+, 98o",
+            {"raise": 0.9, "fold": 0.1},
+        ),
+        (
+            "Q2s, J3s, J4s, T4s, 43s, A2o, K4o, K5o, Q6o, Q7o, J7o, T7o, 97o, 87o",
+            {"raise": 0.7, "fold": 0.3},
+        ),
     ],
 }
 
@@ -321,12 +342,12 @@ def test_lag_vs_rfi_tiers_are_identical_in_every_seat_band(packs):
     for node in nodes:
         where = [p.value for p in node.positions] if node.positions else "wildcard"
         tiers = [m.combos for m in node.mixes]
-        assert tiers[:len(_LAG_VS_RFI_TIERS)] == _LAG_VS_RFI_TIERS, (
-            f"lag vs_rfi {where}: the five W3R-1 tiers were reordered or re-cut")
+        assert tiers[: len(_LAG_VS_RFI_TIERS)] == _LAG_VS_RFI_TIERS, (
+            f"lag vs_rfi {where}: the five W3R-1 tiers were reordered or re-cut"
+        )
 
 
 def test_lag_vs_rfi_wildcard_band_byte_identical(packs):
     node = _find_node(packs[VillainType("lag")], "vs_rfi", Position.HJ)
-    assert node is not None and node.positions is None, (
-        "HJ must still resolve to the wildcard band")
+    assert node is not None and node.positions is None, "HJ must still resolve to the wildcard band"
     assert _mix_shape(node) == _LAG_VS_RFI_WILDCARD

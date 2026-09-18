@@ -8,6 +8,7 @@ guarantee. This is a LOCAL check only — the authoritative `datacontract
 test` run against the vendored ODCS contract (tools/poker_events.odcs.yaml)
 is deferred to the director per the T2 ticket.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -27,9 +28,19 @@ from tools import export_analytics as ea  # noqa: E402
 from tools.export_analytics import CONTRACT_VERSION, run_export  # noqa: E402
 
 DECISIONS_REQUIRED_COLUMNS = {
-    "hand_id", "seq", "seat", "street", "position", "action",
-    "raise_to_bb", "chips_committed_bb", "pot_before_bb", "to_call_bb",
-    "engine_node_key", "hand_class_bucket", "exported_at",
+    "hand_id",
+    "seq",
+    "seat",
+    "street",
+    "position",
+    "action",
+    "raise_to_bb",
+    "chips_committed_bb",
+    "pot_before_bb",
+    "to_call_bb",
+    "engine_node_key",
+    "hand_class_bucket",
+    "exported_at",
 }
 
 # Trailing-newline hole (T1 fixed the same class in counterfactual.py):
@@ -38,9 +49,7 @@ DECISIONS_REQUIRED_COLUMNS = {
 _CONFIG_HASH_RE = re.compile(r"[0-9a-f]{64}")
 _RUN_ID_RE = re.compile(r"run-s(\d+)-n(\d+)-c([0-9a-f]{12})")
 
-_ODCS_MIRROR_SHA256 = (
-    "ee1aa3edb1915333bf465255f250ec49e567f55e65d397248272a61308e03514"
-)
+_ODCS_MIRROR_SHA256 = "ee1aa3edb1915333bf465255f250ec49e567f55e65d397248272a61308e03514"
 
 
 def _validate_batch(out_dir: Path) -> None:
@@ -80,6 +89,7 @@ def _validate_batch(out_dir: Path) -> None:
     assert not missing, f"decisions missing columns: {missing}"
 
     import pyarrow.compute as pc
+
     action = decisions.column("action")
     node = decisions.column("engine_node_key")
     bucket = decisions.column("hand_class_bucket")
@@ -110,7 +120,11 @@ def test_timing_file_written_before_success_and_consistent(tmp_path):
     timing = json.loads(timing_path.read_text())
 
     assert set(timing.keys()) == {
-        "schema_version", "wall_seconds", "n_hands", "seed", "run_id",
+        "schema_version",
+        "wall_seconds",
+        "n_hands",
+        "seed",
+        "run_id",
     }, "unexpected keys in _TIMING.json"
     assert timing["schema_version"] == "1.0.0"
     assert isinstance(timing["wall_seconds"], (int, float))
@@ -204,9 +218,7 @@ def test_contract_version_matches_vendored_yaml():
 def test_supplied_config_hash_rejected_if_malformed(tmp_path, bad_hash):
     packs = counterfactual.load_baseline_packs()
     with pytest.raises(ValueError):
-        run_export(
-            n_hands=3, seed=1, out_dir=tmp_path / "bad", packs=packs, config_hash=bad_hash
-        )
+        run_export(n_hands=3, seed=1, out_dir=tmp_path / "bad", packs=packs, config_hash=bad_hash)
 
 
 def test_odcs_mirror_sha256_pinned():
@@ -225,10 +237,22 @@ def test_cli_config_flag_valid(tmp_path, monkeypatch):
     cfg_path.write_text(json.dumps(cfg))
     out_dir = tmp_path / "out"
 
-    monkeypatch.setattr(sys, "argv", [
-        "export_analytics.py", "--hands", "3", "--seed", "9",
-        "--out", str(out_dir), "--skip-contract-test", "--config", str(cfg_path),
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "export_analytics.py",
+            "--hands",
+            "3",
+            "--seed",
+            "9",
+            "--out",
+            str(out_dir),
+            "--skip-contract-test",
+            "--config",
+            str(cfg_path),
+        ],
+    )
     ea.main()
 
     manifest = json.loads((out_dir / "_SUCCESS").read_text())
@@ -240,10 +264,22 @@ def test_cli_config_flag_rejected_config(tmp_path, monkeypatch, capsys):
     cfg_path.write_text(json.dumps({"schema_version": "1.0.0"}))  # missing required fields
     out_dir = tmp_path / "out"
 
-    monkeypatch.setattr(sys, "argv", [
-        "export_analytics.py", "--hands", "3", "--seed", "9",
-        "--out", str(out_dir), "--skip-contract-test", "--config", str(cfg_path),
-    ])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "export_analytics.py",
+            "--hands",
+            "3",
+            "--seed",
+            "9",
+            "--out",
+            str(out_dir),
+            "--skip-contract-test",
+            "--config",
+            str(cfg_path),
+        ],
+    )
     with pytest.raises(SystemExit) as exc_info:
         ea.main()
     assert exc_info.value.code != 0

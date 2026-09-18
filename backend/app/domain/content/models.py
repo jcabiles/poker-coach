@@ -240,14 +240,16 @@ class PersonaSizing(BaseModel):
         if unknown:
             raise ValueError(
                 f"open_bb_mix_by_position has unknown seats {unknown}; "
-                f"expected {sorted(every_seat)}")
+                f"expected {sorted(every_seat)}"
+            )
         missing = sorted(every_seat - set(v))
         if missing:
             raise ValueError(
                 f"open_bb_mix_by_position is missing seats {missing} — every "
                 f"seat must be named, or the omitted ones silently keep the "
                 f"fixed scalar (the big blind included: it cannot open, but it "
-                f"isolates limpers from the same table)")
+                f"isolates limpers from the same table)"
+            )
         for seat, mix in v.items():
             try:
                 cls._size_mix_valid(mix)
@@ -266,7 +268,8 @@ class PersonaSizing(BaseModel):
             raise ValueError(
                 "open_bb_mix and open_bb_mix_by_position are both set — a "
                 "persona has one open policy; use the seat table if the "
-                "persona adjusts to position, the flat mix if it does not")
+                "persona adjusts to position, the flat mix if it does not"
+            )
         return self
 
 
@@ -525,9 +528,7 @@ class PersonaPack(BaseModel):
                 wildcard_seen.add(key)
                 continue
             if key in wildcard_seen:
-                raise ValueError(
-                    f"explicit-position node after wildcard facing {node.facing!r}"
-                )
+                raise ValueError(f"explicit-position node after wildcard facing {node.facing!r}")
             prior = seen_positions.setdefault(key, set())
             overlap = prior & set(node.positions)
             if overlap:

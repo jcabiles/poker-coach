@@ -44,17 +44,21 @@ from app.domain.table.play import assign_lineup, bot_decision
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7, stacks: float = 100.0) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9)
 
 
 def _seat(state: HandState, pos: Position) -> int:
@@ -91,9 +95,7 @@ def _raise_to(pos, size):
 # --------------------------------------------- hero as OPENER (BB-in shape)
 
 
-def _opener_preflop(
-    callers=(Position.LJ,), open_to: float | None = None
-) -> HandState:
+def _opener_preflop(callers=(Position.LJ,), open_to: float | None = None) -> HandState:
     """Hero (UTG, seat 0) opens; `callers` cold-call; SB folds, BB calls."""
     state = _state(Position.UTG)
     osize = open_to if open_to is not None else _OPEN_SIZE[Position.UTG]
@@ -125,9 +127,7 @@ def test_opener_mw_flop_cbet_maps_3way():
 
 
 def test_opener_mw_4way_cbet_maps_and_grades_freq_ev():
-    state = _play(
-        _opener_preflop(callers=(Position.LJ, Position.CO)), [_check(Position.BB)]
-    )
+    state = _play(_opener_preflop(callers=(Position.LJ, Position.CO)), [_check(Position.BB)])
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None and spot.node_context == [NodeContext.CBET]
     assert players_in_pot(spot) == 4
@@ -143,11 +143,16 @@ def _opener_turn_state() -> tuple[HandState, float, float]:
     state = _opener_preflop()
     fp = round(3 * _OPEN_SIZE[Position.UTG] + 0.5, 2)
     cbet = round(0.33 * fp, 1)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, cbet),
-        _call(Position.LJ), _call(Position.BB),
-        _check(Position.BB),  # turn
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, cbet),
+            _call(Position.LJ),
+            _call(Position.BB),
+            _check(Position.BB),  # turn
+        ],
+    )
     return state, fp, cbet
 
 
@@ -161,10 +166,15 @@ def test_opener_mw_turn_and_river_barrel_map():
     assert spot.pot_bb == tp
     # continue: hero barrels 0.5 pot, both call; BB checks the river
     tbet = round(0.5 * tp, 1)
-    state = _play(state, [
-        _bet(Position.UTG, tbet), _call(Position.LJ), _call(Position.BB),
-        _check(Position.BB),  # river
-    ])
+    state = _play(
+        state,
+        [
+            _bet(Position.UTG, tbet),
+            _call(Position.LJ),
+            _call(Position.BB),
+            _check(Position.BB),  # river
+        ],
+    )
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
     assert spot.node_context == [NodeContext.RIVER_BARREL]
@@ -178,11 +188,16 @@ def test_opener_mw_turn_none_after_off_grid_flop_cbet():
     state = _opener_preflop()
     fp = round(3 * _OPEN_SIZE[Position.UTG] + 0.5, 2)
     off = round(0.42 * fp, 2)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, off),
-        _call(Position.LJ), _call(Position.BB),
-        _check(Position.BB),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, off),
+            _call(Position.LJ),
+            _call(Position.BB),
+            _check(Position.BB),
+        ],
+    )
     assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
     assert map_decision_point(state, HERO_SEAT) is None
 
@@ -190,10 +205,15 @@ def test_opener_mw_turn_none_after_off_grid_flop_cbet():
 def test_opener_mw_delayed_cbet_stays_none():
     # Flop checks through — a delayed turn c-bet is a different node.
     state = _opener_preflop()
-    state = _play(state, [
-        _check(Position.BB), _check(Position.UTG), _check(Position.LJ),
-        _check(Position.BB),  # turn
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _check(Position.UTG),
+            _check(Position.LJ),
+            _check(Position.BB),  # turn
+        ],
+    )
     assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
     assert map_decision_point(state, HERO_SEAT) is None
 
@@ -311,9 +331,14 @@ def test_caller_mw_turn_and_river_map_on_continuation_line():
     state = _caller_preflop()
     fp = _caller_flop_pot()
     fbet = round(0.33 * fp, 1)
-    state = _play(state, [
-        _bet(Position.UTG, fbet), _call(Position.CO), _call(Position.BTN),
-    ])
+    state = _play(
+        state,
+        [
+            _bet(Position.UTG, fbet),
+            _call(Position.CO),
+            _call(Position.BTN),
+        ],
+    )
     tp = round(fp + 3 * fbet, 2)
     tbet = round(0.5 * tp, 1)
     state = _play(state, [_bet(Position.UTG, tbet), _call(Position.CO)])
@@ -352,9 +377,13 @@ def test_caller_mw_opener_raise_war_stays_none():
     state = _caller_preflop()
     fp = _caller_flop_pot()
     cbet = round(0.33 * fp, 1)
-    state = _play(state, [
-        _bet(Position.UTG, cbet), _raise_to(Position.CO, round(3 * cbet, 1)),
-    ])
+    state = _play(
+        state,
+        [
+            _bet(Position.UTG, cbet),
+            _raise_to(Position.CO, round(3 * cbet, 1)),
+        ],
+    )
     assert state.to_act_seat == HERO_SEAT
     assert map_decision_point(state, HERO_SEAT) is None
 
@@ -379,17 +408,18 @@ def _count_new_mapper_fires(proxy: str, seed: int, hands: int) -> int:
     hero_pack = packs[proxy]
     rng = random.Random(seed)
     mappers = (
-        map_mw_flop_cbet, map_mw_turn_barrel, map_mw_river_barrel,
-        map_mw_caller_vs_cbet, map_mw_caller_vs_turn_bet,
+        map_mw_flop_cbet,
+        map_mw_turn_barrel,
+        map_mw_river_barrel,
+        map_mw_caller_vs_cbet,
+        map_mw_caller_vs_turn_bet,
         map_mw_caller_vs_river_bet,
     )
     fires = 0
     for hand_no in range(hands):
         lineup = assign_lineup(rng)
         seat_packs = {s: packs[t.value] for s, t in lineup.items()}
-        state = start_hand(
-            deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9
-        )
+        state = start_hand(deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
         guard = 0
         while not state.hand_over and state.to_act_seat is not None:
             guard += 1

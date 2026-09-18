@@ -92,12 +92,14 @@ SCHEMA_VERSION = "1.0.0"
 _SUPPORTED_MAJOR = 1
 _SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 
-_DOCUMENT_FIELDS = frozenset({
-    "schema_version",
-    "base_pack_hash",
-    "overrides",
-    "probe_declarations",
-})
+_DOCUMENT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "base_pack_hash",
+        "overrides",
+        "probe_declarations",
+    }
+)
 _PROBE_FIELDS = frozenset({"probe_kind", "persona", "paths", "rationale"})
 
 

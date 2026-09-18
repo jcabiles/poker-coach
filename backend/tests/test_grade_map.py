@@ -40,17 +40,21 @@ HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 # button_seat that puts seat 0 (the hero) at each position (deck._ROTATION).
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9)
 
 
 def _play(state: HandState, moves: list[tuple[Position, Decision]]) -> HandState:
@@ -92,7 +96,10 @@ def _facing_open(hero_pos: Position, opener: Position, size: float, seed: int = 
 
 
 def _facing_3bet(
-    hero_pos: Position, threebettor: Position, open_size: float, tbet_size: float,
+    hero_pos: Position,
+    threebettor: Position,
+    open_size: float,
+    tbet_size: float,
     seed: int = 7,
 ) -> HandState:
     """Hero opens, folds to the 3-bettor, everyone behind folds, back to hero."""
@@ -106,7 +113,11 @@ def _facing_3bet(
 
 
 def _facing_4bet(
-    hero_pos: Position, opener: Position, osize: float, tbet: float, fbet: float,
+    hero_pos: Position,
+    opener: Position,
+    osize: float,
+    tbet: float,
+    fbet: float,
     seed: int = 7,
 ) -> HandState:
     """Villain opens, hero 3-bets, folds around, the SAME villain 4-bets."""
@@ -159,7 +170,9 @@ def test_rfi_maps_to_builder_spot_verbatim(hero_pos):
     assert spot is not None
     entry = _find_entry(NodeContext.RFI, hero_pos, None)
     expected = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert spot == expected  # incl. hero_range/villain_range/facing parity
@@ -188,7 +201,9 @@ def test_vs_rfi_and_blind_defense_map_to_builder_spot_verbatim(hero_pos, opener,
     entry = _find_entry(ctx, hero_pos, opener)
     assert entry is not None
     expected = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert spot == expected
@@ -216,7 +231,9 @@ def test_vs_3bet_maps_to_builder_spot_verbatim(hero_pos, threebettor):
     entry = _find_entry(NodeContext.VS_3BET, hero_pos, threebettor)
     assert entry is not None
     expected = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert spot == expected
@@ -241,7 +258,9 @@ def test_vs_4bet_maps_to_builder_spot_verbatim(hero_pos, opener):
     entry = _find_entry(NodeContext.VS_4BET, hero_pos, opener)
     assert entry is not None
     expected = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert spot == expected
@@ -263,7 +282,9 @@ def test_vs_limpers_maps_to_builder_spot_verbatim(hero_pos, limpers):
     entry = _find_limp_entry(hero_pos, len(limpers))
     assert entry is not None
     expected = build_spot(
-        entry, random.Random(0), eff_bb=100.0,
+        entry,
+        random.Random(0),
+        eff_bb=100.0,
         hole_cards=state.seats[HERO_SEAT].hole_cards,
     )
     assert spot == expected
@@ -278,9 +299,7 @@ def test_flop_cbet_maps_with_builder_ranges(hero_pos):
     state = _cbet_state(hero_pos)
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_cbet_spot(
-        random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0
-    )
+    built = build_cbet_spot(random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0)
     # The ticket's property: ranges + facing match the equivalent builder spot.
     assert spot.hero_range == built.hero_range
     assert spot.villain_range == built.villain_range
@@ -291,9 +310,9 @@ def test_flop_cbet_maps_with_builder_ranges(hero_pos):
     assert spot.board == state.board
     assert spot.hero.hole_cards == state.seats[HERO_SEAT].hole_cards
     assert spot.pot_bb == built.pot_bb
-    assert [
-        (la.action, la.min_bb) for la in spot.legal_actions
-    ] == [(la.action, la.min_bb) for la in built.legal_actions]
+    assert [(la.action, la.min_bb) for la in spot.legal_actions] == [
+        (la.action, la.min_bb) for la in built.legal_actions
+    ]
     assert spot.spr == built.spr
 
 
@@ -568,15 +587,22 @@ def _persist_hand(db: Session, state: HandState) -> str:
     for i in range(9):
         db.add(
             SimSeat(
-                session_id=session.id, seat_index=i, is_hero=i == HERO_SEAT,
+                session_id=session.id,
+                seat_index=i,
+                is_hero=i == HERO_SEAT,
                 persona_type=None if i == HERO_SEAT else "tag",
-                stack_bb=100.0, buyins_bb=100.0,
+                stack_bb=100.0,
+                buyins_bb=100.0,
             )
         )
     db.add(
         SimHand(
-            session_id=session.id, hand_no=1, button_seat=state.button_seat,
-            rng_seed="1", status="in_progress", state_json=state.model_dump_json(),
+            session_id=session.id,
+            hand_no=1,
+            button_seat=state.button_seat,
+            rng_seed="1",
+            status="in_progress",
+            state_json=state.model_dump_json(),
         )
     )
     db.commit()
@@ -585,9 +611,7 @@ def _persist_hand(db: Session, state: HandState) -> str:
 
 def test_graded_decision_writes_sim_decision_and_tagged_attempt(db):
     session_id = _persist_hand(db, _folded_to(Position.BTN))  # canonical RFI
-    view = asyncio.run(
-        apply_hero_action(db, session_id, Decision(action=ActionType.FOLD))
-    )
+    view = asyncio.run(apply_hero_action(db, session_id, Decision(action=ActionType.FOLD)))
     rows = db.exec(select(SimDecision)).all()
     assert len(rows) == 1
     assert rows[0].street == "preflop" and rows[0].ordinal == 0
@@ -609,9 +633,7 @@ def test_unmappable_decision_writes_no_baseline_row_and_no_attempt(db):
     # Off-size open above the persona-open cap (5.0bb): unmappable ⇒ SimDecision
     # only, no attempt. (Opens up to 4.5 now map since the coverage widen.)
     session_id = _persist_hand(db, _facing_open(Position.BTN, Position.CO, 5.0))
-    view = asyncio.run(
-        apply_hero_action(db, session_id, Decision(action=ActionType.FOLD))
-    )
+    view = asyncio.run(apply_hero_action(db, session_id, Decision(action=ActionType.FOLD)))
     rows = db.exec(select(SimDecision)).all()
     assert len(rows) == 1
     assert rows[0].coverage == "unmappable"
@@ -626,9 +648,7 @@ def test_illegal_action_leaves_zero_graded_rows(db):
     session_id = _persist_hand(db, _folded_to(Position.BTN))
     with pytest.raises(ValueError):
         asyncio.run(
-            apply_hero_action(
-                db, session_id, Decision(action=ActionType.RAISE, size_bb=1.5)
-            )
+            apply_hero_action(db, session_id, Decision(action=ActionType.RAISE, size_bb=1.5))
         )
     db.rollback()
     assert db.exec(select(SimDecision)).all() == []
@@ -644,14 +664,42 @@ def test_street_report_buckets_by_street_and_excludes_no_baseline(db):
     common = {"session_id": session_id, "sim_hand_id": hand_id}
     db.add_all(
         [
-            SimDecision(street="preflop", ordinal=0, chosen_action="raise",
-                        correctness="optimal", ev_loss_bb=0.0, coverage="full", **common),
-            SimDecision(street="preflop", ordinal=1, chosen_action="call",
-                        correctness="blunder", ev_loss_bb=4.0, coverage="full", **common),
-            SimDecision(street="preflop", ordinal=2, chosen_action="fold",
-                        correctness=None, ev_loss_bb=0.0, coverage="not_found", **common),
-            SimDecision(street="flop", ordinal=3, chosen_action="bet",
-                        correctness=None, ev_loss_bb=0.0, coverage="unmappable", **common),
+            SimDecision(
+                street="preflop",
+                ordinal=0,
+                chosen_action="raise",
+                correctness="optimal",
+                ev_loss_bb=0.0,
+                coverage="full",
+                **common,
+            ),
+            SimDecision(
+                street="preflop",
+                ordinal=1,
+                chosen_action="call",
+                correctness="blunder",
+                ev_loss_bb=4.0,
+                coverage="full",
+                **common,
+            ),
+            SimDecision(
+                street="preflop",
+                ordinal=2,
+                chosen_action="fold",
+                correctness=None,
+                ev_loss_bb=0.0,
+                coverage="not_found",
+                **common,
+            ),
+            SimDecision(
+                street="flop",
+                ordinal=3,
+                chosen_action="bet",
+                correctness=None,
+                ev_loss_bb=0.0,
+                coverage="unmappable",
+                **common,
+            ),
         ]
     )
     db.commit()
@@ -693,7 +741,10 @@ def test_report_endpoint_http_shape(db, tmp_path, monkeypatch):
         assert resp.status_code == 200
         body = resp.json()
         assert [r["street"] for r in body["rows"]] == [
-            "preflop", "flop", "turn", "river",
+            "preflop",
+            "flop",
+            "turn",
+            "river",
         ]
         assert body["total_decisions"] == 0
     finally:
@@ -735,9 +786,7 @@ def test_bot_driven_facing_raise_decision_grades(db, monkeypatch):
                 d = Decision(action=ActionType.FOLD)
             view = asyncio.run(apply_hero_action(db, view.session_id, d))
         markers = [
-            a.spot_signature
-            for a in db.exec(select(DrillAttempt)).all()
-            if a.source == "simulate"
+            a.spot_signature for a in db.exec(select(DrillAttempt)).all() if a.source == "simulate"
         ]
         if any(("vs_rfi" in m or "blind_defense" in m) for m in markers):
             return  # graded facing-a-raise decision reached through real play

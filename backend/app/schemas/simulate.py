@@ -244,9 +244,7 @@ class BlindCheckSubmitRequest(BaseModel):
         expected = 0 if self.skipped else BLIND_CHECK_SEAT_COUNT
         if len(self.guesses) != expected:
             subject = "a skip" if self.skipped else "a submission"
-            raise ValueError(
-                f"{subject} carries {expected} guesses, got {len(self.guesses)}"
-            )
+            raise ValueError(f"{subject} carries {expected} guesses, got {len(self.guesses)}")
         return self
 
 

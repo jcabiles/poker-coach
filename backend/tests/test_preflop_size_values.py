@@ -72,14 +72,24 @@ def _open_sizes(pack, position: Position, n: int = 600) -> Counter:
     """
     counts: Counter = Counter()
     for seed in range(n):
-        d = _preflop_decision(pack, position, "unopened", _HAND, _LEGAL_OPEN,
-                              random.Random(seed), 1.0, 0, is_opener=True)
+        d = _preflop_decision(
+            pack,
+            position,
+            "unopened",
+            _HAND,
+            _LEGAL_OPEN,
+            random.Random(seed),
+            1.0,
+            0,
+            is_opener=True,
+        )
         if d.action is ActionType.RAISE:
             counts[d.size_bb] += 1
     return counts
 
 
 # --- 1. no persona opens one size from any seat -----------------------------
+
 
 @pytest.mark.parametrize("position", list(EARLY) + list(LATE) + [Position.SB])
 def test_every_persona_mixes_its_open_at_every_seat(packs, position):
@@ -107,10 +117,12 @@ def test_every_persona_mixes_its_open_at_every_seat(packs, position):
         assert len(counts) >= 2, f"{name}@{position.value} opens one size: {counts}"
         assert top <= 0.95, (
             f"{name}@{position.value} modal open share {top:.3f} — a mix on "
-            f"paper that plays as one number: {counts}")
+            f"paper that plays as one number: {counts}"
+        )
 
 
 # --- 1b. no size belongs to one persona, and none is off the grid -----------
+
 
 def _authored_open_sizes(pack, *, blinds: bool = True) -> set[float]:
     """Every open size the pack can draw. `blinds=False` drops SB and BB, whose
@@ -159,14 +171,18 @@ def test_every_authored_open_sits_on_the_half_bb_grid(packs):
     """
     off = {}
     for name, pack in packs.items():
-        bad = sorted(s for s in _authored_open_sizes(pack)
-                     if abs(round(s / GRID_STEP) * GRID_STEP - s) > 1e-9)
+        bad = sorted(
+            s
+            for s in _authored_open_sizes(pack)
+            if abs(round(s / GRID_STEP) * GRID_STEP - s) > 1e-9
+        )
         if bad:
             off[name] = bad
     assert not off, f"open sizes off the {GRID_STEP}bb grid: {off}"
 
 
 # --- 2. the regulars move with the seat, the recreationals do not -----------
+
 
 def test_the_big_blind_isolates_at_more_than_one_size(packs):
     """The seat that cannot open still raises, and it reads the same table.
@@ -193,13 +209,21 @@ def test_the_big_blind_isolates_at_more_than_one_size(packs):
         pack = packs[name]
         counts: Counter = Counter()
         for seed in range(600):
-            d = _preflop_decision(pack, Position.BB, "vs_limpers", _HAND, legal,
-                                  random.Random(seed), 1.0, 1, is_opener=False)
+            d = _preflop_decision(
+                pack,
+                Position.BB,
+                "vs_limpers",
+                _HAND,
+                legal,
+                random.Random(seed),
+                1.0,
+                1,
+                is_opener=False,
+            )
             if d.action is ActionType.RAISE:
                 counts[d.size_bb] += 1
         assert sum(counts.values()) > 50, f"{name}: too few BB isos to judge"
-        assert len(counts) >= 2, (
-            f"{name} isolates from the big blind at one size: {counts}")
+        assert len(counts) >= 2, f"{name} isolates from the big blind at one size: {counts}"
 
 
 @pytest.mark.parametrize("name", REGULARS)
@@ -218,7 +242,8 @@ def test_a_regular_opens_smaller_from_late_position(packs, name):
     early = {p: mean(p) for p in EARLY}
     late = {p: mean(p) for p in LATE}
     assert min(early.values()) > max(late.values()), (
-        f"{name}: early opens {early} do not all exceed late opens {late}")
+        f"{name}: early opens {early} do not all exceed late opens {late}"
+    )
 
 
 @pytest.mark.parametrize("seats", [EARLY, LATE])
@@ -232,18 +257,18 @@ def test_the_three_regulars_are_ordered_by_how_cheaply_they_open(packs, seats):
     small size — which is why the ordering is now a test rather than a
     sentence.
     """
+
     def p_small(name):
         table = packs[name].sizing.open_bb_mix_by_position
         small = min(float(k) for k in table[seats[0].value])
         return sum(
-            sum(w for k, w in table[s.value].items() if float(k) <= small + 1e-9)
-            for s in seats
+            sum(w for k, w in table[s.value].items() if float(k) <= small + 1e-9) for s in seats
         ) / len(seats)
 
     lag, tag, nit = p_small("lag"), p_small("tag"), p_small("nit")
     assert lag > tag > nit, (
-        f"expected lag > tag > nit at the small size; got lag={lag:.3f} "
-        f"tag={tag:.3f} nit={nit:.3f}")
+        f"expected lag > tag > nit at the small size; got lag={lag:.3f} tag={tag:.3f} nit={nit:.3f}"
+    )
 
 
 @pytest.mark.parametrize("name", RECREATIONALS)
@@ -258,11 +283,13 @@ def test_a_recreational_opens_the_same_from_every_seat(packs, name):
     """
     sizing = packs[name].sizing
     assert sizing.open_bb_mix_by_position is None, (
-        f"{name} acquired a seat table; it is authored seat-blind on purpose")
+        f"{name} acquired a seat table; it is authored seat-blind on purpose"
+    )
     assert sizing.open_bb_mix, f"{name} authored no open mix at all"
 
 
 # --- 3. the levers the ticket deliberately left alone -----------------------
+
 
 def test_no_pack_authors_a_4bet_mix(packs):
     """A recorded decision, not an omission.
@@ -280,7 +307,8 @@ def test_no_pack_authors_a_4bet_mix(packs):
     """
     for name, pack in packs.items():
         assert pack.sizing.fourbet_mult_mix is None, (
-            f"{name} authored a 4-bet mix; see this test's rationale first")
+            f"{name} authored a 4-bet mix; see this test's rationale first"
+        )
 
 
 def test_every_3bet_mix_stays_at_or_under_the_grading_cap(packs):
@@ -310,7 +338,8 @@ def test_every_3bet_mix_stays_at_or_under_the_grading_cap(packs):
         assert mix, f"{name} authored no 3-bet mix"
         worst = max(float(k) for k in mix)
         assert worst <= _THREEBET_MULT_CAP + 1e-9, (
-            f"{name}: 3-bet rung {worst} exceeds the {_THREEBET_MULT_CAP} cap")
+            f"{name}: 3-bet rung {worst} exceeds the {_THREEBET_MULT_CAP} cap"
+        )
         assert len(mix) >= 2, f"{name}: 3-bet mix {mix} is one value"
 
 
@@ -333,8 +362,9 @@ def test_which_authored_opens_hero_cannot_grade_as_an_opener(packs):
     from app.domain.table.grade_map_preflop import _STD_OPEN_CAP
 
     refused = {
-        name: sorted(s for s in _authored_open_sizes(pack, blinds=False)
-                     if s > _STD_OPEN_CAP + 1e-9)
+        name: sorted(
+            s for s in _authored_open_sizes(pack, blinds=False) if s > _STD_OPEN_CAP + 1e-9
+        )
         for name, pack in packs.items()
     }
     assert {k: v for k, v in refused.items() if v} == {
@@ -364,15 +394,12 @@ def test_the_reports_node_derivation_matches_the_domain():
     for length in range(0, 6):
         for prefix in product(("fold", "call", "raise"), repeat=length):
             n_raises = sum(1 for a in prefix if a == "raise")
-            limped = any(
-                a == "call"
-                for i, a in enumerate(prefix)
-                if "raise" not in prefix[:i]
-            )
+            limped = any(a == "call" for i, a in enumerate(prefix) if "raise" not in prefix[:i])
             assert _node_for(n_raises, limped) == domain_answer(prefix), prefix
 
 
 # --- 4. what full hands actually saw ----------------------------------------
+
 
 def test_realised_opens_vary_over_whole_hands():
     """The anchor to real play: full nine-bot hands, the engine's own clamp,
@@ -401,4 +428,5 @@ def test_realised_opens_vary_over_whole_hands():
         assert len(counts) >= 2, f"{name} played one open size: {counts}"
     assert judged >= 3, (
         "too few personas cleared the sample floor: "
-        f"{ {k: v.get('unopened') for k, v in data['by_node'].items()} }")
+        f"{ {k: v.get('unopened') for k, v in data['by_node'].items()} }"
+    )

@@ -32,6 +32,7 @@ _WIRE: dict[str, ActionType] = {
     "5bet_shove": ActionType.RAISE,
 }
 
+
 class PersonaAction(NamedTuple):
     name: str  # the content-level action ("limp", "3bet", ...)
     action: ActionType  # wire translation

@@ -46,8 +46,9 @@ def _cards(hand_class: str) -> tuple[Card, Card]:
     return (f"{hi}h", f"{lo}h") if hand_class.endswith("s") else (f"{hi}h", f"{lo}s")
 
 
-def _distribution(pack, facing: str, seat: Position, hand_class: str,
-                  is_opener: bool) -> dict[str, float]:
+def _distribution(
+    pack, facing: str, seat: Position, hand_class: str, is_opener: bool
+) -> dict[str, float]:
     """What the sampler would draw from for this exact decision.
 
     An empty capture means no mix matched and the sampler returned fold at
@@ -55,8 +56,7 @@ def _distribution(pack, facing: str, seat: Position, hand_class: str,
     distribution and must be reported as one rather than skipped.
     """
     rng = _CaptureRng()
-    sample_preflop_action(pack, seat, facing, _cards(hand_class), rng,
-                          is_opener=is_opener)
+    sample_preflop_action(pack, seat, facing, _cards(hand_class), rng, is_opener=is_opener)
     if rng.population is None:
         return {"fold": 1.0}
     dist = dict(zip(rng.population, rng.weights, strict=True))
@@ -122,8 +122,7 @@ def packs() -> dict:
     return load_persona_packs()
 
 
-def _divergence_share(pack, facing: str, left: Position, right: Position,
-                      is_opener: bool) -> float:
+def _divergence_share(pack, facing: str, left: Position, right: Position, is_opener: bool) -> float:
     """Share of the persona's own continuing mass played differently by seat.
 
     Numerator: combo-weighted total variation between the two seats.
@@ -137,8 +136,7 @@ def _divergence_share(pack, facing: str, left: Position, right: Position,
         a = _distribution(pack, facing, left, hand_class, is_opener)
         b = _distribution(pack, facing, right, hand_class, is_opener)
         tv += weight * _total_variation(a, b)
-        played += weight * 0.5 * ((1.0 - a.get("fold", 0.0))
-                                  + (1.0 - b.get("fold", 0.0)))
+        played += weight * 0.5 * ((1.0 - a.get("fold", 0.0)) + (1.0 - b.get("fold", 0.0)))
     return 0.0 if played <= 1e-9 else tv / played
 
 
@@ -147,14 +145,14 @@ def _divergence_share(pack, facing: str, left: Position, right: Position,
     DECLARED_PAIRS,
     ids=[f"{p}-{f}-{a.value}v{b.value}" for p, f, _, a, b in DECLARED_PAIRS],
 )
-def test_declared_seat_pairs_are_played_differently(
-        packs, persona, facing, is_opener, left, right):
+def test_declared_seat_pairs_are_played_differently(packs, persona, facing, is_opener, left, right):
     share = _divergence_share(packs[persona], facing, left, right, is_opener)
     assert share >= MIN_DIVERGENCE_SHARE, (
         f"{persona} answers {facing} materially the same from {left.value} and "
         f"{right.value}: only {share:.1%} of its continuing mass is played "
         f"differently, under the {MIN_DIVERGENCE_SHARE:.0%} floor. The nodes "
-        f"were split but the numbers were not.")
+        f"were split but the numbers were not."
+    )
 
 
 def test_the_gradient_check_fails_on_a_split_that_says_nothing(packs):
@@ -165,9 +163,9 @@ def test_the_gradient_check_fails_on_a_split_that_says_nothing(packs):
     assert len(nodes) > 1, "fixture assumption: tag's vs_rfi is split by seat"
     for node in nodes[1:]:
         node.mixes = [m.model_copy(deep=True) for m in nodes[0].mixes]
-    assert _divergence_share(pack, "vs_rfi", Position.BB, Position.UTG1,
-                                 False) < MIN_DIVERGENCE_SHARE, (
-        "flattening every band must leave no divergence to find")
+    assert (
+        _divergence_share(pack, "vs_rfi", Position.BB, Position.UTG1, False) < MIN_DIVERGENCE_SHARE
+    ), "flattening every band must leave no divergence to find"
 
 
 def test_a_single_hand_class_cannot_satisfy_a_declared_pair(packs):
@@ -182,13 +180,15 @@ def test_a_single_hand_class_cannot_satisfy_a_declared_pair(packs):
     for node in nodes[1:]:
         node.mixes = [m.model_copy(deep=True) for m in nodes[0].mixes]
     # One class, moved as far as a probability can move.
-    bb = next(n for n in pack.preflop
-              if n.facing == "vs_rfi" and n.positions and Position.BB in n.positions)
-    bb.mixes.insert(0, bb.mixes[0].model_copy(
-        update={"combos": "72o", "weights": {"call": 1.0}}))
-    assert _divergence_share(pack, "vs_rfi", Position.BB, Position.UTG1,
-                                 False) < MIN_DIVERGENCE_SHARE, (
-        "one hand class must not be able to satisfy a whole seat pair")
+    bb = next(
+        n
+        for n in pack.preflop
+        if n.facing == "vs_rfi" and n.positions and Position.BB in n.positions
+    )
+    bb.mixes.insert(0, bb.mixes[0].model_copy(update={"combos": "72o", "weights": {"call": 1.0}}))
+    assert (
+        _divergence_share(pack, "vs_rfi", Position.BB, Position.UTG1, False) < MIN_DIVERGENCE_SHARE
+    ), "one hand class must not be able to satisfy a whole seat pair"
 
 
 def test_report_declared_pair_divergence(packs, capsys):
@@ -196,8 +196,9 @@ def test_report_declared_pair_divergence(packs, capsys):
     rows = []
     for persona, facing, is_opener, left, right in DECLARED_PAIRS:
         share = _divergence_share(packs[persona], facing, left, right, is_opener)
-        rows.append(f"  {persona:<16} {facing:<11} "
-                    f"{left.value}v{right.value:<4} divergence {share:6.1%}")
+        rows.append(
+            f"  {persona:<16} {facing:<11} {left.value}v{right.value:<4} divergence {share:6.1%}"
+        )
     with capsys.disabled():
         print("\n" + "\n".join(rows))
 
@@ -215,10 +216,14 @@ def test_no_seat_answers_a_split_facing_by_folding_everything(packs):
         pack = packs[persona]
         for seat in Position:
             plays = any(
-                sum(v for k, v in _distribution(
-                    pack, facing, seat, hand_class, is_opener).items()
-                    if k != "fold") > 1e-9
-                for hand_class in CLASSES)
+                sum(
+                    v
+                    for k, v in _distribution(pack, facing, seat, hand_class, is_opener).items()
+                    if k != "fold"
+                )
+                > 1e-9
+                for hand_class in CLASSES
+            )
             if not plays:
                 dead.append(f"{persona} folds 100% at {facing} from {seat.value}")
     assert not dead, "\n".join(dead)

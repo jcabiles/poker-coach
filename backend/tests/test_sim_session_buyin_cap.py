@@ -76,9 +76,12 @@ def _play_current_hand(db, view):
 def _seats():
     return [
         SimSeat(
-            session_id="s", seat_index=i, is_hero=i == 0,
+            session_id="s",
+            seat_index=i,
+            is_hero=i == 0,
             persona_type=None if i == 0 else "tag",
-            stack_bb=100.0, buyins_bb=100.0,
+            stack_bb=100.0,
+            buyins_bb=100.0,
         )
         for i in range(9)
     ]
@@ -88,7 +91,8 @@ def _settle(seats, deltas):
     sim_session._apply_settlement(
         seats,
         Settlement(
-            pots=[], winners_by_pot=[],
+            pots=[],
+            winners_by_pot=[],
             deltas=[SeatDelta(seat=i, delta_bb=deltas[i]) for i in range(9)],
             showdown_seats=[0, 1],
         ),
@@ -122,9 +126,7 @@ def test_rebuy_draws_are_2dp_exact_and_not_all_equal():
             assert s.buyins_bb == round(s.buyins_bb, 2)
             seen.add(s.stack_bb)
     assert len(seen) > 1, "an equal-stack table makes side pots impossible"
-    assert all(
-        sim_session._BUYIN_MIN_BB <= v <= sim_session._BUYIN_MAX_BB for v in seen
-    )
+    assert all(sim_session._BUYIN_MIN_BB <= v <= sim_session._BUYIN_MAX_BB for v in seen)
 
 
 def test_repeated_hands_accumulate_net_but_never_the_stack():
@@ -148,9 +150,7 @@ def test_every_hand_starts_every_seat_inside_the_buyin_band(db):
     view = create_session(db)
     saw_nonzero_net = False
     for hand_i in range(20):
-        seats = db.exec(
-            select(SimSeat).where(SimSeat.session_id == view.session_id)
-        ).all()
+        seats = db.exec(select(SimSeat).where(SimSeat.session_id == view.session_id)).all()
         # start-of-hand: every live seat has re-bought inside the band. The
         # hand is already dealt (blinds posted, bots advanced), but `stack_bb`
         # on the row is the pre-deal re-buy, untouched until settlement.
@@ -158,9 +158,7 @@ def test_every_hand_starts_every_seat_inside_the_buyin_band(db):
             assert sim_session._BUYIN_MIN_BB <= s.stack_bb <= sim_session._BUYIN_MAX_BB
 
         view = _play_current_hand(db, view)
-        seats = db.exec(
-            select(SimSeat).where(SimSeat.session_id == view.session_id)
-        ).all()
+        seats = db.exec(select(SimSeat).where(SimSeat.session_id == view.session_id)).all()
         nets = [round(s.stack_bb - s.buyins_bb, 2) for s in seats]
         assert round(sum(nets), 2) == 0.0
         if hand_i >= 4 and any(n != 0.0 for n in nets):

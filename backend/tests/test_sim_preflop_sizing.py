@@ -85,13 +85,9 @@ def test_rfi_open_smaller_size_grades_optimal(engine):
         assert len(sizes) == 2  # two distinct RFI sizes offered
         small, big = sizes
         asyncio.run(
-            apply_hero_action(
-                s, session_id, Decision(action=ActionType.RAISE, size_bb=small)
-            )
+            apply_hero_action(s, session_id, Decision(action=ActionType.RAISE, size_bb=small))
         )
-        row = s.exec(
-            select(SimDecision).where(SimDecision.session_id == session_id)
-        ).first()
+        row = s.exec(select(SimDecision).where(SimDecision.session_id == session_id)).first()
         assert row is not None
         assert row.chosen_action == "raise"
         assert row.sizing_correctness == "optimal"  # smaller = recommended
@@ -102,13 +98,9 @@ def test_rfi_open_bigger_size_grades_acceptable(engine):
         session_id, hand_id = _rfi_hero_session(s)
         _small, big = _two_raise_sizes(s, hand_id)
         asyncio.run(
-            apply_hero_action(
-                s, session_id, Decision(action=ActionType.RAISE, size_bb=big)
-            )
+            apply_hero_action(s, session_id, Decision(action=ActionType.RAISE, size_bb=big))
         )
-        row = s.exec(
-            select(SimDecision).where(SimDecision.session_id == session_id)
-        ).first()
+        row = s.exec(select(SimDecision).where(SimDecision.session_id == session_id)).first()
         assert row is not None
         assert row.sizing_correctness == "acceptable"  # bigger alt
 

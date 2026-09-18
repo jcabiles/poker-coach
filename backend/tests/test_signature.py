@@ -243,9 +243,7 @@ def _turn_spot(turn_card):
     from app.domain.spot import Street
 
     flop = _flop_spot(["As", "Kd", "2c"])
-    return flop.model_copy(
-        update={"street": Street.TURN, "board": ["As", "Kd", "2c", turn_card]}
-    )
+    return flop.model_copy(update={"street": Street.TURN, "board": ["As", "Kd", "2c", turn_card]})
 
 
 def test_turn_card_class_changes_turn_signature():
@@ -364,8 +362,7 @@ def _mw_turn_spot(turn_card, extra_players=1):
 
     flop = _mw_flop_spot(["As", "Kd", "2c"])
     extra = [
-        PlayerState(position=p, stack_bb=100)
-        for p in (Position.CO, Position.HJ)[:extra_players]
+        PlayerState(position=p, stack_bb=100) for p in (Position.CO, Position.HJ)[:extra_players]
     ]
     return flop.model_copy(
         update={
@@ -381,8 +378,7 @@ def _mw_river_spot(river_card, extra_players=1):
 
     flop = _mw_flop_spot(["As", "Kd", "2c"])
     extra = [
-        PlayerState(position=p, stack_bb=100)
-        for p in (Position.CO, Position.HJ)[:extra_players]
+        PlayerState(position=p, stack_bb=100) for p in (Position.CO, Position.HJ)[:extra_players]
     ]
     return flop.model_copy(
         update={

@@ -112,9 +112,7 @@ def test_worked_rejection_1_continue_ref_without_probe(packs):
     with empty `probe_declarations` → rejected ("frozen calibration
     anchor…declare a dedicated probe")."""
     with pytest.raises(CounterfactualConfigError) as exc:
-        validate_config(
-            _cfg(packs, overrides={"tag": {"postflop.continue_ref": 0.9}}), packs
-        )
+        validate_config(_cfg(packs, overrides={"tag": {"postflop.continue_ref": 0.9}}), packs)
     message = str(exc.value)
     assert "frozen calibration anchor" in message
     assert "declare a dedicated probe" in message
@@ -255,9 +253,7 @@ def test_axis_bounds_enforced(packs, axis):
     """Every §a.2 scalar axis: the declared endpoints are accepted, anything
     outside them is rejected naming the axis."""
     persona = _AXIS_PERSONA.get(axis.number, "tag")
-    probes = (
-        [_probe(axis.probe_kind, persona, [axis.path])] if axis.probe_kind is not None else []
-    )
+    probes = [_probe(axis.probe_kind, persona, [axis.path])] if axis.probe_kind is not None else []
 
     for good in (axis.lo, axis.hi):
         validate_config(_cfg(packs, overrides={persona: {axis.path: good}}, probes=probes), packs)
@@ -281,9 +277,7 @@ def test_size_elasticity_frozen_for_non_authoring_personas(packs):
 
 def test_position_sensitivity_frozen_for_non_authoring_personas(packs):
     """§a.2 axis 8: nit/TAG/LAG only; absence elsewhere is an intended leak."""
-    validate_config(
-        _cfg(packs, overrides={"nit": {"postflop.position_sensitivity": 0.5}}), packs
-    )
+    validate_config(_cfg(packs, overrides={"nit": {"postflop.position_sensitivity": 0.5}}), packs)
     with pytest.raises(CounterfactualConfigError, match="swept only"):
         validate_config(
             _cfg(packs, overrides={"maniac": {"postflop.position_sensitivity": 0.5}}), packs
@@ -444,9 +438,7 @@ def test_continue_ref_and_call_looseness_never_co_swept(packs):
         validate_config(
             _cfg(
                 packs,
-                overrides={
-                    "tag": {"postflop.continue_ref": 0.9, "postflop.call_looseness": 0.9}
-                },
+                overrides={"tag": {"postflop.continue_ref": 0.9, "postflop.call_looseness": 0.9}},
                 probes=[_probe("continue_ref", "tag", ["postflop.continue_ref"])],
             ),
             packs,
@@ -558,9 +550,17 @@ def test_presence_preservation(packs):
     nit_sizing = _document(result.packs["nit"])["sizing"]
     assert nit_sizing["open_bb"] == 2.5
     assert set(nit_sizing["open_bb_mix_by_position"]) == {
-        "UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN", "SB", "BB"}
-    assert all(mix == {"2.5": 1.0}
-               for mix in nit_sizing["open_bb_mix_by_position"].values())
+        "UTG",
+        "UTG1",
+        "UTG2",
+        "LJ",
+        "HJ",
+        "CO",
+        "BTN",
+        "SB",
+        "BB",
+    }
+    assert all(mix == {"2.5": 1.0} for mix in nit_sizing["open_bb_mix_by_position"].values())
 
     # absent optional fields stay ABSENT, not defaulted into the document
     assert "position_sensitivity" not in _document(result.packs["maniac"])["postflop"]
@@ -925,10 +925,17 @@ def test_every_preflop_sizing_axis_still_changes_realised_play(packs):
     def histogram(pack, facing, current_bet):
         counts: Counter = Counter()
         for seed in range(300):
-            d = _preflop_decision(pack, Position.CO, facing,
-                                  (Card("As"), Card("Ks")), legal,
-                                  random.Random(seed), current_bet, 0,
-                                  is_opener=False)
+            d = _preflop_decision(
+                pack,
+                Position.CO,
+                facing,
+                (Card("As"), Card("Ks")),
+                legal,
+                random.Random(seed),
+                current_bet,
+                0,
+                is_opener=False,
+            )
             if d.action is ActionType.RAISE:
                 counts[d.size_bb] += 1
         return counts
