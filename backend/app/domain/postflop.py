@@ -13,6 +13,7 @@ range advantage arrives in 2b.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TypedDict
 
 from app.domain.action import Decision
 from app.domain.content.loader import load_pack_file
@@ -38,6 +39,18 @@ from app.domain.spot import (
     opponent_count,
 )
 from app.domain.texture import Texture, classify, river_card_class, turn_card_class
+
+
+class _BaseEvalKwargs(TypedDict):
+    """The `EvaluationResult` fields every grader below fills identically."""
+
+    per_action: list[ActionEval]
+    best_action: ActionEval
+    provider: ProviderKind
+    coverage: Coverage
+    leak_category: int
+    is_mixed: bool
+
 
 # --- N3: authored postflop rationale (content path) ---
 # backend/app/domain/postflop.py -> parents[3] == repo root
@@ -548,7 +561,7 @@ def grade_cbet(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.FLOP_CBET)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -900,7 +913,7 @@ def grade_vs_cbet(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.VS_CBET)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -1092,7 +1105,7 @@ def grade_vs_check_raise(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.VS_CHECK_RAISE)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -1306,7 +1319,7 @@ def grade_turn_barrel(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.TURN_BARREL)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -1429,7 +1442,7 @@ def grade_vs_turn_bet(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.VS_TURN_BET)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -1647,7 +1660,7 @@ def grade_river_barrel(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.RIVER_BARREL)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -1772,7 +1785,7 @@ def grade_vs_river_bet(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.VS_RIVER_BET)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -1986,7 +1999,7 @@ def grade_vs_caller_raise(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     leak = int(LeakCategory.VS_CALLER_RAISE)
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -2221,7 +2234,7 @@ def grade_limped_lead(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     tags = ["limped_lead", edge, cat, tex.wetness]
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
@@ -2333,7 +2346,7 @@ def grade_limped_vs_lead(
     is_mixed = sum(1 for f in freqs if f > POST_MIX) >= 2
     tags = ["limped_vs_lead", edge, cat, tex.wetness]
 
-    base_kwargs = {
+    base_kwargs: _BaseEvalKwargs = {
         "per_action": evals,
         "best_action": best,
         "provider": ProviderKind.HEURISTIC,
