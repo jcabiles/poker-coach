@@ -8,7 +8,7 @@ artifact_dir: docs/ai-dlc
 # next. This field was missing entirely until 2026-08-18, which is why the boot
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       phone-and-6max
-              # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (status: draft until the owner approves)
+              # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
               # current slice: P1 (LAN walking skeleton) once approved
               # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
               #   until the owner plays Challenge mode; slice 3 (calldown) CLOSED 2026-09-18.

@@ -1,5 +1,5 @@
 # Phone access + 6-max Roadmap — updated 2026-09-18 (rev 3, after blind review R1 and the owner's 2026-09-18 corrections)
-status: draft
+status: approved — owner, 2026-09-18 (rev 3). D1–D3 defaults pending the owner's word.
 
 ## Bottom line
 - Make the trainer playable from a phone on the home wifi, and add a 6-max table option, so
