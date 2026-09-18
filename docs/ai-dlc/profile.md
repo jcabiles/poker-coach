@@ -7,13 +7,12 @@ artifact_dir: docs/ai-dlc
 # and resumes from its first unchecked slice — never from memory of what seemed
 # next. This field was missing entirely until 2026-08-18, which is why the boot
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
-active:       bot-realism-flywheel
-              # roadmap: docs/ai-dlc/roadmap/bot-realism-flywheel.md
-              # current slice: Two-mode Simulate — MERGED 2026-09-18, box unticked
-              #   until the owner plays Challenge mode.
-              # slice 3 (calldown): CLOSED 2026-09-18 on the owner's verdict.
-              # cleanup slice 2 (quality gates): MERGED 2026-09-18 (#224).
-              # next: cleanup slice 3 or 1 (docs/cleanup-project-brief.md).
+active:       phone-and-6max
+              # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
+              # current slice: P1 (LAN walking skeleton) once approved
+              # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
+              #   until the owner plays Challenge mode; slice 3 (calldown) CLOSED 2026-09-18.
+              # cleanup project (docs/cleanup-project-brief.md): slice 2 done; 1 and 3 wait.
               # paused: persona-realism (see its top banner)
 
 verify:
@@ -62,8 +61,8 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-18 (post-merge)
-commit:       main 9f26713 — PR #222 (Two-mode Simulate) and PR #224 (make check gates) merged
+updated:      2026-09-18 (roadmap drafted)
+commit:       main 0e7dd2a — #222, #224, #225 merged; phone-and-6max roadmap on PR #226 (draft)
 log-entry:    "2026-09-18 — Cleanup slice 2 built: `make check` is the gate"
 position:     Two-mode Simulate is on main; its roadmap box stays unticked until the owner plays
               Challenge mode to the hand-200 check. Cleanup slice 2 is DONE: `make check` is the
@@ -73,7 +72,6 @@ merged:       #222 (squash de9cb71), #224 (squash 9f26713); #223 closed as super
 awaiting John: (a) play Challenge mode, then tick the slice; (b) two theory-contract items open
               since 2026-08-24 (ledger finding B1; §10.2 of the git-excluded audit).
 authorized:   nothing standing. The 2026-09-18 merge grant is spent.
-next action:  cleanup slice 3 (code findings; the two stale root-file deletions need per-file
-              owner approval) or slice 1 (docs distillation, deletions held for the owner), via
-              `/ai-org:spec --auto-build`. Burn-down lists: mypy overrides in backend/pyproject.toml,
-              Biome warn rules in frontend/biome.jsonc.
+next action:  `/ai-org:spec P1 — LAN walking skeleton + two cheap tests` (roadmap APPROVED
+              2026-09-18; D1–D3 defaults recommended, owner confirms in that spec's interview if
+              not before). Cleanup slices 1 and 3 and the mypy/Biome burn-down wait behind it.
