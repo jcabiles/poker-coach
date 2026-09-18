@@ -29,9 +29,7 @@ def _seat(i: int, status: PlayerStatus = PlayerStatus.IN) -> SimpleNamespace:
 
 def _ring(button: int, live: dict[int, PlayerStatus]) -> list[SimpleNamespace]:
     """9-seat ring; seats in `live` get their status, all others FOLDED."""
-    return [
-        _seat(i, live.get(i, PlayerStatus.FOLDED)) for i in range(9)
-    ]
+    return [_seat(i, live.get(i, PlayerStatus.FOLDED)) for i in range(9)]
 
 
 # ------------------------------------------------------------------ A2

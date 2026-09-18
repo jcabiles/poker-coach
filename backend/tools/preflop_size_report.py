@@ -160,10 +160,7 @@ def _mean(hist: dict) -> float:
 
 def _fmt_hist(hist: dict) -> str:
     total = sum(hist.values())
-    parts = [
-        f"{k}={hist[k] / total:.3f}"
-        for k in sorted(hist, key=float)
-    ]
+    parts = [f"{k}={hist[k] / total:.3f}" for k in sorted(hist, key=float)]
     return " ".join(parts)
 
 
@@ -200,8 +197,11 @@ def render(data: dict) -> str:
                     f"  | mean={mean:.3f} shipped={shipped} delta={mean - shipped:+.3f}"
                 )
         _seat_table(out, "open by seat", data["by_seat"].get(persona, {}))
-        _seat_table(out, "iso by seat (implied open, limpers subtracted)",
-                    data["iso_by_seat"].get(persona, {}))
+        _seat_table(
+            out,
+            "iso by seat (implied open, limpers subtracted)",
+            data["iso_by_seat"].get(persona, {}),
+        )
         out.append("")
     return "\n".join(out)
 
@@ -226,9 +226,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--hands", type=int, default=4000)
     ap.add_argument("--seed", type=int, default=601)
-    ap.add_argument("--json", type=str, default=None,
-                    help="also write the raw counts here, for a diff against "
-                         "another run")
+    ap.add_argument(
+        "--json",
+        type=str,
+        default=None,
+        help="also write the raw counts here, for a diff against another run",
+    )
     args = ap.parse_args()
     data = collect(args.hands, args.seed)
     print(render(data))

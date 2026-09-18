@@ -175,10 +175,15 @@ def _four_way_flop_faced(seed: int = 7) -> tuple[HandState, float]:
     state = _mw_preflop((Position.HJ, Position.BTN), seed)
     flop_pot = 4 * _OPEN_SIZE[Position.UTG] + 0.5
     cbet = round(0.33 * flop_pot, 2)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, cbet),
-        _call(Position.HJ), _call(Position.BTN),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, cbet),
+            _call(Position.HJ),
+            _call(Position.BTN),
+        ],
+    )
     return state, cbet
 
 
@@ -211,9 +216,14 @@ def test_four_way_partial_response_never_reaches_hero_short():
     state = _mw_preflop((Position.HJ, Position.BTN))
     flop_pot = 4 * _OPEN_SIZE[Position.UTG] + 0.5
     cbet = round(0.33 * flop_pot, 2)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, cbet), _call(Position.HJ),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, cbet),
+            _call(Position.HJ),
+        ],
+    )
     assert map_mw_flop_vs_cbet(state, _seat(state, Position.BB)) is None
 
 
@@ -221,10 +231,16 @@ def test_five_way_is_not_a_calibrated_tier():
     state = _mw_preflop((Position.HJ, Position.CO, Position.BTN))
     flop_pot = 5 * _OPEN_SIZE[Position.UTG] + 0.5
     cbet = round(0.33 * flop_pot, 2)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, cbet),
-        _call(Position.HJ), _call(Position.CO), _call(Position.BTN),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, cbet),
+            _call(Position.HJ),
+            _call(Position.CO),
+            _call(Position.BTN),
+        ],
+    )
     assert map_mw_flop_vs_cbet(state, _seat(state, Position.BB)) is None
 
 
@@ -234,10 +250,15 @@ def test_four_way_caller_folds_degrades_with_dead_money():
     state = _mw_preflop((Position.HJ, Position.BTN))
     flop_pot = 4 * _OPEN_SIZE[Position.UTG] + 0.5
     cbet = round(0.33 * flop_pot, 2)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, cbet),
-        _fold(Position.HJ), _call(Position.BTN),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, cbet),
+            _fold(Position.HJ),
+            _call(Position.BTN),
+        ],
+    )
     spot = map_mw_flop_vs_cbet(state, _seat(state, Position.BB))
     assert spot is not None
     assert players_in_pot(spot) == 3
@@ -252,10 +273,15 @@ def test_four_way_turn_line_maps():
     flop_pot = 4 * _OPEN_SIZE[Position.UTG] + 0.5
     turn_pot = flop_pot + 4 * cbet
     tbet = round(0.5 * turn_pot, 2)
-    state = _play(state, [
-        _check(Position.BB), _bet(Position.UTG, tbet),
-        _call(Position.HJ), _call(Position.BTN),
-    ])
+    state = _play(
+        state,
+        [
+            _check(Position.BB),
+            _bet(Position.UTG, tbet),
+            _call(Position.HJ),
+            _call(Position.BTN),
+        ],
+    )
     assert len(state.board) == 4 and state.to_act_seat == _seat(state, Position.BB)
     spot = map_mw_vs_turn_bet(state, _seat(state, Position.BB))
     assert spot is not None

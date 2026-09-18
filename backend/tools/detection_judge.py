@@ -218,9 +218,7 @@ def extract_seat_id(rendered_text: str) -> str:
     """
     match = _SEAT_ID_RE.match(rendered_text)
     if not match:
-        raise HarnessError(
-            "rendered_text does not start with a 'Player under review:' header"
-        )
+        raise HarnessError("rendered_text does not start with a 'Player under review:' header")
     return match.group(1)
 
 
@@ -252,9 +250,7 @@ def parse_judge_response(raw_text: str) -> dict:
     if not isinstance(obj, dict):
         raise ResponseParseError("response is not a JSON object")
     if set(obj) != REQUIRED_RESPONSE_KEYS:
-        raise ResponseParseError(
-            f"keys {sorted(obj)} != {sorted(REQUIRED_RESPONSE_KEYS)}"
-        )
+        raise ResponseParseError(f"keys {sorted(obj)} != {sorted(REQUIRED_RESPONSE_KEYS)}")
     label = obj["label"]
     if label not in ("human", "bot"):
         raise ResponseParseError(f"label {label!r} not in ('human', 'bot')")
@@ -328,8 +324,14 @@ def _call_openai_compatible(
 
 
 def call_openai(
-    model: str, system_prompt: str, user_prompt: str, api_key: str,
-    base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    api_key: str,
+    base_url: str | None,
+    timeout: float,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     del context
     # No temperature: gpt-5.6 reasoning models reject explicit temperature 0
@@ -337,25 +339,48 @@ def call_openai(
     # Contract branch: "temperature 0 (or the provider's deterministic
     # setting; recorded)" — recorded in detection-pilot-s6.md and launch.json.
     return _call_openai_compatible(
-        base_url or "https://api.openai.com/v1", "/chat/completions",
-        model, system_prompt, user_prompt, api_key, timeout, temperature=None,
+        base_url or "https://api.openai.com/v1",
+        "/chat/completions",
+        model,
+        system_prompt,
+        user_prompt,
+        api_key,
+        timeout,
+        temperature=None,
     )
 
 
 def call_deepseek(
-    model: str, system_prompt: str, user_prompt: str, api_key: str,
-    base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    api_key: str,
+    base_url: str | None,
+    timeout: float,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     del context
     return _call_openai_compatible(
-        base_url or "https://api.deepseek.com", "/chat/completions",
-        model, system_prompt, user_prompt, api_key, timeout,
+        base_url or "https://api.deepseek.com",
+        "/chat/completions",
+        model,
+        system_prompt,
+        user_prompt,
+        api_key,
+        timeout,
     )
 
 
 def call_meta(
-    model: str, system_prompt: str, user_prompt: str, api_key: str,
-    base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    api_key: str,
+    base_url: str | None,
+    timeout: float,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     del context
     # Meta has no vendor-native hosted judge API; the slot is implemented
@@ -366,13 +391,25 @@ def call_meta(
             "OpenAI-compatible endpoint) — Meta has no default"
         )
     return _call_openai_compatible(
-        base_url, "/chat/completions", model, system_prompt, user_prompt, api_key, timeout,
+        base_url,
+        "/chat/completions",
+        model,
+        system_prompt,
+        user_prompt,
+        api_key,
+        timeout,
     )
 
 
 def call_anthropic(
-    model: str, system_prompt: str, user_prompt: str, api_key: str,
-    base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    api_key: str,
+    base_url: str | None,
+    timeout: float,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     del context
     url = (base_url or "https://api.anthropic.com").rstrip("/") + "/v1/messages"
@@ -403,7 +440,8 @@ def call_anthropic(
         # content may lead with non-text blocks (e.g. a "thinking" block on
         # current Opus models) — take the first text block, not content[0].
         raw_text = next(
-            block["text"] for block in obj["content"]
+            block["text"]
+            for block in obj["content"]
             if isinstance(block, dict) and block.get("type") == "text"
         )
     except (KeyError, IndexError, TypeError, StopIteration) as exc:
@@ -412,8 +450,14 @@ def call_anthropic(
 
 
 def call_google(
-    model: str, system_prompt: str, user_prompt: str, api_key: str,
-    base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    api_key: str,
+    base_url: str | None,
+    timeout: float,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     del context
     base = (base_url or "https://generativelanguage.googleapis.com").rstrip("/")
@@ -433,8 +477,14 @@ def call_google(
 
 
 def call_stub(
-    model: str, system_prompt: str, user_prompt: str, api_key: str,
-    base_url: str | None, timeout: float, *, context: Mapping[str, Any] | None = None,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    api_key: str,
+    base_url: str | None,
+    timeout: float,
+    *,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     """Deterministic, no network. Seeded from presentation_id+slot (`context`)
     so a resumed/rerun pair reproduces byte-identical output."""
@@ -465,9 +515,7 @@ class VendorAdapter:
 VENDOR_ADAPTERS: dict[str, VendorAdapter] = {
     "anthropic": VendorAdapter("anthropic", "https://api.anthropic.com", call_anthropic),
     "openai": VendorAdapter("openai", "https://api.openai.com/v1", call_openai),
-    "google": VendorAdapter(
-        "google", "https://generativelanguage.googleapis.com", call_google
-    ),
+    "google": VendorAdapter("google", "https://generativelanguage.googleapis.com", call_google),
     "meta": VendorAdapter("meta", None, call_meta),
     "deepseek": VendorAdapter("deepseek", "https://api.deepseek.com", call_deepseek),
     "stub": VendorAdapter("stub", None, call_stub),
@@ -572,7 +620,12 @@ def judge_pair(
         for attempt in range(transport_attempts):
             try:
                 text, _resolved = adapter.call(
-                    model, BASE_RATE_PREAMBLE, prompt, api_key, base_url, timeout,
+                    model,
+                    BASE_RATE_PREAMBLE,
+                    prompt,
+                    api_key,
+                    base_url,
+                    timeout,
                     context=context,
                 )
                 return text
@@ -585,8 +638,10 @@ def judge_pair(
     raw_text = _call()
     if raw_text is None:
         return {
-            "status": "transport_failed", "attempts": attempts,
-            "raw_responses": [], "parsed": None,
+            "status": "transport_failed",
+            "attempts": attempts,
+            "raw_responses": [],
+            "parsed": None,
         }
 
     raw_responses = [raw_text]
@@ -594,8 +649,10 @@ def judge_pair(
         try:
             parsed = parse_judge_response(raw_responses[-1])
             return {
-                "status": "ok", "attempts": attempts,
-                "raw_responses": raw_responses, "parsed": parsed,
+                "status": "ok",
+                "attempts": attempts,
+                "raw_responses": raw_responses,
+                "parsed": parsed,
             }
         except ResponseParseError as exc:
             attempts.append({"kind": "malformed", "detail": str(exc)})
@@ -603,18 +660,24 @@ def judge_pair(
                 retry_text = _call()
                 if retry_text is None:
                     return {
-                        "status": "transport_failed", "attempts": attempts,
-                        "raw_responses": raw_responses, "parsed": None,
+                        "status": "transport_failed",
+                        "attempts": attempts,
+                        "raw_responses": raw_responses,
+                        "parsed": None,
                     }
                 raw_responses.append(retry_text)
     return {
-        "status": "malformed-final", "attempts": attempts,
-        "raw_responses": raw_responses, "parsed": None,
+        "status": "malformed-final",
+        "attempts": attempts,
+        "raw_responses": raw_responses,
+        "parsed": None,
     }
 
 
 _STATUS_COUNT_KEY = {
-    "ok": "ok", "malformed-final": "malformed", "transport_failed": "transport_failed",
+    "ok": "ok",
+    "malformed-final": "malformed",
+    "transport_failed": "transport_failed",
 }
 
 
@@ -638,10 +701,15 @@ def _preflight_and_write_launch(
         base_url = env.get(base_url_env_var_name(vendor)) or adapter.default_base_url
         try:
             _raw, resolved_model = adapter.call(
-                model, BASE_RATE_PREAMBLE, _PREFLIGHT_PROMPT, api_key, base_url,
+                model,
+                BASE_RATE_PREAMBLE,
+                _PREFLIGHT_PROMPT,
+                api_key,
+                base_url,
                 _PREFLIGHT_TIMEOUT,
                 context={
-                    "presentation_id": "__preflight__", "slot": slot,
+                    "presentation_id": "__preflight__",
+                    "slot": slot,
                     "seat_id": "__preflight__",
                 },
             )
@@ -652,8 +720,10 @@ def _preflight_and_write_launch(
             continue
         judge_records.append(
             {
-                "slot": slot, "vendor": vendor,
-                "requested_model": model, "resolved_model": resolved_model,
+                "slot": slot,
+                "vendor": vendor,
+                "requested_model": model,
+                "resolved_model": resolved_model,
             }
         )
         # launch.json must record what is actually sent (§d.3 "recorded"):
@@ -742,9 +812,7 @@ def run(
             launch_path, judges, presentation_sha256, order_seed, env
         )
 
-    slots_to_process = (
-        [only_slot] if only_slot is not None else list(range(len(judges)))
-    )
+    slots_to_process = [only_slot] if only_slot is not None else list(range(len(judges)))
     for slot in slots_to_process:
         if not 0 <= slot < len(judges):
             raise HarnessError(
@@ -771,8 +839,11 @@ def run(
             _write_immutable_json(
                 order_path,
                 {
-                    "schema_version": SCHEMA_VERSION, "slot": slot, "vendor": vendor,
-                    "order_seed": order_seed, "presentation_ids": slot_order,
+                    "schema_version": SCHEMA_VERSION,
+                    "slot": slot,
+                    "vendor": vendor,
+                    "order_seed": order_seed,
+                    "presentation_ids": slot_order,
                 },
             )
 
@@ -792,12 +863,23 @@ def run(
             rendered_text = bundle["rendered_text"]
             seat_id = extract_seat_id(rendered_text)
             result = judge_pair(
-                adapter, model, api_key, base_url, seat_id, rendered_text,
-                presentation_id, slot, sleep=sleep,
+                adapter,
+                model,
+                api_key,
+                base_url,
+                seat_id,
+                rendered_text,
+                presentation_id,
+                slot,
+                sleep=sleep,
             )
             record = {
-                "schema_version": SCHEMA_VERSION, "slot": slot, "vendor": vendor,
-                "model": model, "presentation_id": presentation_id, **result,
+                "schema_version": SCHEMA_VERSION,
+                "slot": slot,
+                "vendor": vendor,
+                "model": model,
+                "presentation_id": presentation_id,
+                **result,
             }
             _atomic_write_json(response_path, record)
             counts[_STATUS_COUNT_KEY[result["status"]]] += 1
@@ -837,8 +919,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
     if args.command == "run":
         completion = run(
-            args.deck, args.judges, args.order_seed,
-            out_dir=args.out, only_slot=args.only_slot,
+            args.deck,
+            args.judges,
+            args.order_seed,
+            out_dir=args.out,
+            only_slot=args.only_slot,
             only_presentation_id=args.only_presentation_id,
         )
         print(json.dumps(completion, indent=2, sort_keys=True))

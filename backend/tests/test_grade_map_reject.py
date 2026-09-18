@@ -39,13 +39,26 @@ from app.domain.table.grade_map_reject import (
 
 HERO_SEAT = 0
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 _ORDER = [
-    Position.UTG, Position.UTG1, Position.UTG2, Position.LJ, Position.HJ,
-    Position.CO, Position.BTN, Position.SB, Position.BB,
+    Position.UTG,
+    Position.UTG1,
+    Position.UTG2,
+    Position.LJ,
+    Position.HJ,
+    Position.CO,
+    Position.BTN,
+    Position.SB,
+    Position.BB,
 ]
 
 
@@ -116,24 +129,34 @@ def test_no_mapper_for_street_shape_limped_turn():
     """The two limped mappers are FLOP-only, so a limped TURN is a recognized
     shape with nowhere to go — not a "shape we don't gate"."""
     state = _state(Position.BB)
-    state = _preflop(state, {
-        Position.SB: Decision(action=ActionType.CALL),
-        Position.BB: Decision(action=ActionType.CHECK),
-    })
-    state = _play(state, [
-        _check(Position.SB), _check(Position.BB),  # flop checks through
-        _check(Position.SB),                       # turn: SB checks to hero
-    ])
+    state = _preflop(
+        state,
+        {
+            Position.SB: Decision(action=ActionType.CALL),
+            Position.BB: Decision(action=ActionType.CHECK),
+        },
+    )
+    state = _play(
+        state,
+        [
+            _check(Position.SB),
+            _check(Position.BB),  # flop checks through
+            _check(Position.SB),  # turn: SB checks to hero
+        ],
+    )
     assert gp._limped_flop_hu_preflop(state).value is not None
     assert _assert_unmapped(state) is RejectReason.NO_MAPPER_FOR_STREET_SHAPE
 
 
 def test_preflop_shape_ungated_three_bet_pot():
     state = _state(Position.UTG)
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.BTN: Decision(action=ActionType.RAISE, size_bb=9.0),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.BTN: Decision(action=ActionType.RAISE, size_bb=9.0),
+        },
+    )
     state = _play(state, [_call(Position.UTG)])
     assert _assert_unmapped(state) is RejectReason.PREFLOP_SHAPE_UNGATED
 
@@ -142,14 +165,15 @@ def test_all_in_in_line_short_cold_caller():
     """A 3-way SRP whose cold-caller is all-in: the shape is gated, the all-in
     is what kills it — so ALL_IN_IN_LINE, not PREFLOP_SHAPE_UNGATED."""
     state = _state(Position.BB, stacks={Position.CO: 3.0})
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.CO: Decision(action=ActionType.CALL),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
-    assert next(s for s in state.seats if s.position is Position.CO).status is (
-        PlayerStatus.ALLIN
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.CO: Decision(action=ActionType.CALL),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
     )
+    assert next(s for s in state.seats if s.position is Position.CO).status is (PlayerStatus.ALLIN)
     assert _assert_unmapped(state) is RejectReason.ALL_IN_IN_LINE
 
 
@@ -159,10 +183,13 @@ def test_open_size_off_band_oversized_open():
     the postflop gates' old "still return None" comments were stale). The rest
     of the line is canonical, so the band is the binding gate."""
     state = _state(Position.UTG)
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=5.0),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=5.0),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
+    )
     state = _play(state, [_check(Position.BB)])
     assert gp._hu_srp_preflop(state).reason is RejectReason.OPEN_SIZE_OFF_BAND
     assert _assert_unmapped(state) is RejectReason.OPEN_SIZE_OFF_BAND
@@ -174,11 +201,14 @@ def test_no_mapper_for_role_opener_in_the_no_bb_three_way():
     only ever grew its caller side. A build-order gap, so NO_MAPPER_FOR_ROLE
     (buildable) rather than HERO_ROLE_UNGATED (theory-reviewer MED)."""
     state = _state(Position.UTG1)
-    state = _preflop(state, {
-        Position.UTG1: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.CO: Decision(action=ActionType.CALL),
-        Position.BTN: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG1: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.CO: Decision(action=ActionType.CALL),
+            Position.BTN: Decision(action=ActionType.CALL),
+        },
+    )
     assert gp._mw_nobb_srp_preflop(state).value is not None
     assert _assert_unmapped(state) is RejectReason.NO_MAPPER_FOR_ROLE
 
@@ -188,11 +218,14 @@ def test_hero_role_ungated_earlier_cold_caller_never_closes():
     close the street, which is a documented exclusion, not a missing mapper.
     Widening here needs new theory — it must NOT look like a T-cover item."""
     state = _state(Position.CO)
-    state = _preflop(state, {
-        Position.UTG1: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.CO: Decision(action=ActionType.CALL),
-        Position.BTN: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG1: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.CO: Decision(action=ActionType.CALL),
+            Position.BTN: Decision(action=ActionType.CALL),
+        },
+    )
     state = _play(state, [_check(Position.UTG1)])
     gate = gp._mw_nobb_srp_preflop(state)
     assert gate.value is not None
@@ -205,10 +238,13 @@ def test_street_action_shape_ungated_donk_lead():
     """The canonical HU line wants check(BB) -> hero. The BB leading into the
     preflop raiser is the donk the taxonomy names."""
     state = _state(Position.UTG)
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
+    )
     state = _play(state, [_bet(Position.BB, 2.0)])
     assert gp._hu_srp_preflop(state).value is not None
     assert _assert_unmapped(state) is RejectReason.STREET_ACTION_SHAPE_UNGATED
@@ -218,10 +254,13 @@ def test_bet_fraction_off_grid_facing_an_unrecognized_cbet():
     """Flop pot 6.5; 2.6bb is 0.4 pot — nowhere near a RECOGNIZED_BET_FRACS
     member, and further than `_CANON_BET_TOL` from the two neighbours."""
     state = _state(Position.BB)
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
+    )
     state = _play(state, [_check(Position.BB), _bet(Position.UTG, 2.6)])
     assert not gp._is_canonical_bet(2.6, 6.5, Street.FLOP)
     assert _assert_unmapped(state) is RejectReason.BET_FRACTION_OFF_GRID
@@ -231,10 +270,13 @@ def test_stack_too_shallow_cannot_offer_the_big_bet_bucket():
     """Hero opens 3.0 off 7.0bb, leaving 4.0 behind; the flop's big bucket is
     0.75 * 6.5 = 4.9. Every shape gate passes — only the stack fails."""
     state = _state(Position.UTG, stacks={Position.UTG: 7.0})
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
+    )
     state = _play(state, [_check(Position.BB)])
     assert gp._hu_srp_preflop(state).value is not None
     assert state.seats[HERO_SEAT].stack_bb == pytest.approx(4.0)
@@ -255,15 +297,22 @@ def _iso_raise_limper_folds() -> HandState:
     `PREFLOP_SHAPE_UNGATED`.
     """
     state = _state(Position.CO)
-    state = _play(state, [
-        _call(Position.UTG),                       # open-limp
-        _fold(Position.UTG1), _fold(Position.UTG2),
-        _fold(Position.LJ), _fold(Position.HJ),
-        _raise(Position.CO, 3.0),                  # hero isolates
-        _fold(Position.BTN), _fold(Position.SB), _call(Position.BB),
-        _fold(Position.UTG),                       # the limper folds
-        _check(Position.BB),                       # flop: BB checks to hero
-    ])
+    state = _play(
+        state,
+        [
+            _call(Position.UTG),  # open-limp
+            _fold(Position.UTG1),
+            _fold(Position.UTG2),
+            _fold(Position.LJ),
+            _fold(Position.HJ),
+            _raise(Position.CO, 3.0),  # hero isolates
+            _fold(Position.BTN),
+            _fold(Position.SB),
+            _call(Position.BB),
+            _fold(Position.UTG),  # the limper folds
+            _check(Position.BB),  # flop: BB checks to hero
+        ],
+    )
     return state
 
 
@@ -289,9 +338,9 @@ def test_unclassified_still_reported_when_nothing_names_the_failure():
     UNCLASSIFIED there is nothing named to prefer, and it must surface."""
     state = _iso_raise_limper_folds()
     twins = _street_twins(gp, Street.FLOP)
-    assert all(
-        t(state, HERO_SEAT).reason is not None for t in twins
-    ), "precondition: this is an unmapped point"
+    assert all(t(state, HERO_SEAT).reason is not None for t in twins), (
+        "precondition: this is an unmapped point"
+    )
     # Simulate the degenerate case directly against the selection rule.
     reasons = [RejectReason.UNCLASSIFIED] * len(twins)
     named = [r for r in reasons if r is not RejectReason.UNCLASSIFIED]
@@ -325,10 +374,13 @@ def test_public_mapper_signatures_are_unchanged():
 
 def test_public_mappers_return_spot_or_none_never_a_diagnostic():
     state = _state(Position.UTG)
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
+    )
     state = _play(state, [_check(Position.BB)])
     built = 0
     for fn in _PUBLIC_MAPPERS:
@@ -419,11 +471,14 @@ def test_all_in_dominates_a_deeper_sibling_reason():
     ]
     assert deeper, "precondition: deeper stages exist that used to mask ALL_IN"
     state = _state(Position.BB, stacks={Position.CO: 3.0})
-    state = _preflop(state, {
-        Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
-        Position.CO: Decision(action=ActionType.CALL),
-        Position.BB: Decision(action=ActionType.CALL),
-    })
+    state = _preflop(
+        state,
+        {
+            Position.UTG: Decision(action=ActionType.RAISE, size_bb=3.0),
+            Position.CO: Decision(action=ActionType.CALL),
+            Position.BB: Decision(action=ActionType.CALL),
+        },
+    )
     verdict = classify_with_evidence(state, HERO_SEAT)
     assert verdict.reason is RejectReason.ALL_IN_IN_LINE
     assert RejectReason.ALL_IN_IN_LINE in verdict.twin_reasons

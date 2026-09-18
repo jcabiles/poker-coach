@@ -18,7 +18,5 @@ _BLIND_POSITIONS = (Position.SB, Position.BB)
 def _street_actions(state: HandState, street: Street) -> list:
     """This street's history minus blind POSTs (posting is not acting)."""
     return [
-        h
-        for h in state.action_history
-        if h.street is street and h.action is not ActionType.POST
+        h for h in state.action_history if h.street is street and h.action is not ActionType.POST
     ]

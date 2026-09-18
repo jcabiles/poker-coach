@@ -78,7 +78,10 @@ def _default_analytics_root() -> Path:
     try:
         common = subprocess.run(
             ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            cwd=REPO_ROOT, capture_output=True, text=True, check=True,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
         if common:
             # `<main checkout>/.git` -> the main checkout -> its sibling
@@ -123,12 +126,16 @@ def analytics_paths(analytics_root: Path) -> tuple[Path, Path, Path]:
     python = analytics_root / ".venv" / "bin" / "python"
     checker = analytics_root / "analysis" / "derobo_gate_check.py"
     baseline = analytics_root / "scorer" / "artifacts" / "a5_baseline_z.json"
-    for label, path in (("interpreter", python), ("checker", checker),
-                        ("baseline artifact", baseline)):
+    for label, path in (
+        ("interpreter", python),
+        ("checker", checker),
+        ("baseline artifact", baseline),
+    ):
         if not path.exists():
             raise GateError(
                 f"poker-analytics {label} not found at {path}. Pass "
-                f"--analytics-root if the repo is not a sibling checkout.")
+                f"--analytics-root if the repo is not a sibling checkout."
+            )
     return python, checker, baseline
 
 
@@ -149,7 +156,8 @@ def read_pins(baseline: Path) -> dict:
             f"pinned to {EXPECTED_BASELINE_ARTIFACT_ID!r} — the frozen pre-fix "
             "roster it compares against. Point --analytics-root at the right "
             "checkout, or update the pin deliberately if the baseline was "
-            "legitimately rebuilt.")
+            "legitimately rebuilt."
+        )
     source = artifact["source_batch"]
     return {
         "seed": int(source["seed"]),
@@ -160,8 +168,7 @@ def read_pins(baseline: Path) -> dict:
     }
 
 
-def export_candidate(out_dir: Path, seed: int, n_hands: int,
-                     lineup: dict[str, str]) -> dict:
+def export_candidate(out_dir: Path, seed: int, n_hands: int, lineup: dict[str, str]) -> dict:
     """Export one candidate batch under the baseline's pins.
 
     `buyin_spread` is left False: the baseline's run id
@@ -178,7 +185,8 @@ def export_candidate(out_dir: Path, seed: int, n_hands: int,
             f"baseline lineup seats {list(seats)} are not exactly "
             f"{list(EXPECTED_SEATS)}. `run_export` plays nine seats and wraps a "
             "shorter lineup to fill them, so anything else would be measured "
-            "under seats the checker never sees.")
+            "under seats the checker never sees."
+        )
     manifest = export_analytics.run_export(
         n_hands=n_hands,
         seed=seed,
@@ -193,21 +201,37 @@ def export_candidate(out_dir: Path, seed: int, n_hands: int,
         if got is not None and got != want:
             raise GateError(
                 f"export manifest reports {key}={got!r} but the pins asked for "
-                f"{want!r}; the candidate is not comparable to the baseline")
+                f"{want!r}; the candidate is not comparable to the baseline"
+            )
     return manifest
 
 
-def run_check(python: Path, checker: Path, baseline: Path, batch: Path,
-              lineup: dict[str, str], *, self_test: bool) -> dict:
-    cmd = [str(python), str(checker), "--batch", str(batch),
-           "--lineup", json.dumps(lineup), "--baseline", str(baseline)]
+def run_check(
+    python: Path,
+    checker: Path,
+    baseline: Path,
+    batch: Path,
+    lineup: dict[str, str],
+    *,
+    self_test: bool,
+) -> dict:
+    cmd = [
+        str(python),
+        str(checker),
+        "--batch",
+        str(batch),
+        "--lineup",
+        json.dumps(lineup),
+        "--baseline",
+        str(baseline),
+    ]
     if self_test:
         cmd.append("--self-test")
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if not proc.stdout.strip():
         raise GateError(
-            f"checker produced no output (exit {proc.returncode}).\n"
-            f"stderr:\n{proc.stderr[-2000:]}")
+            f"checker produced no output (exit {proc.returncode}).\nstderr:\n{proc.stderr[-2000:]}"
+        )
     try:
         result = json.loads(proc.stdout)
     except json.JSONDecodeError as e:
@@ -224,25 +248,33 @@ def run_check(python: Path, checker: Path, baseline: Path, batch: Path,
         raise GateError(
             "checker verdict is not a JSON object with a boolean `pass` "
             f"(got a {type(result).__name__}).\n"
-            f"stdout:\n{proc.stdout[-2000:]}")
+            f"stdout:\n{proc.stdout[-2000:]}"
+        )
     verdict = result.get("pass")
     if not isinstance(verdict, bool):
         raise GateError(
             "checker verdict is not a JSON object with a boolean `pass` "
             f"(got {verdict!r} of type {type(verdict).__name__}).\n"
-            f"stdout:\n{proc.stdout[-2000:]}")
+            f"stdout:\n{proc.stdout[-2000:]}"
+        )
     expected_code = 0 if result["pass"] else 1
     if proc.returncode != expected_code:
         raise GateError(
             f"checker exit code {proc.returncode} disagrees with its verdict "
             f"pass={result['pass']} (expected {expected_code}) — the process "
             "did not end the way its own output claims.\n"
-            f"stderr:\n{proc.stderr[-2000:]}")
+            f"stderr:\n{proc.stderr[-2000:]}"
+        )
     return result
 
 
-def gate(analytics_root: Path, seeds: tuple[int, ...] | None,
-         *, self_test: bool, keep: Path | None = None) -> dict:
+def gate(
+    analytics_root: Path,
+    seeds: tuple[int, ...] | None,
+    *,
+    self_test: bool,
+    keep: Path | None = None,
+) -> dict:
     python, checker, baseline_path = analytics_paths(analytics_root)
     pins = read_pins(baseline_path)
     run_seeds = seeds if seeds is not None else (pins["seed"],)
@@ -252,10 +284,10 @@ def gate(analytics_root: Path, seeds: tuple[int, ...] | None,
         with tempfile.TemporaryDirectory(prefix=f"derobo-s{seed}-") as tmp:
             out_dir = Path(keep) / f"seed-{seed}" if keep else Path(tmp)
             out_dir.mkdir(parents=True, exist_ok=True)
-            manifest = export_candidate(out_dir, seed, pins["n_hands"],
-                                        pins["lineup"])
-            result = run_check(python, checker, baseline_path, out_dir,
-                               pins["lineup"], self_test=self_test)
+            manifest = export_candidate(out_dir, seed, pins["n_hands"], pins["lineup"])
+            result = run_check(
+                python, checker, baseline_path, out_dir, pins["lineup"], self_test=self_test
+            )
             result["seed"] = seed
             result["candidate_run_id"] = manifest.get("run_id")
             result["candidate_config_hash"] = manifest.get("config_hash")
@@ -291,12 +323,13 @@ def _summarise(report: dict) -> str:
             lines.append(
                 f"    separation  min pairwise {sep['candidate_min_pairwise_distance']}"
                 f" vs required {sep['required_min_distance']}"
-                f"  ({'ok' if sep['pass'] else 'FAIL'})")
+                f"  ({'ok' if sep['pass'] else 'FAIL'})"
+            )
             lines.append(
                 f"    labels      {lab['correct_assignments']}/{lab['total_personas']}"
-                f"  ({'ok' if lab['pass'] else 'FAIL'})")
-            lines.append(
-                f"    determinism {'ok' if det['pass'] else 'FAIL'}")
+                f"  ({'ok' if lab['pass'] else 'FAIL'})"
+            )
+            lines.append(f"    determinism {'ok' if det['pass'] else 'FAIL'}")
     lines.append("")
     lines.append("GATE PASS" if report["pass"] else "GATE FAIL")
     return "\n".join(lines)
@@ -305,22 +338,30 @@ def _summarise(report: dict) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     mode = ap.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--check", action="store_true",
-                      help="judge the working tree against the pinned baseline")
-    mode.add_argument("--self-test", action="store_true",
-                      help="prove the gate reproduces the baseline's known answers")
-    ap.add_argument("--all-seeds", action="store_true",
-                    help=f"run the five-seed robustness set {SEED_SET}")
+    mode.add_argument(
+        "--check", action="store_true", help="judge the working tree against the pinned baseline"
+    )
+    mode.add_argument(
+        "--self-test",
+        action="store_true",
+        help="prove the gate reproduces the baseline's known answers",
+    )
+    ap.add_argument(
+        "--all-seeds", action="store_true", help=f"run the five-seed robustness set {SEED_SET}"
+    )
     ap.add_argument("--analytics-root", type=Path, default=DEFAULT_ANALYTICS)
-    ap.add_argument("--keep", type=Path, default=None,
-                    help="retain exported batches in this directory")
+    ap.add_argument(
+        "--keep", type=Path, default=None, help="retain exported batches in this directory"
+    )
     ap.add_argument("--json", action="store_true", help="emit the full report")
     args = ap.parse_args()
 
-    report = gate(args.analytics_root,
-                  SEED_SET if args.all_seeds else None,
-                  self_test=args.self_test,
-                  keep=args.keep)
+    report = gate(
+        args.analytics_root,
+        SEED_SET if args.all_seeds else None,
+        self_test=args.self_test,
+        keep=args.keep,
+    )
     if args.json:
         json.dump(report, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")

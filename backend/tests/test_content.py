@@ -27,8 +27,9 @@ def test_checked_in_schema_matches_model():
     from app.domain.content import content_pack_json_schema
 
     committed = json.loads(
-        (Path(__file__).resolve().parents[2] / "content" / "schema" / "contentpack.schema.json")
-        .read_text()
+        (
+            Path(__file__).resolve().parents[2] / "content" / "schema" / "contentpack.schema.json"
+        ).read_text()
     )
     assert committed == content_pack_json_schema(), (
         "content/schema/contentpack.schema.json is stale — regenerate it from "

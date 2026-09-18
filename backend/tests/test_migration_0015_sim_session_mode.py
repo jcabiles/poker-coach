@@ -50,8 +50,6 @@ def test_migration_0015_upgrade_preserves_active_session(tmp_path):
             )
         ).fetchone()
         assert row == ("training", None, 7, 3, "active")
-        cols = {
-            r[1] for r in conn.execute(text("PRAGMA table_info(sim_session)")).fetchall()
-        }
+        cols = {r[1] for r in conn.execute(text("PRAGMA table_info(sim_session)")).fetchall()}
         assert "mode" in cols and "blind_check_json" in cols
     engine.dispose()

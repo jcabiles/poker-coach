@@ -37,17 +37,21 @@ from app.services.sim_session import apply_hero_action
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[100.0] * 9)
 
 
 def _play(state: HandState, moves: list[tuple[Position, Decision]]) -> HandState:
@@ -90,11 +94,7 @@ def _srp_flop(opener: Position, osize: float | None = None) -> HandState:
     # caller passes the OPENER here and re-seats via _srp_flop_bb below.
     moves = [_fold(p) for p in _before(opener) if p not in _BLINDS]
     moves.append((opener, Decision(action=ActionType.RAISE, size_bb=osize)))
-    moves += [
-        _fold(p)
-        for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :]
-        if p not in _BLINDS
-    ]
+    moves += [_fold(p) for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :] if p not in _BLINDS]
     moves += [_fold(Position.SB), _call(Position.BB)]
     return _play(state, moves)
 
@@ -105,11 +105,7 @@ def _srp_flop_bb(opener: Position, osize: float | None = None) -> HandState:
     state = _state(Position.BB)
     moves = [_fold(p) for p in _before(opener) if p not in _BLINDS]
     moves.append((opener, Decision(action=ActionType.RAISE, size_bb=osize)))
-    moves += [
-        _fold(p)
-        for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :]
-        if p not in _BLINDS
-    ]
+    moves += [_fold(p) for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :] if p not in _BLINDS]
     moves += [_fold(Position.SB), _call(Position.BB)]
     return _play(state, moves)
 
@@ -157,9 +153,7 @@ def _vs_turn_bet_state(
     )
 
 
-def _river_barrel_state(
-    hero_pos: Position, tbet_override: float | None = None
-) -> HandState:
+def _river_barrel_state(hero_pos: Position, tbet_override: float | None = None) -> HandState:
     """Hero opened, c-bet + barreled (both called); BB checks the river."""
     state = _turn_barrel_state(hero_pos)
     fp = _flop_pot(hero_pos)
@@ -176,9 +170,7 @@ def _river_barrel_state(
     )
 
 
-def _vs_river_bet_state(
-    opener: Position, rbet_override: float | None = None
-) -> HandState:
+def _vs_river_bet_state(opener: Position, rbet_override: float | None = None) -> HandState:
     """Hero = BB who called flop + turn; opener now bets the river."""
     state = _vs_turn_bet_state(opener)
     fp = _flop_pot(opener)
@@ -207,9 +199,7 @@ def test_turn_barrel_maps_with_builder_ranges(hero_pos, frac):
     assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_turn_barrel_spot(
-        random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0
-    )
+    built = build_turn_barrel_spot(random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0)
     assert spot.hero_range == built.hero_range
     assert spot.villain_range == built.villain_range
     assert spot.facing == built.facing == Position.BB
@@ -237,9 +227,7 @@ def test_vs_turn_bet_maps_with_builder_ranges(opener, frac):
     assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_vs_turn_bet_spot(
-        random.Random(0), pairing=(opener, Position.BB), eff_bb=100.0
-    )
+    built = build_vs_turn_bet_spot(random.Random(0), pairing=(opener, Position.BB), eff_bb=100.0)
     assert spot.hero_range == built.hero_range  # BB blind-defense call range
     assert spot.villain_range == built.villain_range  # opener RFI raise range
     assert spot.facing == built.facing == opener
@@ -264,9 +252,7 @@ def test_river_barrel_maps_with_builder_ranges(hero_pos):
     assert state.street is Street.RIVER and state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_river_barrel_spot(
-        random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0
-    )
+    built = build_river_barrel_spot(random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0)
     assert spot.hero_range == built.hero_range
     assert spot.villain_range == built.villain_range
     assert spot.facing == built.facing == Position.BB
@@ -281,9 +267,7 @@ def test_vs_river_bet_maps_with_builder_ranges(opener):
     assert state.street is Street.RIVER and state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_vs_river_bet_spot(
-        random.Random(0), pairing=(opener, Position.BB), eff_bb=100.0
-    )
+    built = build_vs_river_bet_spot(random.Random(0), pairing=(opener, Position.BB), eff_bb=100.0)
     assert spot.hero_range == built.hero_range
     assert spot.villain_range == built.villain_range
     assert spot.facing == built.facing == opener
@@ -390,8 +374,11 @@ def test_multiway_turn_returns_none():
     state = _play(
         state,
         [
-            _check(Position.BB), _check(Position.HJ), _check(Position.BTN),
-            _check(Position.BB), _check(Position.HJ),
+            _check(Position.BB),
+            _check(Position.HJ),
+            _check(Position.BTN),
+            _check(Position.BB),
+            _check(Position.HJ),
         ],
     )
     assert state.street is Street.TURN and state.to_act_seat == HERO_SEAT
@@ -472,16 +459,13 @@ def test_new_size_turn_barrel_bet_grades_through_apply_hero_action(db):
     turn_spot = map_decision_point(state, HERO_SEAT)
     assert turn_spot is not None
     bet = next(
-        la.min_bb for la in turn_spot.legal_actions
+        la.min_bb
+        for la in turn_spot.legal_actions
         if la.action is ActionType.BET and la.min_bb is not None
     )
     assert bet == round(0.5 * turn_spot.pot_bb, 1)  # RES-B turn small = 0.5 pot
     session_id = _persist_hand(db, state)
-    asyncio.run(
-        apply_hero_action(
-            db, session_id, Decision(action=ActionType.BET, size_bb=bet)
-        )
-    )
+    asyncio.run(apply_hero_action(db, session_id, Decision(action=ActionType.BET, size_bb=bet)))
     rows = db.exec(select(SimDecision)).all()
     assert len(rows) == 1 and rows[0].street == "turn"
     assert rows[0].correctness in ("optimal", "acceptable", "mistake", "blunder")
@@ -505,15 +489,22 @@ def _persist_hand(db: Session, state: HandState) -> str:
     for i in range(9):
         db.add(
             SimSeat(
-                session_id=session.id, seat_index=i, is_hero=i == HERO_SEAT,
+                session_id=session.id,
+                seat_index=i,
+                is_hero=i == HERO_SEAT,
                 persona_type=None if i == HERO_SEAT else "tag",
-                stack_bb=100.0, buyins_bb=100.0,
+                stack_bb=100.0,
+                buyins_bb=100.0,
             )
         )
     db.add(
         SimHand(
-            session_id=session.id, hand_no=1, button_seat=state.button_seat,
-            rng_seed="1", status="in_progress", state_json=state.model_dump_json(),
+            session_id=session.id,
+            hand_no=1,
+            button_seat=state.button_seat,
+            rng_seed="1",
+            status="in_progress",
+            state_json=state.model_dump_json(),
         )
     )
     db.commit()
@@ -522,9 +513,7 @@ def _persist_hand(db: Session, state: HandState) -> str:
 
 def test_live_turn_decision_persists_graded_verdict(db):
     session_id = _persist_hand(db, _turn_barrel_state(Position.BTN))
-    view = asyncio.run(
-        apply_hero_action(db, session_id, Decision(action=ActionType.CHECK))
-    )
+    view = asyncio.run(apply_hero_action(db, session_id, Decision(action=ActionType.CHECK)))
     rows = db.exec(select(SimDecision)).all()
     assert len(rows) == 1
     assert rows[0].street == "turn"
@@ -578,9 +567,7 @@ def _belt_policy(hand) -> Decision:
         # A limper spoils the HU-SRP shape (its preflop CALL stays in history),
         # so only open a truly untouched pot.
         touched = any(s.last_action in ("raise", "call") for s in hand.seats)
-        ra = next(
-            (la for la in hand.legal_actions if la.action is ActionType.RAISE), None
-        )
+        ra = next((la for la in hand.legal_actions if la.action is ActionType.RAISE), None)
         if (
             not touched
             and ra is not None
@@ -590,9 +577,7 @@ def _belt_policy(hand) -> Decision:
             return Decision(action=ActionType.RAISE, size_bb=3.0)
     elif hand.street == "flop":
         bets = [
-            la
-            for la in hand.legal_actions
-            if la.action is ActionType.BET and la.min_bb is not None
+            la for la in hand.legal_actions if la.action is ActionType.BET and la.min_bb is not None
         ]
         if len(bets) == 2:  # the R3 fixed 0.33/0.75 c-bet pair — take small
             return Decision(action=ActionType.BET, size_bb=min(b.min_bb for b in bets))
@@ -644,14 +629,11 @@ def test_bot_driven_turn_barrel_grades_on_standard_open(db, monkeypatch):
     view = create_session(db)
     for _ in range(2300):
         while not view.hand.hand_over:
-            view = asyncio.run(
-                apply_hero_action(db, view.session_id, _belt_policy(view.hand))
-            )
+            view = asyncio.run(apply_hero_action(db, view.session_id, _belt_policy(view.hand)))
         hits = [
             a.spot_signature
             for a in db.exec(select(DrillAttempt)).all()
-            if a.source == "simulate"
-            and a.spot_signature.startswith("sim:turn_barrel:")
+            if a.source == "simulate" and a.spot_signature.startswith("sim:turn_barrel:")
         ]
         if hits:
             # Hero only ever opens from HJ/CO/BTN, so any hit IS a late-seat

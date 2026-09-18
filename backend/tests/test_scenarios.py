@@ -335,8 +335,7 @@ def test_spot_signature_unchanged_by_seat_enrichment():
         "70295f999f86ee76",  # vs_limpers BTN, 2 limpers
     ]
     sigs = [
-        spot_signature(build_spot(entry, random.Random(42), eff_bb=100.0))
-        for entry in _T2_ENTRIES
+        spot_signature(build_spot(entry, random.Random(42), eff_bb=100.0)) for entry in _T2_ENTRIES
     ]
     assert sigs == pinned
 

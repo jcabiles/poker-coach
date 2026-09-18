@@ -31,9 +31,15 @@ from app.services.sim_session import HERO_SEAT, SessionNotFound, villain_range
 
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
@@ -92,15 +98,22 @@ def _persist(
         pos = state.seats[i].position
         db.add(
             SimSeat(
-                session_id=session.id, seat_index=i, is_hero=i == HERO_SEAT,
+                session_id=session.id,
+                seat_index=i,
+                is_hero=i == HERO_SEAT,
                 persona_type=None if i == HERO_SEAT else by_pos.get(pos, "tag"),
-                stack_bb=100.0, buyins_bb=100.0,
+                stack_bb=100.0,
+                buyins_bb=100.0,
             )
         )
     db.add(
         SimHand(
-            session_id=session.id, hand_no=1, button_seat=state.button_seat,
-            rng_seed="1", status="in_progress", state_json=state.model_dump_json(),
+            session_id=session.id,
+            hand_no=1,
+            button_seat=state.button_seat,
+            rng_seed="1",
+            status="in_progress",
+            state_json=state.model_dump_json(),
         )
     )
     db.commit()
@@ -120,8 +133,11 @@ def _project(state: HandState) -> PublicActionHistory:
         board=tuple(state.board),
         actions=tuple(
             PublicAction(
-                seat=pos2seat[h.position], position=h.position,
-                street=h.street, action=h.action, amount_bb=h.amount_bb,
+                seat=pos2seat[h.position],
+                position=h.position,
+                street=h.street,
+                action=h.action,
+                amount_bb=h.amount_bb,
             )
             for h in state.action_history
         ),
@@ -249,10 +265,14 @@ def _four_bet_state() -> HandState:
     state = _state(Position.BTN)
     moves = [
         (Position.UTG, Decision(action=ActionType.RAISE, size_bb=3.0)),
-        _fold(Position.UTG1), _fold(Position.UTG2), _fold(Position.LJ),
-        _fold(Position.HJ), _fold(Position.CO),
+        _fold(Position.UTG1),
+        _fold(Position.UTG2),
+        _fold(Position.LJ),
+        _fold(Position.HJ),
+        _fold(Position.CO),
         (Position.BTN, Decision(action=ActionType.CALL)),
-        _fold(Position.SB), _fold(Position.BB),
+        _fold(Position.SB),
+        _fold(Position.BB),
         (Position.UTG, Decision(action=ActionType.CHECK)),
         (Position.BTN, Decision(action=ActionType.CHECK)),
     ]

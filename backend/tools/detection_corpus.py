@@ -122,8 +122,15 @@ HUMAN_FIRST_HAND_NO = 1
 
 # The spec's ratified 9-seat lineup for the bot run (seat order 0..8).
 RATIFIED_LINEUP: tuple[str, ...] = (
-    "tag", "tag", "calling_station", "tag", "passive_fish",
-    "lag", "passive_fish", "nit", "maniac",
+    "tag",
+    "tag",
+    "calling_station",
+    "tag",
+    "passive_fish",
+    "lag",
+    "passive_fish",
+    "nit",
+    "maniac",
 )
 
 # Pinned run identities (recorded in the unblinding manifest; overridable on the
@@ -154,9 +161,7 @@ CONTROL_RUN_HANDS = 120
 # the whole reason this pin can exist at all, and a test pins it too.
 CONTROL_POLICY_ID = "rulebreaker00"
 CONTROL_POLICY_SOURCE = "backend/tools/probe_policies.py"
-CONTROL_POLICY_DIGEST = (
-    "fac83a14202200ca9ccecc527754800aef794d184e10141daabcb42888bb86f6"
-)
+CONTROL_POLICY_DIGEST = "fac83a14202200ca9ccecc527754800aef794d184e10141daabcb42888bb86f6"
 # Fixed inputs for the digest replay. Small enough to cost nothing at build
 # time, long enough to exercise every street.
 CONTROL_POLICY_DIGEST_SEED = 4242
@@ -174,12 +179,8 @@ CONTROL_POLICY_DIGEST_HANDS = 12
 # roster would change what the diagnostic IS, so it is left alone and simply
 # becomes unavailable once the packs move. Nothing in the finale depends on it.
 DEFAULT_CONTROL_CONFIG = _REPO_ROOT / "docs/ai-dlc/specs/flywheel-s6-control-config.json"
-PROTOCOL_CONTROL_CONFIG_HASH = (
-    "3a64601cbe060373d06a93fd7cd285bd6b0d47b58b23c53ad2e1031ef088b3f8"
-)
-DEFAULT_OUT_DIR = (
-    _REPO_ROOT / "docs/ai-dlc/research/persona-realism-artifacts/detection-s6"
-)
+PROTOCOL_CONTROL_CONFIG_HASH = "3a64601cbe060373d06a93fd7cd285bd6b0d47b58b23c53ad2e1031ef088b3f8"
+DEFAULT_OUT_DIR = _REPO_ROOT / "docs/ai-dlc/research/persona-realism-artifacts/detection-s6"
 DEFAULT_DB_PATH = _REPO_ROOT / "backend/data/poker_coach.db"
 
 PRESENTATION_FILENAME = "presentation.json"
@@ -198,8 +199,22 @@ JUDGE_SLOTS = 5
 # Substrings that would betray a class, a source, or a seed if they ever
 # appeared as a KEY anywhere in the presentation manifest.
 _LABEL_KEY_TOKENS = (
-    "class", "label", "control", "human", "bot", "persona", "seat", "session",
-    "run", "window", "focus", "source", "seed", "hand_no", "config", "villain",
+    "class",
+    "label",
+    "control",
+    "human",
+    "bot",
+    "persona",
+    "seat",
+    "session",
+    "run",
+    "window",
+    "focus",
+    "source",
+    "seed",
+    "hand_no",
+    "config",
+    "villain",
 )
 
 FOCUS_SEAT_SCHEME = "human-phase-constrained-balanced-greedy"
@@ -339,9 +354,7 @@ def validate_human_window(
         if not rows:
             return WindowCheck(window, False, f"hand_no {hand_no} is missing (gap)")
         if len(rows) > 1:
-            return WindowCheck(
-                window, False, f"hand_no {hand_no} has {len(rows)} rows (duplicate)"
-            )
+            return WindowCheck(window, False, f"hand_no {hand_no} has {len(rows)} rows (duplicate)")
         row = rows[0]
         if row.status != "complete":
             return WindowCheck(
@@ -394,8 +407,7 @@ def select_windows(candidate_indices: Iterable[int], k: int, rng: random.Random)
 def bundle_trajectory(hands: Sequence[CanonicalHand]) -> tuple[str, ...]:
     """The focus player's position in each hand — the phase, read from data."""
     return tuple(
-        next(seat.position for seat in hand.seats if seat.seat == hand.focus_seat)
-        for hand in hands
+        next(seat.position for seat in hand.seats if seat.seat == hand.focus_seat) for hand in hands
     )
 
 
@@ -405,9 +417,7 @@ def seat_trajectories(
     """What the trajectory WOULD be for each candidate focus seat of a window."""
     keys = list(hand_keys)
     return {
-        seat: tuple(
-            next(s.position.value for s in states[k].seats if s.seat == seat) for k in keys
-        )
+        seat: tuple(next(s.position.value for s in states[k].seats if s.seat == seat) for k in keys)
         for seat in range(N_SEATS)
     }
 
@@ -445,9 +455,7 @@ def assign_constrained_focus_seats(
     seat_counts: dict[int, int] = dict.fromkeys(range(N_SEATS), 0)
     assignment: list[int | None] = [None] * len(options)
     for index in order:
-        admissible = sorted(
-            seat for seat, traj in options[index].items() if traj in allowed
-        )
+        admissible = sorted(seat for seat, traj in options[index].items() if traj in allowed)
         if not admissible:
             raise CorpusBuildError(
                 f"window {index}: no seat reproduces any human position phase — "
@@ -455,9 +463,7 @@ def assign_constrained_focus_seats(
             )
         pick = min(
             admissible,
-            key=lambda s: (
-                phase_counts[options[index][s]], seat_counts[s], seat_priority.index(s)
-            ),
+            key=lambda s: (phase_counts[options[index][s]], seat_counts[s], seat_priority.index(s)),
         )
         assignment[index] = pick
         phase_counts[options[index][pick]] += 1
@@ -557,9 +563,7 @@ def read_human_snapshot(db_path: Path, session_id: str | None = None) -> HumanSn
         raise CorpusBuildError(f"session {session_id}: no complete hands")
     n_pinned = max(r[0] for r in complete)
     rows = tuple(
-        HumanHandRow(hand_no=r[0], status=r[1], state_json=r[2])
-        for r in raw
-        if r[0] <= n_pinned
+        HumanHandRow(hand_no=r[0], status=r[1], state_json=r[2]) for r in raw if r[0] <= n_pinned
     )
     # The origin is the app's canonical first hand number, NOT `min(hand_no)`:
     # if hand 1 were missing, deriving the origin from the data would slide
@@ -607,8 +611,11 @@ def control_policy_digest(packs: Mapping) -> str:
     """
     persona_by_seat = {i: RATIFIED_LINEUP[i] for i in range(N_SEATS)}
     states = replay_run(
-        CONTROL_POLICY_DIGEST_SEED, CONTROL_POLICY_DIGEST_HANDS,
-        persona_by_seat, packs, decision_fn=rule_breaker_decision,
+        CONTROL_POLICY_DIGEST_SEED,
+        CONTROL_POLICY_DIGEST_HANDS,
+        persona_by_seat,
+        packs,
+        decision_fn=rule_breaker_decision,
     )
     canonical = [
         [
@@ -617,9 +624,7 @@ def control_policy_digest(packs: Mapping) -> str:
         ]
         for _, state in sorted(states.items())
     ]
-    return hashlib.sha256(
-        json.dumps(canonical, sort_keys=True).encode()
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
 
 def assert_control_policy_pinned(packs: Mapping) -> str:
@@ -739,9 +744,7 @@ def render_bundles(
         )
         violations = leak_check(text, forbidden=forbidden)
         if violations:
-            raise CorpusBuildError(
-                f"bundle {bundle.key}: leak audit failed — {violations}"
-            )
+            raise CorpusBuildError(f"bundle {bundle.key}: leak audit failed — {violations}")
         rendered.append((bundle, seat_id_map, text))
     return rendered
 
@@ -773,8 +776,7 @@ def select_duplicate_sources(
     if judges and not pool:
         raise CorpusBuildError("no human bundles to duplicate")
     return tuple(
-        derive_rng(master_seed, "judge-duplicate", str(slot)).choice(pool)
-        for slot in range(judges)
+        derive_rng(master_seed, "judge-duplicate", str(slot)).choice(pool) for slot in range(judges)
     )
 
 
@@ -783,9 +785,7 @@ def assert_duplicate_plan(
 ) -> None:
     """Fail closed on any duplicate that is not exactly one human bundle per slot."""
     if len(sources) != judges:
-        raise CorpusBuildError(
-            f"{len(sources)} duplicate sources for {judges} judge slots"
-        )
+        raise CorpusBuildError(f"{len(sources)} duplicate sources for {judges} judge slots")
     for slot, key in enumerate(sources):
         label = label_by_key.get(key)
         if label is None:
@@ -869,9 +869,7 @@ def _assert_presentation_blind(document: Mapping, forbidden: Sequence[str] = ())
             if not isinstance(slot, int) or isinstance(slot, bool) or slot < 0:
                 raise CorpusBuildError(f"{DUPLICATE_SLOT_KEY} {slot!r} is not a slot index")
             slots_seen.append(slot)
-        pid, text, digest = (
-            entry["presentation_id"], entry["rendered_text"], entry["sha256"]
-        )
+        pid, text, digest = (entry["presentation_id"], entry["rendered_text"], entry["sha256"])
         if not isinstance(pid, str) or not pid.startswith("B") or not pid[1:].isdigit():
             raise CorpusBuildError(f"presentation_id {pid!r} is not an opaque B-number")
         if pid in seen:
@@ -880,9 +878,7 @@ def _assert_presentation_blind(document: Mapping, forbidden: Sequence[str] = ())
         if not isinstance(text, str) or not text:
             raise CorpusBuildError(f"{pid}: rendered_text is empty")
         if digest != payload_digest(pid, text):
-            raise CorpusBuildError(
-                f"{pid}: sha256 is not the salted digest of its rendered_text"
-            )
+            raise CorpusBuildError(f"{pid}: sha256 is not the salted digest of its rendered_text")
         violations = leak_check(text, forbidden=forbidden)
         if violations:
             raise CorpusBuildError(f"{pid}: leak audit failed at write time — {violations}")
@@ -1111,15 +1107,16 @@ def build_corpus(
     # say so explicitly.
     is_non_protocol = non_protocol_control
     control_run_id = run_id_for(control_seed, control_hands, CONTROL_POLICY_ID)
-    control_windows = enumerate_windows(
-        0, control_hands - 1, bundle_size, stride=bot_stride
-    )
+    control_windows = enumerate_windows(0, control_hands - 1, bundle_size, stride=bot_stride)
     control_selected = select_windows(
         (w.index for w in control_windows), 1, derive_rng(master_seed, "control-window")
     )
     control_window = control_windows[control_selected[0]]
     control_states = replay_run(
-        control_seed, control_hands, persona_by_seat, packs,
+        control_seed,
+        control_hands,
+        persona_by_seat,
+        packs,
         keep=set(control_window.keys()),
         decision_fn=rule_breaker_decision,
     )
@@ -1135,9 +1132,7 @@ def build_corpus(
             label="bot",
             is_control=True,
             focus_seat=control_focus,
-            hands=tuple(
-                from_bot(control_states[h], control_focus) for h in control_window.keys()
-            ),
+            hands=tuple(from_bot(control_states[h], control_focus) for h in control_window.keys()),
             source={
                 "kind": "control",
                 "run_id": control_run_id,
@@ -1173,12 +1168,10 @@ def build_corpus(
                 "phase_id": phase_id(phase),
                 "start_position": phase[0],
                 "human_bundles": sum(
-                    1 for b in bundles
-                    if b.label == "human" and bundle_trajectory(b.hands) == phase
+                    1 for b in bundles if b.label == "human" and bundle_trajectory(b.hands) == phase
                 ),
                 "bot_bundles": sum(
-                    1 for b in bundles
-                    if b.label == "bot" and bundle_trajectory(b.hands) == phase
+                    1 for b in bundles if b.label == "bot" and bundle_trajectory(b.hands) == phase
                 ),
             }
             for phase in phases_by_class["human"]
@@ -1225,8 +1218,7 @@ def build_corpus(
         derive_rng(master_seed, "presentation-ids"),
     )
     records = [
-        PresentationRecord(presentation_ids[bundle.key], text)
-        for bundle, _, text in rendered
+        PresentationRecord(presentation_ids[bundle.key], text) for bundle, _, text in rendered
     ]
     records += [
         PresentationRecord(
@@ -1253,8 +1245,12 @@ def build_corpus(
         "derived_seeds": {
             domain: f"{derive_seed(master_seed, domain):032x}"
             for domain in (
-                "human-select", "bot-windows", "focus-seats", "control-window",
-                "control-focus-seat", "presentation-ids",
+                "human-select",
+                "bot-windows",
+                "focus-seats",
+                "control-window",
+                "control-focus-seat",
+                "presentation-ids",
             )
         },
         "seed_derivation": (
@@ -1311,7 +1307,7 @@ def build_corpus(
         "judge_duplicates": {
             "n_slots": judges,
             "selection": "derive_rng(master_seed, 'judge-duplicate', str(slot)).choice("
-                         "sorted(human bundle keys)) — independent per slot",
+            "sorted(human bundle keys)) — independent per slot",
             "slots": [
                 {
                     "slot": slot,
@@ -1328,15 +1324,11 @@ def build_corpus(
             "selected": list(human_selected),
         },
         "bot_windows": {
-            "candidates": _window_records(
-                [WindowCheck(w, True, None) for w in bot_windows]
-            ),
+            "candidates": _window_records([WindowCheck(w, True, None) for w in bot_windows]),
             "selected": list(bot_selected),
         },
         "control_windows": {
-            "candidates": _window_records(
-                [WindowCheck(w, True, None) for w in control_windows]
-            ),
+            "candidates": _window_records([WindowCheck(w, True, None) for w in control_windows]),
             "selected": list(control_selected),
         },
         "bundles": sorted(
@@ -1354,9 +1346,7 @@ def build_corpus(
                     "sha256": payload_digest(presentation_ids[bundle.key], text),
                     "phase_id": phase_id(bundle_trajectory(bundle.hands)),
                     "seat_id_map": {str(s): o for s, o in seat_id_map.items()},
-                    "seat_map_seed": (
-                        f"{derive_seed(master_seed, 'opaque-ids', bundle.key):032x}"
-                    ),
+                    "seat_map_seed": (f"{derive_seed(master_seed, 'opaque-ids', bundle.key):032x}"),
                     "source": bundle.source,
                 }
                 for bundle, seat_id_map, text in rendered
@@ -1404,30 +1394,56 @@ def main(argv: Sequence[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="command", required=True)
     build = sub.add_parser("build", help="build the full detection deck")
-    build.add_argument("--master-seed", type=int, required=True,
-                       help="the ONE seed; every purpose derives its own stream from it")
-    build.add_argument("--db-path", type=Path, default=DEFAULT_DB_PATH,
-                       help="owner Simulate SQLite DB (opened read-only)")
-    build.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR,
-                       help="output directory (gitignored artifacts path)")
-    build.add_argument("--session-id", type=str, default=None,
-                       help="human session to sample; default = the one with the "
-                            "most complete hands")
+    build.add_argument(
+        "--master-seed",
+        type=int,
+        required=True,
+        help="the ONE seed; every purpose derives its own stream from it",
+    )
+    build.add_argument(
+        "--db-path",
+        type=Path,
+        default=DEFAULT_DB_PATH,
+        help="owner Simulate SQLite DB (opened read-only)",
+    )
+    build.add_argument(
+        "--out-dir",
+        type=Path,
+        default=DEFAULT_OUT_DIR,
+        help="output directory (gitignored artifacts path)",
+    )
+    build.add_argument(
+        "--session-id",
+        type=str,
+        default=None,
+        help="human session to sample; default = the one with the most complete hands",
+    )
     build.add_argument("--bot-seed", type=int, default=BOT_RUN_SEED)
     build.add_argument("--bot-hands", type=int, default=BOT_RUN_HANDS)
     build.add_argument("--control-seed", type=int, default=CONTROL_RUN_SEED)
     build.add_argument("--control-hands", type=int, default=CONTROL_RUN_HANDS)
-    build.add_argument("--non-protocol-control", action="store_true",
-                       help="mark this deck as built with a control other than the "
-                            "protocol's rule-breaking policy; stamps non_protocol in "
-                            "both manifests")
-    build.add_argument("--bundle-size", type=int, default=BUNDLE_SIZE,
-                       help="hands per bundle (§d pins 30; smaller only for dry runs)")
+    build.add_argument(
+        "--non-protocol-control",
+        action="store_true",
+        help="mark this deck as built with a control other than the "
+        "protocol's rule-breaking policy; stamps non_protocol in "
+        "both manifests",
+    )
+    build.add_argument(
+        "--bundle-size",
+        type=int,
+        default=BUNDLE_SIZE,
+        help="hands per bundle (§d pins 30; smaller only for dry runs)",
+    )
     build.add_argument("--human-bundles", type=int, default=HUMAN_BUNDLES)
     build.add_argument("--bot-bundles", type=int, default=BOT_BUNDLES)
-    build.add_argument("--judges", type=int, default=JUDGE_SLOTS,
-                       help="judge slots; each gets one extra presentation entry "
-                            "repeating a HUMAN bundle byte-identically (§A.3)")
+    build.add_argument(
+        "--judges",
+        type=int,
+        default=JUDGE_SLOTS,
+        help="judge slots; each gets one extra presentation entry "
+        "repeating a HUMAN bundle byte-identically (§A.3)",
+    )
     args = ap.parse_args(argv)
 
     success = build_corpus(

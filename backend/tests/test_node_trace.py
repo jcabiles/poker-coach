@@ -89,9 +89,12 @@ def test_position_multiplier_is_live_in_the_trace():
     """
     ip_spot, oop_spot = _spot("flop_ip_toppair_dry"), _spot("flop_oop_toppair_dry")
     # The twin varies on POSITION ALONE — everything else byte-identical.
-    assert oop_spot._replace(
-        spot_id=ip_spot.spot_id, prescription=ip_spot.prescription, in_position=True
-    ) == ip_spot
+    assert (
+        oop_spot._replace(
+            spot_id=ip_spot.spot_id, prescription=ip_spot.prescription, in_position=True
+        )
+        == ip_spot
+    )
 
     probs = _bet_probs()
     assert abs(probs[("nit", "flop_ip_toppair_dry")]["bet"] - 0.4783) < 0.001
@@ -161,7 +164,6 @@ def test_facing_spots_are_position_inert_by_design():
     # Same length + same order => same per-spot seed, so the ONLY difference is
     # the flipped field.
     flipped = tuple(
-        s._replace(in_position=not s.in_position) if s.spot_id in facing else s
-        for s in SPOTS
+        s._replace(in_position=not s.in_position) if s.spot_id in facing else s for s in SPOTS
     )
     assert build_trace(spots=flipped) == build_trace()

@@ -263,9 +263,13 @@ def test_station_size_blind_fish_size_scared_content():
 
     def fold_at(pack, to_call, pot, cbt):
         return _dist_for_pack(
-            pack, hole, board,
+            pack,
+            hole,
+            board,
             [personas_postflop_legal_fold(), personas_postflop_legal_call(to_call)],
-            pot, 100.0, current_bet_to=cbt,
+            pot,
+            100.0,
+            current_bet_to=cbt,
         )[ActionType.FOLD]
 
     station, fish = _pack("calling_station"), _pack("passive_fish")
@@ -293,14 +297,22 @@ def test_size_elasticity_steeper_fold_vs_bigger_size():
     def fold_gap(pack):
         # SMALL: to_call 3 into pre-bet pot 9 → faced_frac 0.33; OVERBET: 9 into 6 → 1.5.
         small = _dist_for_pack(
-            pack, hole, board,
+            pack,
+            hole,
+            board,
             [personas_postflop_legal_fold(), personas_postflop_legal_call(3.0)],
-            12.0, 100.0, current_bet_to=3.0,
+            12.0,
+            100.0,
+            current_bet_to=3.0,
         )
         over = _dist_for_pack(
-            pack, hole, board,
+            pack,
+            hole,
+            board,
             [personas_postflop_legal_fold(), personas_postflop_legal_call(9.0)],
-            15.0, 100.0, current_bet_to=9.0,
+            15.0,
+            100.0,
+            current_bet_to=9.0,
         )
         return over[ActionType.FOLD] - small[ActionType.FOLD]
 
@@ -328,10 +340,17 @@ def _commit_fold_prob(persona: str, spr: float, spr_commit: float | None = None)
     pot, stack = 60.0, 60.0 * spr
     hole, board = _COMMIT_TPTK
     return _dist_for_pack(
-        pack, hole, board,
-        [personas_postflop_legal_fold(), personas_postflop_legal_call(20.0),
-         personas_postflop_legal_raise(40.0, stack)],
-        pot, stack, current_bet_to=20.0,
+        pack,
+        hole,
+        board,
+        [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(20.0),
+            personas_postflop_legal_raise(40.0, stack),
+        ],
+        pot,
+        stack,
+        current_bet_to=20.0,
     ).get(ActionType.FOLD, 0.0)
 
 
@@ -614,14 +633,12 @@ def test_fold_to_bet_monotone_in_faced_size(persona, fold_by_size):
         # measurable-rise bar the other personas clear (measured ⅓-pot 0.140 →
         # pot 0.222, a 0.082 rise). Sticky, no longer indifferent to the price.
         assert 0 < r[1.0] - r[0.33] < 0.10, (
-            f"station should show a shallow (0, 0.10) price rise, got "
-            f"{r[1.0]:.3f} vs {r[0.33]:.3f}"
+            f"station should show a shallow (0, 0.10) price rise, got {r[1.0]:.3f} vs {r[0.33]:.3f}"
         )
     else:
         assert seq == sorted(seq), f"{persona} fold-to-bet not monotone in size: {seq}"
         assert r[1.0] - r[0.33] >= 0.10, (
-            f"{persona} pot-size fold {r[1.0]:.3f} not measurably above "
-            f"⅓-pot fold {r[0.33]:.3f}"
+            f"{persona} pot-size fold {r[1.0]:.3f} not measurably above ⅓-pot fold {r[0.33]:.3f}"
         )
 
 
@@ -1130,9 +1147,7 @@ def test_bluff_ordering_across_personas_at_fixed_size():
     shape, bluff_freq still sets the persona level."""
     order = ("calling_station", "nit", "passive_fish", "tag", "lag", "maniac")
     ws = [_air_bet_weight(p, 0.5) for p in order]
-    assert all(a < b for a, b in zip(ws, ws[1:], strict=False)), dict(
-        zip(order, ws, strict=True)
-    )
+    assert all(a < b for a, b in zip(ws, ws[1:], strict=False)), dict(zip(order, ws, strict=True))
 
 
 class _SeededCaptureRng(random.Random):
@@ -1185,17 +1200,13 @@ def _air_bet_prob_by_position(persona: str, *, in_position: bool) -> float:
         current_bet_to=0.0,
         is_aggressor=True,
         street=Street.FLOP,
-        context=PostflopContext(
-            in_position=in_position, bet_prev_street=False, busted_draw=0
-        ),
+        context=PostflopContext(in_position=in_position, bet_prev_street=False, busted_draw=0),
     )
     return rng.dist[ActionType.BET] / sum(rng.dist.values())
 
 
 @pytest.mark.parametrize(("persona", "expected_ratio"), _AIR_BET_IP_OOP_RATIOS)
-def test_air_bet_rate_ip_oop_ratio_equals_authored_position_multiplier(
-    persona, expected_ratio
-):
+def test_air_bet_rate_ip_oop_ratio_equals_authored_position_multiplier(persona, expected_ratio):
     """T-ANCHOR: the air cell is an exact-frequency cell — its BET/CHECK merits
     sum to 1, so P(bet) IS the composed bluff mass and the observed IP:OOP
     bet-rate ratio must equal the authored position-multiplier ratio exactly.
@@ -1205,8 +1216,7 @@ def test_air_bet_rate_ip_oop_ratio_equals_authored_position_multiplier(
     ip = _air_bet_prob_by_position(persona, in_position=True)
     oop = _air_bet_prob_by_position(persona, in_position=False)
     assert abs(ip / oop - expected_ratio) < 1e-9, (
-        f"{persona}: IP/OOP={ip / oop!r} (IP={ip!r}, OOP={oop!r}) "
-        f"!= authored {expected_ratio!r}"
+        f"{persona}: IP/OOP={ip / oop!r} (IP={ip!r}, OOP={oop!r}) != authored {expected_ratio!r}"
     )
     if expected_ratio == 1.0:
         assert ip == oop, f"{persona} is position-blind — must be bit-identical"
@@ -1363,10 +1373,17 @@ def test_strong_draw_potcommitted_still_jams():
     # T1 threshold 0.29 < equity 0.36 → value-committed → fold zeroed → jams.
     hole, board = _STRONG_DRAW
     d = _dist_for_pack(
-        _pack("lag"), hole, board,
-        [personas_postflop_legal_fold(), personas_postflop_legal_call(12.0),
-         personas_postflop_legal_raise(24.0, 30.0)],
-        30.0, 30.0, current_bet_to=12.0,
+        _pack("lag"),
+        hole,
+        board,
+        [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(12.0),
+            personas_postflop_legal_raise(24.0, 30.0),
+        ],
+        30.0,
+        30.0,
+        current_bet_to=12.0,
     )
     assert d[ActionType.FOLD] == 0.0
 
@@ -1377,16 +1394,30 @@ def test_strong_draw_vs_overbet_can_fold():
     # strictly greater than the pot-committed case).
     hole, board = _STRONG_DRAW
     over = _dist_for_pack(
-        _pack("lag"), hole, board,
-        [personas_postflop_legal_fold(), personas_postflop_legal_call(18.0),
-         personas_postflop_legal_raise(36.0, 36.0)],
-        24.0, 36.0, current_bet_to=18.0,
+        _pack("lag"),
+        hole,
+        board,
+        [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(18.0),
+            personas_postflop_legal_raise(36.0, 36.0),
+        ],
+        24.0,
+        36.0,
+        current_bet_to=18.0,
     )
     potc = _dist_for_pack(
-        _pack("lag"), hole, board,
-        [personas_postflop_legal_fold(), personas_postflop_legal_call(12.0),
-         personas_postflop_legal_raise(24.0, 30.0)],
-        30.0, 30.0, current_bet_to=12.0,
+        _pack("lag"),
+        hole,
+        board,
+        [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(12.0),
+            personas_postflop_legal_raise(24.0, 30.0),
+        ],
+        30.0,
+        30.0,
+        current_bet_to=12.0,
     )
     assert over[ActionType.FOLD] > 0.0
     assert over[ActionType.FOLD] > potc[ActionType.FOLD]
@@ -1398,10 +1429,17 @@ def test_madehand_with_draw_commit_not_damped():
     # #6). If it had wrongly entered the damp branch, fold would be > 0.
     hole, board = _MADE_PLUS_DRAW
     d = _dist_for_pack(
-        _pack("lag"), hole, board,
-        [personas_postflop_legal_fold(), personas_postflop_legal_call(18.0),
-         personas_postflop_legal_raise(36.0, 36.0)],
-        24.0, 36.0, current_bet_to=18.0,
+        _pack("lag"),
+        hole,
+        board,
+        [
+            personas_postflop_legal_fold(),
+            personas_postflop_legal_call(18.0),
+            personas_postflop_legal_raise(36.0, 36.0),
+        ],
+        24.0,
+        36.0,
+        current_bet_to=18.0,
     )
     assert d[ActionType.FOLD] == 0.0
 
@@ -1414,9 +1452,13 @@ def test_weak_draw_stops_stacking_off_at_high_commitment():
 
     def call_prob(stack):
         d = _dist_for_pack(
-            _pack("lag"), hole, board,
+            _pack("lag"),
+            hole,
+            board,
             [personas_postflop_legal_fold(), personas_postflop_legal_call(18.0)],
-            24.0, stack, current_bet_to=18.0,
+            24.0,
+            stack,
+            current_bet_to=18.0,
         )
         return d[ActionType.CALL]
 
@@ -1494,9 +1536,7 @@ def test_stickiness_forbidden_when_both_split_levers_authored():
             {**_STICKY_BASE, "stickiness": None, "call_looseness": 0.42, "size_elasticity": 1.3}
         )
     # Same payload minus the dead field is valid.
-    PersonaPostflop.model_validate(
-        {**_STICKY_BASE, "call_looseness": 0.42, "size_elasticity": 1.3}
-    )
+    PersonaPostflop.model_validate({**_STICKY_BASE, "call_looseness": 0.42, "size_elasticity": 1.3})
 
 
 def test_stickiness_required_while_any_fallback_path_is_live():
@@ -1618,9 +1658,7 @@ def test_multiway_made_value_bet_damped_monotone_and_scoped():
     legal = [personas_postflop_legal_check(), personas_postflop_legal_bet(2.0, 100.0)]
 
     def pbet(hole, opp):
-        return _exact_dist_opp("tag", hole, board, legal, 6.0, 100.0, opponents=opp)[
-            ActionType.BET
-        ]
+        return _exact_dist_opp("tag", hole, board, legal, 6.0, 100.0, opponents=opp)[ActionType.BET]
 
     tp = [pbet(("Kh", "Qd"), o) for o in (1, 2, 3, 4, 5)]  # top pair
     assert tp[0] > tp[1] > tp[2] > tp[3]  # thin value tightens as the field grows
@@ -1642,9 +1680,9 @@ def test_multiway_facing_bluff_catch_fold_freq_higher_than_hu(persona):
         personas_postflop_legal_call(3.0),
         personas_postflop_legal_raise(9.0, 100.0),
     ]
-    hu = _exact_dist_opp(
-        persona, hole, board, legal, 9.0, 100.0, opponents=1, current_bet_to=3.0
-    )[ActionType.FOLD]
+    hu = _exact_dist_opp(persona, hole, board, legal, 9.0, 100.0, opponents=1, current_bet_to=3.0)[
+        ActionType.FOLD
+    ]
     three_way = _exact_dist_opp(
         persona, hole, board, legal, 9.0, 100.0, opponents=3, current_bet_to=3.0
     )[ActionType.FOLD]
@@ -1666,9 +1704,7 @@ def test_multiway_value_hand_continuation_not_looser_than_hu(persona):
         personas_postflop_legal_call(3.0),
         personas_postflop_legal_raise(9.0, 100.0),
     ]
-    hu = _exact_dist_opp(
-        persona, hole, board, legal, 9.0, 100.0, opponents=1, current_bet_to=3.0
-    )
+    hu = _exact_dist_opp(persona, hole, board, legal, 9.0, 100.0, opponents=1, current_bet_to=3.0)
     three_way = _exact_dist_opp(
         persona, hole, board, legal, 9.0, 100.0, opponents=3, current_bet_to=3.0
     )
@@ -1949,8 +1985,16 @@ def test_river_polarization_sampled_and_turn_at_old_freq():
     river_raises = 0
     for _ in range(400):
         d = sample_postflop_decision(
-            pack, hole, _RIVER_BOARD, legal, 9.0, 97.0, 1, rng,
-            current_bet_to=3.0, street=Street.RIVER,
+            pack,
+            hole,
+            _RIVER_BOARD,
+            legal,
+            9.0,
+            97.0,
+            1,
+            rng,
+            current_bet_to=3.0,
+            street=Street.RIVER,
         )
         river_raises += d.action is ActionType.RAISE
     assert river_raises == 0
@@ -2081,13 +2125,21 @@ def test_late_street_bet_is_identity_when_absent_or_off_scope():
         for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
             cap = _CaptureWeights()
             sample_postflop_decision(
-                _pack(persona), top_pair, board, _UNOPENED_LEGAL, 9.0, 97.0, 1,
+                _pack(persona),
+                top_pair,
+                board,
+                _UNOPENED_LEGAL,
+                9.0,
+                97.0,
+                1,
                 cap,  # type: ignore[arg-type] — duck-typed capture rng
-                current_bet_to=0.0, street=street,
+                current_bet_to=0.0,
+                street=street,
             )
-            assert cap.dist == _late_street_dist(
-                persona, dial, top_pair, board, street
-            ), (persona, street)
+            assert cap.dist == _late_street_dist(persona, dial, top_pair, board, street), (
+                persona,
+                street,
+            )
     for street, board in ((Street.TURN, _TURN_BOARD), (Street.RIVER, _RIVER_BOARD)):
         assert _late_street_dist("tag", 1.0, top_pair, board, street) != _late_street_dist(
             "tag", None, top_pair, board, street
@@ -2224,9 +2276,22 @@ from app.domain.table.sizing import (  # noqa: E402
 
 
 def _postflop_decision(
-    pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, current_bet_to,
-    *, is_aggressor=_OMIT, latest_aggressor_contribution_bb=_OMIT, context=_OMIT,
-    facing_raise=_OMIT, street_aggressions=_OMIT, aggressor_bet_prev_street=_OMIT,
+    pack,
+    hole,
+    board,
+    legal,
+    pot_bb,
+    stack_bb,
+    opponents,
+    rng,
+    current_bet_to,
+    *,
+    is_aggressor=_OMIT,
+    latest_aggressor_contribution_bb=_OMIT,
+    context=_OMIT,
+    facing_raise=_OMIT,
+    street_aggressions=_OMIT,
+    aggressor_bet_prev_street=_OMIT,
 ) -> Decision:
     # The context kwargs default to _OMIT so `_play_hand` (the band/stat sim,
     # below) calls this EXACTLY as before -> its WTSD/texture/VPIP stats stay
@@ -2385,8 +2450,14 @@ _LINE_OBSERVE = "observe"
 
 
 def _play_hand(
-    rng, hand_seed, button_seat, persona_by_seat, packs, *,
-    context_aware=False, line_aware=False,
+    rng,
+    hand_seed,
+    button_seat,
+    persona_by_seat,
+    packs,
+    *,
+    context_aware=False,
+    line_aware=False,
 ):
     """One full-hand playout; every seat runs its persona's sampler.
 
@@ -2440,9 +2511,7 @@ def _play_hand(
     # exactly the class of silent-no-op this slice exists to make impossible.
     # Reject the input instead of trusting call sites.
     if line_aware is not False and line_aware is not True and line_aware != _LINE_OBSERVE:
-        raise ValueError(
-            f"line_aware must be False, True or _LINE_OBSERVE; got {line_aware!r}"
-        )
+        raise ValueError(f"line_aware must be False, True or _LINE_OBSERVE; got {line_aware!r}")
     dealt = deal_hand(random.Random(hand_seed))
     state = start_hand(dealt, button_seat=button_seat, stacks_bb=[100.0] * 9)
     log: list[tuple[int, str, str]] = []
@@ -2489,7 +2558,11 @@ def _play_hand(
             # `all_hits − first_hits` is a coarser proxy; see its docstring).
             is_opener = _preflop_opener(state) == seat_state.position
             act = sample_preflop_action(
-                pack, seat_state.position, facing, seat_state.hole_cards, rng,
+                pack,
+                seat_state.position,
+                facing,
+                seat_state.hole_cards,
+                rng,
                 is_opener=is_opener,
             )
             if act.name in ("3bet", "4bet", "5bet_shove"):
@@ -2502,8 +2575,14 @@ def _play_hand(
                 if h.street is Street.PREFLOP and h.action is ActionType.CALL
             )
             decision = _preflop_decision(
-                pack, seat_state.position, facing, seat_state.hole_cards, legal, rng,
-                state.current_bet_bb, limpers,
+                pack,
+                seat_state.position,
+                facing,
+                seat_state.hole_cards,
+                legal,
+                rng,
+                state.current_bet_bb,
+                limpers,
                 is_opener=is_opener,
             )
             # Log the APPLIED preflop decision only — no new rng draw, no
@@ -2533,26 +2612,19 @@ def _play_hand(
                     [h for h in state.action_history if h.street is state.street]
                 )
                 barrelled = street_aggressor is not None and (
-                    aggressor_barrel_run(
-                        state.action_history, state.street, street_aggressor
-                    )
-                    >= 1
+                    aggressor_barrel_run(state.action_history, state.street, street_aggressor) >= 1
                 )
                 if line_aware is True:
                     line_kw["aggressor_bet_prev_street"] = barrelled
             if context_aware:
                 # W5-a3-iii: the SAME derivation `play.bot_decision` uses —
                 # see `backend/app/domain/table/play.py:bot_decision`.
-                is_aggressor = (
-                    last_aggressor_position(state.action_history) == seat_state.position
-                )
+                is_aggressor = last_aggressor_position(state.action_history) == seat_state.position
                 contribution = pot_before_current_aggression(
                     state.action_history, state.street
                 ).latest_aggressor_contribution_bb
                 context = derive_postflop_context(state, seat)
-                street_aggressions = street_aggression_count(
-                    state.action_history, state.street
-                )
+                street_aggressions = street_aggression_count(state.action_history, state.street)
                 decision = _postflop_decision(
                     pack,
                     seat_state.hole_cards,
@@ -3105,9 +3177,7 @@ def _measure_persona_stats(packs, persona: str, n: int, context_aware: bool, see
     # three-HARD-statistics rule). Share of this persona's showdown hands that
     # never met a wager on any postflop street — the population the slice-3
     # calling dial cannot reach, and the one S3-T5's lever aims at.
-    never_faced_wager = (
-        (never_faced_wager_hands / showdown_hands) if showdown_hands >= 30 else None
-    )
+    never_faced_wager = (never_faced_wager_hands / showdown_hands) if showdown_hands >= 30 else None
     # S3-T5, second reading of the same idea, added during the sweep and NOT a
     # substitute for the first: the share of showdown hands in which NO seat
     # wagered on any postflop street — a hand genuinely checked down. The
@@ -3264,9 +3334,7 @@ def _preflop_aggressor(preflop_log: list[tuple[int, str]]) -> int | None:
     return aggressor
 
 
-def _hand_cbet_stats(
-    preflop_log: list[tuple[int, str]], decisions: list, tested_seats: set[int]
-):
+def _hand_cbet_stats(preflop_log: list[tuple[int, str]], decisions: list, tested_seats: set[int]):
     """Aggressor-side flop c-bet (#1) + its IP/OOP split (#5) for one hand
     (theory contract §6: P(bet | preflop aggressor's first-in flop decision)).
     Only counts a tested seat's first-in flop decision when that seat IS the
@@ -3534,7 +3602,8 @@ def _snapshot_open(sizing) -> dict:
         "open_bb_mix": dict(sizing.open_bb_mix) if sizing.open_bb_mix else None,
         "open_bb_mix_by_position": (
             {seat: dict(mix) for seat, mix in sizing.open_bb_mix_by_position.items()}
-            if sizing.open_bb_mix_by_position else None
+            if sizing.open_bb_mix_by_position
+            else None
         ),
     }
 
@@ -3556,8 +3625,7 @@ def _shift_open(sizing, delta: float) -> None:
     """
     sizing.open_bb += delta
     if sizing.open_bb_mix is not None:
-        sizing.open_bb_mix = {
-            str(float(k) + delta): w for k, w in sizing.open_bb_mix.items()}
+        sizing.open_bb_mix = {str(float(k) + delta): w for k, w in sizing.open_bb_mix.items()}
     if sizing.open_bb_mix_by_position is not None:
         sizing.open_bb_mix_by_position = {
             seat: {str(float(k) + delta): w for k, w in mix.items()}
@@ -3756,16 +3824,15 @@ def _format_occupancy(occ: NodeOccupancy) -> str:
         "",
         "ARRIVAL (first decision per seat-hand), except the two starred re-entry",
         "columns, which are TRUE OCCUPANCY over every preflop decision:",
-        "pos   " + "".join(f"{f + ('*' if f in _REENTRY_FACINGS else ''):>12s}" for f in _FACINGS)
+        "pos   "
+        + "".join(f"{f + ('*' if f in _REENTRY_FACINGS else ''):>12s}" for f in _FACINGS)
         + f"{'n':>8s}{'n*':>8s}",
     ]
     for pos in _POSITIONS:
         row = "".join(
             f"{(occupied if f in _REENTRY_FACINGS else arrival)[pos][f]:12.3f}" for f in _FACINGS
         )
-        lines.append(
-            f"{pos:6s}{row}{occ.opps.get(pos, 0):8d}{occ.all_opps.get(pos, 0):8d}"
-        )
+        lines.append(f"{pos:6s}{row}{occ.opps.get(pos, 0):8d}{occ.all_opps.get(pos, 0):8d}")
     total = sum(occ.opps.values())
     wide = sum(occ.hits.get((p, "unopened"), 0) for p in _POSITIONS) / total if total else 0.0
     lines.append(f"roster-wide unopened = {wide:.4f}  over {total} first-decisions")
@@ -4467,8 +4534,7 @@ def test_street_aggressions_effect_visible_to_af_gate():
     off = faced_dist(("Kh", "9d"), ["Ks", "7c", "2h"], False)
     on = faced_dist(("Kh", "9d"), ["Ks", "7c", "2h"], True)
     assert on[ActionType.RAISE] / on[ActionType.CALL] == pytest.approx(
-        personas_postflop._ONE_PAIR_RAISE_DAMP
-        * (off[ActionType.RAISE] / off[ActionType.CALL]),
+        personas_postflop._ONE_PAIR_RAISE_DAMP * (off[ActionType.RAISE] / off[ActionType.CALL]),
         rel=1e-12,
     ), f"one-pair RAISE damp did not fire exactly (off={off}, on={on})"
     assert on[ActionType.FOLD] / on[ActionType.CALL] == pytest.approx(
@@ -4798,9 +4864,7 @@ def _node_action_rate(
     hits = actions.first_hits if first else actions.all_hits
     pos_set = _POSITIONS if positions is None else positions
     num = sum(hits.get((p, facing, action), 0) for p in pos_set)
-    den = sum(
-        v for (p, f, _a), v in hits.items() if f == facing and p in pos_set
-    )
+    den = sum(v for (p, f, _a), v in hits.items() if f == facing and p in pos_set)
     return _rate(num, den), den
 
 
@@ -4819,10 +4883,7 @@ def _format_node_actions(persona: str, actions: NodeActions) -> str:
     # `_preflop_facing`) — ~always 0, enumerated so the printed row always
     # sums to 1 and a nonzero count can never hide (refuter R-3).
     for pos in _POSITIONS:
-        den = sum(
-            v for (p, f, _a), v in actions.first_hits.items()
-            if p == pos and f == "unopened"
-        )
+        den = sum(v for (p, f, _a), v in actions.first_hits.items() if p == pos and f == "unopened")
         if den == 0:
             continue
         if den < 30:
@@ -4866,9 +4927,7 @@ def test_node_action_counters_align_with_occupancy():
             summed: dict[tuple[str, str], int] = {}
             for (pos, facing, _action), v in action_hits.items():
                 summed[(pos, facing)] = summed.get((pos, facing), 0) + v
-            assert summed == hits, (
-                f"{persona}: action counters do not sum back to occupancy"
-            )
+            assert summed == hits, f"{persona}: action counters do not sum back to occupancy"
 
 
 def test_node_action_first_in_raise_cross_validates_r10_corpus():
@@ -5018,8 +5077,9 @@ def _vs_3bet_effective_policy(pack, role: str = "cold") -> dict[str, dict[str, f
     # so the drift is harmless today — but an exact pin on a non-dyadic weight
     # would break, and would be right to.
     seats = len(Position)
-    return {cls: {act: w / seats for act, w in per_class.items()}
-            for cls, per_class in policy.items()}
+    return {
+        cls: {act: w / seats for act, w in per_class.items()} for cls, per_class in policy.items()
+    }
 
 
 def _combo_count(cls: str) -> int:
@@ -5107,9 +5167,7 @@ def test_r10_3bet_passive_identity_freeze():
     station_4bets = {c: w["4bet"] for c, w in station.items() if w.get("4bet", 0.0) > 0.0}
     assert station_4bets == {}, f"station authored 4bet mass appeared: {station_4bets}"
     fish_4bets = {c: w["4bet"] for c, w in fish.items() if w.get("4bet", 0.0) > 0.0}
-    assert fish_4bets == {"AA": 0.5}, (
-        f"fish 4bet identity moved off AA@0.5: {fish_4bets}"
-    )
+    assert fish_4bets == {"AA": 0.5}, f"fish 4bet identity moved off AA@0.5: {fish_4bets}"
 
 
 # ------------------------------- T-F3 — maniac vs_4bet middle-pair dead band --
@@ -5222,8 +5280,7 @@ def test_tf3_maniac_vs_4bet_middle_pairs_continue():
         if policy.get(cls, {}) != _MANIAC_VS_4BET_MID_PAIR_MIX
     }
     assert not wrong, (
-        f"maniac vs_4bet middle pairs are not the authored "
-        f"{_MANIAC_VS_4BET_MID_PAIR_MIX}: {wrong}"
+        f"maniac vs_4bet middle pairs are not the authored {_MANIAC_VS_4BET_MID_PAIR_MIX}: {wrong}"
     )
     wrong_small = {
         cls: policy.get(cls, {})
@@ -5346,8 +5403,7 @@ def test_tm4_maniac_vs_4bet_mid_pairs_have_a_priced_call_leg():
     over_called = {
         cls: policy.get(cls, {})
         for cls in ("99", "88", "77")
-        if policy.get(cls, {}).get("call", 0.0)
-        >= policy.get(cls, {}).get("5bet_shove", 0.0)
+        if policy.get(cls, {}).get("call", 0.0) >= policy.get(cls, {}).get("5bet_shove", 0.0)
     }
     assert not over_called, (
         f"maniac vs_4bet 77-99 call at least as often as they jam. The "
@@ -5745,9 +5801,7 @@ def _maniac_vs_4bet_channels(packs, n_hands: int) -> tuple[int, dict[tuple, int]
         prior: dict[int, tuple[str, str]] = {}
         guard = 0
         while (
-            not state.hand_over
-            and state.to_act_seat is not None
-            and state.street is Street.PREFLOP
+            not state.hand_over and state.to_act_seat is not None and state.street is Street.PREFLOP
         ):
             guard += 1
             assert guard < 200, "preflop playout did not terminate"
@@ -5898,9 +5952,7 @@ def _production_raise_depths(packs, n_hands: int) -> dict[int, int]:
         r = 0
         guard = 0
         while (
-            not state.hand_over
-            and state.to_act_seat is not None
-            and state.street is Street.PREFLOP
+            not state.hand_over and state.to_act_seat is not None and state.street is Street.PREFLOP
         ):
             guard += 1
             assert guard < 200, "preflop playout did not terminate"
@@ -6057,9 +6109,7 @@ def test_r10_3bet_fold_to_3bet_stratified_report():
             if facing != "vs_3bet":
                 continue
             f = acts.first_hits.get((pos, facing, action), 0)
-            assert v >= f, (
-                f"{persona}: all_hits < first_hits at {(pos, facing, action)}"
-            )
+            assert v >= f, f"{persona}: all_hits < first_hits at {(pos, facing, action)}"
             strata["cold"][action] = strata["cold"].get(action, 0) + f
             strata["opener"][action] = strata["opener"].get(action, 0) + (v - f)
         lines.append(f"  {persona}:")
@@ -6346,9 +6396,7 @@ def test_n3bstrata_only_maniac_and_lag_are_stratified():
     if not packs:
         pytest.skip("no persona packs")
     stratified = {
-        vt.value
-        for vt, pack in packs.items()
-        if any(n.role is not None for n in pack.preflop)
+        vt.value for vt, pack in packs.items() if any(n.role is not None for n in pack.preflop)
     }
     assert stratified == {"maniac", "lag"}, f"unexpected stratified packs: {sorted(stratified)}"
     for vt in (VillainType.MANIAC, VillainType.LAG):
@@ -6358,16 +6406,15 @@ def test_n3bstrata_only_maniac_and_lag_are_stratified():
         # the `opener` stratum, so the raw list gained a repeat — a POSITION
         # split, not a new role. The claim under test is about which strata
         # exist and in what order, so it is stated that way now.
-        roles = list(dict.fromkeys(
-            n.role for n in packs[vt].preflop if n.facing == "vs_3bet"))
+        roles = list(dict.fromkeys(n.role for n in packs[vt].preflop if n.facing == "vs_3bet"))
         assert roles == ["opener", "cold"], f"{vt.value} vs_3bet roles are {roles}"
         # The ordering law this depends on still holds: a role-tagged node may
         # never follow an untagged one, and explicit-position nodes precede
         # their wildcard within a stratum (PersonaPack._node_ordering).
-        cold = [n for n in packs[vt].preflop
-                if n.facing == "vs_3bet" and n.role == "cold"]
+        cold = [n for n in packs[vt].preflop if n.facing == "vs_3bet" and n.role == "cold"]
         assert len(cold) == 1 and cold[0].positions is None, (
-            f"{vt.value}'s cold stratum must stay one position-blind node")
+            f"{vt.value}'s cold stratum must stay one position-blind node"
+        )
 
 
 # Fan-in fold (Codex HIGH): the deterministic proxy above weights the opener
@@ -6413,9 +6460,7 @@ def _production_opener_fold_counts(
             at[i] = (folds, decisions)
         hand_seed = rng.randrange(1_000_000_000)
         res = _play_hand(rng, hand_seed, i % 9, persona_by_seat, packs)
-        opener_seat = next(
-            (seat for seat, action in res.preflop_log if action == "raise"), None
-        )
+        opener_seat = next((seat for seat, action in res.preflop_log if action == "raise"), None)
         if opener_seat is None:
             continue
         for (seat, _position, facing, _is_first), (log_seat, action) in zip(
@@ -6718,12 +6763,8 @@ def test_metric1_cbet_is_aggressor_side_not_any_first_in_seat():
         PostflopDecision(
             seat=0, street="flop", in_position=False, action="check", bet_fraction=None
         ),
-        PostflopDecision(
-            seat=2, street="flop", in_position=True, action="bet", bet_fraction=0.6
-        ),
-        PostflopDecision(
-            seat=5, street="flop", in_position=True, action="fold", bet_fraction=None
-        ),
+        PostflopDecision(seat=2, street="flop", in_position=True, action="bet", bet_fraction=0.6),
+        PostflopDecision(seat=5, street="flop", in_position=True, action="fold", bet_fraction=None),
     ]
     tested_seats = {0, 2, 5}
     bets, opps, ip_bets, ip_opps, oop_bets, oop_opps, first_bettor = _hand_cbet_stats(
@@ -6741,9 +6782,7 @@ def test_metric1_no_preflop_raise_means_no_cbet_opportunity():
     (a donk-bet/lead into an unraised pot is not a c-bet)."""
     preflop_log = [(0, "call"), (1, "call"), (2, "check")]
     decisions = [
-        PostflopDecision(
-            seat=0, street="flop", in_position=False, action="bet", bet_fraction=0.5
-        ),
+        PostflopDecision(seat=0, street="flop", in_position=False, action="bet", bet_fraction=0.5),
     ]
     tested_seats = {0, 1, 2}
     bets, opps, *_rest = _hand_cbet_stats(preflop_log, decisions, tested_seats)
@@ -7440,13 +7479,31 @@ def _pack_with(persona, **overrides):
 
 
 def _dist_pack_ctx(
-    pack, hole, board, legal, *, street=None, context=None, pot=6.0, stack=100.0,
-    opponents=1, current_bet_to=0.0,
+    pack,
+    hole,
+    board,
+    legal,
+    *,
+    street=None,
+    context=None,
+    pot=6.0,
+    stack=100.0,
+    opponents=1,
+    current_bet_to=0.0,
 ):
     cap = _CaptureWeights()
     sample_postflop_decision(
-        pack, hole, board, legal, pot, stack, opponents, cap,  # type: ignore[arg-type]
-        current_bet_to=current_bet_to, street=street, context=context,
+        pack,
+        hole,
+        board,
+        legal,
+        pot,
+        stack,
+        opponents,
+        cap,  # type: ignore[arg-type]
+        current_bet_to=current_bet_to,
+        street=street,
+        context=context,
     )
     return cap.dist
 
@@ -7510,7 +7567,6 @@ def test_position_does_not_touch_matched_option_raise():
     ip = _dist_pack_ctx(_pack("tag"), hole, board, legal, context=_IP)
     oop = _dist_pack_ctx(_pack("tag"), hole, board, legal, context=_OOP)
     assert ip == oop
-
 
 
 # ============================ W3-c — street schedule (B6/B7, F4/F19/F8) =========
@@ -7589,8 +7645,13 @@ def _busted_addon(pack, opponents: int) -> float:
         )
         return _bet(
             _dist_pack_ctx(
-                pack, busted, board, _CBET_LEGAL, street=Street.RIVER,
-                context=ctx, opponents=opponents,
+                pack,
+                busted,
+                board,
+                _CBET_LEGAL,
+                street=Street.RIVER,
+                context=ctx,
+                opponents=opponents,
             )
         )
 
@@ -7734,9 +7795,17 @@ _W3R6_AHI = (("Ad", "7c"), ["Ks", "9h", "2s"], ["Ks", "9h", "2s", "4d"])
 def _w3r6_dist(persona, hole, board, *, street, facing_raise):
     cap = _CaptureWeights()
     sample_postflop_decision(
-        _pack(persona), hole, board, _W3R6_FACING, 10.0, 100.0, 1,
+        _pack(persona),
+        hole,
+        board,
+        _W3R6_FACING,
+        10.0,
+        100.0,
+        1,
         cap,  # type: ignore[arg-type]
-        current_bet_to=5.0, street=street, facing_raise=facing_raise,
+        current_bet_to=5.0,
+        street=street,
+        facing_raise=facing_raise,
     )
     total = sum(cap.dist.values())
     return {a: w / total for a, w in cap.dist.items()}
@@ -7773,8 +7842,9 @@ _W3R6_RAISE_DROP = {
 
 
 @pytest.mark.parametrize("persona", ["tag", "maniac"])
-@pytest.mark.parametrize("name,bucket", [("mid", StrengthBucket.MIDDLE_PAIR),
-                                         ("top", StrengthBucket.TOP_PAIR)])
+@pytest.mark.parametrize(
+    "name,bucket", [("mid", StrengthBucket.MIDDLE_PAIR), ("top", StrengthBucket.TOP_PAIR)]
+)
 @pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
 def test_one_pair_raise_damped_facing_raise_pre_river(persona, name, bucket, street):
     hole, flop, turn = _W3R6_MID if name == "mid" else _W3R6_TOP
@@ -7801,8 +7871,9 @@ def test_one_pair_raise_damped_facing_raise_pre_river(persona, name, bucket, str
 # requirement), `faced_bet` would pick up the damp while `neutralized` would not,
 # and this test would fail.
 @pytest.mark.parametrize("persona", ["tag", "maniac"])
-@pytest.mark.parametrize("name,bucket", [("mid", StrengthBucket.MIDDLE_PAIR),
-                                         ("top", StrengthBucket.TOP_PAIR)])
+@pytest.mark.parametrize(
+    "name,bucket", [("mid", StrengthBucket.MIDDLE_PAIR), ("top", StrengthBucket.TOP_PAIR)]
+)
 @pytest.mark.parametrize("street", [Street.FLOP, Street.TURN])
 def test_one_pair_raise_damp_does_not_fire_facing_a_bare_bet(persona, name, bucket, street):
     hole, flop, turn = _W3R6_MID if name == "mid" else _W3R6_TOP
@@ -7824,20 +7895,22 @@ def test_one_pair_raise_damp_does_not_fire_facing_a_bare_bet(persona, name, buck
 
 # ---- leg 2: semi-bluff raises spared ------------------------------------------
 _W3R6_DRAW_BOARD = ["Qs", "8h", "3h"]
-_W3R6_TOP_FD = ("Qh", "Jh")   # TOP_PAIR + flush draw (STRONG)
+_W3R6_TOP_FD = ("Qh", "Jh")  # TOP_PAIR + flush draw (STRONG)
 _W3R6_TOP_DRY = ("Qc", "Jd")  # TOP_PAIR, no draw — same board
 
 
 def test_semi_bluff_raise_survives_the_one_pair_damp():
-    _w3r6_assert_bucket(_W3R6_TOP_FD, _W3R6_DRAW_BOARD,
-                        StrengthBucket.TOP_PAIR, DrawCategory.STRONG)
-    _w3r6_assert_bucket(_W3R6_TOP_DRY, _W3R6_DRAW_BOARD,
-                        StrengthBucket.TOP_PAIR, DrawCategory.NONE)
+    _w3r6_assert_bucket(
+        _W3R6_TOP_FD, _W3R6_DRAW_BOARD, StrengthBucket.TOP_PAIR, DrawCategory.STRONG
+    )
+    _w3r6_assert_bucket(_W3R6_TOP_DRY, _W3R6_DRAW_BOARD, StrengthBucket.TOP_PAIR, DrawCategory.NONE)
     for persona in ("tag", "maniac"):
-        drawing = _w3r6_dist(persona, _W3R6_TOP_FD, _W3R6_DRAW_BOARD,
-                             street=Street.FLOP, facing_raise=True)
-        dry = _w3r6_dist(persona, _W3R6_TOP_DRY, _W3R6_DRAW_BOARD,
-                         street=Street.FLOP, facing_raise=True)
+        drawing = _w3r6_dist(
+            persona, _W3R6_TOP_FD, _W3R6_DRAW_BOARD, street=Street.FLOP, facing_raise=True
+        )
+        dry = _w3r6_dist(
+            persona, _W3R6_TOP_DRY, _W3R6_DRAW_BOARD, street=Street.FLOP, facing_raise=True
+        )
         assert drawing[ActionType.RAISE] > dry[ActionType.RAISE], persona
 
 
@@ -7955,6 +8028,7 @@ def test_ace_high_with_a_draw_facing_raise_is_byte_identical():
             sq = _w3r6_dist(persona, hole, board, street=street, facing_raise=False)
             assert _w3r6_dist(persona, hole, board, street=street, facing_raise=True) == sq
 
+
 # ====================== T1 — the ace-high float damp goes multiway ============
 #
 # T1 (improvement slice 2, invest-then-fold) widened the W3R-6 predicate from
@@ -7981,9 +8055,17 @@ def _t1_dist(persona, hole, board, *, street, facing_raise, opponents):
     hardcoded heads-up node untouched."""
     cap = _CaptureWeights()
     sample_postflop_decision(
-        _pack(persona), hole, board, _W3R6_FACING, 10.0, 100.0, opponents,
+        _pack(persona),
+        hole,
+        board,
+        _W3R6_FACING,
+        10.0,
+        100.0,
+        opponents,
         cap,  # type: ignore[arg-type]
-        current_bet_to=5.0, street=street, facing_raise=facing_raise,
+        current_bet_to=5.0,
+        street=street,
+        facing_raise=facing_raise,
     )
     total = sum(cap.dist.values())
     return {a: w / total for a, w in cap.dist.items()}
@@ -7996,8 +8078,9 @@ def _t1_neutralized_dist(persona, hole, board, *, street, opponents):
     saved = personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP
     try:
         personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = 1.0
-        return _t1_dist(persona, hole, board, street=street,
-                        facing_raise=False, opponents=opponents)
+        return _t1_dist(
+            persona, hole, board, street=street, facing_raise=False, opponents=opponents
+        )
     finally:
         personas_postflop._ACE_HIGH_FLOAT_RAISE_DAMP = saved
 
@@ -8013,13 +8096,11 @@ def test_naked_ace_high_multiway_bet_calls_less_than_heads_up(persona, opponents
     board = flop if street is Street.FLOP else turn
     _w3r6_assert_bucket(hole, board, StrengthBucket.ACE_HIGH, DrawCategory.NONE)
     hu = _t1_dist(persona, hole, board, street=street, facing_raise=False, opponents=1)
-    mw = _t1_dist(persona, hole, board, street=street, facing_raise=False,
-                  opponents=opponents)
+    mw = _t1_dist(persona, hole, board, street=street, facing_raise=False, opponents=opponents)
     assert mw[ActionType.CALL] < hu[ActionType.CALL]
     # The load-bearing leg: on the pre-T1 engine these two are EQUAL, because the
     # damp was gated on facing_raise and this node faces a bet.
-    pre_t1 = _t1_neutralized_dist(persona, hole, board, street=street,
-                                  opponents=opponents)
+    pre_t1 = _t1_neutralized_dist(persona, hole, board, street=street, opponents=opponents)
     assert mw[ActionType.CALL] < pre_t1[ActionType.CALL], (
         f"{persona} {street} opponents={opponents}: the damp is not firing on the "
         f"facing-a-bet node — CALL {mw[ActionType.CALL]:.6f} vs pre-T1 "
@@ -8038,26 +8119,25 @@ def test_ace_high_multiway_damp_gate_lock(persona):
     river = turn + ["6c"]
     for street in (Street.FLOP, Street.TURN):
         board = flop if street is Street.FLOP else turn
-        live = _t1_dist(persona, hole, board, street=street,
-                        facing_raise=False, opponents=1)
-        assert live == _t1_neutralized_dist(persona, hole, board, street=street,
-                                            opponents=1)
+        live = _t1_dist(persona, hole, board, street=street, facing_raise=False, opponents=1)
+        assert live == _t1_neutralized_dist(persona, hole, board, street=street, opponents=1)
     for opponents in (1, 2, 3):
-        live = _t1_dist(persona, hole, river, street=Street.RIVER,
-                        facing_raise=False, opponents=opponents)
-        assert live == _t1_neutralized_dist(persona, hole, river,
-                                            street=Street.RIVER,
-                                            opponents=opponents)
+        live = _t1_dist(
+            persona, hole, river, street=Street.RIVER, facing_raise=False, opponents=opponents
+        )
+        assert live == _t1_neutralized_dist(
+            persona, hole, river, street=Street.RIVER, opponents=opponents
+        )
     drawing, draw_board = ("Ad", "7d"), ["Kd", "9d", "2s"]
-    _w3r6_assert_bucket(drawing, draw_board, StrengthBucket.ACE_HIGH,
-                        DrawCategory.STRONG)
+    _w3r6_assert_bucket(drawing, draw_board, StrengthBucket.ACE_HIGH, DrawCategory.STRONG)
     for street in (Street.FLOP, Street.TURN):
         for opponents in (2, 3):
-            live = _t1_dist(persona, drawing, draw_board, street=street,
-                            facing_raise=False, opponents=opponents)
-            assert live == _t1_neutralized_dist(persona, drawing, draw_board,
-                                                street=street,
-                                                opponents=opponents)
+            live = _t1_dist(
+                persona, drawing, draw_board, street=street, facing_raise=False, opponents=opponents
+            )
+            assert live == _t1_neutralized_dist(
+                persona, drawing, draw_board, street=street, opponents=opponents
+            )
 
 
 _T1_CATCHER_SPOTS = [
@@ -8097,10 +8177,12 @@ def test_bluff_catcher_alpha_contract_untouched_at_multiple_opponents(
     for street in (Street.FLOP, Street.TURN):
         board = flop if street is Street.FLOP else turn
         _w3r6_assert_bucket(hole, board, bucket, DrawCategory.NONE)
-        live = _t1_dist(persona, hole, board, street=street,
-                        facing_raise=False, opponents=opponents)
-        assert live == _t1_neutralized_dist(persona, hole, board, street=street,
-                                            opponents=opponents)
+        live = _t1_dist(
+            persona, hole, board, street=street, facing_raise=False, opponents=opponents
+        )
+        assert live == _t1_neutralized_dist(
+            persona, hole, board, street=street, opponents=opponents
+        )
 
 
 def test_w3r6_damp_constants_inside_their_fitted_ranges():
@@ -8285,8 +8367,7 @@ def test_w5b3b_station_and_fish_unopened_width_stays_flat_across_seats():
     fish = _seat_ladder(packs[VillainType.PASSIVE_FISH])
     later = [fish[s] for s in _LADDER_SEATS if s != "UTG"]
     assert len({round(v, 12) for v in later}) == 1, (
-        f"passive_fish unopened width is no longer flat across the eight "
-        f"non-UTG seats: {fish}"
+        f"passive_fish unopened width is no longer flat across the eight non-UTG seats: {fish}"
     )
     assert fish["UTG"] == pytest.approx(0.0256, abs=5e-4)
     assert later[0] == pytest.approx(0.0377, abs=5e-4)
@@ -8344,8 +8425,7 @@ _NIT_ALL_PAIRS = tuple(r + r for r in "AKQJT98765432")
 # The authored limp band per seat: every pair BELOW that seat's core raise
 # band. UTG raises 77 outright (core depth 8), every other seat stops at 88.
 _NIT_LIMP_BAND = {
-    seat: _NIT_ALL_PAIRS[8:] if seat == "UTG" else _NIT_ALL_PAIRS[7:]
-    for seat in _LADDER_SEATS
+    seat: _NIT_ALL_PAIRS[8:] if seat == "UTG" else _NIT_ALL_PAIRS[7:] for seat in _LADDER_SEATS
 }
 
 
@@ -8393,8 +8473,7 @@ def test_tm2_nit_opens_small_pairs_from_late_position():
         if _nit_pair_policy(pack, seat)[cls] != _NIT_PAIR_OPEN_MIX
     }
     assert not wrong, (
-        f"nit late-position pair opens are not the authored "
-        f"{_NIT_PAIR_OPEN_MIX}: {wrong}"
+        f"nit late-position pair opens are not the authored {_NIT_PAIR_OPEN_MIX}: {wrong}"
     )
 
 
@@ -9073,23 +9152,95 @@ def _nlogit_bluff_cell(hole=("7h", "4c"), to_call=4.0):
 _NLOGIT_BLUFF_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
 # AIR, half-pot faced price — the mild member.
 _NLOGIT_BLUFF_PINS = {
-    "lag": [0.006086052923715886, 0.012098473895010543, 0.023907701092464193, 0.046698937935432526, 0.08923088816263465],  # noqa: E501
-    "tag": [0.0038569107491173, 0.007684184285266557, 0.015251175725689927, 0.030044142947755884, 0.05833564154207269],  # noqa: E501
-    "nit": [0.0007224894563152039, 0.0014439356843228871, 0.002883707480511515, 0.005750831245939953, 0.011435896580499432],  # noqa: E501
-    "maniac": [0.01000583536813726, 0.019813420908583623, 0.03885695265891133, 0.07480712827585852, 0.1392010274361683],  # noqa: E501
-    "calling_station": [0.0008321924048908285, 0.0016630008730857482, 0.0033204797853893303, 0.0066189813769167395, 0.013150917078600846],  # noqa: E501
-    "passive_fish": [0.0015733919400161421, 0.0031418405334601223, 0.0062640005760089225, 0.01245001425554976, 0.024593834915799185],  # noqa: E501
+    "lag": [
+        0.006086052923715886,
+        0.012098473895010543,
+        0.023907701092464193,
+        0.046698937935432526,
+        0.08923088816263465,
+    ],  # noqa: E501
+    "tag": [
+        0.0038569107491173,
+        0.007684184285266557,
+        0.015251175725689927,
+        0.030044142947755884,
+        0.05833564154207269,
+    ],  # noqa: E501
+    "nit": [
+        0.0007224894563152039,
+        0.0014439356843228871,
+        0.002883707480511515,
+        0.005750831245939953,
+        0.011435896580499432,
+    ],  # noqa: E501
+    "maniac": [
+        0.01000583536813726,
+        0.019813420908583623,
+        0.03885695265891133,
+        0.07480712827585852,
+        0.1392010274361683,
+    ],  # noqa: E501
+    "calling_station": [
+        0.0008321924048908285,
+        0.0016630008730857482,
+        0.0033204797853893303,
+        0.0066189813769167395,
+        0.013150917078600846,
+    ],  # noqa: E501
+    "passive_fish": [
+        0.0015733919400161421,
+        0.0031418405334601223,
+        0.0062640005760089225,
+        0.01245001425554976,
+        0.024593834915799185,
+    ],  # noqa: E501
 }
 # ACE_HIGH, an eighth-pot faced price. Recorded on the pre-T3 engine, where
 # this cell was hard-zeroed too; kept unchanged because T3 must not move it —
 # see `test_t3_river_ace_high_raise_to_fold_odds_are_untouched`.
 _NLOGIT_BLUFF_PINS_ACE_HIGH = {
-    "nit": [0.012690061839999685, 0.025062084280638778, 0.04889866607099545, 0.09323811279913614, 0.17057237889449078],  # noqa: E501
-    "tag": [0.06439820175506222, 0.12100396571297749, 0.21588499133634537, 0.35510758480384264, 0.5241024237278488],  # noqa: E501
-    "lag": [0.10061471506267866, 0.18283367228458103, 0.309145193561234, 0.4722855724203888, 0.6415678877352128],  # noqa: E501
-    "maniac": [0.15586887969278476, 0.2696999329789253, 0.4248246786091653, 0.5963185295524998, 0.7471172181653085],  # noqa: E501
-    "calling_station": [0.005310263118787907, 0.010564426353937352, 0.020907971977706042, 0.040959562569000324, 0.07869578039691683],  # noqa: E501
-    "passive_fish": [0.04106769806656815, 0.07889534588929718, 0.14625208309572676, 0.25518310544873896, 0.406606979238314],  # noqa: E501
+    "nit": [
+        0.012690061839999685,
+        0.025062084280638778,
+        0.04889866607099545,
+        0.09323811279913614,
+        0.17057237889449078,
+    ],  # noqa: E501
+    "tag": [
+        0.06439820175506222,
+        0.12100396571297749,
+        0.21588499133634537,
+        0.35510758480384264,
+        0.5241024237278488,
+    ],  # noqa: E501
+    "lag": [
+        0.10061471506267866,
+        0.18283367228458103,
+        0.309145193561234,
+        0.4722855724203888,
+        0.6415678877352128,
+    ],  # noqa: E501
+    "maniac": [
+        0.15586887969278476,
+        0.2696999329789253,
+        0.4248246786091653,
+        0.5963185295524998,
+        0.7471172181653085,
+    ],  # noqa: E501
+    "calling_station": [
+        0.005310263118787907,
+        0.010564426353937352,
+        0.020907971977706042,
+        0.040959562569000324,
+        0.07869578039691683,
+    ],  # noqa: E501
+    "passive_fish": [
+        0.04106769806656815,
+        0.07889534588929718,
+        0.14625208309572676,
+        0.25518310544873896,
+        0.406606979238314,
+    ],  # noqa: E501
 }
 
 
@@ -9113,9 +9264,7 @@ def test_nlogit_g4_river_bluff_cell_response_is_pinned():
     the comment on the pin table). The ACE_HIGH cell that used to be pinned
     here is no longer degenerate and is gated by
     `test_t3_river_ace_high_raise_to_fold_odds_are_untouched` instead."""
-    for label, pins, cell in (
-        ("air/half_pot", _NLOGIT_BLUFF_PINS, _nlogit_bluff_cell()),
-    ):
+    for label, pins, cell in (("air/half_pot", _NLOGIT_BLUFF_PINS, _nlogit_bluff_cell()),):
         for persona, expected in pins.items():
             scaled = [
                 _nlogit_p(_nlogit_dist(_nlogit_probe(persona, m), cell), ActionType.RAISE)
@@ -9371,10 +9520,7 @@ def test_nlogit_gcommit_spr_committed_nodes_are_lever_inert():
     base engine's sensitivity cannot silently return."""
     cell = _nlogit_commit_cell()
     for persona, pinned in _NLOGIT_COMMIT_PINS.items():
-        scaled = [
-            _nlogit_dist(_nlogit_probe(persona, m), cell)
-            for m in (1.0,) + _NLOGIT_MULTS
-        ]
+        scaled = [_nlogit_dist(_nlogit_probe(persona, m), cell) for m in (1.0,) + _NLOGIT_MULTS]
         base = [
             _nlogit_dist(_nlogit_probe(persona, m, continue_ref=None), cell)
             for m in (1.0,) + _NLOGIT_MULTS
@@ -9728,8 +9874,17 @@ def test_nlogit_g9_maniac_split_lever_migration_keeps_the_anchor():
     assert migrated.postflop.stickiness is None
 
     cell = _NlogitCell(
-        "top_pair/turn", Street.TURN, ("Kh", "4d"), ["Kc", "9s", "3h", "2d"],
-        None, 6.0, 4.0, 100.0, 1, False, True,
+        "top_pair/turn",
+        Street.TURN,
+        ("Kh", "4d"),
+        ["Kc", "9s", "3h", "2d"],
+        None,
+        6.0,
+        4.0,
+        100.0,
+        1,
+        False,
+        True,
     )
     shares = []
     for mult in (0.5, 1.0, 2.0):
@@ -10218,9 +10373,7 @@ def test_r9d_s3_raise_share_is_line_invariant():
             if c0 <= 0.0 or c1 <= 0.0:
                 continue
             compared[persona] += 1
-            drift = abs(
-                _r9d_p(d1, ActionType.RAISE) / c1 - _r9d_p(d0, ActionType.RAISE) / c0
-            )
+            drift = abs(_r9d_p(d1, ActionType.RAISE) / c1 - _r9d_p(d0, ActionType.RAISE) / c0)
             if drift > worst.get(persona, (0.0, ""))[0]:
                 worst[persona] = (drift, cell.key)
     thin = {p: n for p, n in compared.items() if n < 480}
@@ -11324,8 +11477,7 @@ def _r9d_s5_run(mode, packs, seeds) -> _R9dArm:
         in_scope=in_scope,
         folds=folds,
         fold_rate={
-            p: (folds[p] / in_scope[p] if in_scope[p] else float("nan"))
-            for p in ALL_PERSONAS
+            p: (folds[p] / in_scope[p] if in_scope[p] else float("nan")) for p in ALL_PERSONAS
         },
     )
 
@@ -11480,7 +11632,7 @@ def test_r9d_s5_fold_rate_rise_follows_the_defensible_ladder():
         best_low = max(rise[p] for p in lower)
         assert worst_high > best_low, (
             f"ordering broke between {higher} (min {worst_high:.4f}) and {lower} "
-            f"(max {best_low:.4f}); full table {({p: round(r, 4) for p, r in rise.items()})}"
+            f"(max {best_low:.4f}); full table { ({p: round(r, 4) for p, r in rise.items()}) }"
         )
 
 
@@ -11742,18 +11894,59 @@ class _R9lfNode(NamedTuple):
 # `pot_bb = pre_bet_pot + to_call` with `contribution = current_bet_to =
 # to_call` (fresh aggression), which is what makes the declared prices real.
 _R9LF_PANEL = (
-    _R9lfNode("P1", ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP,
-              (36.0, 480.0), 24.0, 12.0, 480.0, 1, 1.000),
-    _R9lfNode("P2", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN,
-              (36.0, 480.0), 24.0, 12.0, 480.0, 3, 1.000),
-    _R9lfNode("P3", ("Ah", "8d"), ["Kc", "9s", "3h"], Street.FLOP,
-              (18.0, 360.0), 18.0, 6.0, 360.0, 1, 0.500),
-    _R9lfNode("P4", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN,
-              (18.0, 360.0), 18.0, 6.0, 360.0, 1, 0.500),
+    _R9lfNode(
+        "P1",
+        ("9h", "4c"),
+        ["Kc", "9s", "3h"],
+        Street.FLOP,
+        (36.0, 480.0),
+        24.0,
+        12.0,
+        480.0,
+        1,
+        1.000,
+    ),
+    _R9lfNode(
+        "P2",
+        ("9h", "4c"),
+        ["Kc", "9s", "3h", "2d"],
+        Street.TURN,
+        (36.0, 480.0),
+        24.0,
+        12.0,
+        480.0,
+        3,
+        1.000,
+    ),
+    _R9lfNode(
+        "P3",
+        ("Ah", "8d"),
+        ["Kc", "9s", "3h"],
+        Street.FLOP,
+        (18.0, 360.0),
+        18.0,
+        6.0,
+        360.0,
+        1,
+        0.500,
+    ),
+    _R9lfNode(
+        "P4",
+        ("9h", "4c"),
+        ["Kc", "9s", "3h", "2d"],
+        Street.TURN,
+        (18.0, 360.0),
+        18.0,
+        6.0,
+        360.0,
+        1,
+        0.500,
+    ),
     # C5 is the declared control: no RAISE leg at all, so it proves the lever
     # still moves the bot when the raise branch is absent.
-    _R9lfNode("C5", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN,
-              None, 24.0, 12.0, 480.0, 1, 1.000),
+    _R9lfNode(
+        "C5", ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN, None, 24.0, 12.0, 480.0, 1, 1.000
+    ),
 )
 
 
@@ -11891,8 +12084,16 @@ def test_r9lf_priced_helper_refuses_a_mispriced_node():
     when the same node is labelled truthfully.
     """
     mislabelled = _R9lfNode(
-        "REV3", ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP,
-        (9.0, 100.0), 6.0, 3.0, 100.0, 1, 0.500,  # claims half pot; engine reads 1.00
+        "REV3",
+        ("9h", "4c"),
+        ["Kc", "9s", "3h"],
+        Street.FLOP,
+        (9.0, 100.0),
+        6.0,
+        3.0,
+        100.0,
+        1,
+        0.500,  # claims half pot; engine reads 1.00
     )
     with pytest.raises(AssertionError, match="the engine priced this node"):
         _r9lf_priced_dist(_pack("nit"), mislabelled)
@@ -12358,21 +12559,49 @@ _ND_RSCALE_MIN_DIVERGENCE = 0.05  # measured 0.3066 relative
 #       coupling to WEAK but not to NONE.
 _ND_T2_STRONG = _NDNode(
     "S1 combo draw, flop, 2/3-pot (STRONG)",
-    ("Jh", "Th"), ["9h", "8c", "2h"], Street.FLOP, 10.0, 4.0, 100.0, 1, 4.0 / 6.0,
+    ("Jh", "Th"),
+    ["9h", "8c", "2h"],
+    Street.FLOP,
+    10.0,
+    4.0,
+    100.0,
+    1,
+    4.0 / 6.0,
 )
 _ND_T2_UNCOUPLED = (
     _NDNode(
         "N1 middle pair, flop, pot (draw NONE)",
-        ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP, 48.0, 24.0, 480.0, 1, 1.0,
+        ("9h", "4c"),
+        ["Kc", "9s", "3h"],
+        Street.FLOP,
+        48.0,
+        24.0,
+        480.0,
+        1,
+        1.0,
     ),
     _NDNode(
         "N2 middle pair, flop, pot, second barrel (draw NONE, line-damped)",
-        ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP, 48.0, 24.0, 480.0, 1, 1.0,
+        ("9h", "4c"),
+        ["Kc", "9s", "3h"],
+        Street.FLOP,
+        48.0,
+        24.0,
+        480.0,
+        1,
+        1.0,
         aggressor_bet_prev_street=True,
     ),
     _NDNode(
         "W1 gutshot, flop, 2/3-pot (WEAK)",
-        ("Td", "Jh"), ["7h", "9s", "9d"], Street.FLOP, 10.0, 4.0, 100.0, 1, 4.0 / 6.0,
+        ("Td", "Jh"),
+        ["7h", "9s", "9d"],
+        Street.FLOP,
+        10.0,
+        4.0,
+        100.0,
+        1,
+        4.0 / 6.0,
     ),
 )
 
@@ -12817,8 +13046,7 @@ def test_nd_t2_nlogit_g1_comparison_census_by_draw_category_is_exact():
 # instead of a restatement of it. A build whose `_strong_draw_outs` disagreed
 # with these counts would under-protect and blow the cap: measured, D1 priced at
 # nine outs instead of fifteen reads +0.0116 against its 0.005068 cap.
-_ND_STATED_OUTS = {"D1": 15.0, "D2": 9.0, "D3": 15.0, "D4": 9.0,
-                   "P1": 9.0, "R2": 9.0, "P2": 9.0}
+_ND_STATED_OUTS = {"D1": 15.0, "D2": 9.0, "D3": 15.0, "D4": 9.0, "P1": 9.0, "R2": 9.0, "P2": 9.0}
 # The realization assumption, restated (engine: `_DRAW_FREE_RIVER_PROB`).
 _ND_FREE_RIVER_Q = 0.30
 _ND_MADE_CONTROL_FLOOR = 0.040
@@ -12871,6 +13099,8 @@ def _nd_derived_cap(node: _NDNode) -> float:
     comment; at r = 0.75 (no protection at all) it is G-NODE's 0.071797."""
     root = math.sqrt(_nd_continue_ratio(node))
     return (1.0 - root) / (1.0 + root)
+
+
 # Non-degeneracy window, same reasoning as G-NODE's: a node where some legal
 # action is effectively forced tells us nothing about a lever that only
 # re-weights the mix.
@@ -12879,27 +13109,69 @@ _ND_MIN_PROB, _ND_MAX_PROB = 0.01, 0.99
 _ND_DRAW_PANEL = (
     _NDNode(
         "D1 combo draw, flop, 2/3-pot",
-        ("Jh", "Th"), ["9h", "8c", "2h"], Street.FLOP, 10.0, 4.0, 100.0, 1, 4.0 / 6.0,
+        ("Jh", "Th"),
+        ["9h", "8c", "2h"],
+        Street.FLOP,
+        10.0,
+        4.0,
+        100.0,
+        1,
+        4.0 / 6.0,
     ),
     _NDNode(
         "D2 flush draw, flop, pot",
-        ("Ah", "5h"), ["Kh", "8h", "2c"], Street.FLOP, 24.0, 12.0, 200.0, 1, 12.0 / 12.0,
+        ("Ah", "5h"),
+        ["Kh", "8h", "2c"],
+        Street.FLOP,
+        24.0,
+        12.0,
+        200.0,
+        1,
+        12.0 / 12.0,
     ),
     _NDNode(
         "D3 combo draw, TURN, 1/2-pot",
-        ("Jh", "Th"), ["9h", "8c", "2h", "3d"], Street.TURN, 18.0, 6.0, 200.0, 1, 6.0 / 12.0,
+        ("Jh", "Th"),
+        ["9h", "8c", "2h", "3d"],
+        Street.TURN,
+        18.0,
+        6.0,
+        200.0,
+        1,
+        6.0 / 12.0,
     ),
     _NDNode(
         "D4 flush draw, flop, 1/2-pot, four-way",
-        ("Ah", "5h"), ["Kh", "8h", "2c"], Street.FLOP, 18.0, 6.0, 200.0, 3, 6.0 / 12.0,
+        ("Ah", "5h"),
+        ["Kh", "8h", "2c"],
+        Street.FLOP,
+        18.0,
+        6.0,
+        200.0,
+        3,
+        6.0 / 12.0,
     ),
     _NDNode(
         "P1 middle pair + flush draw, flop, 2/3-pot",
-        ("9h", "8h"), ["Kh", "9s", "3h"], Street.FLOP, 20.0, 8.0, 200.0, 1, 8.0 / 12.0,
+        ("9h", "8h"),
+        ["Kh", "9s", "3h"],
+        Street.FLOP,
+        20.0,
+        8.0,
+        200.0,
+        1,
+        8.0 / 12.0,
     ),
     _NDNode(
         "R2 middle pair + flush draw, flop, 2/3-pot, FACING A RAISE",
-        ("9h", "8h"), ["Kh", "9s", "3h"], Street.FLOP, 20.0, 8.0, 200.0, 1, 8.0 / 12.0,
+        ("9h", "8h"),
+        ["Kh", "9s", "3h"],
+        Street.FLOP,
+        20.0,
+        8.0,
+        200.0,
+        1,
+        8.0 / 12.0,
         facing_raise=True,
     ),
 )
@@ -12909,17 +13181,38 @@ _ND_FACING_RAISE_NODE = _ND_DRAW_PANEL[5]
 _ND_RECORD_ONLY = (
     _NDNode(
         "P2 top pair + flush draw, flop, 2/3-pot",
-        ("Kh", "8h"), ["Kd", "9h", "3h"], Street.FLOP, 20.0, 8.0, 200.0, 1, 8.0 / 12.0,
+        ("Kh", "8h"),
+        ["Kd", "9h", "3h"],
+        Street.FLOP,
+        20.0,
+        8.0,
+        200.0,
+        1,
+        8.0 / 12.0,
     ),
 )
 _ND_MADE_CONTROLS = (
     _NDNode(
         "M1 middle pair, flop, pot",
-        ("9h", "4c"), ["Kc", "9s", "3h"], Street.FLOP, 48.0, 24.0, 480.0, 1, 24.0 / 24.0,
+        ("9h", "4c"),
+        ["Kc", "9s", "3h"],
+        Street.FLOP,
+        48.0,
+        24.0,
+        480.0,
+        1,
+        24.0 / 24.0,
     ),
     _NDNode(
         "M2 middle pair, turn, pot",
-        ("9h", "4c"), ["Kc", "9s", "3h", "2d"], Street.TURN, 48.0, 24.0, 480.0, 3, 24.0 / 24.0,
+        ("9h", "4c"),
+        ["Kc", "9s", "3h", "2d"],
+        Street.TURN,
+        48.0,
+        24.0,
+        480.0,
+        3,
+        24.0 / 24.0,
     ),
 )
 
@@ -13402,8 +13695,7 @@ def test_nd_t4_calling_station_byte_identical_on_strong_draw():
         "dial is already >= 1.0"
     )
     assert dist[ActionType.CALL] == _ND_STATION_BASE_CALL, (
-        f"calling_station CALL moved: {dist[ActionType.CALL]!r} vs base "
-        f"{_ND_STATION_BASE_CALL!r}"
+        f"calling_station CALL moved: {dist[ActionType.CALL]!r} vs base {_ND_STATION_BASE_CALL!r}"
     )
     assert dist[ActionType.RAISE] == _ND_STATION_BASE_RAISE, (
         f"calling_station RAISE moved: {dist[ActionType.RAISE]!r} vs base "
@@ -13420,9 +13712,7 @@ def test_nd_t4_calling_station_byte_identical_at_a_non_power_of_two_dial():
     by one ulp while leaving the 4.0 pin above untouched. Without this case the
     structural property is prose; with it, it is a gate.
     """
-    dist = _nd_priced_dist(
-        _nd_pack_at("calling_station", _ND_STATION_REFIT_LOOSENESS), _ND_T4_NODE
-    )
+    dist = _nd_priced_dist(_nd_pack_at("calling_station", _ND_STATION_REFIT_LOOSENESS), _ND_T4_NODE)
     for kind, expected in _ND_STATION_REFIT_BASE.items():
         assert dist[kind] == expected, (
             f"calling_station at call_looseness {_ND_STATION_REFIT_LOOSENESS}: "
@@ -13649,7 +13939,14 @@ _S3T1B_MIN_REACH_RATIO = 1.20
 _S3T1B_MANDATED_NODES = (_ND_DRAW_PANEL[0], _ND_DRAW_PANEL[2])  # D1, D3
 _S3T1B_D5 = _NDNode(
     "D5 flush draw, TURN, pot",
-    ("Ah", "5h"), ["Kh", "8h", "2c", "9d"], Street.TURN, 24.0, 12.0, 200.0, 1, 12.0 / 12.0,
+    ("Ah", "5h"),
+    ["Kh", "8h", "2c", "9d"],
+    Street.TURN,
+    24.0,
+    12.0,
+    200.0,
+    1,
+    12.0 / 12.0,
 )
 _S3T1B_CHASE_NODES = (_ND_DRAW_PANEL[1], _ND_DRAW_PANEL[4], _S3T1B_D5)  # D2, P1, D5
 _S3T1_DIALLED_PERSONAS = ("nit", "tag", "lag", "maniac", "passive_fish")
@@ -13674,8 +13971,7 @@ def _s3t1_pack_at(persona: str, looseness: float):
 
 def _s3t1_call_sweep(persona: str, node: _NDNode) -> list[float]:
     return [
-        _nd_priced_dist(_s3t1_pack_at(persona, dial), node)[ActionType.CALL]
-        for dial in _S3T1_DIALS
+        _nd_priced_dist(_s3t1_pack_at(persona, dial), node)[ActionType.CALL] for dial in _S3T1_DIALS
     ]
 
 
@@ -13828,10 +14124,10 @@ def test_s3t1b_protected_share_is_the_part_the_dial_cannot_reach():
     hole, board = ("Ah", "5h"), ["Kh", "8h", "2c"]
     assert personas_postflop._strong_draw_outs(hole, board) == 9.0
     for faced_frac, want in (
-        (0.25, 1.0000),      # quarter pot: needs 16.7% — fully mandated
-        (0.50, 0.8971),      # half pot: needs 25.0%
-        (1.00, 0.6728),      # pot: needs 33.3%
-        (3.00, 0.5233),      # 3x-pot overbet: needs 42.9%, the T1 figure
+        (0.25, 1.0000),  # quarter pot: needs 16.7% — fully mandated
+        (0.50, 0.8971),  # half pot: needs 25.0%
+        (1.00, 0.6728),  # pot: needs 33.3%
+        (3.00, 0.5233),  # 3x-pot overbet: needs 42.9%, the T1 figure
     ):
         got = personas_postflop._strong_draw_protected_share(hole, board, faced_frac)
         assert got == pytest.approx(want, abs=5e-4), (
@@ -13842,9 +14138,10 @@ def test_s3t1b_protected_share_is_the_part_the_dial_cannot_reach():
     # ...and the combo draw at the trace node's price is mandated in full, which
     # is the whole reason D1's readings came back.
     assert personas_postflop._strong_draw_outs(("Jh", "Th"), ["9h", "8c", "2h"]) == 15.0
-    assert personas_postflop._strong_draw_protected_share(
-        ("Jh", "Th"), ["9h", "8c", "2h"], 4.0 / 6.0
-    ) == 1.0
+    assert (
+        personas_postflop._strong_draw_protected_share(("Jh", "Th"), ["9h", "8c", "2h"], 4.0 / 6.0)
+        == 1.0
+    )
 
     station = _pack("calling_station").postflop
     station_lever = (

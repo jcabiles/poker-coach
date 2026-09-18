@@ -58,10 +58,18 @@ JUDGES5 = [Judge(i, f"vendor{i}", f"req{i}", f"res{i}") for i in range(5)]
 
 # presentation_id -> (true class, confidence every judge gives)
 MAIN_BUNDLES = {
-    "h1": ("human", 80), "h2": ("human", 75), "h3": ("human", 65),
-    "h4": ("human", 60), "h5": ("human", 55), "h6": ("human", 30),  # misclassified -> bot
-    "b1": ("bot", 10), "b2": ("bot", 15), "b3": ("bot", 20),
-    "b4": ("bot", 25), "b5": ("bot", 35), "b6": ("bot", 70),  # misclassified -> human
+    "h1": ("human", 80),
+    "h2": ("human", 75),
+    "h3": ("human", 65),
+    "h4": ("human", 60),
+    "h5": ("human", 55),
+    "h6": ("human", 30),  # misclassified -> bot
+    "b1": ("bot", 10),
+    "b2": ("bot", 15),
+    "b3": ("bot", 20),
+    "b4": ("bot", 25),
+    "b5": ("bot", 35),
+    "b6": ("bot", 70),  # misclassified -> human
 }
 
 
@@ -109,9 +117,7 @@ def test_d_prime_hand_computed_non_extreme():
 
 def test_d_prime_extreme_rate_correction_zero_recall():
     # 4 human bundles all mislabeled bot (hr=0), 4 bot bundles all correctly bot (br=1).
-    stats = [
-        DeckBundleStat(f"h{i}", "human", 5, 20.0, "bot", True) for i in range(4)
-    ] + [
+    stats = [DeckBundleStat(f"h{i}", "human", 5, 20.0, "bot", True) for i in range(4)] + [
         DeckBundleStat(f"b{i}", "bot", 5, 10.0, "bot", True) for i in range(4)
     ]
     # hr=0 -> corrected to 1/(2*4)=0.125; br=1 -> false-positive rate 1-1=0
@@ -122,9 +128,7 @@ def test_d_prime_extreme_rate_correction_zero_recall():
 
 def test_d_prime_extreme_rate_correction_perfect_recall():
     # Both classes perfectly recalled: hr=1, br=1.
-    stats = [
-        DeckBundleStat(f"h{i}", "human", 5, 90.0, "human", True) for i in range(4)
-    ] + [
+    stats = [DeckBundleStat(f"h{i}", "human", 5, 90.0, "human", True) for i in range(4)] + [
         DeckBundleStat(f"b{i}", "bot", 5, 10.0, "bot", True) for i in range(4)
     ]
     n = 4
@@ -164,8 +168,10 @@ def _abc_fixture():
     (error = 1 on x4 for A; on x2,x4 for B; on x1,x3 for C)."""
     judges = [Judge(i, f"v{i}", "r", "r") for i in range(3)]
     bundles = [
-        BundleRecord("x1", "human", False), BundleRecord("x2", "human", False),
-        BundleRecord("x3", "bot", False), BundleRecord("x4", "bot", False),
+        BundleRecord("x1", "human", False),
+        BundleRecord("x2", "human", False),
+        BundleRecord("x3", "bot", False),
+        BundleRecord("x4", "bot", False),
     ]
     # true classes: x1=human, x2=human, x3=bot, x4=bot
     a_labels = ["human", "human", "bot", "human"]  # x4 mislabeled human -> error=1
@@ -349,8 +355,11 @@ def test_control_invalidation_passes():
     # mean(10,10,10,10,20)=12 < 50; 4/5 label bot (slot4 labels human) -> valid
     responses = _control_responses(
         {
-            0: ("ok", "bot", 10), 1: ("ok", "bot", 10), 2: ("ok", "bot", 10),
-            3: ("ok", "bot", 10), 4: ("ok", "human", 20),
+            0: ("ok", "bot", 10),
+            1: ("ok", "bot", 10),
+            2: ("ok", "bot", 10),
+            3: ("ok", "bot", 10),
+            4: ("ok", "human", 20),
         }
     )
     result = evaluate_control(CONTROL, JUDGES5, responses)
@@ -363,8 +372,11 @@ def test_control_invalidation_fails_on_mean():
     # 4/5 label bot, but confidences push the mean to >= 50.
     responses = _control_responses(
         {
-            0: ("ok", "bot", 60), 1: ("ok", "bot", 60), 2: ("ok", "bot", 60),
-            3: ("ok", "bot", 60), 4: ("ok", "human", 20),
+            0: ("ok", "bot", 60),
+            1: ("ok", "bot", 60),
+            2: ("ok", "bot", 60),
+            3: ("ok", "bot", 60),
+            4: ("ok", "human", 20),
         }
     )
     result = evaluate_control(CONTROL, JUDGES5, responses)
@@ -377,8 +389,11 @@ def test_control_invalidation_fails_on_four_of_five():
     # mean well below 50, but only 3 of 5 label bot.
     responses = _control_responses(
         {
-            0: ("ok", "bot", 5), 1: ("ok", "bot", 5), 2: ("ok", "bot", 5),
-            3: ("ok", "human", 10), 4: ("ok", "human", 10),
+            0: ("ok", "bot", 5),
+            1: ("ok", "bot", 5),
+            2: ("ok", "bot", 5),
+            3: ("ok", "human", 10),
+            4: ("ok", "human", 10),
         }
     )
     result = evaluate_control(CONTROL, JUDGES5, responses)
@@ -391,9 +406,7 @@ def test_control_invalidation_missing_responses_count_against_conjunct():
     # Only 3 usable responses (2 missing); missing counts against 4-of-5, not
     # for it, so majority_bot_ok is False even though every USABLE judge
     # said "bot".
-    responses = _control_responses(
-        {0: ("ok", "bot", 5), 1: ("ok", "bot", 5), 2: ("ok", "bot", 5)}
-    )
+    responses = _control_responses({0: ("ok", "bot", 5), 1: ("ok", "bot", 5), 2: ("ok", "bot", 5)})
     result = evaluate_control(CONTROL, JUDGES5, responses)
     assert result["bot_label_count"] == 3
     assert result["valid"] is False
@@ -471,8 +484,11 @@ def test_load_responses_malformed_status_allows_null_parsed(tmp_path):
     _write(
         tmp_path / "responses" / "0-h1.json",
         {
-            "slot": 0, "presentation_id": "h1", "raw_response": "garbage",
-            "parsed": None, "status": "malformed-final",
+            "slot": 0,
+            "presentation_id": "h1",
+            "raw_response": "garbage",
+            "parsed": None,
+            "status": "malformed-final",
         },
     )
     judges = [Judge(0, "v", "r", "r")]
@@ -488,7 +504,9 @@ def test_load_responses_finds_files_nested_under_per_slot_subdirs(tmp_path):
     _write(
         slot_dir / "h1.json",
         {
-            "slot": 0, "presentation_id": "h1", "raw_responses": ["{}"],
+            "slot": 0,
+            "presentation_id": "h1",
+            "raw_responses": ["{}"],
             "parsed": {"label": "human", "confidence_human": 80, "reason": "r"},
             "status": "ok",
         },
@@ -506,8 +524,10 @@ def test_load_unblinding_requires_duplicate_class_human(tmp_path):
             "judge_duplicates": {
                 "slots": [
                     {
-                        "slot": 0, "presentation_id": "dup0",
-                        "source_presentation_id": "b1", "class": "bot",
+                        "slot": 0,
+                        "presentation_id": "dup0",
+                        "source_presentation_id": "b1",
+                        "class": "bot",
                     }
                 ]
             },
@@ -543,12 +563,16 @@ def _build_deck_dir(tmp_path: Path, control_valid: bool) -> Path:
         "judge_duplicates": {
             "slots": [
                 {
-                    "slot": 0, "presentation_id": "dup0",
-                    "source_presentation_id": "h1", "class": "human",
+                    "slot": 0,
+                    "presentation_id": "dup0",
+                    "source_presentation_id": "h1",
+                    "class": "human",
                 },
                 {
-                    "slot": 1, "presentation_id": "dup1",
-                    "source_presentation_id": "h2", "class": "human",
+                    "slot": 1,
+                    "presentation_id": "dup1",
+                    "source_presentation_id": "h2",
+                    "class": "human",
                 },
             ]
         },
@@ -588,10 +612,13 @@ def _build_judging_dir(tmp_path: Path, out_name: str, control_valid: bool) -> Pa
         _write(
             slot_dir / f"{pid}.json",
             {
-                "slot": slot, "presentation_id": pid, "raw_response": "{}",
+                "slot": slot,
+                "presentation_id": pid,
+                "raw_response": "{}",
                 "parsed": (
                     {"label": label, "confidence_human": confidence, "reason": "r"}
-                    if status == "ok" else None
+                    if status == "ok"
+                    else None
                 ),
                 "status": status,
             },
@@ -622,7 +649,10 @@ def test_full_run_batch_invalid_emits_diagnostics_only(tmp_path):
     judging_dir = _build_judging_dir(tmp_path, "judging", control_valid=False)
     out_dir = tmp_path / "out"
     analysis = run_analysis(
-        deck_dir=deck_dir, judging_dir=judging_dir, bootstrap_seed=1, out_dir=out_dir,
+        deck_dir=deck_dir,
+        judging_dir=judging_dir,
+        bootstrap_seed=1,
+        out_dir=out_dir,
         bootstrap_b=50,
     )
     assert analysis["batch_valid"] is False
@@ -643,7 +673,10 @@ def test_full_run_valid_batch_has_registered_n_eff_uses(tmp_path):
     judging_dir = _build_judging_dir(tmp_path, "judging", control_valid=True)
     out_dir = tmp_path / "out"
     analysis = run_analysis(
-        deck_dir=deck_dir, judging_dir=judging_dir, bootstrap_seed=42, out_dir=out_dir,
+        deck_dir=deck_dir,
+        judging_dir=judging_dir,
+        bootstrap_seed=42,
+        out_dir=out_dir,
         bootstrap_b=100,
     )
     assert analysis["batch_valid"] is True
@@ -696,7 +729,9 @@ def test_full_run_valid_batch_has_registered_n_eff_uses(tmp_path):
 
     # input hashes recorded for all three frozen inputs
     assert set(analysis["input_hashes"]) == {
-        "judging_complete.json", "unblinding.json", "presentation.json",
+        "judging_complete.json",
+        "unblinding.json",
+        "presentation.json",
     }
     assert all(isinstance(v, str) and len(v) == 64 for v in analysis["input_hashes"].values())
     assert analysis["bootstrap_seed"] == 42
@@ -732,11 +767,17 @@ def test_full_run_byte_identical_same_seed(tmp_path):
     out_a = tmp_path / "out_a"
     out_b = tmp_path / "out_b"
     run_analysis(
-        deck_dir=deck_dir, judging_dir=judging_dir, bootstrap_seed=99, out_dir=out_a,
+        deck_dir=deck_dir,
+        judging_dir=judging_dir,
+        bootstrap_seed=99,
+        out_dir=out_a,
         bootstrap_b=50,
     )
     run_analysis(
-        deck_dir=deck_dir, judging_dir=judging_dir, bootstrap_seed=99, out_dir=out_b,
+        deck_dir=deck_dir,
+        judging_dir=judging_dir,
+        bootstrap_seed=99,
+        out_dir=out_b,
         bootstrap_b=50,
     )
     assert (out_a / "analysis.json").read_bytes() == (out_b / "analysis.json").read_bytes()
@@ -751,6 +792,9 @@ def test_full_run_requires_exactly_one_control_bundle(tmp_path):
     judging_dir = _build_judging_dir(tmp_path, "judging", control_valid=True)
     with pytest.raises(AnalysisError, match="control bundle"):
         run_analysis(
-            deck_dir=deck_dir, judging_dir=judging_dir, bootstrap_seed=1,
-            out_dir=tmp_path / "out", bootstrap_b=10,
+            deck_dir=deck_dir,
+            judging_dir=judging_dir,
+            bootstrap_seed=1,
+            out_dir=tmp_path / "out",
+            bootstrap_b=10,
         )

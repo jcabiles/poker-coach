@@ -75,50 +75,95 @@ TREY_DEUCE = ("3c", "2d")
 
 def test_persona_pack_rejects_bad_action_vocabulary():
     with pytest.raises(ValidationError, match="not allowed facing"):
-        _validate([{"facing": "unopened", "positions": None,
-                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]}])
+        _validate(
+            [
+                {
+                    "facing": "unopened",
+                    "positions": None,
+                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+                }
+            ]
+        )
 
 
 def test_persona_pack_rejects_weights_sum_above_one():
     with pytest.raises(ValidationError, match="sum"):
-        _validate([{"facing": "unopened", "positions": None,
-                    "mixes": [{"combos": "AA", "weights": {"raise": 0.7, "limp": 0.7}}]}])
+        _validate(
+            [
+                {
+                    "facing": "unopened",
+                    "positions": None,
+                    "mixes": [{"combos": "AA", "weights": {"raise": 0.7, "limp": 0.7}}],
+                }
+            ]
+        )
 
 
 def test_persona_pack_rejects_unsupported_range_token():
     with pytest.raises(ValidationError, match="range token"):
-        _validate([{"facing": "unopened", "positions": None,
-                    "mixes": [{"combos": "A5s-A2s", "weights": {"raise": 1.0}}]}])
+        _validate(
+            [
+                {
+                    "facing": "unopened",
+                    "positions": None,
+                    "mixes": [{"combos": "A5s-A2s", "weights": {"raise": 1.0}}],
+                }
+            ]
+        )
 
 
 def test_persona_pack_rejects_explicit_node_after_wildcard():
     with pytest.raises(ValidationError, match="after wildcard"):
-        _validate([
-            {"facing": "unopened", "positions": None,
-             "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}]},
-            {"facing": "unopened", "positions": ["BTN"],
-             "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}]},
-        ])
+        _validate(
+            [
+                {
+                    "facing": "unopened",
+                    "positions": None,
+                    "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}],
+                },
+                {
+                    "facing": "unopened",
+                    "positions": ["BTN"],
+                    "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}],
+                },
+            ]
+        )
 
 
 def test_persona_pack_rejects_second_wildcard_per_facing():
     with pytest.raises(ValidationError, match="wildcard"):
-        _validate([
-            {"facing": "unopened", "positions": None,
-             "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}]},
-            {"facing": "unopened", "positions": None,
-             "mixes": [{"combos": "KK", "weights": {"raise": 1.0}}]},
-        ])
+        _validate(
+            [
+                {
+                    "facing": "unopened",
+                    "positions": None,
+                    "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}],
+                },
+                {
+                    "facing": "unopened",
+                    "positions": None,
+                    "mixes": [{"combos": "KK", "weights": {"raise": 1.0}}],
+                },
+            ]
+        )
 
 
 def test_persona_pack_rejects_overlapping_explicit_positions():
     with pytest.raises(ValidationError, match="duplicate position coverage"):
-        _validate([
-            {"facing": "unopened", "positions": ["BTN", "CO"],
-             "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}]},
-            {"facing": "unopened", "positions": ["CO"],
-             "mixes": [{"combos": "KK", "weights": {"raise": 1.0}}]},
-        ])
+        _validate(
+            [
+                {
+                    "facing": "unopened",
+                    "positions": ["BTN", "CO"],
+                    "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}],
+                },
+                {
+                    "facing": "unopened",
+                    "positions": ["CO"],
+                    "mixes": [{"combos": "KK", "weights": {"raise": 1.0}}],
+                },
+            ]
+        )
 
 
 def test_persona_pack_allows_one_wildcard_per_role_and_rejects_tag_after_untagged():
@@ -126,32 +171,69 @@ def test_persona_pack_allows_one_wildcard_per_role_and_rejects_tag_after_untagge
     `opener` and a `cold` wildcard coexist for one facing — but a role-tagged
     node may not FOLLOW an untagged one, which serves both roles and would
     shadow it dead."""
-    _validate([
-        {"facing": "vs_3bet", "positions": None, "role": "opener",
-         "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
-        {"facing": "vs_3bet", "positions": None, "role": "cold",
-         "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
-    ])
+    _validate(
+        [
+            {
+                "facing": "vs_3bet",
+                "positions": None,
+                "role": "opener",
+                "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+            },
+            {
+                "facing": "vs_3bet",
+                "positions": None,
+                "role": "cold",
+                "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+            },
+        ]
+    )
     with pytest.raises(ValidationError, match="role-tagged node after untagged"):
-        _validate([
-            {"facing": "vs_3bet", "positions": None,
-             "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
-            {"facing": "vs_3bet", "positions": None, "role": "opener",
-             "mixes": [{"combos": "AA", "weights": {"4bet": 1.0}}]},
-        ])
+        _validate(
+            [
+                {
+                    "facing": "vs_3bet",
+                    "positions": None,
+                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+                },
+                {
+                    "facing": "vs_3bet",
+                    "positions": None,
+                    "role": "opener",
+                    "mixes": [{"combos": "AA", "weights": {"4bet": 1.0}}],
+                },
+            ]
+        )
     with pytest.raises(ValidationError, match="wildcard"):
-        _validate([
-            {"facing": "vs_3bet", "positions": None, "role": "opener",
-             "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]},
-            {"facing": "vs_3bet", "positions": None, "role": "opener",
-             "mixes": [{"combos": "KK", "weights": {"call": 1.0}}]},
-        ])
+        _validate(
+            [
+                {
+                    "facing": "vs_3bet",
+                    "positions": None,
+                    "role": "opener",
+                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+                },
+                {
+                    "facing": "vs_3bet",
+                    "positions": None,
+                    "role": "opener",
+                    "mixes": [{"combos": "KK", "weights": {"call": 1.0}}],
+                },
+            ]
+        )
 
 
 def test_persona_pack_rejects_unknown_role():
     with pytest.raises(ValidationError):
-        _validate([{"facing": "vs_3bet", "positions": None, "role": "squeezer",
-                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}]}])
+        _validate(
+            [
+                {
+                    "facing": "vs_3bet",
+                    "positions": None,
+                    "role": "squeezer",
+                    "mixes": [{"combos": "AA", "weights": {"call": 1.0}}],
+                }
+            ]
+        )
 
 
 def _validate(preflop: list[dict]) -> PersonaPack:
@@ -187,26 +269,29 @@ _ROLE_FIXTURE = PersonaPack.model_validate(
 
 def test_role_tagged_node_matches_only_its_stratum():
     rng = random.Random(1)
-    assert sample_preflop_action(
-        _ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng, is_opener=True
-    ).name == "4bet"
-    assert sample_preflop_action(
-        _ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng, is_opener=False
-    ).name == "call"
+    assert (
+        sample_preflop_action(_ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng, is_opener=True).name
+        == "4bet"
+    )
+    assert (
+        sample_preflop_action(_ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng, is_opener=False).name
+        == "call"
+    )
     # A caller that does not track the stratum selects NO tagged node — the
     # documented fail-loud contract (a stratified pack needs a stratum-aware
     # caller; both production callers pass the flag).
-    assert sample_preflop_action(
-        _ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng
-    ).name == "fold"
+    assert sample_preflop_action(_ROLE_FIXTURE, Position.BTN, "vs_3bet", AA, rng).name == "fold"
 
 
 def test_untagged_node_serves_every_stratum():
     rng = random.Random(2)
     for is_opener in (True, False, None):
-        assert sample_preflop_action(
-            _ROLE_FIXTURE, Position.BTN, "vs_4bet", AA, rng, is_opener=is_opener
-        ).name == "call"
+        assert (
+            sample_preflop_action(
+                _ROLE_FIXTURE, Position.BTN, "vs_4bet", AA, rng, is_opener=is_opener
+            ).name
+            == "call"
+        )
 
 
 def test_shipped_untagged_packs_are_role_blind():
@@ -221,12 +306,13 @@ def test_shipped_untagged_packs_are_role_blind():
     ranks = "23456789TJQKA"
     facings = ("unopened", "vs_limpers", "vs_rfi", "vs_3bet", "vs_4bet")
     classes = [
-        (r1 + "h", r2 + s) for i, r1 in enumerate(ranks) for j, r2 in enumerate(ranks)
-        if i > j for s in ("h", "d")
+        (r1 + "h", r2 + s)
+        for i, r1 in enumerate(ranks)
+        for j, r2 in enumerate(ranks)
+        if i > j
+        for s in ("h", "d")
     ] + [(r + "h", r + "d") for r in ranks]
-    untagged = [
-        vt for vt, pack in packs.items() if all(n.role is None for n in pack.preflop)
-    ]
+    untagged = [vt for vt, pack in packs.items() if all(n.role is None for n in pack.preflop)]
     assert len(untagged) == 4, f"expected 4 untagged packs, got {sorted(v.value for v in untagged)}"
     for vt in untagged:
         pack = packs[vt]
@@ -249,8 +335,15 @@ def test_shipped_untagged_packs_are_role_blind():
 
 
 def test_loader_raises_on_duplicate_persona(tmp_path):
-    pack = _pack([{"facing": "unopened", "positions": None,
-                   "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}]}])
+    pack = _pack(
+        [
+            {
+                "facing": "unopened",
+                "positions": None,
+                "mixes": [{"combos": "AA", "weights": {"raise": 1.0}}],
+            }
+        ]
+    )
     (tmp_path / "a.json").write_text(json.dumps(pack))
     (tmp_path / "b.json").write_text(json.dumps(pack))
     with pytest.raises(ValueError, match="duplicate persona"):
@@ -520,8 +613,7 @@ def _premium_unopened_fold_weight(pack: PersonaPack) -> dict[tuple[str, str], fl
             (
                 n
                 for n in pack.preflop
-                if n.facing == "unopened"
-                and (n.positions is None or pos in n.positions)
+                if n.facing == "unopened" and (n.positions is None or pos in n.positions)
             ),
             None,
         )
@@ -602,8 +694,7 @@ def _authored_first_in_raise(pack: PersonaPack) -> dict[str, float]:
             (
                 n
                 for n in pack.preflop
-                if n.facing == "unopened"
-                and (n.positions is None or pos in n.positions)
+                if n.facing == "unopened" and (n.positions is None or pos in n.positions)
             ),
             None,
         )
@@ -736,12 +827,26 @@ _LAG_LADDER_SEATS = ("UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN")
 # post-slice: CO 22.08, BTN 28.42, SB 20.81 — each ceiling sits just above the
 # landed value, same margin convention as the other six seats).
 _LAG_OFFSUIT_CEILING = {
-    "UTG": 10.5, "UTG1": 10.5, "UTG2": 14.5, "LJ": 17.0, "HJ": 24.5, "BB": 22.5,
-    "CO": 22.5, "BTN": 29.0, "SB": 21.5,
+    "UTG": 10.5,
+    "UTG1": 10.5,
+    "UTG2": 14.5,
+    "LJ": 17.0,
+    "HJ": 24.5,
+    "BB": 22.5,
+    "CO": 22.5,
+    "BTN": 29.0,
+    "SB": 21.5,
 }
 _LAG_SUITED_FLOOR = {
-    "UTG": 9.5, "UTG1": 11.5, "UTG2": 14.0, "LJ": 15.0, "HJ": 17.5, "BB": 17.0,
-    "CO": 20.0, "BTN": 23.0, "SB": 19.0,
+    "UTG": 9.5,
+    "UTG1": 11.5,
+    "UTG2": 14.0,
+    "LJ": 15.0,
+    "HJ": 17.5,
+    "BB": 17.0,
+    "CO": 20.0,
+    "BTN": 23.0,
+    "SB": 19.0,
 }
 
 # Fix 2 (theory MED): the first cut pushed lag offsuit width to at-or-below the
@@ -776,8 +881,7 @@ def _authored_first_in_by_kind(pack: PersonaPack) -> dict[str, dict[str, float]]
             (
                 n
                 for n in pack.preflop
-                if n.facing == "unopened"
-                and (n.positions is None or pos in n.positions)
+                if n.facing == "unopened" and (n.positions is None or pos in n.positions)
             ),
             None,
         )
@@ -787,11 +891,7 @@ def _authored_first_in_by_kind(pack: PersonaPack) -> dict[str, dict[str, float]]
                 break
             for mix in node.mixes:
                 if cls in _combos(mix.combos):
-                    kind = (
-                        "pair" if len(cls) == 2
-                        else "suited" if cls[2] == "s"
-                        else "offsuit"
-                    )
+                    kind = "pair" if len(cls) == 2 else "suited" if cls[2] == "s" else "offsuit"
                     acc[kind] += ncombos * mix.weights.get("raise", 0.0)
                     break
         out[pos.value] = {k: 100.0 * v / 1326.0 for k, v in acc.items()}
@@ -811,8 +911,7 @@ def _authored_first_in_suited_weights(pack: PersonaPack) -> dict[str, dict[str, 
             (
                 n
                 for n in pack.preflop
-                if n.facing == "unopened"
-                and (n.positions is None or pos in n.positions)
+                if n.facing == "unopened" and (n.positions is None or pos in n.positions)
             ),
             None,
         )
@@ -960,9 +1059,7 @@ def test_lagcomp2_late_seat_suited_covers_the_tag():
         for pos in _LAGCOMP2_SEATS
     }
     short = {pos: v for pos, v in short.items() if v}
-    assert not short, (
-        f"lag suited range is not a superset of TAG's (class, lag w, tag w): {short}"
-    )
+    assert not short, f"lag suited range is not a superset of TAG's (class, lag w, tag w): {short}"
 
 
 def test_lag_first_in_ladder_above_tag_preservation():
@@ -974,11 +1071,7 @@ def test_lag_first_in_ladder_above_tag_preservation():
         pytest.skip("no persona packs")
     lag = _authored_first_in_raise(packs[VillainType.LAG])
     tag = _authored_first_in_raise(packs[VillainType.TAG])
-    bad = {
-        pos: (round(lag[pos], 4), round(tag[pos], 4))
-        for pos in lag
-        if lag[pos] <= tag[pos]
-    }
+    bad = {pos: (round(lag[pos], 4), round(tag[pos], 4)) for pos in lag if lag[pos] <= tag[pos]}
     assert not bad, f"lag authored RFI not above TAG (lag, tag): {bad}"
 
 
@@ -1029,9 +1122,7 @@ def test_lag_late_seat_first_in_width_ceiling():
         pytest.skip("no persona packs")
     rfi = _authored_first_in_raise(packs[VillainType.LAG])
     over = {
-        pos: round(rfi[pos], 3)
-        for pos, cap in _LAG_LATE_SEAT_CEILING.items()
-        if rfi[pos] > cap
+        pos: round(rfi[pos], 3) for pos, cap in _LAG_LATE_SEAT_CEILING.items() if rfi[pos] > cap
     }
     assert not over, f"lag late-seat authored RFI above ceiling: {over}"
 
@@ -1048,14 +1139,11 @@ def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():
     from app.domain.personas import _combos
 
     node = next(
-        n for n in packs[VillainType.LAG].preflop
-        if n.facing == "vs_rfi" and n.positions is None
+        n for n in packs[VillainType.LAG].preflop if n.facing == "vs_rfi" and n.positions is None
     )
     mix = next(m for m in node.mixes if "AQo" in _combos(m.combos))
     fold = mix.weights.get("fold", 0.0) + max(0.0, 1.0 - sum(mix.weights.values()))
-    assert fold == 0.0, (
-        f"lag folds AQo to a single raise: {mix.combos!r} -> {dict(mix.weights)}"
-    )
+    assert fold == 0.0, f"lag folds AQo to a single raise: {mix.combos!r} -> {dict(mix.weights)}"
 
 
 # ------------------------------------------------- N-TAGCOMP — tag composition
@@ -1106,8 +1194,15 @@ def test_lag_vs_rfi_aqo_does_not_fold_to_a_single_raise():
 # ≥2.7pp offsuit and ≥2.5pp suited). Each threshold sits ≥0.7pp inside the
 # shipped value and clearly on the far side of the pre-slice value.
 _TAG_OFFSUIT_CEILING = {
-    "UTG": 5.5, "UTG1": 6.0, "UTG2": 8.3, "LJ": 11.0, "HJ": 15.5,
-    "CO": 25.0, "BTN": 31.5, "SB": 24.0, "BB": 12.0,
+    "UTG": 5.5,
+    "UTG1": 6.0,
+    "UTG2": 8.3,
+    "LJ": 11.0,
+    "HJ": 15.5,
+    "CO": 25.0,
+    "BTN": 31.5,
+    "SB": 24.0,
+    "BB": 12.0,
 }
 # The suited universe is 312 of 1326 combos = 23.53%, so a suited floor of
 # 21.3% at BTN IS the ticket's headline "≥90% of the suited universe" target
@@ -1140,8 +1235,14 @@ _TAG_OFFSUIT_CEILING = {
 # delete a green floor to move UTG — its shape defence is the exact offsuit
 # block pin (`test_tagwidth_utg_offsuit_block_pinned`) instead.
 _TAG_SUITED_FLOOR = {
-    "UTG1": 7.7, "UTG2": 8.3, "LJ": 11.8, "HJ": 12.0,
-    "CO": 12.5, "BTN": 15.2, "SB": 14.3, "BB": 13.0,
+    "UTG1": 7.7,
+    "UTG2": 8.3,
+    "LJ": 11.8,
+    "HJ": 12.0,
+    "CO": 12.5,
+    "BTN": 15.2,
+    "SB": 14.3,
+    "BB": 13.0,
 }
 # Pre-slice per-seat TOTAL authored first-in raise %, frozen (measured on the
 # wave-3 tip e25abde). As N-TAGCOMP shipped, the slice never rose above any of
@@ -1151,8 +1252,15 @@ _TAG_SUITED_FLOOR = {
 # (seat-average 27.89) and DID re-anchor the BANDS rows. This dict stays as the
 # one-sided rise ceiling it always was — the gate still passes, a fortiori.
 _TAG_TOTAL_PRESLICE = {
-    "UTG": 17.1946, "UTG1": 18.7029, "UTG2": 21.4178, "LJ": 27.9035,
-    "HJ": 36.3499, "CO": 48.7179, "BTN": 58.5219, "SB": 46.6063, "BB": 30.7692,
+    "UTG": 17.1946,
+    "UTG1": 18.7029,
+    "UTG2": 21.4178,
+    "LJ": 27.9035,
+    "HJ": 36.3499,
+    "CO": 48.7179,
+    "BTN": 58.5219,
+    "SB": 46.6063,
+    "BB": 30.7692,
 }
 # ONE-SIDED on purpose (theory review D2). The gate this slice needs is "a
 # composition swap may not be used to buy WIDTH"; a two-sided ±1pp band would
@@ -1233,8 +1341,15 @@ def test_tagcomp_total_width_never_rises():
 # whole pre-slice mapping is exactly "these classes at raise 1.0, the rest
 # unplayed" — recorded here as the band's weakest played class per seat.
 _TAG_PAIR_BAND_PRESLICE = {
-    "UTG": "55", "UTG1": "44", "UTG2": "44", "LJ": "33", "HJ": "22",
-    "CO": "22", "BTN": "22", "SB": "22", "BB": "33",
+    "UTG": "55",
+    "UTG1": "44",
+    "UTG2": "44",
+    "LJ": "33",
+    "HJ": "22",
+    "CO": "22",
+    "BTN": "22",
+    "SB": "22",
+    "BB": "33",
 }
 _PAIR_CLASSES = [r + r for r in reversed("23456789TJQKA")]  # AA..22
 
@@ -1261,8 +1376,7 @@ def test_tagcomp_pair_band_unchanged_preservation():
             (
                 n
                 for n in pack.preflop
-                if n.facing == "unopened"
-                and (n.positions is None or pos in n.positions)
+                if n.facing == "unopened" and (n.positions is None or pos in n.positions)
             ),
             None,
         )
@@ -1374,8 +1488,14 @@ def test_tagcomp_pair_band_unchanged_preservation():
 # what each ceiling was derived from. NOT gated: per the source doc, no row is
 # gate-grade, and the two-sided form is exactly what review rejected.
 _TAG_PROVENANCE_RFI = {
-    "UTG": (9, 13), "UTG1": (10, 14), "UTG2": (11, 15), "LJ": (12, 17),
-    "HJ": (14, 19), "CO": (20, 27), "BTN": (30, 45), "SB": (15, 36),
+    "UTG": (9, 13),
+    "UTG1": (10, 14),
+    "UTG2": (11, 15),
+    "LJ": (12, 17),
+    "HJ": (14, 19),
+    "CO": (20, 27),
+    "BTN": (30, 45),
+    "SB": (15, 36),
 }
 # ONE-SIDED per-seat ceilings for the five seats this slice moves.
 #   BTN 45.0 / SB 36.0 — the provenance synthesis MAXIMUM, reached: shipped
@@ -1394,7 +1514,11 @@ _TAG_PROVENANCE_RFI = {
 # bound a regression, it may not define a pass. Nothing below rewards a seat for
 # approaching them, and no floor is asserted anywhere in this dict.
 _TAG_WIDTH_CEILING = {
-    "UTG": 14.3, "HJ": 29.6, "CO": 31.0, "BTN": 45.0, "SB": 36.0,
+    "UTG": 14.3,
+    "HJ": 29.6,
+    "CO": 31.0,
+    "BTN": 45.0,
+    "SB": 36.0,
 }
 # Per-seat OFFSUIT ceilings for the four seats whose offsuit was CUT. Pre-slice
 # HEAD read HJ 14.03 · CO 23.53 · BTN 29.86 · SB 22.62; shipped 10.86 / 11.76 /
@@ -1405,7 +1529,10 @@ _TAG_WIDTH_CEILING = {
 # from HEAD (4.52) because that seat is a recomposition — the suited tail paid
 # for the restored ATo+/KQo — so an offsuit ceiling there would assert nothing.
 _TAG_MOVED_OFFSUIT_CEILING = {
-    "HJ": 11.6, "CO": 12.5, "BTN": 23.0, "SB": 14.4,
+    "HJ": 11.6,
+    "CO": 12.5,
+    "BTN": 23.0,
+    "SB": 14.4,
 }
 # CLASS-LEVEL suited pin for the four seats whose suited rows were walked back
 # (Codex review: an aggregate suited number cannot prove composition — a seat
@@ -1440,7 +1567,11 @@ _TAG_LATE_SUITED_PIN = {
 # above), and a two-sided pin here would force whoever resolves it to delete a
 # green test first. UTG's entry is its post-recomposition value.
 _TAG_OUTSIDE_SUITED_CEILING = {
-    "UTG": 5.13, "UTG1": 8.75, "UTG2": 9.20, "LJ": 12.52, "BB": 14.18,
+    "UTG": 5.13,
+    "UTG1": 8.75,
+    "UTG2": 9.20,
+    "LJ": 12.52,
+    "BB": 14.18,
 }
 # The standard 9-max button offsuit block, pinned BY WEIGHT TIER. Both tiers
 # are pinned (Codex review): the half-weight row is part of the claim "the
@@ -1461,7 +1592,8 @@ def _tag_suited_by_weight(pack: PersonaPack, seat: str) -> dict[float, set[str]]
     from app.domain.personas import _combos
 
     node = next(
-        n for n in pack.preflop
+        n
+        for n in pack.preflop
         if n.facing == "unopened" and n.positions and Position(seat) in n.positions
     )
     out: dict[float, set[str]] = {}
@@ -1482,7 +1614,8 @@ def _tag_offsuit_by_weight(pack: PersonaPack, seat: str) -> dict[float, set[str]
     from app.domain.personas import _combos
 
     node = next(
-        n for n in pack.preflop
+        n
+        for n in pack.preflop
         if n.facing == "unopened" and n.positions and Position(seat) in n.positions
     )
     out: dict[float, set[str]] = {}
@@ -1691,17 +1824,13 @@ def test_tagwidth_offsuit_ladder_monotone_and_btn_above_sb():
     kinds = _authored_first_in_by_kind(packs[VillainType.TAG])
     bad = [
         f"{a} {kinds[a]['offsuit']:.2f} > {b} {kinds[b]['offsuit']:.2f}"
-        for a, b in zip(
-            _TAG_OFFSUIT_LADDER_SEATS, _TAG_OFFSUIT_LADDER_SEATS[1:], strict=False
-        )
+        for a, b in zip(_TAG_OFFSUIT_LADDER_SEATS, _TAG_OFFSUIT_LADDER_SEATS[1:], strict=False)
         if kinds[a]["offsuit"] > kinds[b]["offsuit"]
     ]
     assert not bad, f"tag offsuit width not monotone to the button: {bad}"
     assert kinds["BTN"]["offsuit"] > kinds["SB"]["offsuit"], (
-        f"BTN offsuit {kinds['BTN']['offsuit']:.2f} is not above SB "
-        f"{kinds['SB']['offsuit']:.2f}"
+        f"BTN offsuit {kinds['BTN']['offsuit']:.2f} is not above SB {kinds['SB']['offsuit']:.2f}"
     )
-
 
 
 def test_all_six_persona_packs_load():

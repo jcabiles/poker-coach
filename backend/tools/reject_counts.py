@@ -188,33 +188,19 @@ def _preflop_shape_label(state: HandState) -> str:
     voluntary = [h for h in pre if h.action is not ActionType.POST]
 
     folded = {h.position for h in voluntary if h.action is ActionType.FOLD}
-    invested = {h.position for h in voluntary if h.action in (
-        ActionType.CALL, ActionType.RAISE
-    )}
+    invested = {h.position for h in voluntary if h.action in (ActionType.CALL, ActionType.RAISE)}
     # The blinds are entrants by posting, unless they folded preflop.
     invested |= {Position.SB, Position.BB}
     entrants = invested - folded
 
     raises = [h for h in voluntary if h.action is ActionType.RAISE]
-    first_raise = next(
-        (i for i, h in enumerate(voluntary) if h.action is ActionType.RAISE), None
-    )
+    first_raise = next((i for i, h in enumerate(voluntary) if h.action is ActionType.RAISE), None)
     if first_raise is None:
         limpers = {h.position for h in voluntary if h.action is ActionType.CALL}
         limp = f"limp={len(limpers)}" if limpers else "limp=0"
     else:
-        limpers = {
-            h.position
-            for h in voluntary[:first_raise]
-            if h.action is ActionType.CALL
-        }
-        after = sorted(
-            {
-                h.action.value
-                for h in voluntary[first_raise:]
-                if h.position in limpers
-            }
-        )
+        limpers = {h.position for h in voluntary[:first_raise] if h.action is ActionType.CALL}
+        after = sorted({h.action.value for h in voluntary[first_raise:] if h.position in limpers})
         limp = f"limp={len(limpers)}"
         if limpers:
             limp += f"(then_{'+'.join(after) or 'none'})"
@@ -317,15 +303,11 @@ def measure(session_id: str, max_hand_no: int | None = None, db_path: str | None
         if max_hand_no is not None:
             query = query.where(SimHand.hand_no <= max_hand_no)
         hands = db.exec(query.order_by(SimHand.id)).all()
-        rows = db.exec(
-            select(SimDecision).where(SimDecision.session_id == session_id)
-        ).all()
+        rows = db.exec(select(SimDecision).where(SimDecision.session_id == session_id)).all()
     if not hands:
         raise SystemExit(f"no hands for session {session_id!r}")
     hand_ids = {h.id for h in hands}
-    persisted = {
-        (r.sim_hand_id, r.ordinal): r for r in rows if r.sim_hand_id in hand_ids
-    }
+    persisted = {(r.sim_hand_id, r.ordinal): r for r in rows if r.sim_hand_id in hand_ids}
 
     per_street: Counter = Counter()
     matrix: dict[str, Counter] = {s.value: Counter() for s in _POSTFLOP}
@@ -367,9 +349,7 @@ def measure(session_id: str, max_hand_no: int | None = None, db_path: str | None
             verdict = classify_with_evidence(state, HERO_SEAT)
             matrix[state.street.value][verdict.reason] += 1
             max_depths.append(verdict.max_depth)
-            breakdowns[verdict.reason][
-                _describe(verdict.reason, state, HERO_SEAT)
-            ] += 1
+            breakdowns[verdict.reason][_describe(verdict.reason, state, HERO_SEAT)] += 1
 
     # Reverse-direction parity (refuter LOW-1): the forward checks prove every
     # REPLAYED decision matches a persisted row, but not that every persisted
@@ -407,9 +387,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    (
-        per_street, matrix, mapped, unmapped, breakdowns, replayed, max_depths
-    ) = measure(args.session, args.max_hand_no, args.db)
+    (per_street, matrix, mapped, unmapped, breakdowns, replayed, max_depths) = measure(
+        args.session, args.max_hand_no, args.db
+    )
     total = mapped + unmapped
     streets = [s.value for s in _POSTFLOP]
 

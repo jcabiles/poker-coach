@@ -210,9 +210,7 @@ def test_every_keystone_row_has_provenance():
         if _UNVERIFIED in fmt or _UNVERIFIED in status:
             continue  # explicitly, auditably unsourced — allowed, never HARD-gatable
         if any(_EMPTY_CELL.match(c) for c in (fmt, pool, source)):
-            incomplete.append(
-                f"{label}: format={fmt!r} pool={pool!r} source={source!r}"
-            )
+            incomplete.append(f"{label}: format={fmt!r} pool={pool!r} source={source!r}")
 
     assert not missing, (
         "§5 keystone rows absent from the §5a provenance registry "
@@ -232,9 +230,7 @@ def test_registry_has_no_orphan_rows():
     rows = {_normalise(r) for r in _keystone_rows(_section(text, "## 5. ", "## 5a. "))}
     registry = _registry(_section(text, "## 5a. ", "## 6. "))
     orphans = sorted(set(registry) - rows)
-    assert not orphans, (
-        f"§5a registry entries with no matching §5 keystone row: {orphans}"
-    )
+    assert not orphans, f"§5a registry entries with no matching §5 keystone row: {orphans}"
 
 
 def test_format_sensitivity_lists_are_declared():

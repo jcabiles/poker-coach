@@ -88,8 +88,7 @@ from app.domain.personas import load_persona_packs
 # Kept as a literal rather than read from `postflop_node_key` for the usual
 # reason: a gate that sources its own scope from the module under test goes
 # green for free the moment that module changes its mind.
-NODES = ("flat", "cbet_dry", "cbet_wet", "cbet_mono", "turn_barrel",
-         "river_value")
+NODES = ("flat", "cbet_dry", "cbet_wet", "cbet_mono", "turn_barrel", "river_value")
 
 # The grader's recognised grid, canonical spelling. Sizes are CANONICALISED on
 # read rather than looked up by these literals: the pack invariant compares
@@ -224,8 +223,7 @@ def _sizes(dists: list[dict[str, float]]) -> list[str]:
 def _bayes_accuracy(dists: list[dict[str, float]]) -> float:
     """Best accuracy an observer could reach identifying which of `dists`
     produced one observed size, under a uniform prior over them."""
-    return sum(max(d.get(s, 0.0) for d in dists)
-               for s in _sizes(dists)) / len(dists)
+    return sum(max(d.get(s, 0.0) for d in dists) for s in _sizes(dists)) / len(dists)
 
 
 def _class_dists(packs: dict, node: str) -> list[dict[str, float]]:
@@ -278,14 +276,17 @@ def _all_sizes(packs: dict, node: str) -> list[str]:
 
 # --- the headline gate ------------------------------------------------------
 
+
 def test_no_node_lets_one_bet_size_name_the_class(packs):
-    loud = {n: round(_class_tell(packs, n), 3) for n in NODES
-            if _class_tell(packs, n) > MAX_CLASS_TELL}
+    loud = {
+        n: round(_class_tell(packs, n), 3) for n in NODES if _class_tell(packs, n) > MAX_CLASS_TELL
+    }
     assert not loud, (
         f"bet size names the archetype CLASS at {loud} — an observer guessing "
         f"recreational/regular/maniac from a single size beats the "
         f"{MAX_CLASS_TELL} ceiling (chance {1 / len(CLASSES):.3f}). Full table: "
-        f"{ {n: round(_class_tell(packs, n), 3) for n in NODES} }")
+        f"{ {n: round(_class_tell(packs, n), 3) for n in NODES} }"
+    )
 
 
 def test_no_single_size_names_one_class_outright(packs):
@@ -302,11 +303,14 @@ def test_no_single_size_names_one_class_outright(packs):
             if len(CLASSES[winner]) == 1:
                 continue  # singleton class — the persona gate already owns it
             if post > MAX_CLASS_POSTERIOR:
-                authors = sorted(n for n, p in packs.items()
-                                 if _dist_at(p, node).get(size, 0.0) > 0)
-                loud.append(f"{node} @ {size}: seeing this size identifies the "
-                            f"{winner} class with confidence {post:.2f} "
-                            f"(authors: {authors})")
+                authors = sorted(
+                    n for n, p in packs.items() if _dist_at(p, node).get(size, 0.0) > 0
+                )
+                loud.append(
+                    f"{node} @ {size}: seeing this size identifies the "
+                    f"{winner} class with confidence {post:.2f} "
+                    f"(authors: {authors})"
+                )
     assert not loud, "\n".join(loud)
 
 
@@ -318,11 +322,14 @@ def test_no_single_size_names_one_persona_outright(packs):
                 continue
             post = _size_posterior(packs, node, size)
             if post is not None and post > MAX_SIZE_POSTERIOR:
-                authors = sorted(n for n, p in packs.items()
-                                 if _dist_at(p, node).get(size, 0.0) > 0)
-                loud.append(f"{node} @ {size}: seeing this size identifies one "
-                            f"persona with confidence {post:.2f} "
-                            f"(authors: {authors})")
+                authors = sorted(
+                    n for n, p in packs.items() if _dist_at(p, node).get(size, 0.0) > 0
+                )
+                loud.append(
+                    f"{node} @ {size}: seeing this size identifies one "
+                    f"persona with confidence {post:.2f} "
+                    f"(authors: {authors})"
+                )
     assert not loud, "\n".join(loud)
 
 
@@ -330,22 +337,30 @@ def test_no_node_lets_one_bet_size_name_the_persona(packs):
     """Supporting check. Weaker than the class gate by construction — see the
     module docstring — and kept so a roster that separates the six INDIVIDUALLY
     while holding the classes together still fails something."""
-    loud = {n: round(_persona_tell(packs, n), 3) for n in NODES
-            if _persona_tell(packs, n) > MAX_PERSONA_TELL}
+    loud = {
+        n: round(_persona_tell(packs, n), 3)
+        for n in NODES
+        if _persona_tell(packs, n) > MAX_PERSONA_TELL
+    }
     assert not loud, (
         f"bet size names the persona at {loud} against a {MAX_PERSONA_TELL} "
         f"ceiling (chance {1 / len(packs):.3f}). Full table: "
-        f"{ {n: round(_persona_tell(packs, n), 3) for n in NODES} }")
+        f"{ {n: round(_persona_tell(packs, n), 3) for n in NODES} }"
+    )
 
 
 def test_every_exempted_cell_is_still_single_persona(packs):
     """An exemption that stops being needed must be deleted, not left lying
     where it can silently cover a future regression at the same cell."""
-    stale = [cell for cell in sorted(SINGLE_PERSONA_CELLS)
-             if (_size_posterior(packs, *cell) or 0.0) <= MAX_SIZE_POSTERIOR]
+    stale = [
+        cell
+        for cell in sorted(SINGLE_PERSONA_CELLS)
+        if (_size_posterior(packs, *cell) or 0.0) <= MAX_SIZE_POSTERIOR
+    ]
     assert not stale, (
         f"these cells no longer exceed {MAX_SIZE_POSTERIOR} and their "
-        f"exemption should be removed: {stale}")
+        f"exemption should be removed: {stale}"
+    )
 
 
 # --- negative cases ---------------------------------------------------------
@@ -386,15 +401,15 @@ def test_the_class_ceiling_can_fail(packs):
     assert _class_tell(pre, "river_value") > MAX_CLASS_TELL, (
         f"the pre-ticket river_value distributions read "
         f"{_class_tell(pre, 'river_value'):.3f}, which must exceed the ceiling "
-        f"or the ceiling is not measuring the defect it was set against")
+        f"or the ceiling is not measuring the defect it was set against"
+    )
 
     # And the stated cause, pinned separately so the two cannot be conflated
     # again: removing the certainty cell leaves the accuracy gate still failing.
     without = {name: dict(d) for name, d in _PRE_TICKET_RIVER_VALUE.items()}
     for rec in CLASSES["recreational"]:
         without[rec] = {"0.5": 0.9, "0.75": 0.1}
-    assert _class_tell(_rebuilt(packs, "river_value", without),
-                       "river_value") > MAX_CLASS_TELL
+    assert _class_tell(_rebuilt(packs, "river_value", without), "river_value") > MAX_CLASS_TELL
 
 
 def test_the_posterior_gate_catches_what_the_accuracy_gates_cannot(packs):
@@ -410,8 +425,7 @@ def test_the_posterior_gate_catches_what_the_accuracy_gates_cannot(packs):
     """
     shared = {"0.33": 0.25, "0.5": 0.25, "0.75": 0.25, "1.0": 0.25}
     dists = {name: dict(shared) for name in packs}
-    dists["maniac"] = {"0.33": 0.24, "0.5": 0.24, "0.75": 0.24, "1.0": 0.24,
-                       "1.5": 0.04}
+    dists["maniac"] = {"0.33": 0.24, "0.5": 0.24, "0.75": 0.24, "1.0": 0.24, "1.5": 0.04}
     pre = _rebuilt(packs, "river_value", dists)
 
     assert _class_tell(pre, "river_value") <= MAX_CLASS_TELL
@@ -469,6 +483,7 @@ def test_a_maximally_telling_roster_scores_the_top_of_its_range(packs):
 
 # --- structural floor -------------------------------------------------------
 
+
 def test_every_persona_bets_small_medium_and_large(packs):
     """No persona may be unable to make an ordinary bet size.
 
@@ -491,8 +506,10 @@ def test_every_persona_bets_small_medium_and_large(packs):
         for band, keys in BANDS.items():
             share = sum(dist.get(k, 0.0) for k in keys)
             if share < MIN_BAND_SHARE:
-                thin.append(f"{name} bets {band} only {share:.2f} of the time "
-                            f"(floor {MIN_BAND_SHARE}); its flat block is {dist}")
+                thin.append(
+                    f"{name} bets {band} only {share:.2f} of the time "
+                    f"(floor {MIN_BAND_SHARE}); its flat block is {dist}"
+                )
     assert not thin, "\n".join(thin)
 
 
@@ -501,8 +518,9 @@ def test_the_band_floor_catches_a_missing_size(packs):
     0.75/1.0/1.5, so a maniac leading out could not make a small or a medium bet
     at all — the tell this ticket was written to remove."""
     dist = {"0.75": 0.4, "1.0": 0.35, "1.5": 0.25}
-    missing = [band for band, keys in BANDS.items()
-               if sum(dist.get(k, 0.0) for k in keys) < MIN_BAND_SHARE]
+    missing = [
+        band for band, keys in BANDS.items() if sum(dist.get(k, 0.0) for k in keys) < MIN_BAND_SHARE
+    ]
     assert missing == ["small", "medium"], missing
 
 
@@ -537,13 +555,19 @@ def test_a_sizing_change_did_not_touch_a_preflop_range(packs):
     wrong = []
     for (persona, facing, pos), (combos, weights) in PINNED_CORES.items():
         positions = None if pos == "*" else pos.split(",")
-        node = next((n for n in packs[persona].preflop
-                     if n.facing == facing
-                     and ([p.value for p in n.positions] if n.positions else None) == positions),
-                    None)
+        node = next(
+            (
+                n
+                for n in packs[persona].preflop
+                if n.facing == facing
+                and ([p.value for p in n.positions] if n.positions else None) == positions
+            ),
+            None,
+        )
         assert node is not None, f"{persona} {facing} {pos} is missing"
         first = node.mixes[0]
         if first.combos != combos or dict(first.weights) != weights:
-            wrong.append(f"{persona} {facing} {pos}: core is now "
-                         f"{first.combos!r} {dict(first.weights)}")
+            wrong.append(
+                f"{persona} {facing} {pos}: core is now {first.combos!r} {dict(first.weights)}"
+            )
     assert not wrong, "\n".join(wrong)

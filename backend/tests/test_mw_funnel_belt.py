@@ -41,9 +41,7 @@ def _count_mw_fires(proxy: str, seed: int, hands: int) -> int:
     for hand_no in range(hands):
         lineup = assign_lineup(rng)
         seat_packs = {s: packs[t.value] for s, t in lineup.items()}
-        state = start_hand(
-            deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9
-        )
+        state = start_hand(deal_hand(rng), button_seat=hand_no % 9, stacks_bb=[100.0] * 9)
         guard = 0
         while not state.hand_over and state.to_act_seat is not None:
             guard += 1

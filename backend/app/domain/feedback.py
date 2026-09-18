@@ -44,8 +44,7 @@ _VILLAIN_DESC = {
 _PRE_SHAPE = {
     "correct": "This matches what the chart plays here.",
     "chart": (
-        "The chart decides this spot from the full range of hands, "
-        "not from a read on one opponent."
+        "The chart decides this spot from the full range of hands, not from a read on one opponent."
     ),
     "over_fold": (
         "Folding here gives up money: this hand is inside the range the chart "
@@ -76,25 +75,21 @@ _PRE_SHAPE = {
 # river_class] — both the turn-card AND river-card sentences surface (S7).
 _NODE = {
     "cbet": (
-        "You raised before the flop, so the choice is whether to c-bet "
-        "(keep betting as the raiser)"
+        "You raised before the flop, so the choice is whether to c-bet (keep betting as the raiser)"
     ),
     "vs_cbet": (
-        "Your opponent raised preflop and now bets again — you're facing "
-        "a c-bet (continuation bet)"
+        "Your opponent raised preflop and now bets again — you're facing a c-bet (continuation bet)"
     ),
     "vs_check_raise": (
         "Your c-bet just got check-raised (they checked, then raised your bet) — "
         "that usually means real strength"
     ),
     "turn_barrel": (
-        "You bet the flop; the choice is whether to barrel "
-        "(fire a second bet) on the turn"
+        "You bet the flop; the choice is whether to barrel (fire a second bet) on the turn"
     ),
     "vs_turn_bet": "You called on the flop and now face a second bet on the turn",
     "river_barrel": (
-        "You bet flop and turn; the choice is whether to fire the last bet "
-        "on the river"
+        "You bet flop and turn; the choice is whether to fire the last bet on the river"
     ),
     "vs_river_bet": "You called flop and turn and now face the final bet on the river",
     "vs_caller_raise": (
@@ -102,12 +97,10 @@ _NODE = {
         "you — that usually means a strong hand or a big draw"
     ),
     "limped_lead": (
-        "Nobody raised before the flop (a limped pot), so the choice is "
-        "whether to bet first"
+        "Nobody raised before the flop (a limped pot), so the choice is whether to bet first"
     ),
     "limped_vs_lead": (
-        "Nobody raised before the flop (a limped pot), and your opponent "
-        "bets into you"
+        "Nobody raised before the flop (a limped pot), and your opponent bets into you"
     ),
 }
 _ADV = {
@@ -131,8 +124,7 @@ _CAT = {
         "semi-bluff (it can win the pot now or hit later)"
     ),
     "air": (
-        "With no pair and no draw, don't build a pot you can only win by "
-        "making better hands fold"
+        "With no pair and no draw, don't build a pot you can only win by making better hands fold"
     ),
 }
 # Facing-a-wager variants (vs_caller_raise, limped_vs_lead): hero is reacting
@@ -142,8 +134,7 @@ _CAT = {
 # HIGH + Codex MED). These nodes emit adv/edge in {hero, villain, neutral}.
 _ADV_FACING = {
     "hero": (
-        "this board helps your likely hands more than the bettor's, "
-        "so you can continue more often"
+        "this board helps your likely hands more than the bettor's, so you can continue more often"
     ),
     "villain": (
         "this board fits the bettor's likely hands better than yours, "

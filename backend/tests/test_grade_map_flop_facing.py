@@ -29,17 +29,21 @@ from app.domain.table.grade_map import map_decision_point
 HERO_SEAT = 0
 _BLINDS = {Position.SB, Position.BB}
 _BUTTON_FOR_HERO = {
-    Position.BTN: 0, Position.SB: 8, Position.BB: 7,
-    Position.UTG: 6, Position.UTG1: 5, Position.UTG2: 4,
-    Position.LJ: 3, Position.HJ: 2, Position.CO: 1,
+    Position.BTN: 0,
+    Position.SB: 8,
+    Position.BB: 7,
+    Position.UTG: 6,
+    Position.UTG1: 5,
+    Position.UTG2: 4,
+    Position.LJ: 3,
+    Position.HJ: 2,
+    Position.CO: 1,
 }
 
 
 def _state(hero_pos: Position, seed: int = 7, stacks: float = 100.0) -> HandState:
     dealt = deal_hand(random.Random(seed))
-    return start_hand(
-        dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9
-    )
+    return start_hand(dealt, button_seat=_BUTTON_FOR_HERO[hero_pos], stacks_bb=[stacks] * 9)
 
 
 def _play(state: HandState, moves: list[tuple[Position, Decision]]) -> HandState:
@@ -81,11 +85,7 @@ def _flop_pot(opener: Position) -> float:
 def _srp_preflop_moves(opener: Position, osize: float) -> list:
     moves = [_fold(p) for p in _before(opener) if p not in _BLINDS]
     moves.append(_raise(opener, osize))
-    moves += [
-        _fold(p)
-        for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :]
-        if p not in _BLINDS
-    ]
+    moves += [_fold(p) for p in _SEAT_ORDER[_SEAT_ORDER.index(opener) + 1 :] if p not in _BLINDS]
     moves += [_fold(Position.SB), _call(Position.BB)]
     return moves
 
@@ -133,9 +133,7 @@ def test_vs_cbet_maps_with_builder_ranges(opener, frac):
     assert state.street is Street.FLOP and state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_vs_cbet_spot(
-        random.Random(0), pairing=(opener, Position.BB), eff_bb=100.0
-    )
+    built = build_vs_cbet_spot(random.Random(0), pairing=(opener, Position.BB), eff_bb=100.0)
     assert spot.hero_range == built.hero_range  # BB blind-defense call range
     assert spot.villain_range == built.villain_range  # opener RFI raise range
     assert spot.facing == built.facing == opener
@@ -160,9 +158,7 @@ def test_vs_check_raise_maps_with_incremental_call(hero_pos, raise_mult):
     assert state.street is Street.FLOP and state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
-    built = build_check_raise_spot(
-        random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0
-    )
+    built = build_check_raise_spot(random.Random(0), pairing=(hero_pos, Position.BB), eff_bb=100.0)
     assert spot.hero_range == built.hero_range  # opener RFI raise range
     assert spot.villain_range == built.villain_range  # BB defend range
     assert spot.facing == built.facing == Position.BB
@@ -233,9 +229,7 @@ def test_three_way_bb_defense_now_maps_multiway():
     state = _play(state, moves)
     fp = round(3 * _OPEN_SIZE[opener] + 0.5, 2)
     cbet = round(0.33 * fp, 1)
-    state = _play(
-        state, [_check(Position.BB), _bet(opener, cbet), _call(Position.BTN)]
-    )
+    state = _play(state, [_check(Position.BB), _bet(opener, cbet), _call(Position.BTN)])
     assert state.to_act_seat == HERO_SEAT
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
@@ -270,34 +264,24 @@ def test_mid_stack_vs_check_raise_maps_via_all_in_ceiling():
     # NOT chips behind. CO opens 2.5, c-bets 4.1 (0.75 pot), BB raises to 12.3;
     # small leg 2.5x = 30.8. Stacks 35: chips behind 28.4 < 30.8 but all-in-TO
     # 32.5 covers it -> the node MUST map (two legs, big clamped to 32.5).
-    state = _vs_check_raise_state(
-        Position.CO, cbet_frac=0.75, raise_mult=3.0, stacks=35.0
-    )
+    state = _vs_check_raise_state(Position.CO, cbet_frac=0.75, raise_mult=3.0, stacks=35.0)
     spot = map_decision_point(state, HERO_SEAT)
     assert spot is not None
     legs = [la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE]
     assert legs == [30.8, 32.5]
-    assert all(
-        la.max_bb == 32.5
-        for la in spot.legal_actions
-        if la.action is ActionType.RAISE
-    )
+    assert all(la.max_bb == 32.5 for la in spot.legal_actions if la.action is ActionType.RAISE)
 
 
 def test_mid_stack_vs_check_raise_collapse_and_gate():
     # Stacks 33.3: all-in-TO = 30.8 == the small leg -> big clamps onto small,
     # ONE leg. Stacks 33.2: all-in-TO 30.7 < 30.8 -> no baseline.
-    collapsed = _vs_check_raise_state(
-        Position.CO, cbet_frac=0.75, raise_mult=3.0, stacks=33.3
-    )
+    collapsed = _vs_check_raise_state(Position.CO, cbet_frac=0.75, raise_mult=3.0, stacks=33.3)
     spot = map_decision_point(collapsed, HERO_SEAT)
     assert spot is not None
     legs = [la.min_bb for la in spot.legal_actions if la.action is ActionType.RAISE]
     assert legs == [30.8]
 
-    too_shallow = _vs_check_raise_state(
-        Position.CO, cbet_frac=0.75, raise_mult=3.0, stacks=33.2
-    )
+    too_shallow = _vs_check_raise_state(Position.CO, cbet_frac=0.75, raise_mult=3.0, stacks=33.2)
     assert map_decision_point(too_shallow, HERO_SEAT) is None
 
 

@@ -163,12 +163,8 @@ def test_vs_cbet_multiway_air_bluffcatch_freq_strictly_lower():
     hu_v, mw_v = _hu_and_mw("build_vs_cbet_spot", seed=5, hole=_STRONG_HAND)
     hu_value = grade_vs_cbet(hu_v, hu_v.hero_range, hu_v.villain_range, None)
     mw_value = grade_vs_cbet(mw_v, mw_v.hero_range, mw_v.villain_range, None)
-    hu_value_continue = _bet_or_raise_freq(
-        hu_value, categories=(ActionType.CALL, ActionType.RAISE)
-    )
-    mw_value_continue = _bet_or_raise_freq(
-        mw_value, categories=(ActionType.CALL, ActionType.RAISE)
-    )
+    hu_value_continue = _bet_or_raise_freq(hu_value, categories=(ActionType.CALL, ActionType.RAISE))
+    mw_value_continue = _bet_or_raise_freq(mw_value, categories=(ActionType.CALL, ActionType.RAISE))
     assert mw_value_continue >= hu_value_continue
 
 
@@ -188,12 +184,8 @@ def test_vs_turn_bet_multiway_air_fold_ev_strictly_higher():
     hu_v, mw_v = _hu_and_mw("build_vs_turn_bet_spot", seed=5, hole=_STRONG_HAND)
     hu_value = grade_vs_turn_bet(hu_v, hu_v.hero_range, hu_v.villain_range, None)
     mw_value = grade_vs_turn_bet(mw_v, mw_v.hero_range, mw_v.villain_range, None)
-    hu_value_continue = _bet_or_raise_freq(
-        hu_value, categories=(ActionType.CALL, ActionType.RAISE)
-    )
-    mw_value_continue = _bet_or_raise_freq(
-        mw_value, categories=(ActionType.CALL, ActionType.RAISE)
-    )
+    hu_value_continue = _bet_or_raise_freq(hu_value, categories=(ActionType.CALL, ActionType.RAISE))
+    mw_value_continue = _bet_or_raise_freq(mw_value, categories=(ActionType.CALL, ActionType.RAISE))
     assert mw_value_continue >= hu_value_continue
 
 
@@ -210,12 +202,8 @@ def test_vs_river_bet_multiway_air_fold_ev_strictly_higher():
     hu_v, mw_v = _hu_and_mw("build_vs_river_bet_spot", seed=2, hole=_STRONG_HAND)
     hu_value = grade_vs_river_bet(hu_v, hu_v.hero_range, hu_v.villain_range, None)
     mw_value = grade_vs_river_bet(mw_v, mw_v.hero_range, mw_v.villain_range, None)
-    hu_value_continue = _bet_or_raise_freq(
-        hu_value, categories=(ActionType.CALL, ActionType.RAISE)
-    )
-    mw_value_continue = _bet_or_raise_freq(
-        mw_value, categories=(ActionType.CALL, ActionType.RAISE)
-    )
+    hu_value_continue = _bet_or_raise_freq(hu_value, categories=(ActionType.CALL, ActionType.RAISE))
+    mw_value_continue = _bet_or_raise_freq(mw_value, categories=(ActionType.CALL, ActionType.RAISE))
     assert mw_value_continue >= hu_value_continue
 
 

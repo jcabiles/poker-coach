@@ -60,8 +60,15 @@ from app.domain.table import play as play_mod
 from tools.export_analytics import play_one_hand
 
 RATIFIED_LINEUP = [
-    "tag", "tag", "calling_station", "tag", "passive_fish",
-    "lag", "passive_fish", "nit", "maniac",
+    "tag",
+    "tag",
+    "calling_station",
+    "tag",
+    "passive_fish",
+    "lag",
+    "passive_fish",
+    "nit",
+    "maniac",
 ]
 LATE = (Street.TURN, Street.RIVER)
 
@@ -155,15 +162,13 @@ class _Probe:
 
     def wrap(self, original):
         def wrapper(pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, **kw):
-            decision = original(pack, hole, board, legal, pot_bb, stack_bb,
-                                opponents, rng, **kw)
-            self._record(original, pack, hole, board, legal, pot_bb, stack_bb,
-                         opponents, kw)
+            decision = original(pack, hole, board, legal, pot_bb, stack_bb, opponents, rng, **kw)
+            self._record(original, pack, hole, board, legal, pot_bb, stack_bb, opponents, kw)
             return decision
+
         return wrapper
 
-    def _record(self, original, pack, hole, board, legal, pot_bb, stack_bb,
-                opponents, kw) -> None:
+    def _record(self, original, pack, hole, board, legal, pot_bb, stack_bb, opponents, kw) -> None:
         by_kind = {la.action: la for la in legal}
         if ActionType.BET not in by_kind or ActionType.CHECK not in by_kind:
             return  # not an unopened node
@@ -186,8 +191,7 @@ class _Probe:
                 pp._LATE_STREET_BLUFF_GAIN = dict(zip(LATE, arm.bluff_gains, strict=True))
             try:
                 cap = _CaptureRng(random.Random(0))
-                original(arm_pack, hole, board, legal, pot_bb, stack_bb,
-                         opponents, cap, **kw)
+                original(arm_pack, hole, board, legal, pot_bb, stack_bb, opponents, cap, **kw)
             finally:
                 pp._LATE_STREET_GAIN, pp._LATE_STREET_BLUFF_GAIN = gains_v, gains_b
             p_bet = 0.0
@@ -208,8 +212,10 @@ def run(arms, hands: int, seeds: list[int]) -> None:
     """Play `hands` per seed with the LEVER-OFF packs and read every arm at each
     unopened late-street node. The carrier is deliberately lever-off so that all
     arms are read at the SAME, pre-ticket node population."""
-    packs = {vt.value if hasattr(vt, "value") else str(vt): _strip(p)
-             for vt, p in load_persona_packs().items()}
+    packs = {
+        vt.value if hasattr(vt, "value") else str(vt): _strip(p)
+        for vt, p in load_persona_packs().items()
+    }
     play_packs = dict(packs)
     persona_by_seat = {i: RATIFIED_LINEUP[i] for i in range(9)}
     probe = _Probe(arms, packs)
@@ -242,14 +248,15 @@ def _report(arms, personas) -> dict:
 
 def _composition(arms, persona, street) -> dict:
     """Mean P(bet) by hand class and position, one row per arm."""
-    keys = sorted({k for arm in arms for k in arm.nodes if k[0] == persona and k[1] == street},
-                  key=lambda k: (k[3], k[2]))
+    keys = sorted(
+        {k for arm in arms for k in arm.nodes if k[0] == persona and k[1] == street},
+        key=lambda k: (k[3], k[2]),
+    )
     rows = {}
     for k in keys:
         rows[f"{k[3]}|{k[2]}"] = {
             "nodes": arms[0].nodes[k],
-            **{arm.label: round(arm.bet_mass[k] / arm.nodes[k], 4)
-               for arm in arms if arm.nodes[k]},
+            **{arm.label: round(arm.bet_mass[k] / arm.nodes[k], 4) for arm in arms if arm.nodes[k]},
         }
     return rows
 
@@ -260,16 +267,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seeds", default="601,20260817,20260818")
     ap.add_argument("--dial", type=float, default=1.0)
     ap.add_argument("--personas", default="nit,tag,lag")
-    ap.add_argument("--fit", action="store_true",
-                    help="scan bluff gains for the smallest that holds the share")
-    ap.add_argument("--value-grid", default=None,
-                    help="semicolon-separated candidate value-gain pairs to "
-                         "compare in one pass, e.g. '0.6,1.0;1.5,2.5'")
-    ap.add_argument("--fit-grid", default=None,
-                    help="comma-separated bluff gains to scan (default: 0.00..0.50 by 0.02)")
+    ap.add_argument(
+        "--fit", action="store_true", help="scan bluff gains for the smallest that holds the share"
+    )
+    ap.add_argument(
+        "--value-grid",
+        default=None,
+        help="semicolon-separated candidate value-gain pairs to "
+        "compare in one pass, e.g. '0.6,1.0;1.5,2.5'",
+    )
+    ap.add_argument(
+        "--fit-grid",
+        default=None,
+        help="comma-separated bluff gains to scan (default: 0.00..0.50 by 0.02)",
+    )
     ap.add_argument("--value-gains", default="0.60,1.00")
-    ap.add_argument("--bluff-gains", default=None,
-                    help="turn,river; default = the shipped constants")
+    ap.add_argument(
+        "--bluff-gains", default=None, help="turn,river; default = the shipped constants"
+    )
     ap.add_argument("--out", default=None)
     args = ap.parse_args(argv)
 
@@ -278,30 +293,37 @@ def main(argv: list[str] | None = None) -> int:
     vg = tuple(float(x) for x in args.value_gains.split(","))
     arms = [_Arm("off", None, None, None)]
     if args.value_grid:
-        bg = (pp._LATE_STREET_BLUFF_GAIN[Street.TURN],
-              pp._LATE_STREET_BLUFF_GAIN[Street.RIVER])
+        bg = (pp._LATE_STREET_BLUFF_GAIN[Street.TURN], pp._LATE_STREET_BLUFF_GAIN[Street.RIVER])
         for pair in args.value_grid.split(";"):
             gains = tuple(float(x) for x in pair.split(","))
             arms.append(_Arm(f"v{pair}", args.dial, gains, bg))
     elif args.fit:
-        grid = ([float(x) for x in args.fit_grid.split(",")] if args.fit_grid
-                else [round(0.02 * i, 2) for i in range(0, 26)])
+        grid = (
+            [float(x) for x in args.fit_grid.split(",")]
+            if args.fit_grid
+            else [round(0.02 * i, 2) for i in range(0, 26)]
+        )
         for g in grid:
             arms.append(_Arm(f"bg{g:.2f}", args.dial, vg, (g, g)))
     else:
-        bg = (tuple(float(x) for x in args.bluff_gains.split(","))
-              if args.bluff_gains else
-              (pp._LATE_STREET_BLUFF_GAIN[Street.TURN],
-               pp._LATE_STREET_BLUFF_GAIN[Street.RIVER]))
+        bg = (
+            tuple(float(x) for x in args.bluff_gains.split(","))
+            if args.bluff_gains
+            else (pp._LATE_STREET_BLUFF_GAIN[Street.TURN], pp._LATE_STREET_BLUFF_GAIN[Street.RIVER])
+        )
         arms.append(_Arm("on", args.dial, vg, bg))
 
     run(arms, args.hands, seeds)
-    result = {"hands_per_seed": args.hands, "seeds": seeds, "dial": args.dial,
-              "value_gains": vg, "headline": _report(arms, personas)}
+    result = {
+        "hands_per_seed": args.hands,
+        "seeds": seeds,
+        "dial": args.dial,
+        "value_gains": vg,
+        "headline": _report(arms, personas),
+    }
     if not args.fit:
         result["composition"] = {
-            f"{p}|{s}": _composition(arms, p, s)
-            for p in personas for s in ("turn", "river")
+            f"{p}|{s}": _composition(arms, p, s) for p in personas for s in ("turn", "river")
         }
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
@@ -309,8 +331,10 @@ def main(argv: list[str] | None = None) -> int:
     for tag, row in result["headline"].items():
         print(tag)
         for label, v in row.items():
-            print(f"    {label:9s} nodes={v['nodes']:6d} "
-                  f"bet_freq={v['bet_freq']:.4f} bluff_share={v['bluff_share']:.4f}")
+            print(
+                f"    {label:9s} nodes={v['nodes']:6d} "
+                f"bet_freq={v['bet_freq']:.4f} bluff_share={v['bluff_share']:.4f}"
+            )
     return 0
 
 

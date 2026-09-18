@@ -145,9 +145,7 @@ def _made_bucket(hole: tuple[Card, Card], board: list[Card]) -> StrengthBucket:
         return _high_card_bucket(hole_hi)  # plays the board's two pair
     if cat == 1:  # one pair
         if pocket:  # can't equal board_top (that would be a set)
-            return (
-                StrengthBucket.OVERPAIR_TPTK if r1 > board_top else StrengthBucket.MIDDLE_PAIR
-            )
+            return StrengthBucket.OVERPAIR_TPTK if r1 > board_top else StrengthBucket.MIDDLE_PAIR
         if rank[1] in (r1, r2):  # a hole card pairs the board
             pair_rank = rank[1]
             kicker = r2 if pair_rank == r1 else r1
@@ -1506,9 +1504,9 @@ def sample_postflop_decision(
     # more bluffs" (RES-D §1b), not a strength→size map.
     sizing_dist = _sizing_dist(pf, board, legal, is_aggressor)
     if bluff_cell and (ActionType.BET in by_kind or ActionType.RAISE in by_kind):
-        bluff_mass *= sum(
-            w * _bluff_size_factor(float(k)) for k, w in sizing_dist.items()
-        ) / sum(sizing_dist.values())
+        bluff_mass *= sum(w * _bluff_size_factor(float(k)) for k, w in sizing_dist.items()) / sum(
+            sizing_dist.values()
+        )
     # W3-c (B6/B7): decay the generic air bluff by street (flop/None → ×1.0, so
     # byte-identical), then add the busted-draw story bluff on the river — a hand
     # that bet the prior street and missed keeps a coherent barrel (survives the
@@ -1766,8 +1764,7 @@ def sample_postflop_decision(
                 ):
                     raise_base *= _ONE_PAIR_RAISE_DAMP
                 raise_merit = (
-                    raise_base
-                    + _DRAW_RAISE_BONUS[draw] * _draw_agg_street_mult(draw, street)
+                    raise_base + _DRAW_RAISE_BONUS[draw] * _draw_agg_street_mult(draw, street)
                 ) * agg_scale
                 if street is Street.RIVER and bucket in _RIVER_RAISE_FLOOR:
                     raise_merit = 0.0  # bluff-catchers never value-raise the river
@@ -1800,9 +1797,7 @@ def sample_postflop_decision(
                 and street in (Street.TURN, Street.RIVER)
                 and pf.late_street_bet is not None
             ):
-                bluff_bet_mass *= (
-                    1.0 + pf.late_street_bet * _LATE_STREET_BLUFF_GAIN[street]
-                )
+                bluff_bet_mass *= 1.0 + pf.late_street_bet * _LATE_STREET_BLUFF_GAIN[street]
             agg_merit = bluff_bet_mass
             check_merit = max(1.0 - bluff_bet_mass, 0.0)
         else:

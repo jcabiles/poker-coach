@@ -64,9 +64,7 @@ def _postflop_rank(seat: int, button_seat: int, n: int) -> int:
     return (seat - button_seat - 1) % n
 
 
-def derive_in_position(
-    seats: Sequence, button_seat: int, seat: int
-) -> bool:
+def derive_in_position(seats: Sequence, button_seat: int, seat: int) -> bool:
     """A2 — true iff no still-live opponent acts after `seat` this street.
 
     Only `PlayerStatus.IN` seats can still act; FOLDED and ALLIN seats are
@@ -243,8 +241,6 @@ def derive_postflop_context(state: HandState, seat: int) -> PostflopContext:
     seat_state = state.seats[seat]
     return PostflopContext(
         in_position=derive_in_position(state.seats, state.button_seat, seat),
-        bet_prev_street=bet_prev_street(
-            state.action_history, state.street, seat_state.position
-        ),
+        bet_prev_street=bet_prev_street(state.action_history, state.street, seat_state.position),
         busted_draw=busted_draw_kind(seat_state.hole_cards, state.board),
     )

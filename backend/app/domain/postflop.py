@@ -78,6 +78,7 @@ def _set_authored(result: EvaluationResult, entry: Entry) -> None:
     result.authored_rationale = entry.rationale_text
     result.authored_rationale_parts = entry.rationale_parts
 
+
 _RIDX = {r: i for i, r in enumerate("23456789TJQKA")}
 
 # Postflop seat order — later acts last (in position). BTN is most IP.
@@ -254,9 +255,7 @@ def _hand_category(hole: tuple[str, str], board: list[str]) -> str:
     # made flush (>=5 cards of one suit present) are evaluated BEFORE the
     # pair-based tiers below — a made hand must never fall through to the
     # flush_draw/oesd draw-flag logic just because it didn't pair the board.
-    made_straight = any(
-        all((lo + i) in allr for i in range(5)) for lo in range(len(_RIDX) - 4)
-    )
+    made_straight = any(all((lo + i) in allr for i in range(5)) for lo in range(len(_RIDX) - 4))
     made_flush = any(all_suits.count(s) >= 5 for s in set(all_suits))
     if made_straight or made_flush:
         return "strong"
@@ -438,9 +437,7 @@ _MW_CATCH_TIGHTEN = 1.3  # >= 1.0: scales UP fold merit for the air bluff-catch
 _MW_THIN_VALUE_DAMPEN = 0.7
 
 
-def _apply_multiway(
-    merits: dict, *, cat_effective: str, facing_side: bool, opp: int
-) -> dict:
+def _apply_multiway(merits: dict, *, cat_effective: str, facing_side: bool, opp: int) -> dict:
     """Multiway (3+) merit adjustment — reads NOTHING but the merit dict, the
     already-computed hand category (post busted-draw demotion on the river),
     which side hero is on, and the live-opponent count `opp`
@@ -622,9 +619,7 @@ def grade_cbet(
     return result
 
 
-def _bet_sizing_verdict(
-    bet_evals: list[ActionEval], chosen_eval: ActionEval
-) -> Correctness | None:
+def _bet_sizing_verdict(bet_evals: list[ActionEval], chosen_eval: ActionEval) -> Correctness | None:
     """N4a additive size verdict for a postflop BET (independent of the action
     correctness). OPTIMAL when `chosen_eval` is the higher-merit (frequency) of
     the two BET sizes, ACCEPTABLE for the lower.
@@ -641,11 +636,7 @@ def _bet_sizing_verdict(
     top_freq = max(e.frequency for e in bet_evals)
     if top_freq <= 0.0:
         return None  # both sizes zero-frequency — betting isn't the play
-    return (
-        Correctness.OPTIMAL
-        if chosen_eval.frequency >= top_freq
-        else Correctness.ACCEPTABLE
-    )
+    return Correctness.OPTIMAL if chosen_eval.frequency >= top_freq else Correctness.ACCEPTABLE
 
 
 def _raise_sizing_verdict(
@@ -671,9 +662,7 @@ def _raise_sizing_verdict(
     if decision is None or decision.action != ActionType.RAISE or decision.size_bb is None:
         return None
     legs = sorted(
-        la.min_bb
-        for la in spot.legal_actions
-        if la.action == ActionType.RAISE and la.min_bb
+        la.min_bb for la in spot.legal_actions if la.action == ActionType.RAISE and la.min_bb
     )
     if len(legs) < 2 or legs[-1] <= legs[0]:
         return None
@@ -1008,9 +997,7 @@ def _merits_vs_check_raise(
     elif texture.wetness == "dry":
         bluffy -= 0.4
     low_connected_wet = (
-        not texture.high_board
-        and texture.connectedness == "connected"
-        and texture.wetness == "wet"
+        not texture.high_board and texture.connectedness == "connected" and texture.wetness == "wet"
     )
 
     # FOLD — baseline well above _merits_vs_cbet's 0.6 (the check-raise-strength prior)
@@ -1897,9 +1884,7 @@ def _merits_vs_caller_raise(
     elif texture.wetness == "dry":
         bluffy -= 0.4
     low_connected_wet = (
-        not texture.high_board
-        and texture.connectedness == "connected"
-        and texture.wetness == "wet"
+        not texture.high_board and texture.connectedness == "connected" and texture.wetness == "wet"
     )
 
     # FOLD — baseline above the check-raise node's 1.6 (§3.2a)
