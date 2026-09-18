@@ -1,33 +1,34 @@
-# Phone access + 6-max Roadmap — updated 2026-09-18 (rev 2, after blind review R1)
+# Phone access + 6-max Roadmap — updated 2026-09-18 (rev 3, after blind review R1 and the owner's 2026-09-18 corrections)
 status: draft
 
 ## Bottom line
 - Make the trainer playable from a phone on the home wifi, and add a 6-max table option, so
-  the owner plays on more days per week. The Mac stays the server; the phone is a screen.
-- We are betting on three things: the existing table works on a phone turned sideways without
+  the owner plays more Simulate sessions per week. The Mac stays the server; the phone is a screen.
+- We are betting on four things: the existing table works on a phone turned sideways without
   a redesign; six seats can borrow the six latest 9-max positions so bots and grader need no
-  new charts; and today's bots feel acceptable at six seats until a research pass tunes them.
+  new charts; today's bots feel acceptable at six seats until a research pass tunes them; and
+  two devices on one session do not corrupt a hand.
 - Next: the smallest thing that puts the app on the phone (slice P1, which also runs two
   cheap tests: five landscape hands, and two tabs on one session), then the 6-max option
   (S1), then a throwaway phone prototype the owner plays 20 hands on. Its verdict decides
   whether phone polish goes ahead or the felt gets redesigned.
 
 ## North-star outcome
-- Outcome: **playing occasions per week** = distinct calendar days with at least one Simulate
-  hand. Seat-count neutral (a 6-max hand is shorter, so hands/week would rise on its own).
-  Secondary: hands per week, reported separately for 9-max and 6-max once S1 lands.
-- Baseline (2026-09-18, `backend/data/poker_coach.db`): hands per ISO week 427 (wk 37),
-  388 (wk 36), 1,051 (wk 34); one session row per week (sessions are long-lived, so they do
-  not count occasions). Occasions per week: **TBD** — run the query below before P1 ships and
-  record it here.
+- Outcome: **Simulate sessions per week** (owner's choice) = `sim_session` rows by the week
+  they were created. Secondary, for context only: hands per week, reported separately for
+  9-max and 6-max once S1 lands (a 6-max hand is shorter, so hands rise on their own).
+- Caveat the owner accepted: a session row is long-lived (the data shows one per week), so
+  this counts sessions started, not days played. If that proves too coarse, the owner may
+  switch the metric later; nothing in the NOW lane depends on it.
+- Baseline (2026-09-18, `backend/data/poker_coach.db`, `%W` week number, Monday-based):
+  sessions 1/week in weeks 34, 36, 37; hands 1,051 / 388 / 427 in those weeks.
   ```sql
-  select strftime('%Y-%W', created_at) w, count(distinct date(created_at)) days, count(*) hands
-  from sim_hand group by w order by w desc;
+  select strftime('%Y-%W', created_at) w, count(*) from sim_session group by w order by w desc;
+  select strftime('%Y-%W', created_at) w, count(*) from sim_hand group by w order by w desc;
   ```
-- Target and decision rule: if occasions per week have not risen above the recorded baseline
-  four weeks after P1 and S1 are both live, the LATER phone bets are dropped and P3 is cut to
-  whatever the prototype proved on the felt alone. The owner expects "a convenience, not a
-  fix"; a flat number is allowed to be the answer, and this is what it changes.
+- Target: the owner sets it after the first week with the phone live. The owner said the
+  phone is "a convenience, not a fix", so a flat number is an accepted outcome; there is no
+  automatic scope rule tied to it (the owner dropped one on 2026-09-18).
 
 ## Interview record (2026-09-18, owner)
 - Appetite: small per slice. No mobile-first redesign. Landscape felt, portrait everything else.
@@ -37,7 +38,8 @@ status: draft
 - Sharing: one live session, resumable from either device (pointer moves to the server).
 - Security: home wifi is trusted; bind to the network behind an explicit flag, off by default.
 - Phone-only addition: bigger action buttons with a confirm step on all-in. Nothing else.
-- 6-max: a per-session option next to 9-max, built on today's bots. Seats map to the six
+- 6-max: wanted because it fits a phone screen better and is the format the owner sees offered;
+  a per-session option next to 9-max, built on today's bots. Seats map to the six
   latest 9-max positions (LJ, HJ, CO, BTN, SB, BB). Realism research for 6-max follows after
   the owner has played it; the owner expects tweaks, not a rebuild.
 - Order: LAN first, then 6-max, then the phone prototype (so it shows a 6-seat felt).
@@ -58,21 +60,26 @@ status: draft
 - **D3 — The committed `.claude/CLAUDE.md` still names the flywheel as the governing
   initiative.** Default: the P1 spec updates that banner in the same change (it is outside the
   roadmap's write authority).
+- **D4 — Delete `docs/ai-dlc/specs/draft-mobile-responsive.md` in P1.** APPROVED by the owner
+  2026-09-18 (per-file deletion approval, as the cleanup ruling requires).
+- Resolved 2026-09-18 by the owner, recorded so they are not re-asked: the metric stays
+  sessions per week (not occasions); no four-week scope rule; no Later bet on phone drills.
 
 ## NOW  (ordered; ICE = impact·confidence·ease out of 10)
 
 - [ ] **P1 — LAN walking skeleton + two cheap tests.** problem: the app exists only on the Mac ·
-      outcome-link: occasions/week · ICE 8·9·9
+      outcome-link: sessions/week · ICE 8·9·9
       what: `serve.sh start --lan` passes `--host` to Vite only; the backend stays on loopback
       because the frontend calls a relative `/api/v1` that Vite proxies server-side, so no CORS
       or API-base change is needed and the unauthenticated API is never on the wifi. README
       "Play from your phone" section (flag, finding the Mac's IP, Chrome "Add to Home screen").
-      Retires `docs/ai-dlc/specs/draft-mobile-responsive.md` (superseded by this roadmap) and
+      Deletes `docs/ai-dlc/specs/draft-mobile-responsive.md` (superseded; D4 approved) and
       reconciles the `.claude/CLAUDE.md` initiative banner (D3). Game code untouched.
       pass/fail: (a) on the owner's Android phone, Chrome opens `http://<mac-ip>:7777`, a
       Simulate hand deals and grades; (b) with the flag off nothing binds beyond localhost, and
-      with it on the backend port is still unreachable from the phone; (c) two-tab test on the
-      Mac: act on one session from two tabs in turn, then at once, and record whether the hand
+      with it on the backend port is still unreachable from the phone; (c) two-client test on the
+      Mac: act on one session from two tabs in turn by hand, then fire two decision submits
+      concurrently from a small script against the same session, and record whether the hand
       stays one continuous line in `sim_hand` (feeds P4's assumption); (d) five landscape hands
       on the 9-seat felt, recording pod overlap and horizontal scroll (feeds P2's gate);
       `make check` green.
@@ -81,8 +88,8 @@ status: draft
       riskiest-assumption: the phone can reach and drive the app through the Vite port alone ·
       cheapest-test: this slice · assumption-status: untested (low risk).
 
-- [ ] **S1 — 6-max table option.** problem: 9 seats is the wrong shape for the owner's game and
-      for a phone screen · outcome-link: occasions/week · ICE 8·6·4
+- [ ] **S1 — 6-max table option.** problem: 9 seats crowd a phone screen, and 6-max is the format
+      the owner sees offered · outcome-link: sessions/week · ICE 8·6·4
       what: table size (6 or 9) chosen when a Simulate session starts and stored on the session
       (migration). Every hardcoded 9 takes the seat count from the session:
       `backend/app/domain/table/{engine,deck,range_estimate}.py`,
@@ -104,11 +111,13 @@ status: draft
       unchanged — known soft spots are the villain-range opponent count (fixed in "what") and
       limped pots canonicalised onto a UTG limper who has no seat · cheapest-test: a headless
       run asserting a set of 6-max hands grade identically to the equivalent 9-max hands ·
-      assumption-status: untested; the test is part of this slice's build, before the felt work.
+      assumption-status: untested; the test runs inside this slice, before the felt work, because
+      it needs the 6-seat engine to exist — a separate measurement slice would have to build
+      the same engine first.
 
 - [ ] **P2 — Phone prototype (throwaway branch, 5 screens).** problem: nobody has seen the app
       on a phone; the July review found the felt overlaps at ≤600px and the masthead forces
-      horizontal scroll · outcome-link: occasions/week · ICE 9·6·7
+      horizontal scroll · outcome-link: sessions/week · ICE 9·6·7
       what: on a `proto/` branch, never merged: (1) landscape 6-seat felt mid-hand with the
       hidden bottom tab bar and its show button, bigger action buttons with confirm on all-in;
       (2) portrait home/resume; (3) session ledger; (4) settings (speed, theme, mode);
@@ -128,7 +137,7 @@ status: draft
 
 - [ ] **P4 — One live session across devices.** problem: the resume pointer lives in each
       browser's storage, so the Mac and the phone cannot see the same table ·
-      outcome-link: occasions/week (pick up where you left off) · ICE 6·8·7
+      outcome-link: sessions/week (pick up where you left off) · ICE 6·8·7
       what: the server keeps the current session id; the client asks the server on load instead
       of localStorage; localStorage stays as a fallback only for the 404 recovery path. If
       P1(c) corrupted a hand, this slice also adds a per-hand version check on
@@ -157,7 +166,7 @@ status: draft
   under this roadmap (owner call).
 - **Always-on stack.** evidence: the phone only works while the Mac runs the stack; the owner
   chose "start by hand" for v1 · candidate slices: a launchd job with sleep/wake handling ·
-  open questions: does forgetting to start it actually cost occasions (measure after P1).
+  open questions: does forgetting to start it actually cost sessions (measure after P1).
 - **Phone review depth.** evidence: v1 phone scope includes review, ledger, stats but the
   prototype covers ledger only · candidate slices: post-hand review card, stats and leaks, hand
   replayer at phone size · open questions: which the owner uses on the phone at all.
@@ -166,15 +175,12 @@ status: draft
 - Bet: one-handed play on the couch needs a portrait, compact felt · segment: owner ·
   confidence: low · assumptions to test: P2 fails on landscape, or rotating the phone proves a
   real friction · review-by: after P3.
-- Bet: the owner's real game is 6-max, so 9-max should stop being the default · segment: owner ·
+- Bet: once 6-max is tuned, 9-max should stop being the default · segment: owner ·
   confidence: med · assumptions to test: the 6-max research lands and the owner stops starting
   9-max sessions · review-by: after the 6-max research slice.
 - Bet: other people want to run this on their own phone · segment: friends/portfolio ·
   confidence: low · assumptions to test: a second user exists; an installable path (PWA over
   HTTPS or an APK) fits the sandbox and toolchain · review-by: when a second user exists.
-- Bet: drills on the phone raise drill volume · segment: owner · confidence: med ·
-  assumptions to test: the owner opens Practice/Quiz on the phone at all after P3 ·
-  review-by: two weeks after P3.
 
 ## Out of scope / no-gos (global)
 - Offline play or service-worker caching; the phone never works without the Mac.

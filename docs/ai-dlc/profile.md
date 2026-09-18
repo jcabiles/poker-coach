@@ -61,8 +61,8 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-18 (post-merge)
-commit:       main 9f26713 — PR #222 (Two-mode Simulate) and PR #224 (make check gates) merged
+updated:      2026-09-18 (roadmap drafted)
+commit:       main 0e7dd2a — #222, #224, #225 merged; phone-and-6max roadmap on PR #226 (draft)
 log-entry:    "2026-09-18 — Cleanup slice 2 built: `make check` is the gate"
 position:     Two-mode Simulate is on main; its roadmap box stays unticked until the owner plays
               Challenge mode to the hand-200 check. Cleanup slice 2 is DONE: `make check` is the

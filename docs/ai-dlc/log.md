@@ -1,5 +1,18 @@
 # AI-Org log — poker-coach
 
+## 2026-09-18 — Phone access + 6-max roadmap drafted (PR #226, status draft)
+- `/ai-org:roadmap`, typed by the owner, after a full interview (outcome, problems, wishlist,
+  no-gos, assumptions). Four NOW slices: LAN walking skeleton with two cheap tests, 6-max
+  table option on today's bots, five-screen phone prototype, one live session across devices.
+  6-max realism research and phone polish sit in NEXT.
+- One blind reviewer (Claude refuter; Codex not runnable here): FAIL, 14 findings, all
+  verified and folded. Two were blocking: 6-max is hardcoded in five places beyond engine/deck,
+  and `spot_signature()` already hashes table size, so 6-max history keying is an explicit
+  owner decision (D1). Owner then reverted the metric to sessions/week, dropped a scope rule
+  and a drills bet I had added, and approved one doc deletion (D4).
+- Profile `active:` switched to `phone-and-6max`. Nothing spec'd or built until the owner
+  approves at the gate.
+
 ## 2026-09-18 — Cleanup slice 2 built: `make check` is the gate
 - `/ai-org:spec --auto-build`, typed by the owner. Contract map, spec (rev 2 after a blind
   Claude refuter found two blocking gaps: undeclared dev deps, three modules mis-listed as

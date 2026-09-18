@@ -26,8 +26,11 @@ in the roadmap).
 
 Rejected: none.
 
-## Fidelity pass (Director, against the interview record)
-- Added beyond what the owner said: the metric switch from sessions to occasions (sessions are
-  week-long rows); the LATER bets on drills and on 6-max-as-default; the "acted elsewhere"
-  acceptance detail in P4; all ICE scores; the three D1–D3 decisions the review surfaced.
+## Fidelity pass (Director, against the interview record) + owner corrections, 2026-09-18
+- Added beyond what the owner said in rev 2: the metric switch from sessions to occasions; a
+  four-week scope rule; a LATER bet on phone drills; an inferred "the owner's real game is
+  6-max" motive; the "acted elsewhere" acceptance detail in P4; all ICE scores; D1–D3.
+- Owner ruled (rev 3): metric reverted to sessions per week; the four-week rule dropped; the
+  drills bet dropped; the 6-max motive restated to the owner's words (phone fit, the format
+  he sees offered); deletion of `specs/draft-mobile-responsive.md` approved (D4).
 - Said but not carried: nothing found.
