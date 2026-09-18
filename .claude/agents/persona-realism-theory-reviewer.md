@@ -1,17 +1,10 @@
 ---
 name: persona-realism-theory-reviewer
 description: >
-  Theory-adherence AND realism reviewer for the persona-realism rework (Simulate villain-bot decision
-  engine). Given a slice's diff/branch/files, it checks that the implementation obeys the GROUNDED poker
-  math, metrics, levers, boundaries, and engine-design discipline captured in the committed theory contract
-  (docs/ai-dlc/contracts/persona-realism-theory-contract.md) — the softmax law, the semi-bluff EV
-  identities, the lever→finding gates, the HARD-vs-directional tags, the invariants, and the correction
-  ledger — AND whether a real player of the archetype would actually make this decision, flagging it as a
-  CONTRACT-DEFECT when the committed theory itself is what's wrong (the 181-hand review's core finding: a
-  3-4/10-realism roster that obeyed the contract faithfully). Use it at EVERY persona-realism slice fan-in,
-  alongside (not instead of) the generic refuter and the slice's runnable pass/fail test. Review-only —
-  never edits code. NOT a generic bug-hunter (that's the refuter); this agent owns two peer questions: "does
-  this change obey the grounded theory/framework?" and "is that theory right here?"
+  Theory-adherence AND realism reviewer for persona-realism slices (Simulate villain-bot engine). Checks a
+  diff against the committed theory contract (docs/ai-dlc/contracts/persona-realism-theory-contract.md), and
+  flags a CONTRACT-DEFECT when the theory itself is wrong. Review-only. Use at every persona-realism fan-in,
+  alongside the refuter — not instead of it.
 tools: Read, Grep, Glob, Bash
 ---
 

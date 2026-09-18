@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git push origin *)",
-      "Bash(gh pr create*)"
+      "Bash(gh pr create*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull origin:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(python3 scripts/gh_api.py:*)"
     ],
     "deny": [
       "Bash(git push*main*)",
@@ -38,16 +42,6 @@
     "enabled": true,
     "allowUnsandboxedCommands": false,
     "failIfUnavailable": false,
-    "excludedCommands": [
-      "gh pr create*",
-      "gh pr view*",
-      "gh pr list*",
-      "gh auth status*",
-      "git push origin*",
-      "git push -u origin*",
-      "git fetch*",
-      "git pull origin*"
-    ],
     "network": {
       "allowLocalBinding": true,
       "allowedDomains": [
@@ -64,11 +58,18 @@
         "api.openai.com",
         "*.openai.com",
         "chatgpt.com",
-        "*.chatgpt.com"
+        "*.chatgpt.com",
+        "bluffaces.com",
+        "*.bluffaces.com",
+        "api.anthropic.com"
       ]
     },
     "filesystem": {
-      "allowWrite": [".", "~/.codex"],
+      "allowWrite": [
+        ".",
+        "~/.codex",
+        "/Users/johncabiles/Documents/Github/poker-analytics"
+      ],
       "denyRead": [
         "~/.ssh",
         "~/.aws",
