@@ -72,6 +72,6 @@ merged:       #222 (squash de9cb71), #224 (squash 9f26713); #223 closed as super
 awaiting John: (a) play Challenge mode, then tick the slice; (b) two theory-contract items open
               since 2026-08-24 (ledger finding B1; §10.2 of the git-excluded audit).
 authorized:   nothing standing. The 2026-09-18 merge grant is spent.
-next action:  owner approves docs/ai-dlc/roadmap/phone-and-6max.md (drafted 2026-09-18 after a
-              full interview), then `/ai-org:spec P1 — LAN walking skeleton`. Cleanup slices 1
-              and 3 and the mypy/Biome burn-down wait behind it.
+next action:  `/ai-org:spec P1 — LAN walking skeleton + two cheap tests` (roadmap APPROVED
+              2026-09-18; D1–D3 defaults recommended, owner confirms in that spec's interview if
+              not before). Cleanup slices 1 and 3 and the mypy/Biome burn-down wait behind it.
