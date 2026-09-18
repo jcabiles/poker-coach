@@ -1,5 +1,5 @@
 # Phone access + 6-max Roadmap — updated 2026-09-18 (rev 3, after blind review R1 and the owner's 2026-09-18 corrections)
-status: approved — owner, 2026-09-18 (rev 3). D1–D3 defaults pending the owner's word.
+status: approved — owner, 2026-09-18 (rev 3). D1–D4 decided.
 
 ## Bottom line
 - Make the trainer playable from a phone on the home wifi, and add a 6-max table option, so
@@ -48,17 +48,17 @@ status: approved — owner, 2026-09-18 (rev 3). D1–D3 defaults pending the own
 - Prototype screens (5): landscape felt mid-hand, portrait home/resume, session ledger,
   settings, showdown/hand-over.
 
-## Decisions the owner still owes (surfaced by review R1; defaults shown, confirm at the gate)
+## Owner decisions (surfaced by review R1; all DECIDED 2026-09-18 — do not re-ask)
 - **D1 — How 6-max hands are keyed in grading history.** `spot_signature()` already hashes
-  `table_size`, and every Simulate spot hardcodes `table_size=9`. Default: key 6-max spots as
+  `table_size`, and every Simulate spot hardcodes `table_size=9`. DECIDED: key 6-max spots as
   `table_size=6`, so 6-max starts its own spaced-repetition history and the later research
   can tell the formats apart. The alternative (leave 9) merges them permanently. No change to
   `spot_signature()` itself either way.
-- **D2 — Which five of the eight personas sit at a 6-max table.** Default: a fixed subset
+- **D2 — Which five of the eight personas sit at a 6-max table.** DECIDED: a fixed subset
   chosen in the S1 spec and recorded there, so the owner's first-session verdict is not a
   draw. Alternative: redraw per session.
 - **D3 — The committed `.claude/CLAUDE.md` still names the flywheel as the governing
-  initiative.** Default: the P1 spec updates that banner in the same change (it is outside the
+  initiative.** DECIDED: the P1 spec updates that banner in the same change (it is outside the
   roadmap's write authority).
 - **D4 — Delete `docs/ai-dlc/specs/draft-mobile-responsive.md` in P1.** APPROVED by the owner
   2026-09-18 (per-file deletion approval, as the cleanup ruling requires).
