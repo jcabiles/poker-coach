@@ -42,3 +42,11 @@ worktree.
 (`useSemanticElements` 20, `useAriaPropsSupportedByRole` 13, `useFocusableInteractive` 3,
 `noAriaHiddenOnFocusable` 3, `noSvgWithoutTitle` 1, `noArrayIndexKey` 26,
 `noNonNullAssertion` 15, `noDescendingSpecificity` 18, `useExhaustiveDependencies` 6).
+
+**Fan-in review, 2026-09-18:** fresh Claude `refuter` (Sonnet, high effort) over the whole
+branch — **APPROVE**, no blocking or should-fix findings. It AST-diffed every changed Python
+file (only three carry non-formatting changes, all annotation-only), proved the frontend
+by-hand fixes inert (no `<form>` exists; optional chains truthiness-equivalent), confirmed no
+CSS value changed, and confirmed the Biome gate actually fails on an injected defect. One
+optional finding (the spec's stale "31 errors" for `personas_postflop`, really 17) corrected.
+Report: `../reviews/cleanup-quality-gates-build-claude.md`.

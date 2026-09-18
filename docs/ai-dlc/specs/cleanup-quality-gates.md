@@ -73,7 +73,7 @@ definition of "the checks" at it.
    unpacking (**210 errors across 20 call sites** — build the result with explicit keyword
    arguments or a `TypedDict`; rev 1 understated this by half). Fix the two malformed
    `# type: ignore` comments in `table/range_estimate.py`. The errors in
-   `services/sim_session.py` (33), `domain/personas_postflop.py` (31) and `domain/scenarios.py`
+   `services/sim_session.py` (33), `domain/personas_postflop.py` (17 — an earlier count of 31 included mypy note lines) and `domain/scenarios.py`
    (12) are **not** these patterns — they are SQLAlchemy column-expression and Optional
    propagation through session code — and are **baselined per §8 in this slice**, not fixed;
    a fix there is only allowed when it is a pure annotation change with no runtime effect, and
