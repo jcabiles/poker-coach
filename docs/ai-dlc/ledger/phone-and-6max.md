@@ -95,3 +95,42 @@ of these numbers and the roadmap records only the headline, not the measurements
    horizontal-scroll wrapper (cheap, keeps the existing geometry), versus a sub-600px compact or
    vertical seat layout (a real redesign). The draft left the choice to a Gate-1 interview that
    never happened; P2/P3 pick between them.
+
+## P1 measurement (b) — the bind checks, 2026-09-18
+
+**Bottom line: every machine-checkable leg of pass/fail (b) passed.** The backend port stays on
+loopback even when the environment tries to move it, the frontend goes to the wifi only when asked,
+and the script now tells the truth about which state it is in. The two legs that need the owner's
+phone, (a) and (d), are still outstanding.
+
+Run from an isolated worktree on ports 8123/7778 and 8124/7779, so the owner's live stack on
+8008/7777 was never touched. The isolated backend wrote to the worktree's own database
+(`DB_PATH` confirmed under the worktree before anything started), never to `backend/data/poker_coach.db`.
+
+| Leg | Result | Evidence |
+|---|---|---|
+| Backend binds loopback only | PASS | `Python … TCP 127.0.0.1:8123 (LISTEN)` |
+| Backend resists `UVICORN_HOST=0.0.0.0` | PASS | with it exported, `restart --lan` still gave `TCP 127.0.0.1:8123 (LISTEN)` |
+| Frontend loopback with the flag off | PASS | `node … TCP [::1]:7778 (LISTEN)` |
+| Frontend on all interfaces with `--lan` | PASS | `node … TCP *:7778 (LISTEN)` |
+| `status` reports the binding | PASS | `frontend running (pid 58925 on :7779, loopback only)` |
+| `start --lan` refuses a running loopback stack | PASS | exit 1, `already running, but frontend is loopback only (pid 58925 :7779) — run: scripts/serve.sh restart --lan`, and no new socket appeared |
+| Flagless `start` reports the real state | PASS | exit 0, `… frontend loopback only` |
+
+**The `UVICORN_HOST` leg is the one that matters most.** Before this slice the launcher passed no
+host at all and relied on uvicorn's default, which the environment can override
+(`auto_envvar_prefix="UVICORN"`). The explicit `--host 127.0.0.1` is what makes the loopback
+binding a property of the script rather than of the shell it was started from.
+
+**What this evidence is NOT.** It shows port 8008 is not independently reachable. It does not show
+the API is off the wifi — the frontend port proxies the whole API by design, and that is the
+accepted boundary recorded in the roadmap and the README.
+
+**Branch not exercised:** the wifi-address banner only ever took its fallback path. `ipconfig
+getifaddr` is blocked in this sandbox and exits 1 on both `en0` and `en1`, so the success path —
+printing a real address — has never run and needs the owner's first `start --lan` to confirm.
+
+**Also observed, pre-existing and not caused by this slice:** after `stop`, the uvicorn reload child
+and the vite child kept their sockets. The PID file records the launching subshell, not the server
+process. `scripts/serve.sh`'s stop logic is untouched by this change, so this is a separate defect;
+it is recorded here rather than fixed, because fixing it is outside P1's tickets.

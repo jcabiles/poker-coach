@@ -103,6 +103,16 @@ round 2.
       backend bind.
       riskiest-assumption: the phone can reach and drive the app through the Vite port alone ·
       cheapest-test: this slice · assumption-status: untested (low risk).
+      **Build status 2026-09-18: code shipped, box deliberately left unticked.** Every
+      machine-checkable leg of (b) passed on isolated ports — backend loopback-only even with
+      `UVICORN_HOST=0.0.0.0` exported, frontend on all interfaces only under `--lan`, `status`
+      reporting the real binding, and `start --lan` refusing a running loopback stack with exit 1.
+      Evidence: `../ledger/phone-and-6max.md`, "P1 measurement (b)". **Still owed by the owner:**
+      leg (a), one Simulate hand dealt and graded on the Android phone, and leg (d), five landscape
+      hands recording pod overlap and horizontal scroll — which is P2's gate. Leg (c), the
+      two-client concurrency probe, is not yet run. The wifi-address banner has only ever taken its
+      fallback path, because `ipconfig` is blocked in the build sandbox; the owner's first
+      `start --lan` confirms it.
 
 - [ ] **S1 — 6-max table option.** problem: 9 seats crowd a phone screen, and 6-max is the format
       the owner sees offered · outcome-link: sessions/week · ICE 8·6·4
