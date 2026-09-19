@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getLeaks, getNext, getPlan, getSummary, grade } from "./api/client";
 import type {
@@ -155,6 +155,15 @@ export default function App() {
   const [leaks, setLeaks] = useState<LeakStat[]>([]);
   const [plan, setPlan] = useState<ReviewPlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // P3a §3 — the section rail as a bottom sheet on phone-shaped viewports.
+  // Closed is the resting state: the measured chrome above the felt cost
+  // 212–257px of a 412px-tall landscape screen, and the rail was most of it.
+  // Purely a phone affordance — off the phone gate the CSS leaves the rail
+  // exactly where it has always been and the reveal control is not rendered
+  // into the accessibility tree at all, so this flag is inert there.
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  // The sheet's opener, so closing the sheet can put focus back on it.
+  const navRevealRef = useRef<HTMLButtonElement>(null);
 
   const refreshStats = useCallback(async () => {
     try {
@@ -277,6 +286,26 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [view, spot, result, mode, decide, loadNext]);
 
+  // Escape closes the sheet, the way it dismisses every other overlay here.
+  // Only bound while it is open, so it can never swallow an Escape meant for
+  // the blind-check dialog or an action bar's armed shove.
+  //
+  // Closing also hands focus back to the control that opened the sheet. The
+  // sheet is display:none when closed, so whatever was focused inside it is
+  // destroyed as a focus target and the browser drops to <body> — from which
+  // the next Tab restarts at the top of the document, ~900px away.
+  useEffect(() => {
+    if (!sectionsOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSectionsOpen(false);
+        navRevealRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sectionsOpen]);
+
   const toggleTheme = () => {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
@@ -350,7 +379,27 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="nav-tabs" aria-label="Sections">
+      {/* The one control that reveals the bottom sheet (P3a §3). Hidden off the
+          phone gate — where the rail is already on screen, a button to show it
+          would be a control with nothing to do. It sits before the rail in the
+          document so a keyboard reaches the opener before the tabs it opens. */}
+      <button
+        type="button"
+        ref={navRevealRef}
+        className="nav-reveal"
+        aria-expanded={sectionsOpen}
+        aria-controls="app-sections"
+        aria-label={sectionsOpen ? "Hide sections" : "Show sections"}
+        onClick={() => setSectionsOpen((open) => !open)}
+      >
+        <span aria-hidden="true">{sectionsOpen ? "×" : "≡"}</span>
+      </button>
+
+      <nav
+        className={"nav-tabs" + (sectionsOpen ? " nav-tabs-open" : "")}
+        id="app-sections"
+        aria-label="Sections"
+      >
         {VIEWS.map((v) => (
           <button
             key={v.id}
@@ -359,6 +408,12 @@ export default function App() {
             aria-current={v.id === view ? "page" : undefined}
             onClick={() => {
               window.location.hash = formatHash(v.id, mode);
+              // Picking a destination is what closes the sheet; on every other
+              // viewport this is a no-op on a flag nothing reads. Focus follows
+              // the sheet back to its opener — the tab that was clicked is about
+              // to be display:none.
+              setSectionsOpen(false);
+              navRevealRef.current?.focus();
             }}
           >
             {v.label}

@@ -23,6 +23,7 @@ import type {
   TableSize,
   VillainRangeView,
 } from "../api/types";
+import { usePhoneLayout } from "../lib/usePhoneLayout";
 import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
 import HandReplay from "./simulate/HandReplay";
 import { BLIND_CHECK_HAND_GATE, completedHands, gateProgressPct } from "./simulate/handCount";
@@ -989,6 +990,13 @@ export default function SimulateView() {
   // click, not the bot playback, so it may show immediately.
   const revealHandEnd = !playing;
 
+  // P3a §2 — on a phone the deal control moves into the pinned dock at the
+  // bottom of the screen, because the topbar it normally lives in is a scroll
+  // away from where the player's thumb just was (measured: 229px above the
+  // viewport). ONE instance either way: the topbar keeps it on every other
+  // viewport, and the dock is never a second copy of a button already on screen.
+  const phone = usePhoneLayout();
+
   // Enter or Space deals the next hand once the hand has settled — the topbar
   // button can sit above the fold, but the key saves the reach entirely. Skipped
   // when focus is on an interactive control so we never hijack a key meant for
@@ -1187,7 +1195,9 @@ export default function SimulateView() {
                 refuses to advance, so a live "Next hand" would be a control
                 that does nothing. The paused strip below carries the real next
                 step instead. */}
-            {hand?.hand_over && revealHandEnd && !replay && !checkPending && (
+            {/* P3a §2: absent on a phone, where the same control is rendered
+                once into the pinned dock instead. */}
+            {hand?.hand_over && revealHandEnd && !replay && !checkPending && !phone && (
               <button
                 type="button"
                 className="btn btn-primary sim-next-btn"
@@ -1389,9 +1399,29 @@ export default function SimulateView() {
             {hand.is_hero_turn && (
               <SimActionBar
                 legalActions={hand.legal_actions}
+                heroStackBb={hand.hero.stack_bb}
                 disabled={busy || playing}
                 onDecide={decide}
               />
+            )}
+
+            {/* The dock's other job (P3a §2). The hand is over, so fold/call/
+                raise have nothing to do and the space they held is where the
+                next step belongs — the same pinned strip, never a second fixed
+                element competing with it. Same gate as the topbar control it
+                replaces, including the T8 one: while the blind check bars the
+                deal there is no next hand to offer. */}
+            {phone && hand.hand_over && revealHandEnd && !checkPending && (
+              <div className="decisionbar sim-nextdock">
+                <button
+                  type="button"
+                  className="btn btn-primary decision-btn"
+                  onClick={nextHand}
+                  disabled={busy}
+                >
+                  {busy ? "Dealing…" : "Next hand →"}
+                </button>
+              </div>
             )}
 
             {/* Point-of-need baseline range chart (C2). Preflop hero turns only,

@@ -118,6 +118,13 @@
   --sidebar-w: 360px; /* .layout right column (range grid) */
   --card-w: 52px; /* playing-card face */
   --card-h: 72px;
+  /* The same card struck smaller for a phone. app.css's phone gate rebinds
+     --card-w/--card-h on the Simulate stage to these, so everything the felt
+     derives from card size — the face-down pod backs, the hero's hand, the pod
+     width bounds — scales from one knob. Not a second card design: 0.77× the
+     face, which still clears the 22px serif rank plus the 20px suit. */
+  --card-w-phone: 40px;
+  --card-h-phone: 56px;
 
   /* Elevation model — distinct levels for felt (base surface) → panel →
      card → overlay (highest, for future modals/popovers). Light theme

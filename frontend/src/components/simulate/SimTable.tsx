@@ -149,10 +149,19 @@ export default function SimTable({
   return (
     <div className="stage">
       <div className="felt felt-staged">
-        <div className="ctx">
-          Simulate · 0.5/1 · {tableSize}-max · hand{" "}
-          <span className="sim-ctx-no">{hand.hand_no}</span> · {street}
-          {tableSize === 6 && " · ranges shown are 9-max ranges"}
+        {/* P3a §6 — the disclosure sits at the FAR END of the context row, not
+            at the end of the sentence. At six seats a pod lands top-centre and
+            its chip puck overhangs the felt's first line, which is exactly
+            where the sentence's tail used to run; the right edge of the felt is
+            the one place on that line no pod ever reaches (the flank pods sit
+            at 87% of the ring, well inside it). Nine seats never collided, and
+            still doesn't. */}
+        <div className="ctx sim-ctx">
+          <span className="sim-ctx-line">
+            Simulate · 0.5/1 · {tableSize}-max · hand{" "}
+            <span className="sim-ctx-no">{hand.hand_no}</span> · {street}
+          </span>
+          {tableSize === 6 && <span className="sim-ctx-note">ranges shown are 9-max ranges</span>}
         </div>
         <div
           className={"tablering sim-tablering" + (hand.hand_over ? " sim-ring-over" : "")}
