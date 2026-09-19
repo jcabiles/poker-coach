@@ -12,16 +12,25 @@ Local NLHE (No-Limit Hold'em) training web app. Monorepo:
 
 See `README.md` for setup, architecture, and status.
 
-## Active initiative — Professional Teacher Rework (2026-07)
+## Active initiative — Phone access + 6-max (2026-09)
 
-Turning the grader into a teacher. Read before touching anything:
-- Spec (9 "Now" slices, each with pass/fail): `docs/ai-dlc/roadmap/professional-teacher-rework.md`
-- PRD (goal, non-goals, constraints): `docs/ai-dlc/prd/professional-teacher-rework.md`
-- Current-state contract maps: `docs/ai-dlc/contracts/{feedback-evaluation,persistence-datamodel,frontend-ia-tokens}.md`
-- **181-hand review (2026-07-25) — read before any grader or persona work:** `docs/ai-dlc/research/persona-realism-artifacts/hand-analysis-181/SYNTHESIS.md`. It measured the live app end-to-end and found personas unrealistic and most postflop decisions ungraded. Two NEXT items came out of it, both in `professional-teacher-rework.md`: **`T-cover`** (cause of "No baseline yet" is `grade_map_postflop.py`'s *gates*, not the turn/river graders — ⚠️ trust that module's docstring at your peril, it is stale) and **`T-agentcoach`** (LLM session coaching — narrate-only, session-level first; the designated test of the 2g–2k engine bet).
-<!-- Detail moved out of context 2026-08-01 (it is all in SYNTHESIS.md and costs tokens every session): personas score 3-4/10 realism; 42.5% of graded decisions (105/247) return "No baseline yet"; postflop only 4/66 = 6.1% graded. The stale grade_map_postflop.py docstring claims "ONLY the HU single-raised-pot continuation line" — HEAD actually ships 19 postflop mappers incl. nine map_mw_* multiway + two limped-flop-only; they exist and still reject ~everything, and the reason distribution is unmeasured until T-REJECT lands. -->
+Making the trainer playable from the owner's Android phone on the home wifi, then adding 6-max
+tables. Read before touching anything:
+- Roadmap (slices, decisions D1–D4, pass/fail — no separate PRD exists yet for this initiative):
+  `docs/ai-dlc/roadmap/phone-and-6max.md`
+- Finding ledger (review rounds, rescued facts, measurements): `docs/ai-dlc/ledger/phone-and-6max.md`
+- Orientation for a fresh session: `docs/ai-dlc/START-HERE.md`
 
-- ⛔ **Order of work (owner, superseded 2026-08-05): the governing initiative is now `docs/ai-dlc/roadmap/bot-realism-flywheel.md`** (+ PRD `docs/ai-dlc/prd/bot-realism-flywheel.md`). The persona-realism roadmap is **PAUSED** (see its top banner) — do NOT resume its NOW lane or build any persona-fix/pack-value change until the flywheel's phase-3 ceiling verdict. `T-agentcoach` and `T-cover` remain **blocked behind that gate**. Orientation for a fresh session: `docs/ai-dlc/START-HERE.md`. Evidence base: `docs/ai-dlc/research/persona-realism-artifacts/remeasure-2026-08-05/SYNTHESIS.md` (roster 4.8/10; the seven per-persona reports contain findings later corrected by Sol reviews — SYNTHESIS §1's adjudicated column is authoritative, never cite a report number without checking its banner).
+**The bot-realism flywheel initiative that preceded this one is still open, not closed.** Its
+roadmap, `docs/ai-dlc/roadmap/bot-realism-flywheel.md`, has exactly one unticked box: two-mode
+Simulate (Training vs Challenge) is built, and stays open until the owner plays a Challenge-mode
+session and reaches its hand-200 threshold — that play session, not a ticket count, is what closes
+it. Its own persona-realism predecessor roadmap remains **PAUSED**, and its two blocked NEXT items,
+**`T-cover`** (cause of "No baseline yet" is `grade_map_postflop.py`'s *gates*, not the turn/river
+graders) and **`T-agentcoach`** (LLM session coaching, narrate-only, session-level first), stay
+blocked. The phase-3 fix-vs-overhaul question itself was decided 2026-08-15 (ruling A: fix the
+current bots); what both items still wait on is the flywheel's finale — the owner's Challenge-mode
+play session that closes the last open box above.
 
 ## Session boot checklist + misalignment tripwires (owner-mandated, 2026-08-05)
 

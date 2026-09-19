@@ -76,6 +76,40 @@ make fix              # apply ruff format, ruff check --fix, biome check --write
 Backend deps are locked in `backend/uv.lock` (`cd backend && uv sync --extra dev` creates
 `.venv`; `pip install -e ".[dev]"` still works). Commit hooks: `backend/.venv/bin/pre-commit install`.
 
+### Play from your phone
+
+Start the stack with the `--lan` flag, through either entry point:
+```bash
+./scripts/serve.sh start --lan
+# or, with direnv set up:
+poker-coach start --lan
+```
+
+> `--lan` makes the frontend dev server listen on the home wifi instead of only on the Mac. The
+> script prints the address to open on the phone once the stack is ready. Type that printed
+> address exactly, as a raw IP (for example `http://192.168.1.42:7777`) — the dev server refuses
+> hostnames it does not recognise, so `http://mac.local:7777` returns "Blocked request. This host
+> is not allowed."
+>
+> On the phone, open that address in Chrome, then use Chrome's menu → **Add to Home screen** to
+> get an app-like icon.
+>
+> The phone only works while the Mac is running the stack — closing the laptop lid or running
+> `stop` takes the phone with it. The router can also hand the Mac a new address later (after a
+> reboot or a long idle period), which breaks the saved home-screen shortcut until it is recreated
+> from the newly printed address. The first time `--lan` runs, macOS may prompt to allow incoming
+> network connections for Node — allow it, or the phone cannot reach the server.
+>
+> **The honest boundary.** The backend's own port (8008) stays bound to the Mac and is never
+> reachable from another device, `--lan` or not. But the frontend port (7777) forwards every
+> request under `/api` to that backend regardless of which network interface it arrived on — so
+> while `--lan` is on, the *entire unauthenticated API* is reachable from anything on the home
+> wifi, not just the trainer's UI. That is acceptable here because the home network is trusted and
+> this app has no user accounts, but it is a real exposure, not a cosmetic one: don't run `--lan`
+> on a network you don't trust. The flag is off by default — a plain `start` (or `poker-coach`
+> with no arguments) listens on loopback only — and `status` reports which of the two states the
+> running server is in.
+
 ## Status
 **Phase 0** (foundations) complete & verified. **Phase 1a** (real preflop trainer) built:
 research-backed ranges for RFI / facing-an-open / blind defense / vs-limpers, frequency-tolerant

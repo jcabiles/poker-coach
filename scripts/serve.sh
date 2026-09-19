@@ -46,6 +46,16 @@ _pid_matches() {
   printf '%s\n' "$cmdline" | grep -qE "$pattern"
 }
 
+# True if the RUNNING frontend process was launched with --host (all
+# interfaces), false if it's loopback only. Reads the process's own command
+# line rather than this invocation's flag, so `status` and the early returns
+# report what is actually listening, not what was just asked for.
+_fe_is_lan() {
+  local pid="$1" cmdline
+  cmdline="$(ps -ww -o command= -p "$pid" 2>/dev/null)" || return 1
+  printf '%s\n' "$cmdline" | grep -q -- '--host'
+}
+
 # `curl` and `wget` are denied by this repo's Claude sandbox, so readiness is
 # probed with the backend venv's Python instead. The URL is passed as an argument
 # rather than interpolated, so a shell-special character in it cannot reach the
@@ -108,12 +118,22 @@ start() {
   _require
   local be fe; be="$(_be_pid)"; fe="$(_fe_pid)"
   if [ -n "$be" ] && [ -n "$fe" ]; then
-    echo "already running (backend pid $be :$BACKEND_PORT, frontend pid $fe :$FRONTEND_PORT)"; exit 0
+    local fe_state="loopback only"
+    _fe_is_lan "$fe" && fe_state="on the wifi"
+    # --lan was asked for but the running frontend is loopback-only: say so and
+    # exit non-zero rather than silently leaving it off the wifi. Flagless calls
+    # against a wifi-bound frontend fall through to report that state honestly
+    # below, instead of implying the loopback default held.
+    if [ -n "$LAN_HOST" ] && [ "$fe_state" = "loopback only" ]; then
+      echo "already running, but frontend is loopback only (pid $fe :$FRONTEND_PORT) — run: scripts/serve.sh restart --lan" >&2
+      exit 1
+    fi
+    echo "already running (backend pid $be :$BACKEND_PORT, frontend pid $fe :$FRONTEND_PORT, frontend $fe_state)"; exit 0
   fi
 
   if [ -z "$be" ]; then
     if [ -f "$BE_LOG" ]; then mv -f "$BE_LOG" "$BE_LOG.1"; fi
-    ( cd "$REPO/backend" && nohup "$UVICORN" app.main:app --reload --port "$BACKEND_PORT" >"$BE_LOG" 2>&1 & echo $! >"$BE_PIDFILE" )
+    ( cd "$REPO/backend" && nohup "$UVICORN" app.main:app --reload --host 127.0.0.1 --port "$BACKEND_PORT" >"$BE_LOG" 2>&1 & echo $! >"$BE_PIDFILE" )
     echo "backend  started (pid $(cat "$BE_PIDFILE") on :$BACKEND_PORT) — logs: .backend.log"
   else
     echo "backend  already up (pid $be on :$BACKEND_PORT)"
@@ -123,7 +143,10 @@ start() {
 
   if [ -z "$fe" ]; then
     if [ -f "$FE_LOG" ]; then mv -f "$FE_LOG" "$FE_LOG.1"; fi
-    ( cd "$REPO/frontend" && nohup "$VITE" --port "$FRONTEND_PORT" --strictPort >"$FE_LOG" 2>&1 & echo $! >"$FE_PIDFILE" )
+    # $LAN_HOST is a plain string ("--host" or empty), deliberately unquoted so
+    # it splits into zero or one words — see the no-bash-arrays note by its
+    # assignment below.
+    ( cd "$REPO/frontend" && nohup "$VITE" --port "$FRONTEND_PORT" --strictPort $LAN_HOST >"$FE_LOG" 2>&1 & echo $! >"$FE_PIDFILE" )
     echo "frontend started (pid $(cat "$FE_PIDFILE") on :$FRONTEND_PORT) — logs: .frontend.log"
   else
     echo "frontend already up (pid $fe on :$FRONTEND_PORT)"
@@ -135,6 +158,18 @@ start() {
   _wait_ready "frontend" "$FRONTEND_URL" "$FE_LOG" || exit 1
 
   echo "open http://localhost:${FRONTEND_PORT}"
+
+  if [ -n "$LAN_HOST" ]; then
+    # ipconfig is blocked in some sandboxes and always exits non-zero there;
+    # fall back to a hint rather than failing the whole start.
+    local wifi_ip
+    wifi_ip="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+    if [ -n "$wifi_ip" ]; then
+      echo "also open http://${wifi_ip}:${FRONTEND_PORT} from a phone on the same wifi"
+    else
+      echo "open http://localhost:${FRONTEND_PORT} (could not determine a wifi address — tried en0, en1; try: ipconfig getifaddr en0)"
+    fi
+  fi
 }
 
 # $1=label  $2=pidfile  $3=pid
@@ -166,13 +201,42 @@ stop() {
 status() {
   local be fe; be="$(_be_pid)"; fe="$(_fe_pid)"
   [ -n "$be" ] && echo "backend  running (pid $be on :$BACKEND_PORT)"  || echo "backend  not running"
-  [ -n "$fe" ] && echo "frontend running (pid $fe on :$FRONTEND_PORT)" || echo "frontend not running"
+  if [ -n "$fe" ]; then
+    local fe_state="loopback only"
+    _fe_is_lan "$fe" && fe_state="on the wifi"
+    echo "frontend running (pid $fe on :$FRONTEND_PORT, $fe_state)"
+  else
+    echo "frontend not running"
+  fi
 }
 
-case "${1:-}" in
+# Parse args anywhere in the list into two plain strings, not a bash array:
+# the shebang resolves to whichever bash is first on PATH — 5.3 here, but the
+# system's 3.2 elsewhere, where an empty array expanded under `set -u` aborts
+# the script. CMD holds the subcommand; LAN_HOST holds "--host" or "" — vite's
+# --host with no value already means listen on all interfaces.
+CMD=""
+LAN_HOST=""
+USAGE="usage: scripts/serve.sh [--lan] {start|stop|restart|status}"
+for arg in "$@"; do
+  case "$arg" in
+    --lan)
+      LAN_HOST="--host"
+      ;;
+    start|stop|restart|status)
+      if [ -n "$CMD" ]; then echo "$USAGE" >&2; exit 2; fi
+      CMD="$arg"
+      ;;
+    *)
+      echo "$USAGE" >&2; exit 2
+      ;;
+  esac
+done
+
+case "$CMD" in
   start)   start ;;
   stop)    stop ;;
   restart) stop; start ;;
   status)  status ;;
-  *) echo "usage: scripts/serve.sh {start|stop|restart|status}"; exit 2 ;;
+  *) echo "$USAGE" >&2; exit 2 ;;
 esac
