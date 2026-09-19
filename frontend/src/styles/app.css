@@ -180,6 +180,13 @@
   color: var(--text);
   border-bottom-color: var(--primary);
 }
+/* The control that reveals the section rail on a phone (P3a §3). Absent
+   everywhere else — display:none keeps it out of the accessibility tree too, so
+   a desktop keyboard never lands on a button for a sheet that isn't a sheet.
+   Its phone styling lives in the gate at the end of this file. */
+.nav-reveal {
+  display: none;
+}
 
 .layout {
   display: grid;
@@ -2803,6 +2810,23 @@ kbd {
   gap: var(--space-4);
 }
 
+/* Felt context line — P3a §6. The line is a row with two ends, not one long
+   sentence: the sentence on the left, the 6-max range disclosure pushed to the
+   felt's right edge. At six seats a pod sits top-centre and its chip puck
+   overhangs the felt's first line, right where the sentence's tail used to run;
+   the right edge is the one span of that line no pod reaches (the flank pods
+   orbit at 87% of the ring, inside the felt's padding). If the felt is ever too
+   narrow to hold both, the note wraps to its own line — downward, away from the
+   pods, never under them. */
+.sim-ctx {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+}
+.sim-ctx-note {
+  margin-inline-start: auto;
+}
 /* Felt context line — mono hand counter inside the room's ctx stencil. */
 .sim-ctx-no {
   font-family: var(--font-mono);
@@ -3048,6 +3072,37 @@ kbd {
    verbatim; sim-actionbar only ensures the top margin reads under the felt. */
 .sim-actionbar {
   margin-top: var(--space-4);
+}
+
+/* P3a §2 — the deal control, when it is rendered into the dock instead of the
+   topbar. Same .decisionbar frame as the action bar it replaces, so the strip
+   under the thumb keeps one geometry all hand long; the phone gate at the end
+   of this file is what pins both. Only ever mounted on a phone-shaped viewport
+   (SimulateView holds that gate), so this rule has nothing to hide elsewhere. */
+.sim-nextdock {
+  margin-top: var(--space-4);
+}
+
+/* P3a §5 — an armed shove. The button states what it is about to do in WORDS
+   ("Confirm all-in"), and the tier fill only reinforces it; the same
+   word-then-tone grammar the verdict badges use, and the same verified
+   bad-ink-on-bad-fill pair (5.0:1 day, 6.6:1 night). Overrides the gilded
+   primary plate by sitting later in the file at equal specificity — a raise
+   that is also a shove must not still read as the room's ordinary raise. */
+.decision-btn.sim-action-armed {
+  color: var(--sim-tier-bad-ink);
+  background: var(--sim-tier-bad-fill);
+  border-color: var(--sim-tier-bad-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--sim-tier-bad-ink),
+    var(--shadow-panel);
+}
+.sim-action-warn {
+  flex: 1 0 100%;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-md);
+  line-height: 1.4;
+  color: var(--sim-tier-bad-ink);
 }
 
 /* Between-turn / dealing placeholder line. */
@@ -6648,4 +6703,279 @@ kbd {
   font-size: var(--text-base);
   line-height: 1.5;
   color: var(--muted);
+}
+
+/* ── P3a — the phone gate ───────────────────────────────────────────────────
+   ONE breakpoint for the whole phone rework, stated once. The JS half of the
+   same gate is PHONE_LAYOUT_QUERY in src/lib/usePhoneLayout.ts; the two strings
+   must stay identical, because a control moves into the dock (JS) exactly where
+   the dock exists (CSS).
+
+   WHY HEIGHT LEADS. An Android phone in landscape — the format this work exists
+   for — is 800–915px WIDE and only 360–412px TALL, so a max-width gate never
+   fires there and the measured defect is vertical: ring-top to action-bar-bottom
+   was 479px inside a 412px viewport. The max-width half catches the same phone
+   in portrait, where the section rail was also forcing a 713px intrinsic page
+   minimum. A 1280×800 desktop matches neither half and is untouched.
+
+   The shape: the page chrome leaves the top of the screen (the felt is the
+   first thing on it), the section rail becomes a bottom sheet behind one
+   control, and the bottom edge belongs permanently to the hero's dock — action
+   buttons mid-hand, the deal control once the hand settles. Because the dock is
+   fixed and the page reserves a constant strip for it, panels mounting below
+   the felt can no longer move the controls under the player's thumb.
+
+   Everything here is either sim-scoped or breakpoint-scoped; no base-class rule
+   outside this block changes, so Practice and Quiz inherit only the app shell.
+   Last in the file so it out-cascades equal-specificity rules above. */
+@media (max-height: 560px), (max-width: 560px) {
+  /* The dock is fixed over the bottom of the viewport, so a control scrolled
+     into view by the browser lands UNDER it: focusing the Baseline Play
+     disclosure moved the page 1.5px and left 99.8% of the control covered
+     (WCAG 2.4.11 Focus Not Obscured). Reserve the dock's own strip — the same
+     constant .app pads by below — as scroll padding, so every programmatic
+     scroll stops short of it. */
+  html {
+    scroll-padding-bottom: calc(var(--space-8) * 4);
+  }
+
+  /* The shell becomes a column so the chrome can be ordered BELOW the content
+     it used to sit on top of — 212–257px of masthead and rail, on a screen
+     412px tall. The chrome is not removed, just moved: everything stays
+     reachable, one scroll down. */
+  .app {
+    display: flex;
+    flex-direction: column;
+    /* The bottom pad is the dock's own strip, reserved whether or not the dock
+       currently has anything in it — that constant is half of why the controls
+       stop moving mid-hand. Sized for the TALLEST dock: below 480px the four
+       action buttons pair up 2-across and the strip is 113px, not 61px. */
+    padding: var(--space-2) var(--space-3) calc(var(--space-8) * 4);
+  }
+  .topbar {
+    order: 2;
+    flex-wrap: wrap;
+    margin: var(--space-6) 0 var(--space-3);
+  }
+  .statstrip {
+    order: 3;
+  }
+  /* Nothing in the chrome may force the page wider than the screen. The
+     measured 713px intrinsic minimum was the section rail, which is now a
+     sheet; these three rows are what is left of it in portrait — the masthead's
+     ledger widget, the session controls, and the speed pill, none of which had
+     a reason to wrap before there was a 360px-wide viewport to wrap in. */
+  .masthead-right,
+  .sim-topbar-controls,
+  .sim-speed-opts {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .ev-ledger-widget {
+    max-width: 100%;
+  }
+
+  /* The section rail, as a bottom sheet. display:none when closed rather than a
+     transform: a hidden destination must not be tabbable, and there is no
+     motion here to preserve. */
+  .nav-tabs {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 30;
+    display: none;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    /* Clears the reveal control, which sits on the same strip. */
+    padding-inline-start: calc(var(--space-8) + var(--space-6));
+    gap: var(--space-1) var(--space-2);
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--surface);
+    border-bottom: none;
+    /* No box-shadow: --shadow-overlay is offset downward (0 10px 28px), and
+       this sheet sits flush at `inset: auto 0 0`, so every pixel of it would
+       render off-screen. The top hairline is the whole separation. */
+    border-top: 1px solid var(--border);
+  }
+  .nav-tabs.nav-tabs-open {
+    display: flex;
+  }
+  .nav-tab {
+    min-height: calc(var(--space-8) + var(--space-3)); /* 44px touch floor */
+    margin-bottom: 0;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-base); /* the serif floor — never smaller than 15px */
+  }
+
+  /* The one control that opens it. Bottom-left, on the same strip as the dock
+     and out of the thumb's path to the action buttons: the sheet rises from
+     where the control is. */
+  .nav-reveal {
+    position: fixed;
+    inset-inline-start: var(--space-2);
+    bottom: var(--space-2);
+    z-index: 40; /* above the sheet it opens, so it can also close it */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(var(--space-8) + var(--space-3));
+    height: calc(var(--space-8) + var(--space-3));
+    padding: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-xl);
+    line-height: 1;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-overlay);
+    cursor: pointer;
+  }
+  .nav-reveal:hover,
+  .nav-reveal[aria-expanded="true"] {
+    border-color: var(--primary);
+  }
+
+  /* ── Simulate ──────────────────────────────────────────────────────────── */
+  /* The felt first, the session's own controls (speed, watch, grading, leave)
+     after it. They are settings, and settings belong under the table on a
+     screen this short. */
+  .simulate {
+    gap: var(--space-2);
+  }
+  .simulate .sim-topbar {
+    order: 2;
+    margin-top: var(--space-2);
+  }
+  .sim-layout {
+    gap: var(--space-3);
+  }
+
+  /* Felt density: the frame's own rhythm tightened so the ring keeps as much of
+     the screen as possible. Seat geometry is untouched — only the padding and
+     margins around the ring move, plus the card size the pods are built from.
+     Rebinding the two card tokens on the stage is the one knob: the face-down
+     pod backs, the hero's hand and the pod width bounds are all derived from
+     them, so the whole felt scales together instead of drifting apart. */
+  .simulate .stage,
+  .history-replay .stage {
+    --card-w: var(--card-w-phone);
+    --card-h: var(--card-h-phone);
+  }
+  .simulate .felt,
+  .history-replay .felt {
+    padding-inline: var(--space-3);
+  }
+  .simulate .felt-staged,
+  .history-replay .felt-staged {
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+  }
+  .simulate .ctx,
+  .history-replay .ctx {
+    margin-bottom: var(--space-1);
+  }
+  /* The bottom margin is the hero pod's clearance, not decoration: the hero
+     sits at 88% of the ring and hangs below it by design, and .stage clips
+     (overflow: hidden). Too little here and the brass rule under the hero's
+     own cards is what gets cut off. */
+  .simulate .sim-tablering,
+  .history-replay .tablering {
+    margin-top: 0;
+    margin-bottom: var(--space-4);
+  }
+  /* The ring takes what the screen has left after the page's own strip, the
+     felt's frame and the dock — so the table and the buttons are on screen
+     together by construction rather than by a number that happens to fit one
+     phone. dvh, not vh: Android Chrome's URL bar is the 56–100px this whole
+     block exists to survive. The six-seat flank pods stack 39.5% of the ring's
+     height apart, so a shorter ring is also a tighter felt — hence the pod
+     density below.
+
+     NINE SEATS OPT OUT. Nine pods need the ring's full height to stay apart.
+     Measured at 800×360 on one nine-handed hand, clamp on vs off: the worst
+     pod-label overlap went 65.6px² → 498.5px² and the total 65.6px² → 768.2px²,
+     which is a villain's stack figure with its first digits under a neighbour's
+     verb. Nine-max on a phone is out of this slice's scope, but it must not get
+     WORSE, so it keeps the tall ring and scrolls instead. The ring's first two
+     children are the rail and the centre, so the ninth pod is child 11 — the
+     same structure in both SimTable and HandReplayTable. */
+  .simulate .tablering:not(:has(> .tseat:nth-child(11))),
+  .history-replay .tablering:not(:has(> .tseat:nth-child(11))) {
+    max-height: calc(100dvh - (var(--space-8) * 4 + var(--space-2)));
+  }
+  /* Pod rows sit flush on a phone. The rows carry their own padding and
+     line-height, so the pod still reads as five stacked labels — it just stops
+     spending 16px of a 360px-tall screen on gaps between them. */
+  .simulate .sim-seat,
+  .history-replay .tseat {
+    gap: 0;
+  }
+  /* And the single-line labels inside it stop carrying body leading. Measured:
+     without this the two right-flank pods overlap by 6px at 800×360, the
+     shortest landscape this lane targets. Font sizes are untouched — only the
+     empty space above and below one line of text. */
+  .simulate .sim-seat .stack,
+  .simulate .sim-persona-plate,
+  .simulate .sim-chips {
+    line-height: 1.25;
+  }
+
+  /* The dock. Fixed, so the buttons hold still while verdict and recap panels
+     mount below the felt and the document grows — the page can still get
+     taller, it just can no longer move the controls. */
+  .decisionbar.sim-actionbar,
+  .decisionbar.sim-nextdock {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 20;
+    margin: 0;
+    /* Bottom padding is the focus ring's clearance: 3px of ring at 2px offset
+       needs 5px below the button, and the bar is flush with the screen edge. */
+    padding: var(--space-2) var(--space-3);
+    padding-inline-start: calc(var(--space-8) + var(--space-6));
+    gap: var(--space-2);
+    /* --surface, not --bg: content slides underneath a fixed bar, and a bar the
+       same colour as the page it covers has no edge but the hairline (1.71:1
+       night / 1.48:1 day). The section sheet already answers this the same way.
+       No shadow: every shadow token is offset DOWNWARD, which on a bar flush
+       with the bottom of the viewport paints entirely off-screen. */
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  /* The armed-shove warning leaves the flow entirely. In flow it was a row of
+     the dock's own layout, so arming a shove grew the bottom-anchored bar
+     UPWARD and carried the buttons with it — measured on a three-button dock,
+     +30.2px at 915×412 and +32.78px at 360×800, where the narrow gate turns the
+     dock into a two-column grid and the sentence wraps to four lines inside one
+     142px cell. Either way the button the warning tells you to press again had
+     moved out from under the thumb that just pressed it. Out of flow the dock
+     measures the same armed and unarmed. It rises over the felt's bottom edge,
+     which is free because the felt is frozen while a shove is armed. */
+  .sim-action-warn {
+    position: absolute;
+    inset-inline: var(--space-3);
+    bottom: 100%;
+    margin: 0 0 var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    /* Opaque, because it now floats over the felt rather than sitting on the
+       dock's own fill. */
+    background: var(--surface);
+    border: 1px solid var(--sim-tier-bad-ink);
+    border-radius: var(--radius-md);
+    /* The same serif floor the dock's buttons take here: --text-md is 13px, and
+       the one sentence that can cost the stack must not be the smallest type on
+       the screen it is read at arm's length from. */
+    font-size: var(--text-base);
+  }
+  .sim-actionbar .decision-btn,
+  .sim-nextdock .decision-btn {
+    font-size: var(--text-base); /* the serif floor, and one line per button */
+  }
+  /* No keyboard is attached to a phone, so the engraved key chips are costing a
+     line of height for a hint nobody can act on. The shortcuts themselves are
+     untouched. */
+  .sim-actionbar kbd {
+    display: none;
+  }
 }
