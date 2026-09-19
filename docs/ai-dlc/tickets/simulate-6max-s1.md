@@ -1,206 +1,252 @@
 # Tickets — S1, the 6-max table option
 
-status: **rev 1, APPROVED** — pre-authorized by John's `/ai-org:spec --auto-build` invocation,
-2026-09-18. The approval covers T1–T6 exactly as written below and nothing else. The roadmap's S1
-box is not ticked by this build; the owner ticks it after playing a 6-max session.
-spec: `../specs/simulate-6max-s1.md` · contract map: `../contracts/simulate-6max.md` ·
-roadmap: `../roadmap/phone-and-6max.md` (rev 4, NOW lane, slice S1)
+status: **rev 2, APPROVED** — rev 1 pre-authorized by John's `/ai-org:spec --auto-build`
+invocation, 2026-09-18; rev 2 rewritten after a blind review returned FAIL and the owner ruled on
+its four escalations the same day. The approval covers T0–T7 as written and nothing else. The
+roadmap's S1 box is not ticked by this build.
+spec: `../specs/simulate-6max-s1.md` (rev 2) · contract map: `../contracts/simulate-6max.md` ·
+ledger: `../ledger/simulate-6max-s1.md` (round 1) · roadmap: `../roadmap/phone-and-6max.md`
 
 ## Shape of the work
 
-Six tickets. One new database column, one new migration, a seat count threaded through the pure
-domain, and a test suite whose main job is proving that nine-max play did not move.
+Eight tickets. One database column, one migration, a seat count threaded through the pure domain,
+a four-room sit-down screen, and a test suite whose main job is proving nine-max did not move.
 
 ```
-T2 (deck + engine)      ─┐
-T3 (range + lineup)     ─┼─→ T1 (persistence + service) ─→ T5 (frontend) ─┐
-T4 (grading table_size) ─┘                                                 ├─→ T6 (tests)
-                                                                           │
+T0 (capture parity fixture — MUST be first, on origin/main)
+     │
+     ├─→ T2 (deck + engine) ─┐
+     ├─→ T3 (range + lineup) ─┼─→ T1 (persistence + service + sim key) ─┬─→ T5 (sit-down screen) ─┐
+     └─→ T4 (grading)        ─┘                                          └─→ T6 (felt + blind check) ─┤
+                                                                                                      └─→ T7 (tests + sweep)
 ```
 
-T2, T3 and T4 touch disjoint files and may run in parallel. T1 depends on T2 because the session
-service calls the dealing and rotation functions whose signatures T2 changes. T6 runs last and is
-the ticket that can actually fail the slice.
+T2, T3 and T4 touch disjoint files and may run in parallel. T5 and T6 are both frontend but own
+different files. T7 runs last and is the ticket that can actually fail the slice.
 
-**Build in a worktree.** The shared checkout is in use by another session and the owner's dev stack
-is running from it.
+**Build in a worktree.** The shared checkout is used by other sessions and the owner's stack runs
+from it. The Python interpreter lives in the main checkout at `backend/.venv`; worktrees have none,
+so symlink it rather than creating a second one.
 
-**Baseline first.** Record what `make check` reports before any edit, so "unchanged" has a number
-behind it. Run it once, from the main checkout, because the Python interpreter lives there
-(`backend/.venv`) and worktrees do not have one.
+**Never touch `backend/data/poker_coach.db`.** Print `app.db.session.DB_PATH` and stop unless it is
+under the worktree, *before* running Alembic and *before* starting any server.
 
-**The one rule that outranks the others:** nine-max play must come out byte-identical. If a change
-makes a 9-max test need editing, the change is wrong — fix the change, not the test.
+**The rule that outranks the others:** nine-max play comes out byte-identical. If a change makes a
+9-max test need editing, the change is wrong — fix the change, not the test.
 
 ---
 
-### T1 — The seat count is chosen, stored, and read back
+### T0 — Capture the byte-identical fixture, before anything else
+
+- **Owns:** `backend/tests/fixtures/ninemax_parity.json` (new).
+- **Do:** on a clean checkout of `origin/main`, run a fixed seed through the deal, the position map
+  for every button seat, a full button rotation, and the grades for a set of hero decisions. Commit
+  the captured output as a fixture.
+- **Why this is a separate ticket and why it is first:** the spec's second-strongest claim is that
+  9-max is unchanged. If the fixture is generated *after* the change, it records the new behaviour
+  and the test compares the new code to itself — it passes whether or not parity holds. The
+  reviewer flagged rev 1's version of this step as unfalsifiable, and it was.
+- **Acceptance:** the fixture exists, is committed, and was demonstrably produced on `origin/main` —
+  say in the pull request which commit it came from.
+
+---
+
+### T1 — The seat count is chosen, stored, read back, and keys Simulate's attempts
 
 - **Owns:** `backend/app/db/models.py`, `backend/app/schemas/simulate.py`,
   `backend/app/api/v1/simulate.py`, `backend/alembic/versions/0016_sim_session_table_size.py` (new),
   `backend/app/services/sim_session.py`.
 - **Depends on:** T2.
-- **Imitate:** `mode` from the previous slice, end to end. It is the same shape, already shipped —
-  `SimMode` at `backend/app/schemas/simulate.py:20-29`, the column on `SimSession`, the route
-  passthrough at `backend/app/api/v1/simulate.py:76-81`, and the migration
+- **Imitate:** `mode`, end to end — `SimMode` at `backend/app/schemas/simulate.py:20-29`, the column
+  on `SimSession`, the route passthrough at `backend/app/api/v1/simulate.py:76-81`, and migration
   `backend/alembic/versions/0015_sim_session_mode.py`.
 - **Do:**
-  1. `TableSize = Literal[6, 9]` beside `SimMode`. A literal union, never a bare `int`, so a bad
-     value is rejected at the edge rather than deep in the engine.
-  2. `CreateSessionRequest` gains `table_size: TableSize = 9`. `SessionView` carries `table_size`
-     out, so the felt can label itself.
-  3. `SimSession` gains `table_size: int = Field(default=9)`.
-  4. Migration `0016`, additive **nullable** with `server_default="9"`, no backfill. Downgrade
-     through `batch_alter_table` because SQLite cannot drop a column in place. **Readers treat NULL
-     as 9** — every session created before this migration predates the column, exactly as `mode`
-     treats NULL as `training`.
-  5. Thread it through `create_session` and fix the three hardcoded sites in the service: the
-     Challenge-mode blind-check seat pool at `:358`, the seat-row creation loop at `:947`, and the
-     button rotation `(session.button_seat + 1) % 9` at `:1532`.
-  6. `BLIND_CHECK_SEAT_COUNT` stays 3 (`backend/app/schemas/simulate.py:185`) — three of five
-     non-hero seats is still a sensible check. Only the pool changes. **A blind check must never
-     name a seat that does not exist.**
-  7. The module docstring at `backend/app/services/sim_session.py:1` still says "9-max". Fix it.
-- **Acceptance:** a session created with no `table_size` is a 9-max session; one created with
-  `table_size=6` stores 6 and reads back 6; a row written before the migration reads back as 9;
-  `table_size=7` is rejected by the schema with a 422, not by the engine with a crash.
-- **Done:** `alembic upgrade head` then `downgrade` then `upgrade` runs clean against a scratch
-  database — never against `backend/data/poker_coach.db`.
+  1. `TableSize = Literal[6, 9]` beside `SimMode`; `CreateSessionRequest` gains
+     `table_size: TableSize = 9`; `SessionView` carries it out.
+  2. `SimSession` gains `table_size: int = Field(default=9)`.
+  3. Migration `0016`: additive **nullable**, `server_default="9"`, no backfill, downgrade via
+     `batch_alter_table`.
+  4. **Fix all five hardcoded sites**, not three:
+     - `:262` — `deal_hand(random.Random(seed))` must pass the seat count. **Silent if missed:** six
+       seats would pop eighteen hole cards before the board, drawing it from a different deck offset.
+     - `:358` — Challenge blind-check seat pool.
+     - `:931` — **button seeding, `secrets.randbelow(9)`.** Out of range a third of the time at six
+       seats, and the bad value persists onto the row and out over the wire.
+     - `:947` — seat-row creation loop.
+     - `:1532` — button rotation, `% 9`.
+  5. **`_sim_signature` (`:1051-1058`) gains the seat count as its second part** — `sim:9:rfi:LJ`,
+     `sim:6:rfi:LJ`. This is decision D1, built where Simulate's key actually lives.
+     **Do not touch `spot_signature()`** (`backend/app/domain/srs.py:63`) — it is frozen, and
+     Simulate does not call it; `:1018` says so in a comment.
+  6. Fix the "9-max" module docstring at `:1`.
+- **Accepted cost, do not try to avoid it:** rows written before this change keep `sim:rfi:LJ`, so
+  sim-attempt grouping has one seam at this date. The owner accepted that knowingly.
+- **Acceptance:** a session created with no table size is 9-max; one created with 6 stores and reads
+  back 6; a pre-migration row reads back 9; `table_size=7` is rejected with a 422 by the schema, not
+  by the engine with a crash; a 6-max session's button seeds inside 0–5 across many creations.
+- **Done:** `alembic upgrade head`, `downgrade`, `upgrade` clean against a scratch database.
 
 ---
 
 ### T2 — The table deals and rotates for six seats
 
 - **Owns:** `backend/app/domain/table/deck.py`, `backend/app/domain/table/engine.py`.
-- **Imitate:** the files' own style. Pure domain — no web imports, no DB imports, enforced by
-  `backend/tests/test_domain_purity.py`.
+- **Depends on:** T0.
 - **Do:**
-  1. `_ROTATION` (`deck.py:16-29`) stays the frozen nine-long clockwise list and gains a six-long
-     sibling **derived from it by removing UTG, UTG1 and UTG2**. Do not retype the six by hand:
-     deriving is what keeps the nine-max worked example at `backend/tests/test_table.py:52-63`
-     byte-identical, and a typed list is a place for a typo to hide.
-  2. `positions_for_button` and the dealing function take the seat count.
-  3. Every use of `_SEATS` in `engine.py` reads the count from the state it was handed —
-     `:81-82` (blind seats), `:88` (seat construction), `:122` (first to act), `:140` (invested
-     map), `:243-245` (betting-round closure), `:313-314`, `:363`, `:370`, `:372`.
-  4. **Prefer `len(state.seats)` over a new parameter wherever the state is already in scope.** It
-     cannot go stale, and it makes restoring a hand dealt under the other table size safe by
-     construction.
-- **Acceptance:** at six seats the button rotates through six seats only and wraps correctly; blinds
-  post to the right two seats at every button position; the betting round closes correctly when
-  folds leave two players; `positions_for_button` at nine seats returns exactly what it returns
-  today, for every button seat.
-- **Watch for:** the wraparound. `% 9` becoming `% table_size` is the easy half; the hard half is
-  any loop that counts `range(1, _SEATS + 1)` (`engine.py:313`) to find the next actor.
+  1. `_ROTATION` (`deck.py:16-29`) stays the frozen nine-long list and gains a six-long sibling
+     **derived from it** by removing UTG, UTG1 and UTG2. Derive, do not retype — deriving preserves
+     the 9-max worked example at `backend/tests/test_table.py:52-63`, and a typed list hides typos.
+  2. `positions_for_button` and the dealing function take the seat count, **defaulting to 9.**
+  3. Every `_SEATS` use in `engine.py` (`:81-82`, `:88`, `:122`, `:140`, `:243-245`, `:313-314`,
+     `:363`, `:370`, `:372`) stops reading the module constant. Where a `HandState` is in scope,
+     derive from `len(state.seats)`. **`start_hand` has none** — `:81-82`, `:88` and `:122` are
+     inside it, so those derive from `len(stacks_bb)` or take the parameter.
+- **Every new parameter defaults to 9.** Roughly 150 existing call sites pass no seat count, e.g.
+  `test_table.py:53` calling `positions_for_button(0)` bare, and no 9-max test may be edited.
+- **Watch for:** the wraparound. `% 9` → `% table_size` is the easy half; the hard half is
+  `range(1, _SEATS + 1)` at `engine.py:313`, which walks to find the next actor.
+- **Acceptance:** at six seats the button rotates through six seats only and wraps; blinds post to
+  the right two seats at every button position; the round closes correctly when folds leave two
+  players; `positions_for_button` at nine returns exactly today's answer for every button seat.
 
 ---
 
-### T3 — Six seats get five bots, and the villain-range estimator counts them correctly
+### T3 — Six seats get five bots, and the estimator counts them right
 
 - **Owns:** `backend/app/domain/table/play.py`, `backend/app/domain/table/range_estimate.py`.
+- **Depends on:** T0.
 - **Do:**
-  1. `LINEUP` (`play.py:44-61`) becomes two named tuples: the existing eight personas for nine
-     seats, and **for six seats the five the owner fixed on 2026-09-18 — nit, TAG, TAG, LAG,
-     calling station.** No passive fish and no maniac sit at a six-seat table. `assign_lineup`
-     takes the seat count and shuffles the right tuple across the right number of non-hero seats.
-     Seat 0 stays the hero.
-  2. The lineup is **fixed, not drawn** — which five personas appear is decided, so the owner's
-     first-session verdict is not a coin flip. Shuffling *positions* is still correct; changing
-     *which five* is not.
-  3. `range_estimate.py` — the fixed-length arrays at `:156-157` and `:192`, and the opponent count
-     at `:237`, size themselves from the hand being estimated rather than from `_SEATS` (`:58`).
-- **Acceptance:** a 6-max session seats exactly five bots and they are exactly the five above; the
-  villain-range panel reports opponents out of six, never nine; the nine-max lineup is unchanged.
-- **Why the estimator matters:** left at nine, a 6-max hand counts three opponents that were never
-  dealt in, and every posterior it produces is wrong **with no error raised**. Silent wrongness is
-  the failure mode to test for.
+  1. `LINEUP` (`play.py:44-61`) becomes two named tuples: the existing eight for nine seats, and for
+     six seats **nit, TAG, TAG, LAG, calling station** (owner decision D2, 2026-09-18). No passive
+     fish and no maniac sit at six seats. Two TAGs is deliberate — regulars are the most common seat
+     at real 6-max. `assign_lineup` takes the seat count, defaulting to 9.
+  2. **Which five is fixed; only their seating is shuffled.** A drawn roster would make the owner's
+     first-session verdict a coin flip.
+  3. `range_estimate.py` — the arrays at `:156-157` and `:192` and the opponent count at `:237` size
+     themselves from the hand being estimated, not from `_SEATS` (`:58`).
+- **Acceptance:** a 6-max session seats exactly those five; the villain-range panel reports
+  opponents out of six; the nine-max lineup is unchanged.
+- **Why the estimator matters:** left at nine, a 6-max hand counts three opponents never dealt in
+  and every posterior is wrong **with no error raised.** Silent wrongness is the failure to test for.
 
 ---
 
-### T4 — Grading learns the real table size
+### T4 — Grading learns the real table size, at five sites
 
-- **Owns:** `backend/app/domain/scenarios.py`, `backend/app/domain/table/grade_map_postflop.py`.
-- **Do:** thread the real seat count into the twelve sites that bake in the literal `table_size=9`
-  — `scenarios.py:275,442,520,611,692,770,856,946` and
-  `grade_map_postflop.py:127,386,455,1708`.
-- **Do NOT:** change `spot_signature()` (`backend/app/domain/srs.py:63`). It is frozen; changing how
-  it hashes orphans every existing spaced-repetition item. Passing it a truthful 6 is the whole
-  point. Changing the function is a different, forbidden thing.
-- **Do NOT:** rewrite the canonical nine-position order at `scenarios.py:36-46` or `_nine_seats`
-  at `:141-151`. At six seats those leave UTG, UTG1 and UTG2 in the canonical spot as folded
-  phantoms, and **that is accepted on purpose** — the grading lookup is keyed on node type and hero
-  position (`grade_map_preflop.py:96`), not on player count, so the phantoms never reach it.
-  Rewriting it would change code every 9-max hand also runs through, for zero grading benefit.
-- **Acceptance:** a 6-max spot reports `table_size=6`; a 9-max spot still reports 9; no existing
-  9-max grading test needs editing.
-- **Why this is the expensive one to get wrong:** `spot_signature()` hashes the table size. Leave
-  these literals alone and a 6-max spot and its 9-max twin produce the same spaced-repetition key,
-  and the two formats silently merge their review history — the opposite of owner decision D1.
-
----
-
-### T5 — The felt shows six pods and says which game it is
-
-- **Owns:** `frontend/src/components/simulate/SimTable.tsx`, `frontend/src/api/types.ts`.
-- **Depends on:** T1 (the wire field must exist first).
+- **Owns:** `backend/app/domain/table/grade_map_preflop.py`, `backend/app/domain/scenarios.py`,
+  `backend/app/domain/table/grade_map_postflop.py`.
+- **Depends on:** T0.
 - **Do:**
-  1. `types.ts` gains `table_size` on the session view. Types here are **hand-maintained** — edit
-     the file; there is no generated one. Correct the stale comments at `:218` and `:349` claiming
-     all nine seats are present.
-  2. `SimTable.tsx:147` hardcodes "9-max" in the context strip. Read the session's table size.
-  3. Add one static line on the 6-max felt saying the ranges shown are 9-max ranges.
-- **Do NOT:** write any CSS, retune the ring geometry, or touch
-  `frontend/src/components/PokerTable.tsx` (Practice and Quiz use their own ring and geometry copy
-  at `:11,47`). `SimTable.tsx:139` already filters the ring by what the backend sent and `:19-24`
-  computes geometry from the number of seats given, so six pods should render with no layout
-  change. **If they do not, stop and report it** — that is a finding for slice P2's design review,
-  not a licence to retune the felt here.
-- **Acceptance:** a 6-max session renders six pods and the strip says 6-max; a 9-max session is
-  pixel-identical to before; Practice and Quiz are untouched; `npm run typecheck` and
-  `npm run lint` clean.
+  1. **`grade_map_preflop.py:63-70` — `_preflop_spot` passes the seat count into `build_spot`.**
+     This is the single funnel for every Simulate preflop spot (called from `:99,128,158,192,227`)
+     and it holds the `HandState`. Rev 1 omitted this file entirely, which would have made the whole
+     ticket unreachable: `scenarios.py:275` is inside `build_spot`, which has no state of its own.
+  2. `scenarios.py:275` takes the value from its caller.
+  3. `grade_map_postflop.py:127,386,455,1708` — all four have a `HandState` in scope, so
+     `len(state.seats)`.
+- **Do NOT touch** `scenarios.py:442,520,611,692,770,856,946`. Those seven builders are reached only
+  from `backend/app/api/v1/drill.py` — Practice and Quiz. Practice is the one surface that genuinely
+  calls `spot_signature()` (`drill.py:334,446`), which genuinely hashes `table_size`, so **any value
+  but nine reaching there orphans real spaced-repetition history.** `grade_map_postflop.py` mentions
+  those builders only in comments (`:33-34,104,375,422,531`); its import pulls `_combos_for` and
+  `_find_entry` and nothing else.
+- **Do NOT touch** `spot_signature()`, or the canonical nine-position order at `scenarios.py:36-46`
+  and `_nine_seats` at `:141-151`. The phantom folded seats at six are accepted: the lookup is
+  position-keyed (`grade_map_preflop.py:96`) and never sees them.
+- **Acceptance:** a 6-max spot reports `table_size=6`; a 9-max spot still reports 9; Practice spots
+  still report 9; no existing 9-max grading test needs editing.
 
 ---
 
-### T6 — Prove nine-max did not move, and that six-max works
+### T5 — Four rooms on the sit-down screen
 
-- **Owns:** `backend/tests/test_simulate_6max.py` (new), and any new frontend test file.
-- **Depends on:** T1, T2, T3, T4, T5.
-- **Imitate:** `backend/tests/test_table.py` — small and direct, and its
-  `test_positions_for_button_every_seat_valid_and_exactly_one_btn` pattern (loop every button seat,
-  assert set-equality of the positions produced) generalises straight to a 6-max rotation test.
-  Also `backend/tests/test_two_mode_simulate_gate.py` for the shape of a slice gate test.
-- **Do — each of these is a named test:**
-  1. **The byte-identical claim.** A fixed seed at nine seats produces the identical deal, position
-     map, button rotation and grades as before the change. Prove it; do not assert it.
-  2. The full existing nine-max suite passes **with no test edited**.
-  3. A 6-max session deals six hands, rotates the button through six seats only, posts blinds
-     correctly.
-  4. It seats exactly five bots, and they are nit, TAG, TAG, LAG and calling station.
-  5. Hero decisions grade at every 6-max position.
-  6. Restore mid-hand works at both table sizes, **including a session row written before the
-     migration**, which must read back as nine.
-  7. A Challenge-mode blind check names only seats that exist.
+- **Owns:** `frontend/src/api/client.ts`, `frontend/src/components/simulate/SimModeChoice.tsx`,
+  `frontend/src/components/SimulateView.tsx`.
+- **Depends on:** T1.
+- **Do:** per owner decision D3, offer **Training 9-max, Training 6-max, Challenge 9-max, Challenge
+  6-max**. `postSimulateSession` (`client.ts:108-116`) takes the table size alongside the mode;
+  `SimModeChoice`'s `onChoose` carries both; `SimulateView.tsx:1466-1470` passes them through.
+- **Keep the screen's existing rule that nothing is pre-selected.** That rule is argued for in the
+  file's own header comment. Four equal cards preserve it; a defaulted toggle would not.
+- **Why this ticket exists:** rev 1 had no control at all. The slice would have shipped green with
+  6-max reachable only by hand-writing an HTTP request — and S1's own pass/fail is the owner playing
+  a 6-max session.
+- **Acceptance:** four rooms render; choosing "Training 6-max" starts a six-seat session; the 9-max
+  rooms behave exactly as the two cards do today; `npm run typecheck` and `npm run lint` clean.
+
+---
+
+### T6 — The felt and the blind check stop claiming nine
+
+- **Owns:** `frontend/src/components/simulate/SimTable.tsx`,
+  `frontend/src/components/simulate/blindCheck.ts`,
+  `frontend/src/components/simulate/SimBlindCheck.tsx`, `frontend/src/api/types.ts`.
+- **Depends on:** T1.
+- **Do:**
+  1. `types.ts` gains `table_size` on the session view; correct its stale nine-seat claims at
+     `:218`, `:221`, `:349` and `:585`. Types are hand-maintained; there is no generated file.
+  2. `SimTable.tsx:147` reads the session's table size instead of the hardcoded "9-max".
+  3. One static line on the 6-max felt says the ranges shown are 9-max ranges.
+  4. **Per owner decision D4, `blindCheck.ts:40-56`'s `HOUSE_LINEUP` and `HOUSE_SEATS` become
+     table-size aware**, and `SimBlindCheck.tsx:39-48,201-206` renders the roster actually seated.
+     Today they are hand-copied 9-max constants shown as the card's fairness argument; at six seats
+     the card would name eight seats including a maniac and two fish that are not there, and score
+     the owner's guesses against that. The file's own comment warns about exactly this.
+- **Do NOT** write any CSS, retune the ring, or touch `frontend/src/components/PokerTable.tsx`
+  (Practice and Quiz keep their own ring and geometry at `:11,47`). `SimTable.tsx:139` already
+  filters by what the backend sent, and `slotStyle(i, n)` at `:42-49` is called with
+  `ordered.length` at `:188`, so six pods should render with no layout change. **If they do not,
+  stop and report it** — that is a finding for P2's design review, not a licence to retune here.
+- **Acceptance:** a 6-max session renders six pods and the strip says 6-max; a 6-max blind check
+  discloses the five seated bots; a 9-max session is pixel-identical to before.
+
+---
+
+### T7 — Prove nine-max did not move, and that six-max works
+
+- **Owns:** `backend/tests/test_simulate_6max.py` (new), any new frontend test file,
+  `docs/ai-dlc/roadmap/phone-and-6max.md`, and the docstring sweep.
+- **Depends on:** T1–T6.
+- **Imitate:** `backend/tests/test_table.py` — its
+  `test_positions_for_button_every_seat_valid_and_exactly_one_btn` pattern generalises straight to a
+  6-max rotation test. Also `backend/tests/test_two_mode_simulate_gate.py`.
+- **Do — each is a named test unless stated:**
+  1. The full existing 9-max suite passes **with no test edited**.
+  2. **The parity fixture from T0** is reproduced exactly by the new code.
+  3. **The grade-equality test the roadmap named as this slice's cheapest test:** a set of 6-max
+     hands grade *identically* to the equivalent 9-max hands — same hole cards, same position, same
+     node, same frequency and EV. This is the slice's central bet.
+  4. A 6-max session deals six hands, seeds the button inside 0–5, rotates through six seats only,
+     posts blinds correctly at every button position.
+  5. It seats exactly nit, TAG, TAG, LAG, calling station.
+  6. Restore mid-hand at both sizes, **including a session row written before the migration**, which
+     must read back as nine.
+  7. A Challenge blind check names only seats that exist **and discloses the roster actually
+     seated**.
   8. The villain-range estimator counts opponents out of six.
-  9. **The D1 assertion:** the same hero hand at six and at nine seats produces *different*
-     spaced-repetition signatures.
-  10. **The deferral, documented as a test:** at six seats a limped pot canonicalises its first
-      limper onto UTG, a seat that does not exist (`scenarios.py:73,215`). Write a test that
-      records current behaviour, named so it is obviously a documented gap and not a passing
-      feature. Whoever picks up the 6-max research should find the shape of the problem rather than
-      rediscover it.
+  9. **The D1 assertion, on `_sim_signature` — not on `spot_signature`.** The same hero hand at six
+     and nine seats yields `sim:6:…` and `sim:9:…`. Asserting on `spot_signature` would pass today
+     with no code changed and would prove nothing.
+  10. A test documenting the limped-pot canonicalisation onto a nonexistent UTG seat
+      (`scenarios.py:73,215`), named so it reads as a recorded gap, not a passing feature.
+  11. **Amend the roadmap:** change S1's pass/fail "seats five **distinct** personas" to "seats five
+      personas from a fixed roster", per owner decision D2. The spec and the roadmap must not
+      disagree about an acceptance criterion.
+  12. **Docstring sweep** of the nine-seat claims this change invalidates:
+      `backend/app/db/models.py:68,79-81`, `backend/app/schemas/simulate.py:354`,
+      `backend/app/services/sim_session.py:1455,1878`, `backend/app/domain/table/deck.py:1`,
+      `backend/app/domain/table/engine.py:1,38,57,74`.
 - **Acceptance:** `make check` green; every test above present and passing; no pre-existing test
   modified.
-- **Done:** `make check` output pasted into the pull request, and the working tree contains nothing
-  outside the files these six tickets name.
+- **Done:** `make check` output in the pull request, and the tree contains nothing outside the files
+  these eight tickets name.
 
 ---
 
 ## What would make this slice fail
 
-Stated plainly so the build knows what it is defending:
-
-- A nine-max test that needed editing. That means 9-max moved, and byte-identical was the promise.
-- A 6-max spot that still reports `table_size=9`. That silently merges two formats' review history
-  and is invisible until months of spaced repetition are already polluted.
-- A blind check naming a seat that does not exist.
+- A nine-max test that needed editing — 9-max moved, and byte-identical was the promise.
+- A `table_size` other than 9 reaching Practice's `spot_signature()`, orphaning real review history.
+- The owner unable to start a 6-max session from the Simulate screen.
+- A Challenge blind check disclosing a roster that is not at the table.
 - The villain-range estimator counting phantom opponents — wrong numbers, no error.
