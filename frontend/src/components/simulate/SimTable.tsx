@@ -133,19 +133,26 @@ export default function SimTable({
   };
 
   // Rotate the ring so the hero pod is always bottom-center, exactly like
-  // PokerTable. Seats arrive indexed 0..8; position tells us where each sits on
+  // PokerTable. Seats arrive indexed 0..n-1 (n = 6 or 9); position tells us where each sits on
   // the felt. Order the felt slots by the RING, anchored on the hero.
   const byPos = new Map<string, SeatView>(seats.map((s) => [s.position, s]));
   const ring = RING.filter((pos) => byPos.has(pos));
   const heroIdx = Math.max(ring.indexOf(hero.position), 0);
   const ordered = ring.map((_, i) => byPos.get(ring[(heroIdx + i) % ring.length])!);
+  // simulate-6max S1 — the felt has no table_size field of its own; every
+  // response carries one seat per position actually dealt (SeatView doc
+  // comment), so the ring the server sent IS the table size. No 6-max content
+  // exists yet, so the strip also discloses that the ranges shown are 9-max
+  // ranges (spec §8, D-no-new-strategy-content).
+  const tableSize = ordered.length;
 
   return (
     <div className="stage">
       <div className="felt felt-staged">
         <div className="ctx">
-          Simulate · 0.5/1 · 9-max · hand <span className="sim-ctx-no">{hand.hand_no}</span> ·{" "}
-          {street}
+          Simulate · 0.5/1 · {tableSize}-max · hand{" "}
+          <span className="sim-ctx-no">{hand.hand_no}</span> · {street}
+          {tableSize === 6 && " · ranges shown are 9-max ranges"}
         </div>
         <div
           className={"tablering sim-tablering" + (hand.hand_over ? " sim-ring-over" : "")}

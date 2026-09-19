@@ -124,7 +124,9 @@ def _map_flop_cbet(state: HandState, hero_seat: int) -> MapResult:
     players = _players(state, hero_seat)
     return MapResult(
         Spot(
-            game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+            game=GameConfig(
+                stakes=Stakes(sb=1.0, bb=2.0), table_size=len(state.seats), max_buyin_bb=200.0
+            ),
             street=Street.FLOP,
             board=list(state.board),
             pot_bb=pot,
@@ -383,7 +385,9 @@ def _barrel_spot(
         return None  # too shallow for the canonical small/big bet buckets
     effective = round(min(hero_remaining, villain_remaining), 2)
     return Spot(
-        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+        game=GameConfig(
+            stakes=Stakes(sb=1.0, bb=2.0), table_size=len(state.seats), max_buyin_bb=200.0
+        ),
         street=street,
         board=list(state.board),
         pot_bb=pot,
@@ -452,7 +456,9 @@ def _faced_bet_spot(
         raise_legs.append(raise_big)
     effective = round(min(hero_remaining, villain_remaining), 2)
     return Spot(
-        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+        game=GameConfig(
+            stakes=Stakes(sb=1.0, bb=2.0), table_size=len(state.seats), max_buyin_bb=200.0
+        ),
         street=street,
         board=list(state.board),
         pot_bb=pot,
@@ -1705,7 +1711,9 @@ def _limped_lead_spot(state: HandState, hero_seat: int, villain, pot: float) -> 
         return None  # too shallow for the canonical small/big bet buckets
     effective = round(min(hero_remaining, villain_remaining), 2)
     return Spot(
-        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+        game=GameConfig(
+            stakes=Stakes(sb=1.0, bb=2.0), table_size=len(state.seats), max_buyin_bb=200.0
+        ),
         street=Street.FLOP,
         board=list(state.board),
         pot_bb=pot,

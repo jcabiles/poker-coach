@@ -38,9 +38,11 @@ correctly at every 6-max position, and nine-max is untouched.
 
 ## Owner decisions — settled 2026-09-18, not to be re-asked
 
-- **D1, corrected.** 6-max and 9-max Simulate attempts are separated by putting the seat count in
-  `_sim_signature`: `sim:9:rfi:LJ` and `sim:6:rfi:LJ`. Existing rows keep their old `sim:rfi:LJ`
-  key forever, so there is **one seam in the history at today's date**, accepted knowingly.
+- **D1, corrected then refined.** 6-max and 9-max Simulate attempts are separated in
+  `_sim_signature`, where Simulate's key actually lives — not in `spot_signature()`, which Simulate
+  never calls. **Only 6-max carries the seat count** (`sim:6:RFI:LJ`); nine-max keeps its original
+  `sim:RFI:LJ` shape, so no existing history is split. Refined by the owner 2026-09-19 after the
+  first shape, which prefixed both formats, was found to cost a seam for no extra benefit.
 - **D2.** The five bots at a 6-max table are fixed, not drawn: **nit, TAG, TAG, LAG, calling
   station.** Two TAGs is deliberate — regulars are the most common seat at real 6-max. The
   roadmap's "five *distinct* personas" wording is amended in this change to "five personas from a
@@ -123,15 +125,21 @@ The module docstring at `:1` still says "9-max". Fix it.
 
 **This is D1, built where it actually lives.**
 
-`_sim_signature` (`backend/app/services/sim_session.py:1051-1058`) gains the seat count as its
-second part, so a 6-max LJ open keys `sim:6:rfi:LJ` and its 9-max twin keys `sim:9:rfi:LJ`.
+`_sim_signature` carries the seat count **only for non-nine table sizes**, so a 6-max LJ open keys
+`sim:6:RFI:LJ` while nine-max keeps its original `sim:RFI:LJ` unchanged.
+
+**Refined by the owner on 2026-09-19, and the reasoning is the point.** The first shape prefixed
+both formats — `sim:9:…` and `sim:6:…` — which separates them just as well but splits every 9-max
+key at the change date, breaking the continuity of a history the owner has been building since
+before 6-max existed. Prefixing only the new format buys the same separation and costs nothing:
+9-max queries keep working across the whole record, and no existing test that pins the old string
+needs touching. **Asymmetry is the price, and it is cheaper than the seam.**
 
 - **`spot_signature()` (`backend/app/domain/srs.py:63`) is not touched.** It is frozen; changing how
   it hashes orphans every Practice review item. It is also irrelevant here — Simulate does not call
-  it, and `backend/app/services/sim_session.py:1018` says so in a comment.
-- **Accepted cost, stated because the owner accepted it knowingly:** rows written before this change
-  keep `sim:rfi:LJ`. Queries that group sim attempts by signature see a seam at this date. Nothing
-  is lost; older rows simply do not distinguish the formats, because they could not.
+  it, and `backend/app/services/sim_session.py` says so in a comment at the call site.
+- **No seam, and no backfill needed.** Every 9-max row ever written, before or after this change,
+  shares one key shape.
 
 ### 5. Grading learns the real table size — five sites, not twelve
 
@@ -265,8 +273,10 @@ persona-realism lane.
 8. A Challenge blind check names only seats that exist **and discloses the roster actually seated**.
 9. The villain-range estimator counts opponents out of six.
 10. **The D1 assertion:** the same hero hand at six and nine seats produces different
-    `_sim_signature` values — `sim:6:…` and `sim:9:…`. This must assert on `_sim_signature`, not on
-    `spot_signature`, which already differs and would pass with no code changed.
+    `_sim_signature` values — `sim:6:RFI:LJ` against an unchanged `sim:RFI:LJ`. Assert on
+    `_sim_signature`, never on `spot_signature`: the latter already differs by table size and would
+    pass today with no code changed, proving nothing, because Simulate does not call it. A second
+    assertion pins the nine-max shape as *unchanged*, which is what the refinement bought.
 11. From the Simulate screen, four rooms are offered and choosing "Training 6-max" starts a six-seat
     session.
 12. A test documents the limped-pot canonicalisation onto a nonexistent UTG seat, named so it reads

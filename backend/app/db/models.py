@@ -61,15 +61,20 @@ class SimSession(SQLModel, table=True):
     # Stored result of the hand-200 blind check (T4 fills it), JSON-serialized.
     # NULL means no check has been stored yet — not backfilled.
     blind_check_json: str | None = Field(default=None)
+    # Seats at this session's table, 6 or 9 (simulate-6max T1). Same nullable
+    # add-column pattern as `mode` (migration 0016, server_default "9"), so
+    # every pre-existing session reads back as 9-max.
+    table_size: int = Field(default=9)
 
 
 class SimSeat(SQLModel, table=True):
-    """Per-seat carry-over stack + buy-in ledger; 9 rows per session."""
+    """Per-seat carry-over stack + buy-in ledger; one row per seat, so
+    `sim_session.table_size` rows per session."""
 
     __tablename__ = "sim_seat"
 
     session_id: str = Field(primary_key=True, foreign_key="sim_session.id")
-    seat_index: int = Field(primary_key=True)  # 0..8 (composite PK)
+    seat_index: int = Field(primary_key=True)  # 0..table_size-1 (composite PK)
     is_hero: bool
     persona_type: str | None = Field(default=None)  # VillainType value; None = hero
     stack_bb: float  # carry-over current stack
@@ -78,7 +83,7 @@ class SimSeat(SQLModel, table=True):
 
 class SimHand(SQLModel, table=True):
     """One dealt hand; `state_json` holds the live HandState (server-side ONLY —
-    all 9 seats' hole cards + full_board; never serialized to the wire)."""
+    every seat's hole cards + full_board; never serialized to the wire)."""
 
     __tablename__ = "sim_hand"
 

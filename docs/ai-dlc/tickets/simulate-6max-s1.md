@@ -74,13 +74,17 @@ under the worktree, *before* running Alembic and *before* starting any server.
        seats, and the bad value persists onto the row and out over the wire.
      - `:947` — seat-row creation loop.
      - `:1532` — button rotation, `% 9`.
-  5. **`_sim_signature` (`:1051-1058`) gains the seat count as its second part** — `sim:9:rfi:LJ`,
-     `sim:6:rfi:LJ`. This is decision D1, built where Simulate's key actually lives.
+  5. **`_sim_signature` (`:1051-1058`) carries the seat count for non-nine sizes only** — 6-max
+     keys `sim:6:RFI:LJ`, while nine-max keeps its original `sim:RFI:LJ` unchanged. This is
+     decision D1, built where Simulate's key actually lives.
      **Do not touch `spot_signature()`** (`backend/app/domain/srs.py:63`) — it is frozen, and
      Simulate does not call it; `:1018` says so in a comment.
   6. Fix the "9-max" module docstring at `:1`.
-- **Accepted cost, do not try to avoid it:** rows written before this change keep `sim:rfi:LJ`, so
-  sim-attempt grouping has one seam at this date. The owner accepted that knowingly.
+- **Why only the new format is prefixed** (owner refinement, 2026-09-19): prefixing both would
+  separate them just as well, but would split every 9-max key at the change date and break the
+  continuity of a history the owner has been building since before 6-max existed. It would also
+  force edits to four assertions in `backend/tests/test_grade_map_turn_river.py` that pin the old
+  string — and no 9-max test may be edited. Asymmetry is the price, and it is the cheaper one.
 - **Acceptance:** a session created with no table size is 9-max; one created with 6 stores and reads
   back 6; a pre-migration row reads back 9; `table_size=7` is rejected with a 422 by the schema, not
   by the engine with a crash; a 6-max session's button seeds inside 0–5 across many creations.

@@ -125,7 +125,7 @@ round 2.
       LJ, HJ, CO, BTN, SB, BB. Spots are keyed per D1. One static line on the 6-max felt says
       the ranges shown are 9-max ranges. 9-max byte-identical.
       pass/fail: a 6-max session deals 6 hands, seeds and rotates the button through 6 seats
-      only, posts blinds correctly, seats five distinct personas, grades hero decisions at every
+      only, posts blinds correctly, seats five personas from a fixed roster, grades hero decisions at every
       6-max position, survives restore mid-hand, and a Challenge blind check names only seats
       that exist; the villain-range panel counts live opponents from 6 seats; a signature
       assertion proves D1 (same hero hand at 6 and 9 seats produces different signatures if

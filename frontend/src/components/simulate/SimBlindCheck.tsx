@@ -5,12 +5,19 @@ import type {
   BlindCheckAnswer,
   BlindCheckSubmitRequest,
   SeatView,
+  TableSize,
 } from "../../api/types";
-import { ARCHETYPE_OPTIONS, archetypeGloss, archetypeName, HOUSE_LINEUP } from "./blindCheck";
+import {
+  ARCHETYPE_OPTIONS,
+  archetypeGloss,
+  archetypeName,
+  houseLineupFor,
+  houseSeatsFor,
+} from "./blindCheck";
 import { fmtBb } from "./simGrade";
 
 // Two-mode Simulate T8 — the hand-200 blind check: the moment a Challenge table
-// stops dealing and asks the player to name three of the eight strangers they
+// stops dealing and asks the player to name three of the strangers they
 // have been reading. Answering (or skipping) is what opens the archetype labels
 // and lets the deal resume; the server is what enforces both.
 //
@@ -37,7 +44,7 @@ import { fmtBb } from "./simGrade";
 //     asks a second time before it forfeits the work.
 //
 // THE SCORE IS NOT A MEASUREMENT (spec para 17). The lineup is a FIXED multiset
-// (backend/app/domain/table/play.py:44-54), so the six options are not
+// (backend/app/domain/table/play.py:44-65), so the six options are not
 // equiprobable and this is a closed-set task. This component's answer to that
 // is to TELL the player the lineup, up front, rather than score them out of a
 // constraint they were not shown — and to gloss what each archetype DOES,
@@ -46,6 +53,12 @@ import { fmtBb } from "./simGrade";
 // behaviour. Disclosure plus gloss is what makes the number visibly a keepsake:
 // a player who knows the counts and the meanings cannot mistake three-from-six
 // for a blind identification rate.
+//
+// simulate-6max S1 (owner decision D4): the multiset itself depends on the
+// table's seat count — eight bots at 9-max, five at 6-max — and `seatRows`
+// (every seat on the table) is what tells this card which one is seated. The
+// disclosure below MUST track that, or the card tells the player a lineup
+// that is not at the table.
 
 const TITLE_ID = "sim-blindcheck-title";
 const INTRO_ID = "sim-blindcheck-intro";
@@ -113,6 +126,13 @@ export default function SimBlindCheck({
     };
   }, []);
 
+  // simulate-6max S1 (D4) — `seatRows` carries every seat on the table (the
+  // SeatView doc comment: all seats present every response), so its length IS
+  // the table size the disclosed roster must match.
+  const tableSize = seatRows.length as TableSize;
+  const lineup = houseLineupFor(tableSize);
+  const houseSeats = houseSeatsFor(tableSize);
+
   const named = seats.filter((s) => answers[s] != null).length;
   const complete = named === seats.length && seats.length > 0;
   const remaining = seats.length - named;
@@ -172,8 +192,8 @@ export default function SimBlindCheck({
             Name three of them
           </h2>
           <p className="sbc-intro" id={INTRO_ID}>
-            You have sat with these eight all session without a single name on the felt. Say who
-            these three were and the names come on — yours to show or hide from then on.
+            You have sat with these {houseSeats} all session without a single name on the felt. Say
+            who these three were and the names come on — yours to show or hide from then on.
           </p>
         </div>
         {/* Stays live while a submission is in flight. Dismissing does not
@@ -195,13 +215,13 @@ export default function SimBlindCheck({
           honest if the player knows the constraint it is scored against. */}
       <section className="sbc-lineup" aria-labelledby={LINEUP_ID}>
         <p className="sbc-eyebrow" id={LINEUP_ID}>
-          The house lineup — the same eight at every table
+          The house lineup — the same {houseSeats} at every {tableSize}-max table
         </p>
         <ul className="sbc-lineup-list">
-          {ARCHETYPE_OPTIONS.map((value) => (
+          {ARCHETYPE_OPTIONS.filter((value) => lineup[value] > 0).map((value) => (
             <li className="sbc-lineup-item" key={value}>
               <span className="sbc-lineup-name">{archetypeName(value)}</span>
-              <span className="sbc-lineup-count num">×{HOUSE_LINEUP[value]}</span>
+              <span className="sbc-lineup-count num">×{lineup[value]}</span>
             </li>
           ))}
         </ul>

@@ -156,6 +156,7 @@ def build_spot(
     rng: random.Random,
     eff_bb: float = 100.0,
     hole_cards: tuple[str, str] | None = None,
+    table_size: int = 9,
 ) -> Spot:
     """Build a Spot for `entry`.
 
@@ -164,6 +165,10 @@ def build_spot(
     the hero's hole cards themselves and would otherwise draw-and-discard a
     combo here. Default `None` preserves today's behavior exactly (draw 2
     cards from `_DECK` via `rng`).
+
+    `table_size` defaults to 9 for the seven Practice/Quiz builders that call
+    `Spot(...)` directly and never reach this function; only Simulate's
+    preflop path (`grade_map_preflop._preflop_spot`) passes a real value.
     """
     c1, c2 = hole_cards if hole_cards is not None else rng.sample(_DECK, 2)
     hero = Hero(position=entry.position, hole_cards=(c1, c2), stack_bb=eff_bb)
@@ -272,7 +277,7 @@ def build_spot(
     players = _nine_seats(entry.position, folded, eff_bb)
 
     return Spot(
-        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=9, max_buyin_bb=200.0),
+        game=GameConfig(stakes=Stakes(sb=1.0, bb=2.0), table_size=table_size, max_buyin_bb=200.0),
         street=Street.PREFLOP,
         board=[],
         pot_bb=pot,

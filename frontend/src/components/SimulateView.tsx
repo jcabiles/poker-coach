@@ -20,6 +20,7 @@ import type {
   RevealedSeatView,
   SessionView,
   SimMode,
+  TableSize,
   VillainRangeView,
 } from "../api/types";
 import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
@@ -31,7 +32,7 @@ import SimEventLog from "./simulate/SimEventLog";
 import SimGradingToggle from "./simulate/SimGradingToggle";
 import SimLabelsToggle from "./simulate/SimLabelsToggle";
 import SimLedger from "./simulate/SimLedger";
-import SimModeChoice from "./simulate/SimModeChoice";
+import SimModeChoice, { type PendingRoom } from "./simulate/SimModeChoice";
 import SimPostflopChart from "./simulate/SimPostflopChart";
 import SimRangeChart from "./simulate/SimRangeChart";
 import SimRecap from "./simulate/SimRecap";
@@ -197,8 +198,10 @@ export default function SimulateView() {
   // never sets it, so a mid-session reload lands straight back at the table.
   // `pendingMode` is the room whose session is in flight — it drives the
   // screen's loading state and is null whenever nothing is being created.
+  // simulate-6max S1: a room is (mode, table size), not mode alone, since two
+  // rooms now share a mode (Training 9-max and Training 6-max).
   const [awaitingMode, setAwaitingMode] = useState(false);
-  const [pendingMode, setPendingMode] = useState<SimMode | null>(null);
+  const [pendingMode, setPendingMode] = useState<PendingRoom>(null);
 
   // Focus handoff. Sitting down disables the card mid-press; leaving the table
   // removes the button that was pressed. Either way the focused element stops
@@ -558,14 +561,14 @@ export default function SimulateView() {
   // the ONLY place a session is created. A failure leaves the sit-down screen
   // up with the error panel above it, so the player can pick again.
   const chooseMode = useCallback(
-    async (mode: SimMode) => {
+    async (mode: SimMode, tableSize: TableSize) => {
       if (busyRef.current) return;
       busyRef.current = true;
       setBusy(true);
-      setPendingMode(mode);
+      setPendingMode({ mode, tableSize });
       setError(null);
       try {
-        adopt(await postSimulateSession(mode));
+        adopt(await postSimulateSession(mode, tableSize));
         // The card that was just pressed is about to unmount — hand focus to
         // the table's own heading, which announces the room and the hand.
         focusAfterSwap.current = "table";
@@ -1465,7 +1468,7 @@ export default function SimulateView() {
         <div className="sim-empty-shell">
           <SimModeChoice
             pending={pendingMode}
-            onChoose={(m) => void chooseMode(m)}
+            onChoose={(m, ts) => void chooseMode(m, ts)}
             headingRef={modeHeadingRef}
           />
           {/* The all-time report is session-independent — it stays beside the

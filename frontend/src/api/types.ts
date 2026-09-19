@@ -215,10 +215,11 @@ export interface ReviewPlanResponse {
 // hole cards present are `hero.hole_cards` plus, at showdown, each
 // `ShowdownSeatView.hole_cards`. Folded villains are never revealed.
 
-// One seat, all 9 present every response. `persona_type` is the villain-bot
-// archetype (badge); null for the hero. `status` is IN | FOLDED | ALLIN.
+// One seat, all present every response — 9 at a 9-max table, 6 at a 6-max one
+// (simulate-6max S1). `persona_type` is the villain-bot archetype (badge);
+// null for the hero. `status` is IN | FOLDED | ALLIN.
 export interface SeatView {
-  seat_index: number; // 0..8; hero is seat 0
+  seat_index: number; // 0..8 at 9-max, 0..5 at 6-max; hero is seat 0
   position: string; // UTG..BB
   persona_type: string | null; // villain archetype badge; null = hero
   is_hero: boolean;
@@ -346,7 +347,7 @@ export interface SimulateHandView {
   street: string; // "preflop" | "flop" | "turn" | "river"
   board: string[]; // REVEALED community cards only (never the full board)
   pot_bb: number;
-  seats: SeatView[]; // all 9 seats
+  seats: SeatView[]; // all seats — 9 at a 9-max table, 6 at a 6-max one
   hero: { position: string; hole_cards: [string, string]; stack_bb: number };
   to_act_seat: number | null; // seat index to act, or null when hand_over
   is_hero_turn: boolean; // hero action bar shows iff true
@@ -368,6 +369,11 @@ export interface SimulateHandView {
 // visibility mode. A literal union, never a bare `string`, so an invalid value
 // is a compile error rather than a value silently traveling to the wire.
 export type SimMode = "training" | "challenge";
+
+// simulate-6max S1 — the table's seat count, chosen on the sit-down screen and
+// carried on the session. A literal union, never a bare `number`, matching
+// `SimMode`'s posture (mirrors backend/app/schemas/simulate.py TableSize).
+export type TableSize = 6 | 9;
 
 // The six archetype wire values (backend/app/domain/archetypes.py VillainType).
 // A literal union, never a bare `string`, matching `SimMode`'s posture.
@@ -417,6 +423,7 @@ export interface BlindCheckSubmitRequest {
 export interface SessionView {
   session_id: string; // uuid4 hex
   mode: SimMode;
+  table_size: TableSize;
   blind_check: BlindCheckView | null;
   hand: SimulateHandView;
 }
@@ -582,8 +589,8 @@ export interface RevealView {
 //     including hands from a session that has since ended.
 //  2. Payload — seats are ShowdownSeatView, so each carries `delta_bb` as well
 //     as cards. The History felt labels a revealed pod with its real result, and
-//     that number comes from the server's settle() deltas (built over all 9
-//     seats), never computed or faked here. RevealView has no delta_bb; don't
+//     that number comes from the server's settle() deltas (built over all
+//     seats at the table), never computed or faked here. RevealView has no delta_bb; don't
 //     confuse the two shapes.
 //
 // `available` false (empty seats) when the reveal capability is off or the scope

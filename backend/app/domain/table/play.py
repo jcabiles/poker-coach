@@ -53,12 +53,27 @@ LINEUP: tuple[VillainType, ...] = (
     VillainType.MANIAC,
 )
 
+# The 6-max five (owner decision D2, 2026-09-18). Two TAGs is deliberate, not a
+# typo — regulars are the most common seat at real 6-max. No passive fish and no
+# maniac sit here. WHICH five is fixed; only their seating is shuffled, so the
+# owner's first-session verdict is never a coin flip.
+LINEUP_6MAX: tuple[VillainType, ...] = (
+    VillainType.NIT,
+    VillainType.TAG,
+    VillainType.TAG,
+    VillainType.LAG,
+    VillainType.CALLING_STATION,
+)
 
-def assign_lineup(rng: random.Random) -> dict[int, VillainType]:
-    """Shuffle LINEUP across the 8 non-hero seats (1..8); seat 0 is the hero (absent)."""
-    bots = list(LINEUP)
+_LINEUPS = {6: LINEUP_6MAX, 9: LINEUP}
+
+
+def assign_lineup(rng: random.Random, table_size: int = 9) -> dict[int, VillainType]:
+    """Shuffle the table's lineup across the non-hero seats (1..table_size-1);
+    seat 0 is the hero (absent)."""
+    bots = list(_LINEUPS[table_size])
     rng.shuffle(bots)
-    return {seat: bots[seat - 1] for seat in range(1, 9)}
+    return {seat: bots[seat - 1] for seat in range(1, table_size)}
 
 
 @dataclass(frozen=True)

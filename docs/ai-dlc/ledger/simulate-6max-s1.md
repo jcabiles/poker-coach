@@ -61,3 +61,40 @@ Practice and Quiz do not bleed.
   actually lives.
 - **Hardened:** the byte-identical claim gets a captured fixture instead of an assertion, and the
   roadmap's grade-equality test is restored as the slice's central check.
+
+## Round 2 — one refinement the reviewer did not raise and I did not offer
+
+**The owner chose a better shape for D1 than the one I put in front of him, on 2026-09-19.**
+
+Finding 1 was accepted and built: the seat count went into `_sim_signature`. The build worker then
+hit a contradiction and escalated rather than resolving it alone — the spec forbids editing any
+nine-max test, but prefixing nine-max changed its attempt key, breaking four assertions in
+`backend/tests/test_grade_map_turn_river.py` (`:525`, `:539`, `:636`, `:641`) that pin the old
+string. It was right to escalate; that rule was the owner's to bend, not a worker's.
+
+**The escalation exposed an option I never offered.** Both ways out the worker named — edit the four
+assertions, or reverse the owner's decision — accepted a seam in nine-max history as the price of
+separating the formats. A third shape has neither cost: **prefix only the new format.**
+
+| Shape | Formats separated | 9-max history | Tests broken |
+|---|---|---|---|
+| Prefix both (`sim:9:` / `sim:6:`) | yes | split at the change date | 4 |
+| Prefix neither | no | intact | 0 |
+| **Prefix only 6-max (chosen)** | **yes** | **intact** | **0** |
+
+The owner took the third. The only cost is an asymmetric key format, which is cosmetic, and it is
+cheaper than splitting a history he has been building since before 6-max existed. Verified after the
+change: `test_grade_map_turn_river.py` is 33 passed, no test edited; ruff and mypy clean.
+
+**The process note worth keeping:** the picker I wrote offered two options where three existed, and
+the third dominated both. The worker's escalation is what surfaced it. A build worker that stops on
+a contradiction instead of picking a side is doing the job correctly, and this round is the evidence.
+
+## Environment gap found while closing the slice
+
+`@biomejs/biome` is declared in `frontend/package.json` and pinned in the lockfile, but was **not
+installed** in the checkout, so `make check`'s frontend lint half could not run at all — for anyone,
+not just this build. Restored with `npm install @biomejs/biome@2.5.14 --no-save` against a writable
+cache directory, because `~/.npm` contains root-owned files (`npm error ... due to a bug in previous
+versions of npm`). The permanent fix is the owner's: `sudo chown -R 501:20 ~/.npm`. No change to
+`package.json` or the lockfile.

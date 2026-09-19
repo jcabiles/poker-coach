@@ -26,6 +26,7 @@ import type {
   Spot,
   StatsSummary,
   StreetReportView,
+  TableSize,
   VillainRangeView,
 } from "./types";
 
@@ -105,12 +106,18 @@ export async function matchCard(leakCategory: number, tags: string[]): Promise<C
 // Create a fresh session (mints a session_id; deals hand 1; advances to hero).
 // `mode` is required, not defaulted, so a caller can never silently create a
 // Training session without saying so (two-mode-simulate spec para 4).
-export async function postSimulateSession(mode: SimMode): Promise<SessionView> {
+// `tableSize` is likewise required, not defaulted — simulate-6max S1's
+// four-room sit-down screen always names both (backend defaults to 9 only for
+// callers outside that screen).
+export async function postSimulateSession(
+  mode: SimMode,
+  tableSize: TableSize,
+): Promise<SessionView> {
   return json(
     await fetch(`${BASE}/simulate/session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, table_size: tableSize }),
     }),
   );
 }
