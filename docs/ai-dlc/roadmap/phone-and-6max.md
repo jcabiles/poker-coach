@@ -1,5 +1,8 @@
-# Phone access + 6-max Roadmap — updated 2026-09-18 (rev 3, after blind review R1 and the owner's 2026-09-18 corrections)
-status: approved — owner, 2026-09-18 (rev 3). D1–D4 decided.
+# Phone access + 6-max Roadmap — updated 2026-09-18 (rev 4, after the P1 spec's blind dual review and the owner's ruling)
+status: approved — owner, 2026-09-18 (rev 4). D1–D4 decided. Rev 4 corrects P1's security claim
+and its measurement (c) after a blind dual review of the P1 spec returned FAIL on both; owner ruled
+2026-09-18 to accept the exposure and correct the text. Evidence: `../ledger/phone-and-6max.md`
+round 2.
 
 ## Bottom line
 - Make the trainer playable from a phone on the home wifi, and add a 6-max table option, so
@@ -69,24 +72,47 @@ status: approved — owner, 2026-09-18 (rev 3). D1–D4 decided.
 
 - [ ] **P1 — LAN walking skeleton + two cheap tests.** problem: the app exists only on the Mac ·
       outcome-link: sessions/week · ICE 8·9·9
-      what: `serve.sh start --lan` passes `--host` to Vite only; the backend stays on loopback
-      because the frontend calls a relative `/api/v1` that Vite proxies server-side, so no CORS
-      or API-base change is needed and the unauthenticated API is never on the wifi. README
+      what: `serve.sh start --lan` passes `--host` to Vite only; the backend port stays on
+      loopback because the frontend calls a relative `/api/v1` that Vite proxies server-side, so
+      no CORS or API-base change is needed. **Corrected 2026-09-18 (owner ruling, after both blind
+      reviewers proved the original claim false): the API IS reachable over the wifi through the
+      Vite port while the flag is on** — Vite forwards every `/api` request it receives, whatever
+      interface it arrived on, and a reviewer read live database rows that way. This is
+      unavoidable (the phone cannot play without the API) and accepted (the home wifi is trusted,
+      and auth is a global no-go). Port 8008 itself is never reachable, and P1 now binds it with an
+      explicit `--host 127.0.0.1` so a stray `UVICORN_HOST` cannot change that. README
       "Play from your phone" section (flag, finding the Mac's IP, Chrome "Add to Home screen").
       Deletes `docs/ai-dlc/specs/draft-mobile-responsive.md` (superseded; D4 approved) and
       reconciles the `.claude/CLAUDE.md` initiative banner (D3). Game code untouched.
       pass/fail: (a) on the owner's Android phone, Chrome opens `http://<mac-ip>:7777`, a
       Simulate hand deals and grades; (b) with the flag off nothing binds beyond localhost, and
-      with it on the backend port is still unreachable from the phone; (c) two-client test on the
-      Mac: act on one session from two tabs in turn by hand, then fire two decision submits
-      concurrently from a small script against the same session, and record whether the hand
-      stays one continuous line in `sim_hand` (feeds P4's assumption); (d) five landscape hands
+      with it on the backend port 8008 is still not independently reachable (this is evidence
+      about that port, NOT about the API, which the Vite port proxies by design); (c) two-client
+      test on the Mac: act on one session from two tabs in turn by hand, then fire two decision
+      submits concurrently from a small script against the same session. **Revised 2026-09-18:
+      record each client's observed decision point, its HTTP result and the resulting state — not
+      just whether decision positions collide.** A stale tab's action is applied legally to
+      whatever state is current, so a hand can be corrupted with no collision; and the simultaneous
+      leg cannot race at all today (one worker, no suspension point in the async path), so its
+      clean result is scoped to "today's deployment serializes", never "no race exists". Note
+      `sim_hand` holds one current `state_json`, not a continuous event line (feeds P4's
+      assumption); (d) five landscape hands
       on the 9-seat felt, recording pod overlap and horizontal scroll (feeds P2's gate);
       `make check` green.
       appetite: 1 slice · no-gos: no auth, no HTTPS, no layout work, no PWA manifest, no
       backend bind.
       riskiest-assumption: the phone can reach and drive the app through the Vite port alone ·
       cheapest-test: this slice · assumption-status: untested (low risk).
+      **Build status 2026-09-18: code shipped, box deliberately left unticked.** Every
+      machine-checkable leg of (b) passed on isolated ports — backend loopback-only even with
+      `UVICORN_HOST=0.0.0.0` exported, frontend on all interfaces only under `--lan`, `status`
+      reporting the real binding, and `start --lan` refusing a running loopback stack with exit 1.
+      Evidence: `../ledger/phone-and-6max.md`, "P1 measurement (b)". **Still owed by the owner:**
+      leg (a), one Simulate hand dealt and graded on the Android phone, and leg (d), five landscape
+      hands recording pod overlap and horizontal scroll — which is P2's gate. Leg (c), the
+      two-client concurrency probe, is not yet run. The wifi-address banner has only ever taken its
+      fallback path, because `ipconfig` is blocked in the build sandbox; the owner's first
+      `start --lan` confirms it.
 
 - [ ] **S1 — 6-max table option.** problem: 9 seats crowd a phone screen, and 6-max is the format
       the owner sees offered · outcome-link: sessions/week · ICE 8·6·4
@@ -187,7 +213,9 @@ status: approved — owner, 2026-09-18 (rev 3). D1–D4 decided.
 - Push notifications, reminders, streaks, or any engagement mechanic.
 - iOS or any device other than the owner's Android in Chrome (others may work, untested).
 - Auth, PIN, accounts, hosting, billing (global no-go; home wifi is trusted). The backend
-  port never binds beyond localhost.
+  port never binds beyond localhost. **This bounds the port, not the API:** while `--lan` is on,
+  the Vite port proxies the whole unauthenticated API to anything on the home network. Corrected
+  2026-09-18 by owner ruling; the earlier wording implied an access boundary that does not exist.
 - A mobile-first redesign of the desktop app.
 - 6-max-specific range, band, or pack values inside the NOW lane; that is the NEXT research.
 - The existing global no-gos: no solver tables, no hand-history import, no live-session logger,

@@ -34,3 +34,103 @@ Rejected: none.
   drills bet dropped; the 6-max motive restated to the owner's words (phone fit, the format
   he sees offered); deletion of `specs/draft-mobile-responsive.md` approved (D4).
 - Said but not carried: nothing found.
+
+## Round 2, 2026-09-18 — blind dual review of the P1 spec (LAN walking skeleton)
+
+Two blind reviewers, neither shown the requirements interview: Claude `refuter` (Opus, high
+effort) and Codex `gpt-5.6-sol` (high effort). Both returned **FAIL**. Reports:
+`../reviews/phone-lan-p1-r1-claude.md` (returned inline; summarised here) and
+`../reviews/phone-lan-p1-r1-sol.md`. Ten findings, all verified against the code before
+adjudication, all accepted. One is a **contract defect in the approved roadmap itself**, not in
+the spec, and is escalated to the owner rather than folded.
+
+**The two reviewers converged independently on the same headline defect** (C2 and S2 below),
+which is the strongest signal in this round: the slice's stated security property is false.
+
+| # | Reviewer | Finding | Claimed | Adjudicated | Evidence checked |
+|---|---|---|---|---|---|
+| C2/S2 | both | "The unauthenticated API never appears on the wifi" is false. Vite proxies every `/api` request it receives, including from the phone, so the whole API is reachable at `http://<mac-ip>:7777/api/...`. | blocking | **ACCEPTED — and escalated.** The claim is also in the **approved roadmap** (`roadmap/phone-and-6max.md:72-80`), which is outside this spec's authority to rewrite. Spec and tickets corrected; roadmap correction awaits the owner. | `frontend/vite.config.ts:16-18`. The Claude reviewer proved it live: `http://192.168.88.203:7791/api/v1/stats/summary` returned 200 with real data from the owner's database. Confirmed. |
+| S1 | Codex | The backend's loopback binding is not enforced, only defaulted. uvicorn reads `UVICORN_*` environment variables, so `UVICORN_HOST=0.0.0.0` binds port 8008 to every interface with no flag change. | blocking | **ACCEPTED** — the uvicorn line gains an explicit `--host 127.0.0.1`. One argument, and the invariant stops depending on shell state. | `uvicorn/main.py:61` sets `auto_envvar_prefix="UVICORN"`. Reproduced: `UVICORN_HOST=127.0.0.99 uvicorn app.main:app --port 8099` logged `could not bind on any address out of [('127.0.0.99', 8099)]`, proving the variable took effect. Confirmed. |
+| C1 | Claude | The concurrent-submit leg cannot fail. The request handler is `async def` whose only `await` reaches a provider with no suspension point, on a single uvicorn worker, so two requests serialize completely and the duplicate query is always clean. | blocking | **ACCEPTED** — the leg stays, but its verdict is scoped to "today's single-worker deployment serializes", and the ledger must record *why* the result came out as it did. A `--workers 2` leg was considered and rejected: it exceeds the slice's appetite and tests a deployment this app will never have, since hosting is a global no-go. | `simulate.py:92` and `sim_session.py:967` are both `async def`; the sole `await` is `_grading_provider().evaluate(...)` reaching `heuristic.py:37`, an `async def` with no await inside. Verified directly. |
+| S3 | Codex | The measurement cannot detect the real hazard even in the in-turn leg: a stale client's action is applied *legally* at whatever decision point is current, producing unique ordinals and a clean query. | blocking | **ACCEPTED** — this supersedes the original query-only design. The probe now records each client's observed decision point, each HTTP result, and the resulting state, and treats an accepted stale action as a finding. | `client.ts:126` sends only a `Decision` with no state reference; `sim_session.py:970-978` reloads whatever state is current. `models.py:79-92` holds one current `state_json`, not an event line — so the roadmap's phrase "one continuous line in `sim_hand`" describes a table shape that does not exist. Confirmed. |
+| C3 | Claude | The `--lan` guard is one-directional and nothing ever reports which way the frontend is bound, so a flagless `start` silently re-affirms a wifi-bound stack. | should-fix | **ACCEPTED** — `status` and the flagless early return report the binding, read from the running command line. | `scripts/serve.sh:110-112` (early return), `:166-170` (`status` prints pid and port only), `:39-47` (`_pid_matches` already reads the command line). Verified. |
+| C5 | Claude | T5's isolation is justified by the wrong mechanism. The real protection is port selection, and a wrong port fails silently because the readiness probe gets 200 from the owner's already-running backend. | should-fix | **ACCEPTED** — the probe asserts `app.db.session.DB_PATH` is under the worktree and aborts otherwise, before the Alembic upgrade and before any server starts. | `scripts/serve.sh:25,122`; `backend/app/db/session.py:9-13`. The reviewer also verified that `PYTHONPATH=.` beats the editable install's `sys.meta_path` finder, so the worktree isolation itself does work. Confirmed. |
+| S4 | Codex | The verification order never returns to a stopped stack, so the early-return check and the launcher check can both pass without exercising the state they claim to test. | should-fix | **ACCEPTED** — the verification steps are reordered, with an explicit stop between the loopback and launcher legs. | `specs/phone-lan-p1.md:180-189` as written. Confirmed by reading the sequence. |
+| S5 | Codex | `FRONTEND_PORT=7778` does nothing when Vite is run directly; only `scripts/serve.sh` translates that variable into `--port`. | should-fix | **ACCEPTED** — the ticket now gives the literal `vite --port 7778 --strictPort` command. | `frontend/vite.config.ts:14` hardcodes 7777; `scripts/serve.sh:126` is the only translator. Verified. |
+| S6 | Codex | T4's acceptance greps can never pass, because the roadmap, spec, ticket and ledger all legitimately mention both the deleted filename and the phrase "governing initiative". | should-fix | **ACCEPTED** — the checks are scoped to the two banner files and to the exact stale assertion rather than the generic phrase. | `roadmap/phone-and-6max.md:76`; `specs/phone-lan-p1.md:85`. Verified. |
+| C6 | Claude | The verdict query finds duplicate positions but not gaps, while the prose calls it a "gap-free, duplicate-free" check. | optional | **ACCEPTED** — folded into the redesigned probe, which records the full ordinal sequence rather than only asking for duplicates. | `sim_decision.ordinal` and `sim_hand_id` both exist in `backend/app/db/models.py`. Verified. |
+| C7 | Claude | `ipconfig getifaddr` is blocked inside this repo's sandbox, so a build agent can only ever exercise the fallback branch of the address banner. | optional | **ACCEPTED** — Vite prints `Network: http://<ip>:<port>/` to `.frontend.log` under `--host`, which is readable in the sandbox; the ticket now requires saying which branch was exercised. | Reproduced: `ipconfig getifaddr en0` and `en1` both exit 1 with `ipconfig_server_port failed`. Confirmed. |
+| C8 | Claude | The contract map cites a content-hashed Vite build artifact whose filename changes with every release. | optional | **ACCEPTED** — the citation now names the behaviour and the pinned version rather than the chunk filename. | `frontend/package-lock.json` pins 5.4.21; `package.json` floors at `^5.4.0`. Verified. |
+| C4 | Claude | The spec cited `scripts/serve.sh:98-100` for the already-running early return; those lines are inside `_fe_pid()`. | should-fix | **ACCEPTED — already fixed before the review landed.** The Director caught it in a citation sweep; Codex confirmed `110-112` is now correct. | `grep -n "already running (backend pid" scripts/serve.sh` returns 111. Verified. |
+
+Rejected: none.
+
+**Reviewer claim corrected on adjudication.** The contract map worried that binding all interfaces
+would break the readiness probe, which polls `http://localhost:<port>/`. The Claude reviewer
+showed empirically that `vite --host` binds dual-stack (`lsof` reports `IPv6 ... TCP *:7791`), so
+the probe still answers. That worry is withdrawn.
+
+**Housekeeping from the review itself.** The Claude reviewer started a real Vite server on port
+7791 bound to every interface to prove finding C2, and the sandbox denies it — and the Director —
+permission to send signals, so it is still listening. See the session report; it needs one
+`kill` from the owner in a plain terminal.
+
+## Facts rescued from the retired mobile-responsiveness draft
+
+`docs/ai-dlc/specs/draft-mobile-responsive.md` is deleted by this slice (T4, owner-approved
+per-file, roadmap decision D4). Before deletion, its four measured facts are copied here verbatim
+in substance, because slices P2 (the phone mockup prototype) and P3 (phone polish) are the readers
+of these numbers and the roadmap records only the headline, not the measurements.
+
+1. **The masthead's right-hand group does not wrap.** `.masthead-right` (the EV-ledger widget) is
+   `flex-wrap: nowrap` with its right edge at roughly 574px, which forces horizontal body scroll on
+   every route at widths below roughly 400px. This is pre-existing and app-shell-wide — it is not
+   Simulate-specific code, so a fix needs its own design review across Practice and Quiz too.
+2. **Thirty overlapping seat-pod pairs on the nine-seat felt at 375px.** At that width the felt
+   collapses: 30 overlapping seat pairs were measured, hero cards sit over the pot, and persona
+   metadata is chopped off.
+3. **The stats strip cramps at phone widths.** This is an app-shell-level layout problem, not
+   confined to Simulate.
+4. **Two candidate felt strategies were identified, not chosen between:** a felt `min-width` with a
+   horizontal-scroll wrapper (cheap, keeps the existing geometry), versus a sub-600px compact or
+   vertical seat layout (a real redesign). The draft left the choice to a Gate-1 interview that
+   never happened; P2/P3 pick between them.
+
+## P1 measurement (b) — the bind checks, 2026-09-18
+
+**Bottom line: every machine-checkable leg of pass/fail (b) passed.** The backend port stays on
+loopback even when the environment tries to move it, the frontend goes to the wifi only when asked,
+and the script now tells the truth about which state it is in. The two legs that need the owner's
+phone, (a) and (d), are still outstanding.
+
+Run from an isolated worktree on ports 8123/7778 and 8124/7779, so the owner's live stack on
+8008/7777 was never touched. The isolated backend wrote to the worktree's own database
+(`DB_PATH` confirmed under the worktree before anything started), never to `backend/data/poker_coach.db`.
+
+| Leg | Result | Evidence |
+|---|---|---|
+| Backend binds loopback only | PASS | `Python … TCP 127.0.0.1:8123 (LISTEN)` |
+| Backend resists `UVICORN_HOST=0.0.0.0` | PASS | with it exported, `restart --lan` still gave `TCP 127.0.0.1:8123 (LISTEN)` |
+| Frontend loopback with the flag off | PASS | `node … TCP [::1]:7778 (LISTEN)` |
+| Frontend on all interfaces with `--lan` | PASS | `node … TCP *:7778 (LISTEN)` |
+| `status` reports the binding | PASS | `frontend running (pid 58925 on :7779, loopback only)` |
+| `start --lan` refuses a running loopback stack | PASS | exit 1, `already running, but frontend is loopback only (pid 58925 :7779) — run: scripts/serve.sh restart --lan`, and no new socket appeared |
+| Flagless `start` reports the real state | PASS | exit 0, `… frontend loopback only` |
+
+**The `UVICORN_HOST` leg is the one that matters most.** Before this slice the launcher passed no
+host at all and relied on uvicorn's default, which the environment can override
+(`auto_envvar_prefix="UVICORN"`). The explicit `--host 127.0.0.1` is what makes the loopback
+binding a property of the script rather than of the shell it was started from.
+
+**What this evidence is NOT.** It shows port 8008 is not independently reachable. It does not show
+the API is off the wifi — the frontend port proxies the whole API by design, and that is the
+accepted boundary recorded in the roadmap and the README.
+
+**Branch not exercised:** the wifi-address banner only ever took its fallback path. `ipconfig
+getifaddr` is blocked in this sandbox and exits 1 on both `en0` and `en1`, so the success path —
+printing a real address — has never run and needs the owner's first `start --lan` to confirm.
+
+**Also observed, pre-existing and not caused by this slice:** after `stop`, the uvicorn reload child
+and the vite child kept their sockets. The PID file records the launching subshell, not the server
+process. `scripts/serve.sh`'s stop logic is untouched by this change, so this is a separate defect;
+it is recorded here rather than fixed, because fixing it is outside P1's tickets.

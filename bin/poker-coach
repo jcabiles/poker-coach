@@ -2,7 +2,8 @@
 # Global entry point for this project's dev stack. Works whether it's found via
 # direnv's `PATH_add bin` (.envrc), a symlink in ~/.local/bin, or run directly —
 # it resolves its own real path first. Thin delegate to scripts/serve.sh: a bare
-# call defaults to "start"; any subcommand (stop/restart/status) is forwarded.
+# call defaults to "start"; every argument given (subcommand and flags like
+# --lan alike) is forwarded as-is.
 set -euo pipefail
 
 # Resolve this script's real location, following symlinks (e.g. ~/.local/bin).
@@ -14,4 +15,8 @@ while [ -h "$SRC" ]; do
 done
 HERE="$(cd -P "$(dirname "$SRC")" && pwd)"
 
-exec "$HERE/../scripts/serve.sh" "${1:-start}"
+if [ "$#" -eq 0 ]; then
+  exec "$HERE/../scripts/serve.sh" start
+else
+  exec "$HERE/../scripts/serve.sh" "$@"
+fi
