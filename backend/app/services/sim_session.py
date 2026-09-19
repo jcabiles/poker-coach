@@ -1,4 +1,4 @@
-"""Simulate session service (S9) — playable, persistent 9-max sessions.
+"""Simulate session service (S9) — playable, persistent 6- or 9-max sessions.
 
 Lives in the service layer (not pure domain) because it owns persistence:
 `SimSession`/`SimSeat`/`SimHand` rows, the per-hand re-buy-in that puts every
@@ -121,6 +121,7 @@ from app.schemas.simulate import (
     SimulateHandView,
     StreetReportRow,
     StreetReportView,
+    TableSize,
     VillainRangeView,
 )
 
@@ -218,6 +219,18 @@ def _fresh_rng() -> random.Random:
     return random.Random(secrets.randbits(256))
 
 
+_DEFAULT_TABLE_SIZE = 9
+
+
+def _table_size(session: SimSession) -> TableSize:
+    """The session's seat count, normalised at the read boundary on the same
+    basis `_view` normalises `mode`: migration 0016's column is nullable with a
+    DB-side default, so a hand-rolled insert or a future write path could still
+    land NULL or an unsupported number, and the engine would then index a
+    rotation that does not exist. Anything that is not 6 reads as 9."""
+    return 6 if session.table_size == 6 else _DEFAULT_TABLE_SIZE
+
+
 def _apply_settlement(seats: list[SimSeat], settlement: Settlement) -> None:
     """Write each seat's TRUE post-hand stack: starting stack + settlement
     delta, and nothing else.
@@ -259,7 +272,13 @@ def _deal_and_advance(
     """Deal the session's current hand_no, advance bots to the hero (or hand
     end), settle if already over, and persist the SimHand row."""
     seed = secrets.randbits(256)
-    dealt = deal_hand(random.Random(seed))
+    # The seat count is an input to the DEAL, not just to the seating: hole
+    # cards are popped one pair per seat before the board, so dealing a 6-max
+    # hand at nine would draw the board from the wrong deck offset — silently,
+    # with no crash and no wrong play to notice. Taken from the seat rows this
+    # call already holds, which is the same basis `start_hand` reads below
+    # (`len(stacks_bb)`), so the deal and the seating can never disagree.
+    dealt = deal_hand(random.Random(seed), len(seats))
     # T-STACK: everyone re-buys before the cards are dealt, so `row.stack_bb`
     # is this hand's STARTING stack for the whole hand and its true FINISHED
     # stack after `_apply_settlement` — one basis, never a carried-over one.
@@ -338,7 +357,7 @@ def _stored_blind_check(session: SimSession) -> BlindCheckView | None:
         return None
 
 
-def _blind_check_seats(session_id: str) -> list[int]:
+def _blind_check_seats(session_id: str, table_size: int = 9) -> list[int]:
     """The three seats this session's blind check asks about (spec para 14).
 
     A pure function of the session id — no database, no clock, no randomness —
@@ -348,14 +367,18 @@ def _blind_check_seats(session_id: str) -> list[int]:
     would ask the player about different opponents than the dialog first showed
     them.
 
-    Sampled without replacement from the eight non-hero seats, one digest byte
-    per pick, so the three are always distinct and the hero is never among them.
+    Sampled without replacement from the non-hero seats of THIS table, one
+    digest byte per pick, so the three are always distinct, the hero is never
+    among them, and a 6-max check never names a seat that does not exist.
+    `table_size` defaults to 9 for the same reason every seat-count parameter
+    in this change does: the 9-max callers that predate it pass none.
     The modulo leaves a slight bias towards low indices on the second and third
-    pick (256 divides neither 7 nor 6); that is fine for what spec para 17 calls
-    a keepsake rather than a measurement, and cheaper than rejection sampling.
+    pick (256 divides none of the pool sizes this can shrink through); that is
+    fine for what spec para 17 calls a keepsake rather than a measurement, and
+    cheaper than rejection sampling.
     """
     digest = hashlib.sha256(session_id.encode()).digest()
-    pool = [seat for seat in range(9) if seat != HERO_SEAT]
+    pool = [seat for seat in range(table_size) if seat != HERO_SEAT]
     picked = []
     for i in range(BLIND_CHECK_SEAT_COUNT):
         picked.append(pool.pop(digest[i] % len(pool)))
@@ -865,6 +888,7 @@ def _view(
     # normalise at the read boundary rather than trust every writer to have
     # set a permitted value.
     mode: SimMode = session.mode if session.mode in get_args(SimMode) else "training"
+    table_size = _table_size(session)
     blind_check = _stored_blind_check(session)
     if blind_check is None and _blind_check_gate_open(session, hand):
         # Gate open, nothing answered yet. The client cannot ask the player
@@ -875,7 +899,7 @@ def _view(
         # separate matter — spec's constraint (c) keeps it on the wire in both
         # modes, and hiding it on screen is the frontend's job.)
         blind_check = BlindCheckView(
-            seats=_blind_check_seats(session.id),
+            seats=_blind_check_seats(session.id, table_size),
             submitted=False,
             skipped=False,
             guesses=[],
@@ -884,6 +908,7 @@ def _view(
     return SessionView(
         session_id=session.id,
         mode=mode,
+        table_size=table_size,
         blind_check=blind_check,
         hand=SimulateHandView(
             hand_no=hand.hand_no,
@@ -924,17 +949,23 @@ def _view(
 # ------------------------------------------------------------- public API
 
 
-def create_session(db: Session, owner_id: str = "", mode: SimMode = "training") -> SessionView:
+def create_session(
+    db: Session,
+    owner_id: str = "",
+    mode: SimMode = "training",
+    table_size: TableSize = 9,
+) -> SessionView:
     session = SimSession(
         id=uuid.uuid4().hex,
         owner_id=owner_id,
-        button_seat=secrets.randbelow(9),
+        button_seat=secrets.randbelow(table_size),
         hand_no=1,
         status="active",
         mode=mode,
+        table_size=table_size,
     )
     db.add(session)
-    lineup = assign_lineup(_fresh_rng())
+    lineup = assign_lineup(_fresh_rng(), table_size)
     seats = [
         SimSeat(
             session_id=session.id,
@@ -944,7 +975,7 @@ def create_session(db: Session, owner_id: str = "", mode: SimMode = "training") 
             stack_bb=_STARTING_STACK_BB,
             buyins_bb=_STARTING_STACK_BB,
         )
-        for i in range(9)
+        for i in range(table_size)
     ]
     for row in seats:
         db.add(row)
@@ -1019,7 +1050,7 @@ async def apply_hero_action(
         db.add(
             DrillAttempt(
                 owner_id=owner_id,
-                spot_signature=_sim_signature(spot),
+                spot_signature=_sim_signature(spot, _table_size(session)),
                 leak_category=result.leak_category,
                 chosen_action=decision.action.value,
                 correctness=result.correctness.value if result.correctness else None,
@@ -1048,11 +1079,22 @@ async def apply_hero_action(
     return _view(session, hand, state, seats, events, last_grade=last_grade, recap=recap)
 
 
-def _sim_signature(spot) -> str:
+def _sim_signature(spot, table_size: int) -> str:
     """Namespaced marker for sim-tagged attempts. Deliberately NOT
     spot_signature() (frozen hash, SRS-keyed) — sim rows never enter SRS and
-    only need to be queryable/groupable by source + archetype."""
-    parts = ["sim", spot.node_context[0].value, spot.hero.position.value]
+    only need to be queryable/groupable by source + archetype.
+
+    Non-nine table sizes carry the seat count as the second part (owner
+    decision D1, refined 2026-09-19), so a 6-max LJ open keys `sim:6:RFI:LJ`.
+    Nine-max deliberately keeps the original `sim:RFI:LJ` shape: prefixing it
+    too would separate the formats just as well, but would split every 9-max
+    key at the change date and break the continuity of a history the owner has
+    been building since before 6-max existed. Asymmetry is the price, and it is
+    cheaper than the seam."""
+    parts = ["sim"]
+    if table_size != _DEFAULT_TABLE_SIZE:
+        parts.append(str(table_size))
+    parts += [spot.node_context[0].value, spot.hero.position.value]
     if spot.facing is not None:
         parts.append(spot.facing.value)
     return ":".join(parts)
@@ -1452,7 +1494,7 @@ def reveal(
     owner_id: str = "",
 ) -> RevealView:
     """On-demand reveal of the just-completed hand's villain cards (R1). Sourced
-    from the completed hand's `state_json` (all 9 seats' hole cards); the hero is
+    from the completed hand's `state_json` (every seat's hole cards); the hero is
     always excluded (hero cards already ship on `Hero`). Reveal buttons fire
     BEFORE `deal_next_hand` advances `hand_no`, so the session's current hand IS
     the just-completed one.
@@ -1529,7 +1571,7 @@ def deal_next_hand(db: Session, session_id: str, owner_id: str = "") -> SessionV
             events=[],
             recap=[_grade_view(r) for r in _hand_decisions(db, hand.id)],
         )
-    session.button_seat = (session.button_seat + 1) % 9
+    session.button_seat = (session.button_seat + 1) % _table_size(session)
     session.hand_no += 1
     db.add(session)
     seats = _load_seats(db, session_id)
@@ -1572,7 +1614,7 @@ def submit_blind_check(
         return stored
     observed = session.blind_check_json  # what the write below compares against
 
-    expected = _blind_check_seats(session.id)
+    expected = _blind_check_seats(session.id, _table_size(session))
     guesses: list[BlindCheckGuess] = []
     if not submission.skipped:
         named = sorted(answer.seat_index for answer in submission.guesses)
@@ -1875,7 +1917,7 @@ def reveal_hand(
     So resolution goes through `_load_owned_complete_hand`, which owner-scopes and
     requires status=="complete", raising SessionNotFound (=> 404) otherwise.
 
-    Sourced from the hand's `state_json` (all 9 seats' hole cards); the hero is
+    Sourced from the hand's `state_json` (every seat's hole cards); the hero is
     always excluded — hero cards already ship on `HandReplayView.hero_cards`.
 
     Each revealed seat carries its REAL settlement delta from `settle().deltas`,

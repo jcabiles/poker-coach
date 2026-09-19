@@ -55,7 +55,6 @@ from app.domain.personas_postflop import sample_postflop_decision, strength_buck
 from app.domain.spot import RANKS, SUITS, ActionType, Card, LegalAction, Position, Street
 from app.domain.table.postflop_context import aggressor_barrel_run
 
-_SEATS = 9
 _EPS = 1e-9
 _BB = 1.0
 # Revealed-board card count by street (engine._REVEAL + preflop).
@@ -89,7 +88,10 @@ class PublicActionHistory(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     button_seat: int
-    starting_stacks_bb: tuple[float, ...]  # len 9, pre-blind stacks by seat
+    # One entry per seat, pre-blind. Its LENGTH is the table size: this projection
+    # is all the estimator sees, so a 6-max hand counted against a module constant
+    # of nine would add three phantom opponents and corrupt every posterior.
+    starting_stacks_bb: tuple[float, ...]
     board: tuple[Card, ...]  # revealed board cards so far (0/3/4/5)
     actions: tuple[PublicAction, ...]
 
@@ -153,8 +155,9 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     decision contexts. Mirrors engine.apply/_acted_seats/legal_actions and
     play._preflop_facing bookkeeping exactly (fixture-proven equivalent)."""
     stacks = list(history.starting_stacks_bb)
-    inv_street = [0.0] * _SEATS
-    inv_total = [0.0] * _SEATS
+    table_size = len(stacks)
+    inv_street = [0.0] * table_size
+    inv_total = [0.0] * table_size
     folded: set[int] = set()
     street = Street.PREFLOP
     cur = 0.0  # current bet-TO this street
@@ -189,7 +192,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
     for i, a in enumerate(history.actions[:n]):
         if a.street is not street:  # street closed: engine._close_street resets
             street = a.street
-            inv_street = [0.0] * _SEATS
+            inv_street = [0.0] * table_size
             cur = 0.0
             last_full = _BB
             acted = set()
@@ -234,7 +237,7 @@ def _replay_contexts(history: PublicActionHistory, seat: int, n: int) -> list[_C
                     kinds=kinds,
                     pot_bb=sum(inv_total),
                     stack_bb=stacks[s],
-                    opponents=sum(1 for j in range(_SEATS) if j != s and j not in folded),
+                    opponents=sum(1 for j in range(table_size) if j != s and j not in folded),
                     current_bet_to=cur,
                     observed=a.action,
                     facing_raise=street_aggr >= 2,

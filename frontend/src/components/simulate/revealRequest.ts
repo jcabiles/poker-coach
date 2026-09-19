@@ -14,7 +14,7 @@ import type { HandRevealView, ShowdownSeatView } from "../../api/types";
 //   2. close A, open hand B
 //   3. A's response resolves late
 //   4. A's cards render on B — matched by seat index, which always collides
-//      because every hand has the same nine seats
+//      because every hand at a given table size has the same seats
 //
 // That is a NO-PEEK violation (cards the user never revealed for hand B) AND a
 // fabrication (they are not seat N's cards in hand B). Two other orderings hurt

@@ -1,4 +1,4 @@
-"""Hand engine — pure 9-max NLHE hand state machine (S2).
+"""Hand engine — pure NLHE hand state machine, 6 or 9 seats (S2).
 
 Blinds through showdown: betting legality (incl. the incomplete-raise rule),
 street advance with auto-runout, side-pot layering, and chip-conserving
@@ -25,7 +25,9 @@ from app.domain.spot import (
 )
 from app.domain.table.deck import DealtHand, positions_for_button
 
-_SEATS = 9
+# No module-level seat count: every site below derives it from `len(state.seats)`
+# (or `len(stacks_bb)` in start_hand, which has no state yet), so a constant can
+# never go stale against a hand dealt at the other table size.
 _SB = 0.5
 _BB = 1.0
 _EPS = 1e-9
@@ -35,7 +37,7 @@ _REVEAL = {Street.FLOP: 3, Street.TURN: 4, Street.RIVER: 5}
 
 
 class SeatState(BaseModel):
-    seat: int  # 0-8
+    seat: int  # 0..table_size-1
     position: Position  # from positions_for_button(button_seat)[seat]
     stack_bb: float  # chips behind (not yet invested)
     invested_street_bb: float  # put in THIS street (resets each street)
@@ -54,7 +56,7 @@ class HandState(BaseModel):
     street: Street  # PREFLOP -> FLOP -> TURN -> RIVER
     board: list[Card]  # REVEALED cards only: 0/3/4/5 by street
     full_board: list[Card]  # all 5 from DealtHand (internal; never serialized)
-    seats: list[SeatState]  # len 9, index = seat
+    seats: list[SeatState]  # one per seat, index = seat
     to_act_seat: int | None  # None => betting closed / hand over
     current_bet_bb: float  # highest invested_street_bb this street
     min_raise_to_bb: float  # legal minimum raise-TO amount
@@ -71,21 +73,23 @@ class SeatDelta(BaseModel):
 class Settlement(BaseModel):
     pots: list[Pot]
     winners_by_pot: list[list[int]]  # parallel to pots; ties split
-    deltas: list[SeatDelta]  # len 9, sums to 0.0
+    deltas: list[SeatDelta]  # one per seat, sums to 0.0
     showdown_seats: list[int]  # seats whose hands were compared ([] on fold-out)
 
 
 def start_hand(dealt: DealtHand, button_seat: int, stacks_bb: list[float]) -> HandState:
-    """Post blinds (SB 0.5 / BB 1.0) and open preflop action at UTG."""
-    positions = positions_for_button(button_seat)
-    sb_seat = (button_seat + 1) % _SEATS
-    bb_seat = (button_seat + 2) % _SEATS
+    """Post blinds (SB 0.5 / BB 1.0) and open preflop action three seats past
+    the button — UTG at nine seats, LJ at six. The table size is `len(stacks_bb)`."""
+    table_size = len(stacks_bb)
+    positions = positions_for_button(button_seat, table_size)
+    sb_seat = (button_seat + 1) % table_size
+    bb_seat = (button_seat + 2) % table_size
     if stacks_bb[sb_seat] < _SB - _EPS:
         raise ValueError(f"seat {sb_seat} stack {stacks_bb[sb_seat]} below small blind {_SB}")
     if stacks_bb[bb_seat] < _BB - _EPS:
         raise ValueError(f"seat {bb_seat} stack {stacks_bb[bb_seat]} below big blind {_BB}")
     seats: list[SeatState] = []
-    for i in range(_SEATS):
+    for i in range(table_size):
         blind = _SB if i == sb_seat else _BB if i == bb_seat else 0.0
         stack = stacks_bb[i] - blind
         seats.append(
@@ -119,7 +123,7 @@ def start_hand(dealt: DealtHand, button_seat: int, stacks_bb: list[float]) -> Ha
         board=[],
         full_board=list(dealt.board),
         seats=seats,
-        to_act_seat=(button_seat + 3) % _SEATS,
+        to_act_seat=(button_seat + 3) % table_size,
         current_bet_bb=_BB,
         min_raise_to_bb=2 * _BB,
         last_full_raise_bb=_BB,
@@ -137,7 +141,7 @@ def _acted_seats(state: HandState) -> set[int]:
     pos2seat = {s.position: s.seat for s in state.seats}
     # Chips a seat had available for this street at street start.
     avail = {s.seat: s.stack_bb + s.invested_street_bb for s in state.seats}
-    invested = dict.fromkeys(range(_SEATS), 0.0)
+    invested = dict.fromkeys(range(len(state.seats)), 0.0)
     cur = 0.0
     last_full = _BB
     acted: set[int] = set()
@@ -240,9 +244,10 @@ def _close_street(state: HandState) -> None:
     state.current_bet_bb = 0.0
     state.min_raise_to_bb = _BB
     state.last_full_raise_bb = _BB
-    sb_seat = (state.button_seat + 1) % _SEATS
-    for i in range(_SEATS):
-        seat = state.seats[(sb_seat + i) % _SEATS]
+    table_size = len(state.seats)
+    sb_seat = (state.button_seat + 1) % table_size
+    for i in range(table_size):
+        seat = state.seats[(sb_seat + i) % table_size]
         if seat.status is PlayerStatus.IN:
             state.to_act_seat = seat.seat
             return
@@ -310,8 +315,9 @@ def apply(state: HandState, decision: Decision) -> HandState:
         return new
 
     acted = _acted_seats(new)
-    for i in range(1, _SEATS + 1):
-        nxt = new.seats[(seat.seat + i) % _SEATS]
+    table_size = len(new.seats)
+    for i in range(1, table_size + 1):
+        nxt = new.seats[(seat.seat + i) % table_size]
         if nxt.status is PlayerStatus.IN and (
             nxt.invested_street_bb < new.current_bet_bb - _EPS or nxt.seat not in acted
         ):
@@ -329,6 +335,7 @@ def settle(state: HandState) -> Settlement:
     """Side pots, showdown, and chip-conserving payouts. Only when hand_over."""
     if not state.hand_over:
         raise ValueError("cannot settle: hand not over")
+    table_size = len(state.seats)
     contrib = [s.invested_total_bb for s in state.seats]
     non_folded = [s.seat for s in state.seats if s.status is not PlayerStatus.FOLDED]
 
@@ -360,16 +367,18 @@ def settle(state: HandState) -> Settlement:
             showdown.update(pot.eligible_seats)
 
     # Rounding: floor each share to 2dp; residual to the eligible winner nearest SB.
-    payout = [0.0] * _SEATS
+    payout = [0.0] * table_size
     for pot, winners in zip(pots, winners_by_pot, strict=True):
         share = _floor2(pot.amount_bb / len(winners))
         for w in winners:
             payout[w] += share
         residual = round(pot.amount_bb - share * len(winners), 2)
         if residual > _EPS:
-            payout[min(winners, key=lambda s: (s - state.button_seat - 1) % _SEATS)] += residual
+            payout[min(winners, key=lambda s: (s - state.button_seat - 1) % table_size)] += residual
 
-    deltas = [SeatDelta(seat=i, delta_bb=round(payout[i] - contrib[i], 2)) for i in range(_SEATS)]
+    deltas = [
+        SeatDelta(seat=i, delta_bb=round(payout[i] - contrib[i], 2)) for i in range(table_size)
+    ]
     return Settlement(
         pots=pots,
         winners_by_pot=winners_by_pot,

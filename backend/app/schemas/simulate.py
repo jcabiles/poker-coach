@@ -22,11 +22,17 @@ from app.domain.spot import Hero, LegalAction
 # fails schema validation instead of silently persisting.
 SimMode = Literal["training", "challenge"]
 
+# The session's seat count (simulate-6max S1). A literal union for the same
+# reason as SimMode: a bad value is rejected at the edge with a 422 instead of
+# reaching the engine, where it would index a rotation that does not exist.
+TableSize = Literal[6, 9]
+
 
 class CreateSessionRequest(BaseModel):
-    """Optional body for session creation. Absent body ⇒ Training (default)."""
+    """Optional body for session creation. Absent body ⇒ Training 9-max (default)."""
 
     mode: SimMode = "training"
+    table_size: TableSize = 9
 
 
 class SeatView(BaseModel):
@@ -181,7 +187,8 @@ class SimulateHandView(BaseModel):
 # Seats the hand-200 blind check asks about (spec para 13-14). Lives here, with
 # the models that carry it, because the submission schema needs it to reject a
 # body with the wrong number of answers; `sim_session._blind_check_seats()`
-# reads the same constant rather than a second literal.
+# reads the same constant rather than a second literal. Independent of table
+# size — three of five non-hero seats is still a sensible check at 6-max.
 BLIND_CHECK_SEAT_COUNT = 3
 
 
@@ -251,6 +258,7 @@ class BlindCheckSubmitRequest(BaseModel):
 class SessionView(BaseModel):
     session_id: str
     mode: SimMode
+    table_size: TableSize
     blind_check: BlindCheckView | None = None
     hand: SimulateHandView
 
@@ -351,8 +359,9 @@ class HandRevealView(BaseModel):
     any completed hand the owner has in history. (2) Payload: seats are
     ShowdownSeatView, so each carries `delta_bb` as well as cards — the History
     felt labels a revealed pod with its real result. Those deltas come from
-    settle().deltas, which is built over all 9 seats and sums to zero, so every
-    revealed seat has a genuine settlement figure. Nothing here is fabricated.
+    settle().deltas, which is built over every seat at the table and sums to
+    zero, so every revealed seat has a genuine settlement figure. Nothing here
+    is fabricated.
 
     Additive by construction: this never widens HandReplayView, whose NO-PEEK
     guarantee (villain cards only at the terminal step, only for

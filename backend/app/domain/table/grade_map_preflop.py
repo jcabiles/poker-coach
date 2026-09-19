@@ -67,7 +67,13 @@ def _preflop_spot(entry, state: HandState, hero_seat: int) -> Spot:
     and stack-agnostic, so depth is informational only."""
     hero = state.seats[hero_seat]
     eff = round(hero.stack_bb + hero.invested_street_bb, 2)
-    return build_spot(entry, random.Random(0), eff_bb=eff, hole_cards=hero.hole_cards)
+    return build_spot(
+        entry,
+        random.Random(0),
+        eff_bb=eff,
+        hole_cards=hero.hole_cards,
+        table_size=len(state.seats),
+    )
 
 
 def map_preflop(state: HandState, hero_seat: int) -> Spot | None:

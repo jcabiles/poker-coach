@@ -1,4 +1,9 @@
-import type { ArchetypeGuess, BlindCheckSubmitRequest, BlindCheckView } from "../../api/types";
+import type {
+  ArchetypeGuess,
+  BlindCheckSubmitRequest,
+  BlindCheckView,
+  TableSize,
+} from "../../api/types";
 import { personaLabel } from "./personaLabel";
 
 // Two-mode Simulate (T8) — the hand-200 blind check's pure parts: the six names
@@ -38,10 +43,11 @@ export const ARCHETYPE_OPTIONS: readonly ArchetypeGuess[] = (
 ).sort((a, b) => OPTION_RANK[a] - OPTION_RANK[b]);
 
 /**
- * The house roster, from `backend/app/domain/table/play.py:44-54`: eight seats,
- * fixed composition, identical at every table. Hand-copied because it does not
- * ride the wire — see the module note on why that is guarded by the union and
- * by a test rather than trusted.
+ * The 9-max house roster, from `backend/app/domain/table/play.py:44-54`: eight
+ * seats, fixed composition, identical at every 9-max table. Hand-copied
+ * because it does not ride the wire — see the module note on why that is
+ * guarded by the union and by a test rather than trusted. Pinned by
+ * `blindCheck.test.ts`; unchanged by simulate-6max S1.
  */
 export const HOUSE_LINEUP: Record<ArchetypeGuess, number> = {
   nit: 1,
@@ -54,6 +60,37 @@ export const HOUSE_LINEUP: Record<ArchetypeGuess, number> = {
 
 /** Non-hero seats at a 9-max table — what HOUSE_LINEUP must add up to. */
 export const HOUSE_SEATS = 8;
+
+/**
+ * The 6-max house roster (owner decision D2, 2026-09-18), from
+ * `backend/app/domain/table/play.py:59-65` (`LINEUP_6MAX`): nit, TAG, TAG,
+ * LAG, calling station — no passive fish, no maniac.
+ */
+export const HOUSE_LINEUP_6MAX: Record<ArchetypeGuess, number> = {
+  nit: 1,
+  tag: 2,
+  lag: 1,
+  maniac: 0,
+  calling_station: 1,
+  passive_fish: 0,
+};
+
+/** Non-hero seats at a 6-max table — what HOUSE_LINEUP_6MAX must add up to. */
+export const HOUSE_SEATS_6MAX = 5;
+
+/**
+ * The roster the Challenge blind check discloses, keyed by the table's actual
+ * seat count (simulate-6max S1, owner decision D4). At six seats the card
+ * must not go on asserting the nine-max lineup — see the module note above.
+ */
+export function houseLineupFor(tableSize: TableSize): Record<ArchetypeGuess, number> {
+  return tableSize === 6 ? HOUSE_LINEUP_6MAX : HOUSE_LINEUP;
+}
+
+/** What `houseLineupFor(tableSize)` must add up to. */
+export function houseSeatsFor(tableSize: TableSize): number {
+  return tableSize === 6 ? HOUSE_SEATS_6MAX : HOUSE_SEATS;
+}
 
 /**
  * The player-facing name of an archetype, via the same helper the seat plate and

@@ -78,7 +78,8 @@ async def create_session(
     body: CreateSessionRequest | None = None, db: Session = Depends(get_session)
 ) -> SessionView:
     mode = body.mode if body is not None else "training"
-    return sim_session.create_session(db, owner_id=_OWNER_ID, mode=mode)
+    table_size = body.table_size if body is not None else 9
+    return sim_session.create_session(db, owner_id=_OWNER_ID, mode=mode, table_size=table_size)
 
 
 @router.get("/session/{session_id}", response_model=SessionView)
