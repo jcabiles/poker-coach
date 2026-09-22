@@ -32,8 +32,8 @@ edits). Baseline `make check` on the untouched worktree is green (P4's fan-in).
   `usePhoneLayout.ts` for the hook; `handCount.ts`/`handCount.test.ts` for the pure module.
 - **Do:** spec items 1–8 exactly. Nothing on `.stage`, `.sim-tablering`, `.ctx`, the card rebind,
   the gate string, or `App.tsx`.
-- **Acceptance:** spec Verify-by (a)–(g), measured in the browser by the reviewer, not asserted by
-  the designer. `rotateHint.test.ts` proves the show/hide logic for every combination of phone,
+- **Acceptance:** spec Verify-by (a)–(h) including (b2), measured in the browser by the reviewer,
+  not asserted by the designer. `rotateHint.test.ts` proves the show/hide logic for every combination of phone,
   portrait, at-table and dismissed. Biome baseline not widened; desktop boxes unchanged.
 - **Done-condition:** `make check-frontend` exits 0 from the worktree, then the design reviewer's
   verdict is PASS.
