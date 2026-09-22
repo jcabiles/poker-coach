@@ -1,0 +1,34 @@
+# Blind review r1 — P4 spec (Claude refuter, Opus, 2026-09-22)
+
+Returned inline by the reviewer (no Write tool in its session) and saved verbatim by the Director.
+Reviewed: spec rev 1, contract map, tickets rev 1, against the worktree at `2baf7bc`.
+
+VERDICT: FAIL — four blocking issues. The token design itself is sound; the plan around it is not.
+
+1. **blocking** — The Watch-off fold path self-409s on every fold, and at the Challenge hand-200 gate it stops the blind check from ever appearing. `SimulateView.tsx:702-718` does `const folded = await postHeroAction(id, {action}); … return postNextHand(id)` and deliberately never adopts `folded`; spec item 9 says the deal sends the token "from the view currently rendered", which is the pre-fold token. `deal_next_hand` (`sim_session.py:1553-1573`) returns the barred gate view that the client adopts in place of the fold's — a 409 there kills the flywheel finale path. Spec item 10's "needs no extra code" only covers a 409 on the fold. Fix: the deal must carry `folded.state_token`; say so in items 9/10 and in T2's acceptance.
+
+2. **blocking** — No ticket owns `frontend/src/api/client.ts`, yet `postHeroAction`/`postNextHand` build the URLs (`client.ts:133-147`) and a `/session/current` fetcher belongs beside `getSession` (`:127`). T2 says "Do not: touch … `client.ts`"; T1 is backend-only. The only alternative — raw `fetch` in `SimulateView.tsx` — re-implements `json<T>`'s `` `${r.url} -> ${r.status}` `` error shape that `errorStatus` (`:109-112`) parses. Fix: add `client.ts` to T2's Owns.
+
+3. **blocking** — T1's Owns list omits every test file its own acceptance requires it to edit: 59 service-level calls to `apply_hero_action`/`deal_next_hand` across 10 files (e.g. `test_sim_session.py:89`), plus 10 HTTP-level calls in 3 files. `test_simulate_api.py:179` asserts 404 for an unknown session and will get 422 once the query param is required. Fix: enumerate those files in Owns and decide explicitly whether the service parameter is required (breaks 59 sites) or route-required / service-optional.
+
+4. **blocking** — The named compare-and-set golden path commits before reading rowcount (`sim_session.py:1653-1662`: `landed = db.exec(update(...))`, `db.commit()`, then `if landed.rowcount == 1`). Imitated faithfully in `apply_hero_action`, that commits the `SimDecision` + `DrillAttempt` rows and only then detects the conflict — rollback after commit is a no-op, reproducing the exact "graded one decision twice" defect this slice exists to fix. Fix: T1 must state that rowcount is read before `db.commit()`, and `db.rollback()` replaces the commit on 0.
+
+5. **should-fix** — Verify-by leg (c) passes with the compare-and-set entirely absent. Two TestClients on two threads have no synchronisation point, and `apply_hero_action`'s only await (`:1023`) is a pure heuristic provider (`_grading_provider`, `:196-203`), so the requests almost always serialise and the loser is refused by the token check alone; `app/db/session.py:16` sets no `busy_timeout`/WAL, so the other outcome is a lock error, not a 409. Fix: monkeypatch `sim_session._grading_provider` with one whose `evaluate` awaits a test-controlled `asyncio.Event`, and run two coroutines as tasks on one loop — production's actual shape. Gain: a test that fails without the CAS; cost: ~15 lines of test-only fake provider.
+
+6. **should-fix** — Keeping the existing ORM write `hand.state_json = state.model_dump_json()` (`:1067`) alongside the new Core `UPDATE` makes the CAS report rowcount 0 unconditionally (autoflush writes the new value before the `WHERE state_json = :observed` runs), 409-ing every hero action. Measured: rowcount with ORM assignment first: 0 / without: 1. The golden path never assigns the column on the ORM object (`:1651` reads `observed` only). Fix: item 4 must say the ORM assignment is replaced, not supplemented.
+
+7. **should-fix** — "Newest active wins" hijacks a device that already has a session: boot overwrites `simulate.session_id` on every load, and creating a session never ends the old one (`sim_session.py:952-983`; `leave_session:1676-1682` is the only writer of `status="ended"`). One stray sit-down on the phone makes an in-progress Challenge session unreachable from the UI, with no session list to get back — that is the session the flywheel's hand-200 finale needs. Fix: prefer the stored id while it is still active, fall back to newest-active only when there is no stored id or it 404s. Gain: the phone still lands on the Mac's table (it has no stored key), no hijack; cost: a device holding a stale-but-active id will not follow a newer session.
+
+8. **should-fix** — The notice's placement is unspecified for the phone, the device P4 exists for. The dock is `position: fixed` under 480px with the page reserving its strip (`app.css:6732-6751`, `:6924-6952`), and that same file records the regression where growing the bottom-anchored bar upward moved the button out from under the thumb that just pressed it (`:6947-6952`). "Above the action dock" does not say in-flow (can scroll off screen) or inside the fixed dock (moves the buttons). Fix: name it; if inside the dock, reserve its height in the bottom pad.
+
+9. **should-fix** — `POST /session/{id}/leave` takes no token and is unmentioned — a stale tab ends the live session for both devices.
+
+10. **optional** — Q1(d): the token does not change when the other device answers the blind check — that writes `SimSession.blind_check_json` only, leaving `hand_no` and `action_history` untouched — so "covers every corrupting case" holds for hand state, not session state; benign today because `submitBlindCheck` has first-write-wins and its own catch (`SimulateView.tsx:906-934`), but the spec should say so.
+
+11. **optional** — `order by created_at desc, id desc`: `SimSession.id` is uuid4 hex (`models.py:50`), so the tiebreak is arbitrary, not newest.
+
+12. **optional** — Both docs state `sim_session.py` is 1753 lines; it is 1962.
+
+Confirmed sound, do not re-litigate: Q1(a)(b)(c) the token does change (`engine.py:303` appends on every `apply`; `play.py:333` routes bot actions through it). Q2 the mechanism works — `db.exec(update(...)).rowcount` is proven at `:1653-1662` and by measurement, nothing commits before the write in `apply_hero_action`, and `db.rollback()` does discard the pending decision/attempt rows. Q3 declaration order decides in FastAPI 0.139.0 (measured both orders) and nothing uses "current" as an id. Q5 no migration is needed; `_view` (`:908`) really is the single `SessionView` assembly point.
+
+Checks run: `make check-frontend` → 77/77 vitest + build clean; `pytest tests/test_simulate_api.py` → 14 passed; FastAPI route-precedence probe (literal-after-param loses, literal-before-param wins); SQLModel autoflush/compare-and-set probe (rowcount 0 vs 1); greps for `session/current`, test call-site counts, route table dump.

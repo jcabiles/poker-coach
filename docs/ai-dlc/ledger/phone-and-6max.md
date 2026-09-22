@@ -169,3 +169,33 @@ deployment races.
 check") fires. The owner ruled 2026-09-22 on the shape: newest active session as the server's answer
 to "current"; a stale action is rejected, the client refetches and shows one line; no migration
 because the token is derived from `hand_no` and the hand's action count.
+
+---
+## Round 3, 2026-09-22 — blind review of the P4 spec (one live session across devices)
+
+Reviewers attempted: Claude `refuter` (Opus) — ran, report `../reviews/phone-p4-live-session-r1-claude.md`
+(saved by the Director from the inline return; the reviewer had no Write tool). Codex `gpt-5.6-sol` —
+did not run: its nested sandbox refused every command including a file read
+(`../reviews/phone-p4-live-session-r1-sol.md` holds its one-line failure). Gemini via `agy` — did not
+run: authentication timed out; the owner must run `agy` once in a plain terminal. **This round is
+therefore same-family only**, labelled as such; a cross-family pass on the built diff is still owed
+if either tool becomes available. Verdict FAIL: 4 blocking, 5 should-fix, 3 optional. All 12
+checked against the code before adjudication; 11 accepted (one narrowed), 1 rejected-as-stated and
+replaced by a Director refinement. Spec rev 2 and tickets rev 2 fold them.
+
+| # | Finding | Claimed | Adjudicated | Evidence checked |
+|---|---|---|---|---|
+| G1 | Watch-off fold path would send the pre-fold token with its deal and refuse its own deal; at the Challenge hand-200 gate the blind check would never appear | blocking | **ACCEPTED** — spec item 9: the deal sends `folded.state_token`; T2 acceptance cites the line | `SimulateView.tsx:702-718` never adopts the fold response; `deal_next_hand` returns the gate view. Verified. |
+| G2 | No ticket owns `client.ts`, where the fetchers build the URLs | blocking | **ACCEPTED** — T2 owns `client.ts`; `getCurrentSession` joins `getSession` | `client.ts:127-147`. Verified. |
+| G3 | T1 omits the test files it must edit; a required query param turns the unknown-session 404 into 422 | blocking | **ACCEPTED** — route-required, service-optional token; T1 owns the three route-level test files; Verify-by (f) keeps the 404 | `test_simulate_api.py:179`; 3 route-level files found by grep. Verified. |
+| G4 | The named compare-and-set golden path commits before reading `rowcount`; copied faithfully it would commit the double-graded rows | blocking | **ACCEPTED** — spec item 4: `rowcount` before commit, `rollback()` on 0; golden path is for statement shape only | `sim_session.py:1653-1662`. Verified. |
+| G5 | Two TestClients on two threads never reach the interleave window, so the concurrency test passes without the compare-and-set | should-fix | **ACCEPTED** — Verify-by (c) rewritten: two tasks on one loop, gated fake provider; test must fail with the CAS removed | `:1023` awaits a pure provider; no `busy_timeout`. Reasoning verified. |
+| G6 | Keeping the ORM assignment alongside the Core UPDATE makes the compare fail every time (autoflush) | should-fix | **ACCEPTED** — spec item 4: the ORM write is replaced, `status` rides the same UPDATE | Reviewer measured rowcount 0 vs 1. Accepted on that measurement. |
+| G7 | "Newest active wins" lets a stray sit-down on one device hijack the other's Challenge session; proposed: prefer the stored id while active | should-fix | **NARROWED** — the sit-down screen is only reachable after Leave (which ends the session) or a 404, so the hijack is not UI-reachable once boot lands on the current session. The real residual is pre-P4 orphan sessions outranking the live one. Resolved by ordering "current" by most recent hand activity (spec item 5), a refinement inside the owner's ruling; the stored-id-first proposal is rejected because it makes browser storage primary again, which the owner ruled against | `SimulateView.tsx:641,663,677,778,926` (every `askForMode` call follows a leave or a 404); `leave_session:1676-1682`. Verified. |
+| G8 | Notice placement unspecified on the phone; inside the fixed dock it would move the buttons | should-fix | **ACCEPTED** — spec item 12: in flow on desktop, fixed just above the dock under the phone gate, never inside the dock | `app.css:6732-6751, 6924-6952`. Verified. |
+| G9 | Leave takes no token; a stale tab ends the live session for both devices | should-fix | **ACCEPTED** — token on leave, 409 refuses, no auto-retry | `api/v1/simulate.py:134-137`. Verified. |
+| G10 | Blind-check answers do not move the token | optional | **ACCEPTED** as a documented non-goal (spec item 6a): that flow already has first-write-wins | `SimulateView.tsx:906-934`. Verified. |
+| G11 | `id desc` tiebreak is arbitrary (uuid) | optional | **ACCEPTED** — superseded by the activity ordering in G7 | `models.py:50`. Verified. |
+| G12 | Line count stated as 1753; it is 1962 | optional | **ACCEPTED** — corrected | `wc -l`. Verified. |
+
+Confirmed sound by the reviewer and not re-opened: the token changes on every seat's action (`engine.py:303`, `play.py:333`); `db.exec(update(...)).rowcount` works inside the open transaction and `rollback()` discards the pending rows; route declaration order decides (measured on FastAPI 0.139.0); no migration is needed; `_view` is the single `SessionView` assembly point.
