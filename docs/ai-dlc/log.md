@@ -1,5 +1,13 @@
 # AI-Org log — poker-coach
 
+## 2026-09-22 — Always-on stack built (launchd agent + owner-run install/uninstall), stacked on P3b
+- One implementer (Opus) shipped a plist template, `scripts/always_on_install.sh` (`--print` mode
+  is the sandbox-testable path) and `always_on_uninstall.sh`, plus a README "Always on" section.
+  Blind refuter FAIL, 8 findings accepted: `AbandonProcessGroup` added to the spec, schedule
+  switched to `StartCalendarInterval` (fires on wake; an interval does not), the loopback-start
+  wedge and the missing coach key stated in the README, a worktree guard in the installer.
+- Every `launchctl` leg is owed on the owner's machine; the PR body lists them. This closes the
+  three-slice run the owner invoked with one `--auto-build` message; the PRs stack #232 → #233 → this.
 ## 2026-09-22 — P3b (portrait polish for the non-felt pages) built, stacked on P4
 - Measurement first: portrait is broken by stacking order, not width (five of seven screens have
   zero sideways overflow); the landscape gate buried the masthead 585–879px below the fold. One

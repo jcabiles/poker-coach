@@ -110,6 +110,47 @@ poker-coach start --lan
 > with no arguments) listens on loopback only — and `status` reports which of the two states the
 > running server is in.
 
+### Always on
+
+Install the login agent once, in a plain terminal:
+```bash
+./scripts/always_on_install.sh
+```
+
+> This writes a launchd user agent (macOS's own "run this for me" mechanism) to
+> `~/Library/LaunchAgents/com.poker-coach.serve.plist` and loads it. From then on macOS runs
+> `scripts/serve.sh --lan start` at login and again every five minutes. The launcher is a no-op
+> when the stack is already up, so the repeat costs nothing and is exactly what brings the stack
+> back after the Mac sleeps, after a crash, or after a stray `stop` — within five minutes, without
+> you touching a terminal.
+>
+> Its output lands in `local/always-on/launchd.log` (both streams, appended). launchd will not
+> create that directory; the installer does — so re-run the installer if you ever delete `local/`.
+> Re-running it is safe at any time and is also how you pick up an edited plist.
+>
+> Remove it with `./scripts/always_on_uninstall.sh`. That unloads the agent and deletes the plist
+> but leaves a running stack alone; stop that yourself with `scripts/serve.sh stop`.
+>
+> **Four things to know before you install.**
+> 1. Run the installer from your main checkout (`~/Documents/Github/poker-coach`), not from a
+>    worktree — a worktree is deleted when its branch merges, and the agent would then fire at a
+>    path that no longer exists. The installer refuses a worktree for that reason.
+> 2. Start the stack by hand once with `scripts/serve.sh --lan start` before installing, so you are
+>    at the keyboard for macOS's "allow incoming connections for Node" prompt. The agent's first run
+>    can raise it with nobody there to click it, and until it is accepted the phone cannot connect.
+> 3. If you hand-start the stack *without* `--lan`, the agent cannot fix it: every five minutes the
+>    launcher exits 1 with "already running, but frontend is loopback only", and the phone stays
+>    locked out until you run `scripts/serve.sh restart --lan` yourself.
+> 4. A backend started by the agent has no `ANTHROPIC_API_KEY` — the plist carries only `PATH`, and
+>    a key is never written into a plist — so the coach falls back to its template prose for as long
+>    as that backend process lives. A stack you start by hand from a shell that loaded the key keeps
+>    the live coach.
+>
+> **What you are accepting.** The agent always starts with `--lan`, so with it installed the
+> entire unauthenticated API is reachable from anything on the home wifi whenever the Mac is awake
+> — not just while you remember you started it. See **The honest boundary** above for exactly what
+> that exposes. Don't install this on a Mac that joins networks you don't trust.
+
 ## Status
 **Phase 0** (foundations) complete & verified. **Phase 1a** (real preflop trainer) built:
 research-backed ranges for RFI / facing-an-open / blind defense / vs-limpers, frequency-tolerant

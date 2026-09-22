@@ -1,0 +1,18 @@
+# Blind review r1 — Always-on stack (Claude refuter, Opus, 2026-09-22)
+
+Returned inline and saved verbatim by the Director. The reviewer found the build already present
+untracked in the worktree (the implementer ran in parallel) and reviewed spec rev 1, the tickets and
+the shipped files together, against `scripts/serve.sh` and `launchd.plist(5)` read on this machine.
+
+VERDICT: FAIL
+
+1. **should-fix** — The spec omits the one key without which the slice fails: `AbandonProcessGroup`. The template sets it (`plist.tmpl:41-42`); spec item 1 never mentions it. `launchd.plist(5)`: "When a job dies, launchd kills any remaining processes with the same process group ID as the job" — `serve.sh:136,149` background uvicorn and vite from a non-interactive shell, so they inherit the launcher's group (`nohup` changes signal disposition, not the group). Fix: add the key and its reason to spec item 1.
+2. **should-fix** — The README's central claim ("the launcher is a no-op when the stack is already up") is false in the case that will happen: `serve.sh:127-130` exits 1 with "already running, but frontend is loopback only" whenever `--lan` is asked against a loopback stack, and the README's own phone section teaches the loopback `start` as the default. One hand-start without `--lan` wedges the agent forever. Fix: one README line — run `scripts/serve.sh restart --lan`; the agent cannot fix that state.
+3. **should-fix** — Wake recovery is stated backwards in all three artifacts. `launchd.plist(5)` on `StartInterval`: "If the system is asleep during the time of the next scheduled interval firing, that interval will be missed"; the coalesce-on-wake behaviour belongs to `StartCalendarInterval` ("launchd will start the job the next time the computer wakes up"). Fix: switch to `StartCalendarInterval` with Minute 0,5,…,55 (gain: documented wake firing; cost: twelve dict entries) or reword and list the wake leg as owner-verified.
+4. **should-fix** — The ProcessType rationale is wrong: unspecified means light resource limits (Standard); `Background` is a distinct, more throttled class, not the default. The abandoned servers inherit the class. Fix: delete the false sentence; `Interactive` is the lever if the phone feels sluggish.
+5. **should-fix** — The installer bakes whichever checkout it runs from: from this worktree it renders `/private/tmp/claude-501/wt-ao` (whose venv and node_modules are symlinks and which is deleted at cleanup) into every path. Fix: refuse when `.git` is a file (linked-worktree marker); README: run from the main checkout.
+6. **should-fix** — The always-on stack can never reach the Anthropic coach, silently: `backend/app/services/coach.py:211` picks the coach once from `ANTHROPIC_API_KEY`, and the plist carries only PATH. Fix: say so in the README. Do NOT bake the key into the plist (a credential on disk, forbidden by this repo's rule).
+7. **optional** — "launchd refuses to start a job whose log directory is missing" is stated as fact but only file creation is documented for `StandardOutPath`. Soften to "launchd will not create the directory".
+8. **optional** — Rendered PATH lists `/opt/homebrew/bin` twice (harmless); `launchd.log` has no rotation (~288 appends a day) while `serve.sh:135,145` rolls its own logs.
+
+Checks run: `bash -n` both scripts clean; `--print` exit 0, `plutil -lint` OK, `plutil -p` shows the absolute path, `--lan start` (accepted in that order by `serve.sh:221-234`), PATH beginning with the node directory, `AbandonProcessGroup` true; node-missing refusal exits 1 with the message; scripts mode 755, template 644; system bash 3.2 with `set -euo pipefail` and zero arguments is safe. Not run: `make check` (no Python/TS touched) and any `launchctl`.
