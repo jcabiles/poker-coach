@@ -233,3 +233,34 @@ contrast 15–16:1 in both themes; every write carried a token.
 **Left for the owner, from the browser run:** the isolated servers could not be stopped from the
 sandbox. In a plain terminal: `kill 59019 59023 59027` (uvicorn reloader + worker on :8125, vite on
 :7781). The owner's own stack on 8008/7777 was never touched.
+
+---
+## Round 4, 2026-09-22 — portrait measurement and blind review of the P3b spec
+
+**Bottom line: the portrait pages are not broken by width but by stacking order, and the first
+spec draft would have pushed the felt under the action dock on the narrowest phone; rev 2 keeps
+the session controls below the felt and returns only the app chrome to the top.** Measurement
+(`../reviews/phone-p3b-portrait-measurement.md`, headless Chromium at 412×915 / 393×851 / 360×800
++ 1280×800 baseline): five of seven screens have zero sideways overflow at every width; the
+masthead sits 585–879px below the fold with tab order contradicting visual order; History overflows
+12px at 360; `.statstrip` clips 10px of itself; ten in-session controls are under 44px; the 6-max
+felt in portrait has 8–11 overlapping pod pairs (out of scope by ruling, the rotate hint's reason);
+contrast has zero failures. Reviewer: Claude `refuter` (Opus), blind; Codex and Gemini unavailable
+(Round 3), same-family round. Report `../reviews/phone-p3b-portrait-r1-claude.md`. Verdict FAIL:
+2 blocking, 5 should-fix, 1 optional. All 8 checked against the code and ACCEPTED; spec rev 2 folds
+them.
+
+| # | Finding | Claimed | Adjudicated | Evidence checked |
+|---|---|---|---|---|
+| J1 | Returning the session control cluster above the felt stacks ~465px of chrome over a 239px table; at 360×800 the table renders under the dock | blocking | **ACCEPTED** — `.simulate .sim-topbar` keeps `order: 2` in portrait; new Verify-by (b2) | measurement figures (masthead 181, cluster 284, stage 239, dock 113). Arithmetic verified. |
+| J2 | The touch floor under the whole gate grows Practice's mode chips in landscape, above the drill table | blocking | **ACCEPTED** — `.mode-chip` and `.history-filter` floors are portrait-only; new Verify-by (h) | `App.tsx:436`; `app.css:1393`. Verified. |
+| J3 | `.tt-opt` is an aria-hidden span in a 40px clipped track | should-fix | **ACCEPTED** — floor on `.theme-toggle` only | `app.css:94-104`; `App.tsx:373`. Verified. |
+| J4 | `.sim-speed-input` is an invisible overlay; a height makes a click-catcher | should-fix | **ACCEPTED** — floor on `.sim-speed-face` | `app.css:3491-3502`. Verified. |
+| J5 | The `.nav-tabs` reset omits six gate declarations | should-fix | **ACCEPTED** — enumerated | `app.css:6797-6815`. Verified. |
+| J6 | Hint placement contradicts the measurement's assumption | should-fix | **ACCEPTED** — inserted inside `.sim-main` before `<SimTable>` | `SimulateView.tsx:1330-1332`. Verified. |
+| J7 | One-axis `overflow-x: visible` computes to `auto` | should-fix | **ACCEPTED** — wrap only | `app.css:1483`; CSS Overflow rule. Verified. |
+| J8 | Inert `min-width: 0`; wrong overflow comparison in Verify-by | optional | **ACCEPTED** — both corrected | `app.css:5077-5080`. Verified. |
+
+Also recorded from the review: the 9px "NEW" tag in the masthead EV widget becomes the first thing on
+the portrait page and is out of scope; with the reveal button hidden in portrait the 128px strip is
+dead space on non-Simulate routes, which rev 2 removes with `.app:not(:has(.simulate))`.

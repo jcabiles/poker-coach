@@ -1,7 +1,12 @@
 # Spec — P3b, phone polish for the non-felt pages (portrait)
 
-status: **rev 1, APPROVED** — pre-authorized by the owner's `/ai-org:spec --auto-build` invocation,
+status: **rev 2, APPROVED** — pre-authorized by the owner's `/ai-org:spec --auto-build` invocation,
 2026-09-22, after a frontloaded interview (rulings recorded below and in the roadmap's P3 entry).
+Rev 2 folds the blind review (FAIL, 8 findings, all accepted; ledger Round 4): the session control
+cluster stays BELOW the felt in portrait (only the app chrome returns to the top), the touch floor
+lands on the real targets and is portrait-only for Practice/History controls, the nav reset is
+enumerated, the hint's insertion point is named, and the History and stats-strip fixes lose their
+inert or wrong declarations.
 slice of: `../roadmap/phone-and-6max.md`, P3b (promoted to NOW by the owner 2026-09-22).
 contract map: `../contracts/phone-p3b-portrait.md` · measurement:
 `../reviews/phone-p3b-portrait-measurement.md` · tickets: `../tickets/phone-p3b-portrait.md`.
@@ -68,26 +73,40 @@ The existing gate string `(max-height: 560px), (max-width: 560px)` is NOT change
 two homes (`app.css:6747`, `usePhoneLayout.ts:16`); the pinned dock and its JS control keep working
 in portrait exactly as today. Rules, by selector:
 
-1. **Chrome back in document order.** `.topbar { order: 0 }`, `.statstrip { order: 0 }`,
-   `.simulate .sim-topbar { order: 0 }`. This puts the masthead at the top (document y 12 instead
-   of 1320–1794), the Simulate control cluster above the felt, and makes visual order match tab
-   order. The 128px reserved bottom strip stays (the dock is still pinned on the felt route).
-2. **Nav in flow.** `.nav-tabs { position: static; display: flex; flex-wrap: wrap; ... }` restoring
-   the desktop row's look with the 44px `.nav-tab` floor kept; `.nav-reveal { display: none }`.
-   The sheet's open/closed state in JS is untouched and simply has no effect in portrait.
-3. **Wrapping.** `.statstrip { flex-wrap: wrap; overflow-x: visible }` (it clips 10px of itself at
-   360 today with no scrollbar); `.sim-topbar { flex-wrap: wrap }`; `.sim-heading` allowed to wrap.
-4. **Touch floor** on every control the measurement found under 44px: `.sim-speed-input` (and its
-   label), `.sim-watch`, `.sim-leave-btn`, `.sim-replay-btn`, `.sim-reveal-btn`, `.theme-toggle`
-   (and `.tt-opt`), `.btn.history-filter`, `.mode-chip` — `min-height: calc(var(--space-8) +
-   var(--space-3))`, the same expression the gate already uses. Apply these under the EXISTING
-   gate (both orientations), not only portrait: in landscape they sit below the felt and cost
-   nothing, and a phone-wide floor is simpler than two. Widths may grow to fit; nothing else
-   changes about them.
-5. **History overflow.** `.history-hand-btn { flex-wrap: wrap }` and `.history-hand-tier { min-width:
-   0 }` in portrait, so the row's intrinsic minimum (372px today, from `.history-hand-tier` at
-   110px) fits 360. `.history-hand-ord` / `.history-hand-hero` keep their `--card-w` widths; the
-   card token rebind is not widened (that would resize the History replayer's felt).
+1. **App chrome back in document order; session controls stay below the felt.** `.topbar { order:
+   0 }` and `.statstrip { order: 0 }` put the masthead at the top (document y 12 instead of
+   1320–1794) and make visual order match tab order for the app chrome. `.simulate .sim-topbar`
+   KEEPS `order: 2` in portrait: the reviewer's arithmetic shows masthead (181px) + control cluster
+   (284px, more once the touch floor lands) + felt (239px) does not fit above the fixed dock at
+   360×800 (dock top 687), so the table would render under the action bar. Cost: speed, Watch,
+   Coach/Real, Replay and Leave stay below the felt in portrait, one scroll away. The 128px
+   reserved bottom strip stays on the Simulate route; on every other route in portrait the
+   reveal button is hidden (item 2) and nothing is pinned, so `.app:not(:has(.simulate)) {
+   padding-bottom: 0 }` removes 128px of dead space (`:has` is already used at `app.css:3410`).
+2. **Nav in flow.** In the portrait block `.nav-tabs` reverts every declaration the gate set
+   (`app.css:6797-6815`): `position: static; inset: auto; z-index: auto; display: flex; flex-wrap:
+   wrap;` plus `margin`, `padding-inline-start`, `background`, `border-top` and `border-bottom`
+   restored to the base rule's values at `app.css:155-160`, so it looks like the desktop row with
+   the 44px `.nav-tab` floor kept. `.nav-reveal { display: none }`. The sheet's JS state is a class
+   toggle only (`App.tsx:399`) with `aria-expanded` on the hidden reveal button, so it cannot lie
+   and needs no change; `.nav-tabs.nav-tabs-open` sets `display: flex`, which is what portrait
+   wants anyway.
+3. **Wrapping.** `.statstrip { flex-wrap: wrap }` only — do NOT touch its `overflow` shorthand (a
+   one-axis `visible` computes to `auto` and would add a scrollbar and unclip the rounded corners);
+   wrapping alone removes the 10px self-clip at 360. `.sim-topbar { flex-wrap: wrap }`;
+   `.sim-heading` allowed to wrap.
+4. **Touch floor** `min-height: calc(var(--space-8) + var(--space-3))` on the REAL targets:
+   `.sim-speed-face` (the visible chip; `.sim-speed-input` is an invisible absolute overlay that
+   must not get a height), `.sim-watch`, `.sim-leave-btn`, `.sim-replay-btn`, `.sim-reveal-btn`,
+   `.theme-toggle` (the button; NOT `.tt-opt`, an aria-hidden span inside a 40px clipped track).
+   These live in the Simulate topbar and the masthead, which sit below the felt in landscape, so
+   they go under the EXISTING gate for both orientations. `.btn.history-filter` and `.mode-chip`
+   get the floor in the PORTRAIT block only: `.mode-chip` is order-0 content above the drill table
+   in landscape Practice, where 18px per chip row would cost the co-visibility P3a bought.
+5. **History overflow.** `.history-hand-btn { flex-wrap: wrap }` in portrait; that alone cures the
+   12px overflow at 360 (`.history-hand-tier` is `flex: none` with no min-width, so no other
+   declaration is needed). `.history-hand-ord` / `.history-hand-hero` keep their `--card-w`
+   widths; the card token rebind is not widened (that would resize the History replayer's felt).
 6. **Ledger and stats type floor.** In the portrait block, no body copy or number in `SimLedger`,
    `HistoryView` or `SimDashboard` renders below `--text-xs` (11px). `.sim-chips` (felt) and
    `.cell-label` (range grid) are out of scope and recorded.
@@ -96,8 +115,11 @@ in portrait exactly as today. Rules, by selector:
    `frontend/src/lib/useOrientation.ts` mirroring `usePhoneLayout.ts` for `(orientation: portrait)`.
    `SimulateView.tsx` renders, when the hook says portrait, the phone gate is on, a table is shown
    and the hint is not dismissed: `<p class="sim-rotate-hint" role="note">Turn your phone sideways
-   for the table. <button type="button">Got it</button></p>` directly above the felt (in flow, so
-   it takes space and scrolls with the page; never fixed). Dismissal is `sessionStorage`
+   for the table. <button type="button">Got it</button></p>` inserted inside `.sim-main`
+   immediately before `<SimTable>` (`SimulateView.tsx:1330-1332`, the `hand` branch, which is what
+   `atTable` means) — in flow, so it takes space and scrolls with the page; never fixed. The
+   orientation hook's query string is a third home of the phone constant; its comment names the
+   other two (`usePhoneLayout.ts:16`, `app.css:6747`). Dismissal is `sessionStorage`
    (`simulate.rotateHint`) with the same try/catch posture the other keys use, so it returns after
    the tab is closed but not on every hand. Styled in the portrait block with tokens; z-index not
    needed because it is in flow. The dismiss button meets the 44px floor.
@@ -133,16 +155,21 @@ before/after evidence.
 
 `make check` green. Then a browser pass on the isolated stack at 412×915, 393×851 and 360×800,
 both themes: (a) on the sit-down screen and in session the masthead's top edge is within the first
-viewport and the first Tab press lands on a visible control; (b) `scrollWidth == innerWidth` on
-sit-down, in-session, hand-over, History, dashboard, Practice, Quiz at all three widths (History at
-360 was 12px over; stats strip clip gone: `scrollWidth <= clientWidth` on `.statstrip`); (c) every
-control in item 4 measures ≥ 44px tall; (d) no text in the ledger, History or dashboard below 11px;
+viewport and the first Tab press lands on a visible control; (b) `document.documentElement.scrollWidth
+<= clientWidth` (element method, as the measurement used; never `innerWidth`, which a classic
+scrollbar offsets by ~15px) on sit-down, in-session, hand-over, History, dashboard, Practice, Quiz at
+all three widths (History at 360 was 12px over; `.statstrip` `scrollWidth <= clientWidth`);
+(b2) in session at 360×800 portrait, `.stage`'s bottom edge is at or above the fixed dock's top edge;
+(c) every control in item 4 measures ≥ 44px tall and the theme labels are not clipped; (d) no text in
+the ledger, History or dashboard below 11px (the masthead's 9px "NEW" tag is out of scope, recorded);
 (e) the rotate hint appears above the felt in portrait only, dismisses, stays dismissed within the
 tab, and does not appear at 915×412; (f) desktop 1280×800: masthead 1248×67 at (16,12), nav row
 1248×43 at (16,87) spanning 789px, room grid `416px 416px`, `.sim-main` 864×813 and `.sim-side`
 360×356 at x904, History section 1048×648 at (116,146), dashboard blocks at their recorded boxes —
 all unchanged from the measurement's desktop baseline; (g) landscape 915×412 in session: dock
-`y=351 h=61`, buttons `y=360 h=44` unchanged (the P4 browser run's figures).
+`y=351 h=61`, buttons `y=360 h=44` unchanged (the P4 browser run's figures); (h) landscape 915×412
+on Practice (`#/drill/random`): the decision bar's bottom edge is within the viewport, unchanged
+from before this slice (the mode chips did not grow in landscape).
 
 ## Definition of done
 
