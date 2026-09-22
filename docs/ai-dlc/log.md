@@ -1,5 +1,15 @@
 # AI-Org log — poker-coach
 
+## 2026-09-22 — P3b (portrait polish for the non-felt pages) built, stacked on P4
+- Measurement first: portrait is broken by stacking order, not width (five of seven screens have
+  zero sideways overflow); the landscape gate buried the masthead 585–879px below the fold. One
+  portrait block returns the app chrome to the top, keeps the session controls below the felt,
+  puts the nav back in flow, wraps the stats strip and its leak row, fixes History's 12px
+  overflow, raises ten controls to 44px, and adds the rotate hint.
+- Spec review: Claude refuter FAIL (8 findings, two blocking arithmetic errors in my draft, all
+  accepted). Build: one Opus designer; browser design review FAIL on one leg (leak row clip),
+  fixed and re-measured. Desktop and landscape pixel-identical. Codex/Gemini still unavailable.
+- PR opens after #232 (P4) merges, per the stacked-PR ruling. Next: always-on stack.
 ## 2026-09-22 — P4 (one live session across devices) built; P1/S1 ticked, P2 retired
 - `/ai-org:spec --auto-build`, typed by the owner, after a frontloaded interview that ruled every
   design question for P4, P3b and always-on in advance (memory: 2026-09-22 run rulings). The
