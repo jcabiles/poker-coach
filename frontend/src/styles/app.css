@@ -4828,8 +4828,12 @@ kbd {
     grid-template-columns: minmax(0, 1fr);
   }
   /* Drop the desktop card-relative indent so the coach explanation uses the
-     recap's full width instead of a ~28ch column (design-review med). */
-  .sim-recap-coach {
+     recap's full width instead of a ~28ch column (design-review med). The
+     standing "why" line takes the same --card-w indent from the same place
+     (app.css:3791) and was measured running in 203px of a 336px card at 360
+     wide — about 31 characters a line — so it belongs in the same rule. */
+  .sim-recap-coach,
+  .sim-recap-why {
     margin-left: 0;
   }
   /* Leak rows stack at mobile so the drill action lands in the SAME place on
@@ -6034,17 +6038,24 @@ kbd {
   color: var(--muted);
 }
 
-/* Focus-handoff targets (see SimulateView's focusAfterSwap). These two
-   headings are focused programmatically after a view swap so a keyboard user is
+/* Focus-handoff targets (see SimulateView's focusAfterSwap). These headings
+   are focused programmatically after a view swap so a keyboard user is
    not thrown back to the top of the document. They carry tabIndex={-1}, so
    nobody can ever tab to them — a ring on a heading no one navigated to reads
    as a rendering bug. Every element that IS tabbable keeps its ring.
    The [tabindex="-1"] in the selector is that safety condition, not decoration:
    the attribute lives in SimulateView, a different file, so a plain :focus rule
    here would go on swallowing the ring if either heading were ever made a real
-   tab stop. Scoped this way the indicator comes back by itself. */
+   tab stop. Scoped this way the indicator comes back by itself.
+
+   `.sim-review` joins them for a different reason than the headings do: it is
+   the whole post-hand review card, 1,052px of it, and a 3px ring drawn round
+   that is a frame rather than a focus indicator. The replayer titles and the
+   History title are deliberately NOT here — a ring on a heading after a
+   scripted focus is exactly the signal a keyboard user wants. */
 .sim-heading[tabindex="-1"]:focus,
-.smc-title[tabindex="-1"]:focus {
+.smc-title[tabindex="-1"]:focus,
+.sim-review[tabindex="-1"]:focus {
   outline: none;
 }
 
@@ -7038,8 +7049,28 @@ kbd {
   .sim-leave-btn,
   .sim-replay-btn,
   .sim-reveal-btn,
-  .theme-toggle {
+  .theme-toggle,
+  /* And the review surfaces' own six, measured the same way and just as far
+     under: the recap's "Explain this" 93×24, the two replayers' Back 63×32 and
+     71×39, their steppers 104×42 each, and the History replayer's Moves rows at
+     24px. The base heights they override (app.css:5414, :5573) are the same
+     (0,1,0) specificity, so this gate wins on source order alone — and the
+     portrait block after it has no .hr-* / .hrt-* / .sim-recap* rule to take it
+     back. `.sim-review-btn` is deliberately absent: `.decision-btn` already
+     carries this floor, and a second copy is a second thing to keep in step. */
+  .sim-recap-explain-btn,
+  .hr-back,
+  .hrt-back,
+  .hr-step-btn,
+  .hrt-step-btn,
+  .hrt-move {
     min-height: calc(var(--space-8) + var(--space-3)); /* 44px touch floor */
+  }
+
+  /* The dock's "Review ↓" scrolls this wrapper to the top of the viewport, and
+     a card whose top edge is flush with the screen edge reads as cut off. */
+  .sim-review {
+    scroll-margin-top: var(--space-4);
   }
 }
 
@@ -7199,7 +7230,9 @@ kbd {
   /* The rotate hint (rotateHint.ts + useOrientation.ts decide when it renders).
      In flow as the first thing inside .sim-main, so it spends about 28px of the
      555px of panel that already sits below the felt and scrolls away with the
-     page. Nothing is fixed, which is the point: it needs no place in the
+     page; the History replayer renders the same line inside its own section,
+     under its header, for the same reason. Nothing is fixed, which is the
+     point: it needs no place in the
      20/21/22/30/40 z-stack the dock, the stale notice, the shove warning and
      the rail sheet share, and it can never cover the table it is talking about.
      Same surface/border/text tokens as the stale-tab notice it sits near — it

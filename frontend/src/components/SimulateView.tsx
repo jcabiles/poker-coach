@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   getCurrentSession,
@@ -29,7 +29,11 @@ import { usePhoneLayout } from "../lib/usePhoneLayout";
 import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
 import HandReplay from "./simulate/HandReplay";
 import { BLIND_CHECK_HAND_GATE, completedHands, gateProgressPct } from "./simulate/handCount";
-import { shouldShowRotateHint } from "./simulate/rotateHint";
+import {
+  readRotateHintDismissed,
+  shouldShowRotateHint,
+  writeRotateHintDismissed,
+} from "./simulate/rotateHint";
 import SimActionBar from "./simulate/SimActionBar";
 import SimBlindCheck, { type BlindCheckAnswers } from "./simulate/SimBlindCheck";
 import SimEventLog from "./simulate/SimEventLog";
@@ -40,6 +44,7 @@ import SimModeChoice, { type PendingRoom } from "./simulate/SimModeChoice";
 import SimPostflopChart from "./simulate/SimPostflopChart";
 import SimRangeChart from "./simulate/SimRangeChart";
 import SimRecap from "./simulate/SimRecap";
+import SimRotateHint from "./simulate/SimRotateHint";
 import SimShowdown from "./simulate/SimShowdown";
 import SimSpeedPicker, { type SimSpeed } from "./simulate/SimSpeedPicker";
 import SimStreetReport from "./simulate/SimStreetReport";
@@ -64,10 +69,6 @@ const STORAGE_KEY = "simulate.session_id";
 const SPEED_KEY = "simulate.speed";
 const WATCH_KEY = "simulate.watch";
 const COACH_KEY = "simulate.coachMode";
-// P3b — the rotate hint's dismissal. sessionStorage, not local: the hint is
-// worth showing again at a new sitting and never worth showing twice in one,
-// so it returns when the tab is closed rather than on every hand.
-const ROTATE_HINT_KEY = "simulate.rotateHint";
 
 // ── Two-mode Simulate (T7/T8) ───────────────────────────────────────────────
 // The gate threshold and the completed-hand arithmetic live in `handCount.ts`
@@ -169,26 +170,6 @@ function readCoachMode(): boolean {
   }
 }
 
-// Has the rotate hint already been waved off in this tab? Absent or garbage
-// storage ⇒ not dismissed, which is the safe direction: a hint too many, never
-// a table nobody was told to turn.
-function readRotateHintDismissed(): boolean {
-  try {
-    return window.sessionStorage.getItem(ROTATE_HINT_KEY) === "dismissed";
-  } catch {
-    /* private-mode storage — unreadable means unknown, so show the hint */
-    return false;
-  }
-}
-
-function writeRotateHintDismissed(): void {
-  try {
-    window.sessionStorage.setItem(ROTATE_HINT_KEY, "dismissed");
-  } catch {
-    /* private-mode storage — setting still applies this session */
-  }
-}
-
 function prefersReducedMotion(): boolean {
   try {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -260,6 +241,12 @@ export default function SimulateView() {
   const errorPanelRef = useRef<HTMLDivElement>(null);
   const scoreCardRef = useRef<HTMLElement>(null);
   const resumeCheckRef = useRef<HTMLButtonElement>(null);
+  // The post-hand review card, as a scroll and focus target for the dock's
+  // "Review ↓" (a plain wrapper — it carries no box of its own, or the desktop
+  // recap would move), and the button that opened the replayer, which the close
+  // hands focus back to.
+  const reviewRef = useRef<HTMLDivElement>(null);
+  const replayBtnRef = useRef<HTMLButtonElement>(null);
   const focusAfterSwap = useRef<
     "none" | "sit-down-screen" | "table" | "error" | "check-result" | "check-resume"
   >("none");
@@ -384,6 +371,11 @@ export default function SimulateView() {
   const [replay, setReplay] = useState<HandReplayView | null>(null);
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
+  // The scroll position the replayer was opened from, and whether a close is
+  // owed a restore. Refs, not state: neither one may cause a render, and both
+  // are read from a layout effect that runs before the browser paints.
+  const replayReturnYRef = useRef(0);
+  const replayRestorePendingRef = useRef(false);
 
   // ── The hand-200 blind check (two-mode-simulate T8) ───────────────────────
   // The dialog itself is driven entirely by the server's `blind_check` (see the
@@ -805,6 +797,8 @@ export default function SimulateView() {
   // (SessionView.session_id + hand.hand_no) via the replay alias endpoint. This is
   // purely additive — it never touches the live session state, so play is unchanged.
   const openLastReplay = useCallback(async (sessionId: string, handNo: number) => {
+    // Where the player is standing, before the replayer takes the page over.
+    replayReturnYRef.current = window.scrollY;
     setReplayLoading(true);
     setReplayError(null);
     setReplay(null);
@@ -822,9 +816,32 @@ export default function SimulateView() {
   }, []);
 
   const closeReplay = useCallback(() => {
+    // Arm the restore ONLY when a replay is actually open: this is also the
+    // Dismiss handler for a failed replay load, where nothing took the page
+    // over and the saved position belongs to some earlier, unrelated scroll.
+    if (replay) replayRestorePendingRef.current = true;
     setReplay(null);
     setReplayError(null);
-  }, []);
+  }, [replay]);
+
+  // Put the player back where the replayer found them, focus on the control
+  // they left from. A LAYOUT effect, not a plain one: the table and its side
+  // column must be back at full height before the scroll is written, or the
+  // browser clamps it to the short document the replayer left behind.
+  //
+  // `preventScroll` because the phone gate reserves the dock's own strip as
+  // `scroll-padding-bottom` (app.css), which a focus-driven scroll would spend
+  // on top of the restore we just made.
+  useLayoutEffect(() => {
+    if (replay || !replayRestorePendingRef.current) return;
+    replayRestorePendingRef.current = false;
+    window.scrollTo(0, replayReturnYRef.current);
+    // The button is gone if the hand advanced from another device (P4); the
+    // page's own heading is the standing fallback, and it is already a focus
+    // target for the view swaps above.
+    const back: HTMLElement | null = replayBtnRef.current ?? tableHeadingRef.current;
+    back?.focus({ preventScroll: true });
+  }, [replay]);
 
   // Leave the table: end it server-side, clear storage, and return to the
   // sit-down screen. Sitting down again is the only way to change room, so this
@@ -1085,6 +1102,26 @@ export default function SimulateView() {
   const portrait = useIsPortrait();
   const [rotateHintDismissed, setRotateHintDismissed] = useState(readRotateHintDismissed);
 
+  // The dock's "Review ↓" — the hand is over 268px below a 351px screen and
+  // nothing on screen says a review exists. A button, not an automatic scroll:
+  // the felt is where the showdown cards are, and taking it away at the moment
+  // the player wants to see it is the opposite of the fix.
+  //
+  // `preventScroll` on the focus call, or it would undo the scroll it follows.
+  //
+  // The wrapper is focusable only for the moment it holds focus. A standing
+  // tabindex="-1" would make the whole card click-focusable, and the deal-key
+  // handler below skips `[tabindex="-1"]` — so a desktop click anywhere on the
+  // recap would have silently switched off Space-to-deal.
+  const scrollToReview = useCallback(() => {
+    const el = reviewRef.current;
+    if (!el) return;
+    el.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    el.tabIndex = -1;
+    el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true });
+    el.focus({ preventScroll: true });
+  }, []);
+
   // Enter or Space deals the next hand once the hand has settled — the topbar
   // button can sit above the fold, but the key saves the reach entirely. Skipped
   // when focus is on an interactive control so we never hijack a key meant for
@@ -1104,9 +1141,14 @@ export default function SimulateView() {
       if ((e.key !== "Enter" && e.key !== " ") || e.repeat || e.metaKey || e.ctrlKey || e.altKey)
         return;
       const target = e.target as HTMLElement | null;
+      // `[tabindex="-1"]` covers this file's scripted focus targets — the
+      // review wrapper "Review ↓" lands on and the headings the view swaps
+      // focus to. They are plain divs and headings, so without it the player's
+      // very next Space press would deal the next hand and destroy the review
+      // they just reached.
       if (
         target?.closest(
-          'button, a, input, textarea, select, [role="button"], [contenteditable="true"]',
+          'button, a, input, textarea, select, [role="button"], [contenteditable="true"], [tabindex="-1"]',
         )
       ) {
         return;
@@ -1304,6 +1346,7 @@ export default function SimulateView() {
                 className="btn sim-replay-btn"
                 onClick={() => void openLastReplay(view.session_id, hand.hand_no)}
                 disabled={busy || replayLoading}
+                ref={replayBtnRef}
               >
                 {replayLoading ? "Opening…" : "Replay last hand"}
               </button>
@@ -1461,19 +1504,12 @@ export default function SimulateView() {
               atTable: true,
               dismissed: rotateHintDismissed,
             }) && (
-              <p className="sim-rotate-hint" role="note">
-                Turn your phone sideways for the table.{" "}
-                <button
-                  type="button"
-                  className="btn sim-rotate-dismiss"
-                  onClick={() => {
-                    setRotateHintDismissed(true);
-                    writeRotateHintDismissed();
-                  }}
-                >
-                  Got it
-                </button>
-              </p>
+              <SimRotateHint
+                onDismiss={() => {
+                  setRotateHintDismissed(true);
+                  writeRotateHintDismissed();
+                }}
+              />
             )}
 
             <SimTable
@@ -1541,6 +1577,18 @@ export default function SimulateView() {
                 deal there is no next hand to offer. */}
             {phone && hand.hand_over && revealHandEnd && !checkPending && (
               <div className="decisionbar sim-nextdock">
+                {/* The way to the review the player cannot see. Not primary —
+                    "Next hand →" keeps the plate, because the deal is still
+                    what the dock is for. The label does not change with Coach
+                    mode: with it off the target is the settlement slip alone,
+                    which is still the hand's review surface. */}
+                <button
+                  type="button"
+                  className="btn decision-btn sim-review-btn"
+                  onClick={scrollToReview}
+                >
+                  Review ↓
+                </button>
                 <button
                   type="button"
                   className="btn btn-primary decision-btn"
@@ -1587,7 +1635,14 @@ export default function SimulateView() {
                 slip appear only once the bot playback finishes (revealHandEnd),
                 so nothing leads the log. */}
             {hand.hand_over && revealHandEnd && (
-              <>
+              // The dock's "Review ↓" target. A bare div on purpose: a padding,
+              // a border, an overflow or a display would each change the boxes
+              // these two panels draw on the desktop, which this slice promises
+              // unchanged. Its only style is `scroll-margin-top` under the phone
+              // gate; it also joins the file's per-element focus-ring opt-out,
+              // because a 3px ring around a 1,052px card is not a focus
+              // indicator, it is a frame.
+              <div className="sim-review" ref={reviewRef}>
                 <SimShowdown
                   showdown={hand.showdown}
                   seats={hand.seats}
@@ -1603,7 +1658,7 @@ export default function SimulateView() {
                     board={hand.board}
                   />
                 )}
-              </>
+              </div>
             )}
 
             {!hand.is_hero_turn && !hand.hand_over && (

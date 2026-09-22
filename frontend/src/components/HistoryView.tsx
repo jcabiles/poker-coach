@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { getHandReveal } from "../api/client";
 import type { HandReplayView, HistoryListItemView, HistoryListView } from "../api/types";
+import { useIsPortrait } from "../lib/useOrientation";
+import { usePhoneLayout } from "../lib/usePhoneLayout";
 import HandReplayTable from "./simulate/HandReplayTable";
 import type { RevealScope, RevealState } from "./simulate/revealRequest";
 import {
@@ -11,6 +13,12 @@ import {
   resetForHand,
   toggleReveal,
 } from "./simulate/revealRequest";
+import {
+  readRotateHintDismissed,
+  shouldShowRotateHint,
+  writeRotateHintDismissed,
+} from "./simulate/rotateHint";
+import SimRotateHint from "./simulate/SimRotateHint";
 import { tierOf } from "./simulate/simGrade";
 
 // Simulate Hand-History + Replay (T5) — the hand register. A day-ruled ledger of
@@ -79,6 +87,26 @@ export default function HistoryView() {
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
 
+  // Where the player was standing in the list when they opened a hand, which
+  // hand it was, and whether a close still owes them the way back. Refs, not
+  // state: none of the three may cause a render, and all three are read from a
+  // layout effect that runs before the browser paints.
+  const returnYRef = useRef(0);
+  const returnHandIdRef = useRef<number | null>(null);
+  const restorePendingRef = useRef(false);
+  // Row button per hand id, so the close can hand focus back to the exact line
+  // the player tapped rather than to the top of a 1,964-row list.
+  const rowRefs = useRef(new Map<number, HTMLButtonElement>());
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // P3b §7, extended — the History replayer draws the same ring of pods as the
+  // live felt and overlaps them the same way in portrait, so it gets the same
+  // honest line. The gates live here because this view owns the two media
+  // hooks and the dismissal; the predicate is pinned in `simulate/rotateHint.ts`.
+  const phone = usePhoneLayout();
+  const portrait = useIsPortrait();
+  const [rotateHintDismissed, setRotateHintDismissed] = useState(readRotateHintDismissed);
+
   // Villain reveal for the open hand. All the rules (toggle-off, scope swap, and
   // the identity guard that stops a late response landing on the wrong hand) live
   // in the pure `revealRequest` module — this component only fetches and
@@ -109,6 +137,9 @@ export default function HistoryView() {
 
   const openHand = useCallback(
     async (id: number) => {
+      // The way back, recorded before the list is swapped for the replayer.
+      returnYRef.current = window.scrollY;
+      returnHandIdRef.current = id;
       setReplayLoading(true);
       setReplayError(null);
       setReplay(null);
@@ -130,10 +161,34 @@ export default function HistoryView() {
   );
 
   const closeReplay = useCallback(() => {
+    // Arm the restore ONLY when a replay is actually open: this is also the
+    // Dismiss handler for a failed load, where the list never went away and the
+    // saved position belongs to some earlier, unrelated scroll.
+    if (replay) restorePendingRef.current = true;
     setReplay(null);
     setReplayError(null);
     setRevealNow(resetForHand(revealRef.current, 0));
-  }, [setRevealNow]);
+  }, [replay, setRevealNow]);
+
+  // Put the player back on the row they opened, at the scroll they left from.
+  // A LAYOUT effect, not a plain one: the list must have re-rendered at its
+  // full height before the scroll is written, or the browser clamps it again to
+  // the short document the replayer left behind.
+  //
+  // `preventScroll` on the focus, because the phone gate reserves the dock's
+  // 128px strip as `scroll-padding-bottom` (app.css) — a focus-driven scroll
+  // would spend up to that much of the restore we just made.
+  useLayoutEffect(() => {
+    if (replay || !restorePendingRef.current) return;
+    restorePendingRef.current = false;
+    window.scrollTo(0, returnYRef.current);
+    const id = returnHandIdRef.current;
+    // The row is gone if the list reloaded under the replayer; the page's own
+    // title is the standing fallback.
+    const back: HTMLElement | null =
+      (id != null ? (rowRefs.current.get(id) ?? null) : null) ?? titleRef.current;
+    back?.focus({ preventScroll: true });
+  }, [replay]);
 
   // A reveal button was pressed. Fires at most one fetch; every response is
   // matched against the request identity before it is allowed to touch state, so
@@ -185,6 +240,25 @@ export default function HistoryView() {
           revealPending={reveal.pending}
           revealUnavailable={reveal.unavailable}
           onReveal={onReveal}
+          rotateHint={
+            shouldShowRotateHint({
+              phone,
+              portrait,
+              atTable: true,
+              dismissed: rotateHintDismissed,
+            }) ? (
+              // Handed to the replayer rather than rendered here, because the
+              // replayer scrolls its own section to the top of the viewport on
+              // mount and a line above that section would be pushed off the one
+              // screen it exists for.
+              <SimRotateHint
+                onDismiss={() => {
+                  setRotateHintDismissed(true);
+                  writeRotateHintDismissed();
+                }}
+              />
+            ) : undefined
+          }
         />
       </section>
     );
@@ -194,7 +268,11 @@ export default function HistoryView() {
     <section className="history">
       <header className="history-head">
         <div className="history-titleblock">
-          <h1 className="history-title">Hand history</h1>
+          {/* A focus TARGET, never a tab stop — the fallback for a close whose
+              row is no longer in the list. */}
+          <h1 className="history-title" ref={titleRef} tabIndex={-1}>
+            Hand history
+          </h1>
           <p className="history-sub">
             Every completed hand, newest first — step back through any of them.
           </p>
@@ -265,6 +343,10 @@ export default function HistoryView() {
                     <button
                       type="button"
                       className="history-hand-btn"
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(it.sim_hand_id, el);
+                        else rowRefs.current.delete(it.sim_hand_id);
+                      }}
                       onClick={() => void openHand(it.sim_hand_id)}
                       disabled={replayLoading}
                       aria-label={`Replay hand ${it.day_ordinal}, hero ${it.hero_position}${

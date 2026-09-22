@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { HandReplayView, ReplayStepView, ShowdownSeatView } from "../../api/types";
 import Card from "../Card";
@@ -61,6 +61,22 @@ export default function HandReplay({
 }) {
   const { steps, hero_cards, hero_position, hand_no } = replay;
   const [cursor, setCursor] = useState(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // Open with the replayer on screen, not wherever the page happened to be.
+  // The host swaps the live table for this section, and the shorter document
+  // leaves the browser's scroll clamped past it (measured: the header 189px
+  // above the viewport). The correction belongs HERE, after that swap, because
+  // this is the first moment the section exists at its real height. No smooth
+  // behaviour: the player asked for a different screen, not for a journey.
+  //
+  // Once per mount — the host already remounts per hand via `key`.
+  useEffect(() => {
+    sectionRef.current?.scrollIntoView({ block: "start" });
+    // preventScroll, or the focus call would undo the line above.
+    titleRef.current?.focus({ preventScroll: true });
+  }, []);
 
   // A fresh hand resets the cursor to the first step (the parent remounts on a
   // new selection via `key`, but guard anyway so a prop swap can't strand it).
@@ -109,11 +125,13 @@ export default function HandReplay({
   const go = (next: number) => setCursor(Math.min(Math.max(next, 0), Math.max(total - 1, 0)));
 
   // ← / → step the hand (the Next/Prev buttons stay the primary control + carry
-  // visible focus). Skipped when focus sits on another interactive control so a
-  // key meant for a button isn't hijacked, and when a modifier is held.
+  // visible focus), Esc closes it. Skipped when focus sits on another
+  // interactive control so a key meant for a button isn't hijacked, and when a
+  // modifier is held.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.metaKey || e.ctrlKey || e.altKey) {
+      const stepping = e.key === "ArrowLeft" || e.key === "ArrowRight";
+      if ((!stepping && e.key !== "Escape") || e.metaKey || e.ctrlKey || e.altKey) {
         return;
       }
       const target = e.target;
@@ -122,6 +140,16 @@ export default function HandReplay({
         target.closest('input, textarea, select, [contenteditable="true"]')
       )
         return;
+      if (!stepping) {
+        // Esc belongs to whatever is on top of this. The phone's nav sheet
+        // closes on its own window handler without preventDefault, and the
+        // hand-200 check is a native dialog outside the replay branch — one
+        // press must not close two things at once.
+        if (document.querySelector(".nav-tabs-open, dialog[open]")) return;
+        e.preventDefault();
+        onClose();
+        return;
+      }
       e.preventDefault();
       setCursor((c) =>
         Math.min(Math.max(c + (e.key === "ArrowRight" ? 1 : -1), 0), Math.max(total - 1, 0)),
@@ -129,18 +157,22 @@ export default function HandReplay({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [total]);
+  }, [total, onClose]);
 
   if (!step) {
     // Defensive: a complete hand always has ≥1 step, but never crash on an empty
     // reconstruction — offer the way back rather than a blank frame.
     return (
-      <section className="hr" aria-label="Hand replay">
+      <section className="hr" aria-label="Hand replay" ref={sectionRef}>
         <div className="hr-head">
           <button type="button" className="btn hr-back" onClick={onClose}>
             ← Back
           </button>
-          <h2 className="hr-title">Hand {hand_no}</h2>
+          {/* Same focus target as the populated path below, so the mount
+              behaviour is identical on the empty reconstruction. */}
+          <h2 className="hr-title" ref={titleRef} tabIndex={-1}>
+            Hand {hand_no}
+          </h2>
         </div>
         <p className="hr-empty" role="status">
           No actions to replay for this hand.
@@ -152,12 +184,12 @@ export default function HandReplay({
   const board = step.board;
 
   return (
-    <section className="hr" aria-label={`Replay of hand ${hand_no}`}>
+    <section className="hr" aria-label={`Replay of hand ${hand_no}`} ref={sectionRef}>
       <div className="hr-head">
         <button type="button" className="btn hr-back" onClick={onClose}>
           ← Back
         </button>
-        <h2 className="hr-title">
+        <h2 className="hr-title" ref={titleRef} tabIndex={-1}>
           Hand <span className="hr-title-no num">{hand_no}</span>
         </h2>
         <span className="hr-hero-note">
