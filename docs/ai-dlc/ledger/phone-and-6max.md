@@ -333,3 +333,39 @@ Verified by the reviewer: `plutil -lint` OK; a `plistlib` type audit (12 integer
 booleans, dict EnvironmentVariables, absolute paths); system bash 3.2 probes for `"$@"` under
 `set -u`, `$UID`, nested-quote expansion; README claims cross-checked against `serve.sh` and
 `coach.py:211`.
+
+---
+## Round 6, 2026-09-22 — blind review of the phone review depth spec
+
+**Bottom line: the measurement reframed the slice (the review surfaces are readable on the phone;
+reaching them is what fails), and the blind review caught four ways the spec's own fix would have
+misfired — a Space press after "Review ↓" would have dealt the next hand, `focus()` would have undone
+the restored scroll, one Esc would have closed the nav sheet and the replayer together, and the
+History rotate hint would have been scrolled off by the mount scroll.** Reviewer: Claude `refuter`
+(Opus), blind; Codex Sol failed to launch in the sandbox (`../reviews/phone-review-depth-r1-sol.md`),
+so the round is same-family. Report `../reviews/phone-review-depth-r1-claude.md`. Measurement
+`../reviews/phone-review-depth-measurement.md` (design-reviewer, Opus, browser). Verdict FAIL: 6
+should-fix, 7 optional. All 13 ACCEPTED; spec rev 2 folds them.
+
+| # | Finding | Claimed | Adjudicated |
+|---|---|---|---|
+| N1 | Focusing the review wrapper arms the global Space/Enter deal key (`SimulateView.tsx:1102-1113`) | should-fix | **ACCEPTED** — verified in code; `[tabindex="-1"]` joins the skip list |
+| N2 | The spec's claimed global focus-ring opt-out does not exist; the app opts out per element (`app.css:6047`) | should-fix | **ACCEPTED** — verified; wrapper added to that rule, headings deliberately not |
+| N3 | Window Escape in the replayers also fires under the nav sheet's own Escape (`App.tsx:297-307`) and the blind-check dialog | should-fix | **ACCEPTED** — verified; guard on `.nav-tabs-open, dialog[open]` |
+| N4 | `focus()` scrolls its target and the 128px `scroll-padding-bottom` undoes the restored `scrollY` | should-fix | **ACCEPTED** — `preventScroll: true` at every focus move |
+| N5 | Hint above the History replayer section is scrolled off by the mount scroll | should-fix | **ACCEPTED** — hint renders inside the section via an optional prop |
+| N6 | `.sim-review-btn` floor rule is dead (`.decision-btn` already 44px at `app.css:626`) | should-fix | **ACCEPTED** — verified; rule dropped, leg (e) keeps the check |
+| N7 | Stale line references; `app.css:5414` is 40px not 32px | optional | **ACCEPTED** — corrected |
+| N8 | `closeReplay` doubles as the load-error Dismiss; a pending-restore ref set there goes stale | optional | **ACCEPTED** — ref set only when a replay is open |
+| N9 | Simulate's restore can clamp ~18px while the side panel refetches | optional | **ACCEPTED as recorded residual** — reviewer records the number |
+| N10 | Helpers already exist (`SimulateView.tsx:175,184,192`); spec renamed one and forgot the key | optional | **ACCEPTED** — move, names unchanged; comments updated |
+| N11 | Verify-by leg (j) tested nothing new | optional | **ACCEPTED** — leg rewritten; History wiring is browser-verified only |
+| N12 | `HandReplay`'s empty-hand branch has its own section and title | optional | **ACCEPTED** — ref on both |
+| N13 | "Review ↓" with Coach off scrolls to the settlement slip | optional | **ACCEPTED as stated behaviour** |
+
+Verified sound by the reviewer, recorded so nobody re-checks: the wrapper `div` is box-neutral (no
+`.sim-main > *` / `:has` / nth-child dependency; the nine-seat opt-out reads `.tablering`'s children);
+the (0,1,0) cascade claims hold and the portrait block has no overriding rule; `.hrt-move` at 44px
+grows in page flow below the felt; the two-button dock stays 61px at 360 wide; `.sim-rotate-hint` CSS
+is unscoped and styles inside `section.history`; Biome's `noDescendingSpecificity` baseline stays at
+18 with the spec's CSS applied; no backend, `types.ts`, `App.tsx` or dependency change.
