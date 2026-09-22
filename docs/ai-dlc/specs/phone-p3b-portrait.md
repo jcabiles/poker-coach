@@ -126,6 +126,18 @@ in portrait exactly as today. Rules, by selector:
 8. **Practice and Quiz:** item 3's `.statstrip` wrap and item 4's `.mode-chip` floor are the whole
    change. Measured overflow on those pages is otherwise zero at all three widths.
 
+## Built as (deviations recorded at fan-in, 2026-09-22)
+
+- **Item 1 arithmetic was still short by 32px at 360×800** once the nav rail (165px in flow) and
+  the hint (79px) were counted. The build reclaims 48px inside the portrait block: `.topbar {
+  margin-top: 0 }` (the gate's 24px gutter separated it from content that is no longer above it)
+  and the nav row's gap tightened to `var(--space-1) var(--space-4)` from the base rule's 16px both
+  axes. Measured after: stage bottom 671, dock top 687 at 360×800.
+- **The hint's dismiss button is `class="btn sim-rotate-dismiss"`**, reusing the app's button
+  tokens and global focus ring rather than a bare `<button>`.
+- **Item 6 needed no rule:** nothing in the ledger, History or dashboard renders below 11px; the
+  9px nodes on those screens are the masthead's tag, already out of scope.
+
 ## Out of scope
 
 The felt in portrait (ring geometry, pod overlap, the chip badge, `.sim-chips` at 9px); any change

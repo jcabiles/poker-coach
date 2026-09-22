@@ -230,9 +230,9 @@ worker and the refuter, on a scratch copy); the Watch-off fold's deal carries th
 token in the browser (`2.5` → `2.7`); phone dock and buttons do not move when the notice appears;
 contrast 15–16:1 in both themes; every write carried a token.
 
-**Left for the owner, from the browser run:** the isolated servers could not be stopped from the
-sandbox. In a plain terminal: `kill 59019 59023 59027` (uvicorn reloader + worker on :8125, vite on
-:7781). The owner's own stack on 8008/7777 was never touched.
+**Servers from the browser run:** the isolated stack on :8125/:7781 could not be signalled from the
+sandbox at the time, but it died with its background job; the reviewer re-checked with `lsof` and
+nothing is listening. The owner's own stack on 8008/7777 was never touched.
 
 ---
 ## Round 4, 2026-09-22 — portrait measurement and blind review of the P3b spec
@@ -264,3 +264,37 @@ them.
 Also recorded from the review: the 9px "NEW" tag in the masthead EV widget becomes the first thing on
 the portrait page and is out of scope; with the reveal button hidden in portrait the 128px strip is
 dead space on non-Simulate routes, which rev 2 removes with `.app:not(:has(.simulate))`.
+
+---
+## P3b fan-in, 2026-09-22 — gate, designer build, browser design review
+
+**Bottom line: the portrait pass passed every measured leg but one on its first browser review, and
+the one failure (the stats strip's leak row still clipping on Practice and the quizzes) was fixed
+with a single wrap rule the reviewer had verified live.** `make check` green on the integrated
+worktree (backend verify OK, 106 frontend tests, build). Built by one Opus designer owning
+`app.css`, `SimulateView.tsx` and three new files; reviewed by the browser-eyes design reviewer at
+412×915 / 393×851 / 360×800, both themes, plus the 1280×800 and 915×412 controls
+(`../reviews/phone-p3b-portrait-r2-design.md`). Desktop boxes matched the baseline to the pixel;
+landscape dock and buttons unchanged; the mode chips did not grow in landscape.
+
+| # | Finding | Claimed | Adjudicated |
+|---|---|---|---|
+| K1 | `.statstrip` leak row (`.lk-row`) still `nowrap`; strip clipped 33/52/85px at 412/393/360 with real leak data; the earlier sweep had no leaks | blocking | **ACCEPTED, FIXED** — `.statstrip .lk-row { flex-wrap: wrap }` in the portrait block; re-measured below |
+| K2 | Portrait tab order jumps 532px down then back (session controls below the felt, hint above it) | should-fix | **ACCEPTED as the ruling's cost, RECORDED** — keeping the control cluster below the felt is what keeps the table above the dock at 360×800 (J1). A WCAG 2.4.3 focus-order mismatch that a later slice could address by moving the hint into the cluster or the cluster into a sheet. |
+| K3 | Sit-down screen keeps the 128px bottom strip (`:has(.simulate)` matches the route, not the dock) | optional | **RECORDED, not fixed** — cosmetic; a dock-class selector would couple CSS to the dock's markup |
+| K4 | "Got it" button's boundary is `--border` at 1.6:1, under WCAG 1.4.11's 3:1 | optional | **RECORDED** — the app-wide `.btn` pattern; fixing it here alone would make one button differ from every other |
+| K5 | Hint is 79px tall at 360 (label wraps); (b2) clears by 16px | optional | **RECORDED** — clears; the designer already reclaimed 48px for it |
+| K6 | `.nav-tab` kept the gate's `margin-bottom: 0`; underline off the hairline | optional | **ACCEPTED, FIXED** — base `-1px` restored in the portrait block |
+
+Designer deviations from the spec, recorded in the spec's "Built as" section: 48px reclaimed in
+portrait (`.topbar` top margin, nav gap) after the nav rail's 165px in-flow height was counted;
+the dismiss button reuses `.btn`; item 6 needed no rule.
+
+**Re-measure after K1/K6 (design reviewer, same stack):** with the leak chips populated,
+`.statstrip` scrollWidth/clientWidth = 386/386, 367/367, 334/334 at 412/393/360 on Practice and
+the Texture quiz; the third chip wraps onto its own line with the pill's rounded corners intact;
+document scrollWidth ≤ clientWidth at all three; active `.nav-tab` margin-bottom −1px, flush on the
+hairline; desktop 1280 unchanged (`.statstrip` 1046/1046, nowrap). VERDICT PASS. Caveat for future
+runs: the Vite dev server in this worktree served a stale stylesheet module even though the file on
+disk was correct (the same dead-watcher symptom the designer hit); the reviewer measured with the
+fresh sheet fetched directly. Restart the dev server before eyeballing a worktree build.
