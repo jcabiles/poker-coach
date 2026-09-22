@@ -298,3 +298,38 @@ hairline; desktop 1280 unchanged (`.statstrip` 1046/1046, nowrap). VERDICT PASS.
 runs: the Vite dev server in this worktree served a stale stylesheet module even though the file on
 disk was correct (the same dead-watcher symptom the designer hit); the reviewer measured with the
 fresh sheet fetched directly. Restart the dev server before eyeballing a worktree build.
+
+---
+## Round 5, 2026-09-22 — blind review of the always-on stack (spec + built files)
+
+**Bottom line: the launchd plan was right about the crux (the backgrounded servers survive the
+launcher's exit only with `AbandonProcessGroup`, which the template had and the spec had not) and
+wrong about wake recovery, which needs a calendar schedule, not an interval.** Reviewer: Claude
+`refuter` (Opus), blind; Codex and Gemini unavailable (Round 3), same-family. Report
+`../reviews/always-on-stack-r1-claude.md`. Verdict FAIL: 6 should-fix, 2 optional. All 8 ACCEPTED
+(one optional narrowed); spec rev 2 folds them and the implementer applies them before fan-in.
+
+| # | Finding | Claimed | Adjudicated |
+|---|---|---|---|
+| L1 | Spec omits `AbandonProcessGroup`, the key the slice depends on | should-fix | **ACCEPTED** — spec item 1 names it and why |
+| L2 | A hand-started loopback stack wedges the agent (exit 1 every run) and the README claims "no-op" | should-fix | **ACCEPTED** — README states the wedge and the fix (`restart --lan`); `serve.sh` untouched |
+| L3 | `StartInterval` misses firings during sleep; `StartCalendarInterval` fires on wake | should-fix | **ACCEPTED** — twelve calendar entries, every five minutes |
+| L4 | ProcessType rationale wrong (unspecified ≠ Background) | should-fix | **ACCEPTED** — sentence corrected; `Interactive` recorded as the lever |
+| L5 | Installer bakes a throwaway worktree path | should-fix | **ACCEPTED** — refuses when `.git` is a file; README says main checkout |
+| L6 | launchd-started backend has no coach key → template coach, silently | should-fix | **ACCEPTED as a README statement** — a key is never written to a plist; a wrapper that sources the owner's key loader is a possible later slice |
+| L7 | "launchd refuses to start without the log dir" is undocumented | optional | **ACCEPTED** — wording softened |
+| L8 | PATH duplicate; no log rotation | optional | **NARROWED** — dedupe the PATH; rotation deferred (288 one-line appends a day is small; recorded) |
+
+**Always-on fan-in (fresh Claude `refuter`, Opus, on the corrected diff): VERDICT PASS**, with
+two should-fix and four low findings, all cheap and taken except one: M1 `sed` `&`/`\` in a path
+corrupts the render yet lints clean → the installer now refuses such paths; M2 a `bootstrap` right
+after `bootout` can fail with "Input/output error" and went undetected → verified with
+`launchctl print` and retried up to three times; L1 render to a temp file and lint before replacing
+the old plist → done; L2 spec PATH line matched to the template → done; L3 the post-install
+`status` can read "not running" for up to a minute → labelled; L4 `--print` claimed automated
+coverage that does not exist → wording fixed; a `bash -n` + lint step in the gate is recorded as a
+follow-up, not added (the gate is `make check` and its targets are the cleanup project's business).
+Verified by the reviewer: `plutil -lint` OK; a `plistlib` type audit (12 integer Minute dicts, real
+booleans, dict EnvironmentVariables, absolute paths); system bash 3.2 probes for `"$@"` under
+`set -u`, `$UID`, nested-quote expansion; README claims cross-checked against `serve.sh` and
+`coach.py:211`.

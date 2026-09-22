@@ -1,6 +1,7 @@
 # Spec — Always-on stack (launchd keeps the trainer up for the phone)
 
-status: **rev 1, APPROVED** — pre-authorized by the owner's `/ai-org:spec --auto-build` invocation,
+status: **rev 2, APPROVED** (rev 2 folds the blind review: `AbandonProcessGroup`, calendar-interval wake firing, the loopback wedge, the worktree guard, the coach-key note, the ProcessType correction)
+status history: rev 1 — pre-authorized by the owner's `/ai-org:spec --auto-build` invocation,
 2026-09-22, after a frontloaded interview (rulings below). slice of: `../roadmap/phone-and-6max.md`,
 NEXT item "Always-on stack" (promoted 2026-09-22). tickets: `../tickets/always-on-stack.md`.
 Stacks on P3b (PR #233); its PR opens after #233 merges.
@@ -28,20 +29,35 @@ short "Always on" README section. Out of scope: HTTPS, auth, anything beyond the
    placeholders `@REPO@` and `@NODE_DIR@`:
    - `Label` `com.poker-coach.serve`
    - `ProgramArguments`: `/bin/bash`, `@REPO@/scripts/serve.sh`, `--lan`, `start`
-   - `RunAtLoad` true; `StartInterval` 300; `KeepAlive` false (the launcher backgrounds the two
-     servers and exits, so keep-alive would relaunch it in a loop). The five-minute interval is what
-     gives "recover after wake": launchd runs a missed interval when the machine wakes, the launcher
-     finds the servers gone and starts them, or finds them alive and exits 0.
+   - `RunAtLoad` true; `KeepAlive` false (the launcher backgrounds the two servers and exits, so
+     keep-alive would relaunch it in a loop); `AbandonProcessGroup` true — without it launchd kills
+     every process in the launcher's process group when the launcher exits, which is exactly the
+     backgrounded uvicorn and vite (`launchd.plist(5)`; `nohup` changes signal disposition, not the
+     group). Schedule: `StartCalendarInterval` with twelve entries, `Minute` 0, 5, …, 55. Not
+     `StartInterval`: the man page says an interval that falls during sleep is missed, while a
+     calendar entry missed during sleep fires on wake. That wake firing is what gives "recover
+     after wake": the launcher finds the servers gone and starts them, or finds them alive and
+     exits 0. Cost: twelve dictionary entries pinned to wall-clock minutes.
    - `WorkingDirectory` `@REPO@`
-   - `EnvironmentVariables`: `PATH` = `@NODE_DIR@:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`
-     (Vite's shim is `#!/usr/bin/env node`; `ps`, `ipconfig`, `nohup` live in the defaults).
+   - `EnvironmentVariables`: `PATH` = `@NODE_DIR@:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`
+     (Vite's shim is `#!/usr/bin/env node`; every other tool `serve.sh` calls lives in the
+     defaults; `/opt/homebrew/bin` is not listed because `@NODE_DIR@` is it on a Homebrew node,
+     and nothing else from Homebrew is needed).
    - `StandardOutPath` / `StandardErrorPath` `@REPO@/local/always-on/launchd.log` (both to one file,
      appended by launchd).
-   - `ProcessType` `Interactive` is NOT set; `Background` is the default and correct.
+   - `ProcessType` is not set (unspecified = launchd's standard class with light resource
+     limits; `Background` is a separate, more throttled class). The abandoned servers inherit the
+     job's class; if the phone ever feels sluggish, `ProcessType` `Interactive` is the one-key lever.
 2. **`scripts/always_on_install.sh`** — owner-run, idempotent. Resolves the repo root from its own
    location; finds `node` with `command -v node` and refuses with a clear message if absent;
-   creates `local/always-on/`; renders the template with `sed` into
-   `~/Library/LaunchAgents/com.poker-coach.serve.plist`; validates it with `plutil -lint`;
+   creates `local/always-on/`; refuses a repo or node path containing `|`, `&` or `\` (sed
+   delimiter and replacement metacharacters — a corrupted path would still lint clean); renders the
+   template with `sed` to a temp file, validates it with `plutil -lint`, and only then moves it to
+   `~/Library/LaunchAgents/com.poker-coach.serve.plist`; after `bootstrap`, verifies the job is
+   loaded with `launchctl print` and retries up to three times (bootout can return before teardown
+   completes), exiting 1 with a re-run message otherwise;
+   refuses when `.git` is a file rather than a directory (a linked worktree, which is deleted at
+   cleanup and would leave the agent firing at a dead path — run it from the main checkout);
    `launchctl bootout gui/$UID/com.poker-coach.serve` if already loaded (ignoring "not loaded");
    `launchctl bootstrap gui/$UID <plist>`; then prints `launchctl print gui/$UID/com.poker-coach.serve`'s
    state line and runs `scripts/serve.sh status`. `--print` renders the plist to stdout and exits
@@ -54,7 +70,13 @@ short "Always on" README section. Out of scope: HTTPS, auth, anything beyond the
 4. **README** — an "Always on" subsection right after "Play from your phone": the one-line install,
    what it does (login + every five minutes, `--lan`), where the log is, how to uninstall, and the
    plain statement that with this installed the unauthenticated API is on the home wifi whenever the
-   Mac is awake (the ruling's accepted cost).
+   Mac is awake (the ruling's accepted cost). Two more facts the section must state: (i) if the owner
+   hand-starts the stack WITHOUT `--lan`, the launcher exits 1 ("already running, but frontend is
+   loopback only") every five minutes and cannot fix that state — run `scripts/serve.sh restart
+   --lan`; (ii) a launchd-started backend has no `ANTHROPIC_API_KEY` in its environment (the plist
+   carries only PATH, and a key is never written to a plist), so the coach falls back to template
+   prose for that process's lifetime; a hand-started stack from a shell that loaded the key keeps the
+   live coach. Wording about the log directory: launchd will not create it; the installer does.
 5. **Roadmap** — the NEXT "Always-on stack" entry becomes a built item with its build note; ledger,
    log and Resume in the same PR.
 
