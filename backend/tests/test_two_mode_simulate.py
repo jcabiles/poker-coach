@@ -114,7 +114,10 @@ def test_unrecognised_stored_mode_normalises_to_training_on_restore_and_deal(
     assert restored.status_code == 200
     assert restored.json()["mode"] == "training"
 
-    dealt = client.post(f"/api/v1/simulate/session/{session_id}/hand")
+    dealt = client.post(
+        f"/api/v1/simulate/session/{session_id}/hand",
+        params={"state_token": restored.json()["state_token"]},
+    )
     assert dealt.status_code == 200
     assert dealt.json()["mode"] == "training"
 
@@ -142,6 +145,9 @@ def test_malformed_blind_check_json_does_not_brick_the_session(
     assert restored_body["mode"] == "training"
     assert restored_body["session_id"] == session_id
 
-    dealt = client.post(f"/api/v1/simulate/session/{session_id}/hand")
+    dealt = client.post(
+        f"/api/v1/simulate/session/{session_id}/hand",
+        params={"state_token": restored_body["state_token"]},
+    )
     assert dealt.status_code == 200
     assert dealt.json()["blind_check"] is None

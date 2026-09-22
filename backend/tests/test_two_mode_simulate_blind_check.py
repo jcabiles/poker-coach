@@ -99,6 +99,13 @@ def _post(client: TestClient, session_id: str, body: dict):
     return client.post(f"/api/v1/simulate/session/{session_id}/blind-check", json=body)
 
 
+def _state_token(client: TestClient, session_id: str) -> str:
+    """The token the action, hand and leave routes now require (P4). Answering
+    the blind check does not move it (it writes `blind_check_json` only), so a
+    token read before the answer is still current for the deal after it."""
+    return client.get(f"/api/v1/simulate/session/{session_id}").json()["state_token"]
+
+
 # ------------------------------------------------------------- the seat pick
 
 
@@ -344,7 +351,11 @@ def test_404_on_missing_session(client):
 
 def test_404_on_ended_session(db, client):
     session = _settled_at(db, BLIND_CHECK_HAND_GATE)
-    assert client.post(f"/api/v1/simulate/session/{session.id}/leave").status_code == 204
+    leave = client.post(
+        f"/api/v1/simulate/session/{session.id}/leave",
+        params={"state_token": _state_token(client, session.id)},
+    )
+    assert leave.status_code == 204
 
     resp = _post(client, session.id, {"skipped": True})
     assert resp.status_code == 404
@@ -443,9 +454,12 @@ def test_unparseable_stored_value_is_treated_as_a_first_write(db, client):
 
 def test_answering_unbars_the_deal_and_the_next_response_reports_the_score(db, client):
     session = _settled_at(db, BLIND_CHECK_HAND_GATE)
+    token = _state_token(client, session.id)
     assert _post(client, session.id, {"guesses": _answers(db, session.id)}).status_code == 200
 
-    dealt = client.post(f"/api/v1/simulate/session/{session.id}/hand")
+    dealt = client.post(
+        f"/api/v1/simulate/session/{session.id}/hand", params={"state_token": token}
+    )
 
     assert dealt.status_code == 200
     body = dealt.json()
@@ -470,5 +484,8 @@ def test_skip_stores_a_result_and_the_deal_resumes(db, client):
     # A skip that stored nothing would leave the deal barred forever.
     db.expire_all()
     assert db.get(SimSession, session.id).blind_check_json
-    dealt = client.post(f"/api/v1/simulate/session/{session.id}/hand")
+    dealt = client.post(
+        f"/api/v1/simulate/session/{session.id}/hand",
+        params={"state_token": _state_token(client, session.id)},
+    )
     assert dealt.json()["hand"]["hand_no"] == BLIND_CHECK_HAND_GATE + 1

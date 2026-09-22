@@ -1,3 +1,5 @@
+import { withStateToken } from "../components/simulate/staleState";
+
 import type {
   BlindCheckSubmitRequest,
   BlindCheckView,
@@ -128,11 +130,25 @@ export async function getSession(sessionId: string): Promise<SessionView> {
   return json(await fetch(`${BASE}/simulate/session/${sessionId}`));
 }
 
+// P4 — the session to resume, chosen by the SERVER (the owner's active session
+// played most recently) rather than by this browser's storage, so the phone and
+// the Mac open the same table. Throws "... -> 404" when there is no active
+// session: that is the sit-down screen's cue, not an error.
+export async function getCurrentSession(): Promise<SessionView> {
+  return json(await fetch(`${BASE}/simulate/session/current`));
+}
+
 // Apply the hero's chosen action; the server resolves bots to the next hero
-// turn (or hand-over) and returns the resulting live view.
-export async function postHeroAction(sessionId: string, action: Decision): Promise<SessionView> {
+// turn (or hand-over) and returns the resulting live view. `stateToken` is the
+// token of the view the player acted on — throws "... -> 409" when the table
+// has moved on since (P4).
+export async function postHeroAction(
+  sessionId: string,
+  action: Decision,
+  stateToken: string,
+): Promise<SessionView> {
   return json(
-    await fetch(`${BASE}/simulate/session/${sessionId}/action`, {
+    await fetch(withStateToken(`${BASE}/simulate/session/${sessionId}/action`, stateToken), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(action),
@@ -141,9 +157,14 @@ export async function postHeroAction(sessionId: string, action: Decision): Promi
 }
 
 // Deal the next hand (only after the current hand is complete) — carries over
-// stacks, moves the button, increments hand_no.
-export async function postNextHand(sessionId: string): Promise<SessionView> {
-  return json(await fetch(`${BASE}/simulate/session/${sessionId}/hand`, { method: "POST" }));
+// stacks, moves the button, increments hand_no. Token-guarded like the action
+// call: the deal is a write on the same hand state.
+export async function postNextHand(sessionId: string, stateToken: string): Promise<SessionView> {
+  return json(
+    await fetch(withStateToken(`${BASE}/simulate/session/${sessionId}/hand`, stateToken), {
+      method: "POST",
+    }),
+  );
 }
 
 // Two-mode Simulate (T4): submit (or skip) the hand-200 blind check. Singular
@@ -165,8 +186,12 @@ export async function postBlindCheck(
 }
 
 // Leave the table: ends the session server-side (subsequent restore → 404).
-export async function leaveSession(sessionId: string): Promise<void> {
-  const r = await fetch(`${BASE}/simulate/session/${sessionId}/leave`, { method: "POST" });
+// Token-guarded too (P4): a stale Leave is refused with 409, never retried —
+// ending a table the player has not seen the current state of is not recoverable.
+export async function leaveSession(sessionId: string, stateToken: string): Promise<void> {
+  const r = await fetch(withStateToken(`${BASE}/simulate/session/${sessionId}/leave`, stateToken), {
+    method: "POST",
+  });
   if (!r.ok) throw new Error(`${r.url} -> ${r.status}`);
 }
 

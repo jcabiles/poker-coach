@@ -1,6 +1,8 @@
 """Simulate endpoints (S9 — hero plays / session persistence / stacks / ledger).
 
 POST /simulate/session               -> create a session, deal hand 1.
+GET  /simulate/session/current       -> the session the owner is playing now
+                                         (most recent hand activity), else 404.
 GET  /simulate/session/{id}          -> restore the live decision point.
 POST /simulate/session/{id}/action   -> hero acts; bots advance to the next
                                          hero decision (or hand end).
@@ -35,6 +37,11 @@ GET  /simulate/{id}/reveal/{scope}   -> on-demand villain-card reveal after a
 POST /simulate/{id}/explain          -> live LLM/template coaching for a graded
                                          decision (N6); hero-only body, no persist.
 
+The action, hand and leave routes take a required `?state_token=` naming the
+state the client saw (P4). A token that no longer matches is a 409 and the client
+refetches; it is a query parameter because the action's body is
+`app.domain.action.Decision`, domain core shared with Practice grading.
+
 All state lives in the DB (`app.services.sim_session`); this module only
 translates HTTP <-> service calls. No auth: `owner_id=""`. See
 `docs/ai-dlc/specs/simulate-s9.md`.
@@ -64,9 +71,9 @@ from app.schemas.simulate import (
     StreetReportView,
     VillainRangeView,
 )
-from app.services import coach, sim_session
+from app.services import coach, sim_current, sim_session
 from app.services.coach import CoachContext
-from app.services.sim_session import BlindCheckNotOpen, SessionNotFound
+from app.services.sim_session import BlindCheckNotOpen, SessionNotFound, StaleState
 
 router = APIRouter(prefix="/simulate", tags=["simulate"])
 
@@ -82,6 +89,18 @@ async def create_session(
     return sim_session.create_session(db, owner_id=_OWNER_ID, mode=mode, table_size=table_size)
 
 
+@router.get("/session/current", response_model=SessionView)
+async def get_current_session_view(db: Session = Depends(get_session)) -> SessionView:
+    # Declared BEFORE /session/{session_id}: FastAPI matches routes in
+    # declaration order, so the literal path has to come first or a session id
+    # pattern would swallow it. 404 (not 204/null) so the client reuses its
+    # existing session-not-found branch and lands on the sit-down screen.
+    view = sim_current.current_session(db, owner_id=_OWNER_ID)
+    if view is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    return view
+
+
 @router.get("/session/{session_id}", response_model=SessionView)
 async def get_session_view(session_id: str, db: Session = Depends(get_session)) -> SessionView:
     view = sim_session.restore_session(db, session_id, owner_id=_OWNER_ID)
@@ -92,22 +111,32 @@ async def get_session_view(session_id: str, db: Session = Depends(get_session)) 
 
 @router.post("/session/{session_id}/action", response_model=SessionView)
 async def post_hero_action(
-    session_id: str, decision: Decision, db: Session = Depends(get_session)
+    session_id: str, decision: Decision, state_token: str, db: Session = Depends(get_session)
 ) -> SessionView:
     try:
-        return await sim_session.apply_hero_action(db, session_id, decision, owner_id=_OWNER_ID)
+        return await sim_session.apply_hero_action(
+            db, session_id, decision, owner_id=_OWNER_ID, expected_token=state_token
+        )
     except SessionNotFound as exc:
         raise HTTPException(status_code=404, detail="session not found") from exc
+    except StaleState as exc:
+        raise HTTPException(status_code=409, detail="stale state") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/session/{session_id}/hand", response_model=SessionView)
-async def next_hand(session_id: str, db: Session = Depends(get_session)) -> SessionView:
+async def next_hand(
+    session_id: str, state_token: str, db: Session = Depends(get_session)
+) -> SessionView:
     try:
-        return sim_session.deal_next_hand(db, session_id, owner_id=_OWNER_ID)
+        return sim_session.deal_next_hand(
+            db, session_id, owner_id=_OWNER_ID, expected_token=state_token
+        )
     except SessionNotFound as exc:
         raise HTTPException(status_code=404, detail="session not found") from exc
+    except StaleState as exc:
+        raise HTTPException(status_code=409, detail="stale state") from exc
 
 
 @router.post("/session/{session_id}/blind-check", response_model=BlindCheckView)
@@ -132,8 +161,11 @@ async def submit_blind_check(
 
 
 @router.post("/session/{session_id}/leave", status_code=204)
-async def leave(session_id: str, db: Session = Depends(get_session)) -> None:
-    sim_session.leave_session(db, session_id, owner_id=_OWNER_ID)
+async def leave(session_id: str, state_token: str, db: Session = Depends(get_session)) -> None:
+    try:
+        sim_session.leave_session(db, session_id, owner_id=_OWNER_ID, expected_token=state_token)
+    except StaleState as exc:
+        raise HTTPException(status_code=409, detail="stale state") from exc
 
 
 @router.get("/report/streets", response_model=StreetReportView)
