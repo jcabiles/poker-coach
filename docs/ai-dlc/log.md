@@ -1,5 +1,28 @@
 # AI-Org log — poker-coach
 
+## 2026-09-22 — Phone review depth built (review card reach, replayer open/close, touch floor)
+
+The roadmap's last NEXT-lane phone slice, run under the owner's `--auto-build` invocation with no
+check-ins. A browser measurement before the spec reframed it: the post-hand review card, the
+Dashboard and both hand replayers were already readable on the phone (zero sideways overflow, zero
+contrast failures); what failed was reaching them. The review card began 268px below a 351px
+landscape screen with only "Next hand" visible; opening a replay from History or in session landed
+the viewport past the felt because the page shrinks under the scroll position; closing one dropped
+the player at a random point in a 126,448px list with focus on the body; every review control was
+under 44px. Stats and leaks got no change on the evidence.
+
+Shipped on `feat/phone-review-depth`: "Review ↓" in the pinned dock; both replayers open with the
+felt on screen and close back to the saved scroll with focus on the row or button that opened them
+(all sizes); Esc closes them, yielding to the nav sheet and the blind-check dialog; the rotate hint
+inside the History replayer in portrait through one shared `SimRotateHint` component; six controls at
+the 44px floor; the coach note at full card width. Blind review (Claude only; Codex refused to launch
+in the sandbox again) failed the spec once with six should-fix findings the build would otherwise
+have shipped — most usefully that focusing the review wrapper would have armed Space-to-deal, and
+that `focus()` would have undone the restored scroll. Fan-in: refuter PASS, browser PASS on all nine
+legs with numbers (History restore delta 0.00px from scrollY 20,000; in-session landscape open at y0,
+close clamp −18.5px, recorded). Recorded, not built: History paging (1,964 rows, 158 screens).
+Housekeeping in the same PR: P4 ticked with its merge note; #235 recorded for P3b and always-on.
+
 ## 2026-09-22 — Always-on stack built (launchd agent + owner-run install/uninstall), stacked on P3b
 - One implementer (Opus) shipped a plist template, `scripts/always_on_install.sh` (`--print` mode
   is the sandbox-testable path) and `always_on_uninstall.sh`, plus a README "Always on" section.

@@ -27,8 +27,8 @@ Every control these surfaces add is under the 44px touch floor the earlier slice
 other controls. Session stats and leaks measured clean at every size and get NO change. This slice
 adds one "Review" button to the pinned dock, fixes scroll and focus on replay open and close at both
 entry points (and Esc to close), extends the rotate hint to the History replayer in portrait, raises
-six controls to the touch floor, and lets the coach note use the card's full width. No backend, no
-new components, no felt geometry.
+six controls to the touch floor, and lets the coach note use the card's full width. No backend, one
+small shared component (the rotate hint, see "Built as"), no felt geometry.
 
 ## Owner rulings (2026-09-22, do not re-ask)
 
@@ -194,6 +194,18 @@ Beside `.sim-recap-coach { margin-left: 0 }` at `app.css:4832-4834`, add `.sim-r
 margin-left: 0 }`. Today the standing coach note keeps a 69.2px desktop gutter and runs in 203px of a
 336px card at 360 wide (~31 characters per line). The 640px block already exists for exactly this
 reason; no new breakpoint.
+
+## Built as (deviations recorded at fan-in, 2026-09-22)
+
+- The review wrapper's `tabIndex={-1}` is transient, not static: "Review ↓" sets the attribute, focuses
+  the wrapper, and removes it on blur. A standing attribute made the whole card click-focusable, and
+  with the deal-key skip that would have switched off Space-to-deal after any desktop click on the
+  recap (fan-in refuter, optional 1, accepted). The CSS opt-out and the deal-key skip are unchanged.
+- The hint markup lives once, in `frontend/src/components/simulate/SimRotateHint.tsx`, used by both
+  views; the storage helpers stay in `rotateHint.ts`. `Sim*` naming because `RotateHint.tsx` and
+  `rotateHint.ts` differ only in case and the typecheck refuses that on this disk.
+- `HistoryView` passes `atTable: true` (inside the `if (replay)` branch, where the value is the same).
+- Everything else is as specified; the browser report records the numbers.
 
 ## Out of scope
 

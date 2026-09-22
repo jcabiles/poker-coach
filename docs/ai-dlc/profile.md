@@ -61,20 +61,26 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-22 (always-on built; three-slice run complete) · commit: see branch feat/always-on-stack · log-entry: "2026-09-22 — Always-on stack built (launchd agent + owner-run install/uninstall), stacked on P3b"
-position:     Three stacked PRs: #232 (P4, one live session across devices) → #233 (P3b, portrait
-              polish) → always-on (launchd agent). Each is gated, reviewed and browser-checked where
-              it has UI. Roadmap NOW is empty once these merge; NEXT holds 6-max realism research
-              (needs the owner's play notes) and phone review depth (review card, stats, replayer).
-merged:       #229 (P1), #230 (S1), #231 (P3a). #232, #233 and the always-on PR await the owner.
-awaiting John: (a) merge in order: #232, then #233, then always-on — after each squash-merge the next
-              PR shows the earlier commits until rebased; say "rebase" and a fresh branch + PR
-              replaces it; (b) run `./scripts/always_on_install.sh` from the MAIN checkout after the
-              merge, then confirm the stack returns within five minutes after sleep or `stop`;
-              (c) one Simulate hand on the phone and the 20-hand landscape verdict; (d) stray dev servers that the sandbox cannot kill:
-              `kill $(lsof -ti:7790,8127,7783)` (designer's vite; the P3b review stack); (e) `agy` login if Gemini review is wanted again.
-authorized:   nothing standing. The 2026-09-22 `--auto-build` invocation is fully spent (P4, P3b,
-              always-on). Owner merges every PR; Claude never merges.
-next action:  after the merges: `/ai-org:spec --auto-build phone review depth` (review card → stats
-              & leaks → replayer at phone size; owner ruled the order 2026-09-22) — or the 6-max
-              realism research once the owner has played 6-max.
+updated:      2026-09-22 (phone review depth built; PR opening) · commit: see branch feat/phone-review-depth · log-entry: "2026-09-22 — Phone review depth built (review card reach, replayer open/close, touch floor)"
+position:     Every phone slice in the roadmap's NOW lane is merged (#229 P1, #230 S1, #231 P3a,
+              #232 P4, #235 P3b + always-on). The phone review depth slice (NEXT) is built, gated,
+              blind-reviewed and browser-verified on `feat/phone-review-depth`; its PR awaits the
+              owner. The roadmap's remaining code item is the 6-max realism research, which cannot
+              start without the owner's 6-max play notes. The flywheel roadmap still has one box open
+              (Challenge-mode session to hand 200).
+merged:       #229, #230, #231, #232, #235. The review-depth PR is not.
+awaiting John: (a) merge the review-depth PR; (b) run `./scripts/always_on_install.sh` from the MAIN
+              checkout (accept the Node firewall prompt once by hand first); (c) one Simulate hand
+              on the phone — ticks P1 leg (a) and P4's cross-device leg — and the 20-hand landscape
+              verdict; on the phone, finish a hand and tap "Review ↓", open a hand from History and
+              come back to the same row (this slice's pass/fail); (d) a 6-max session with play
+              notes, which unlocks the realism research; (e) Challenge mode to hand 200 (closes the
+              flywheel roadmap); (f) stray dev servers the sandbox cannot kill:
+              `kill $(lsof -ti:7790,7783,7791,7792,8131)`; (g) `agy` login or a plain-terminal Codex
+              run if a cross-family review is wanted (every review this run was Claude-only).
+authorized:   nothing standing. The `/ai-org:spec --auto-build phone review depth` invocation is fully
+              spent. Owner merges every PR; Claude never merges.
+next action:  after the owner has played on the phone and at 6-max: `/ai-org:spec` for the 6-max
+              realism research (its shape is an owner call: reopen the paused persona-realism lane
+              or run it under this roadmap), or History paging if the owner reaches for History on
+              the phone. Nothing else in this roadmap is buildable without owner play.

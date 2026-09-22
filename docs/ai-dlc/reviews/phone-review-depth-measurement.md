@@ -38,7 +38,7 @@ rows **24px**.
 | 915×412 land | 0px | **619** / 681 | `.stage` 336 + `.sim-showdown` 371 | fixed `.decisionbar.sim-nextdock` 915×**61** at y351 | no (never; scroll-padding 128px) | 11px `.sim-recap-explain-btn` | 93×24 explain ×5 | 0 |
 | 412×915 port | 0px | **1048** / 798 | topbar 185 + nav 138 + stage 217 + showdown 371 | fixed 61px at y854 | no | 11px | 93×24 ×5 | 0 |
 | 360×800 port | 0px | **1049** / 857 | same, stage 192 | fixed 61px at y739 | no | 11px | 93×24 ×5 | 0 |
-| 1280×800 desk | 0px | 1040 / 681 | stage 432 + showdown 365 | none (phone-only) | n/a | 11px | 93×**32** | 0 |
+| 1280×800 desk | 0px | 1040 / 681 | stage 432 + showdown 365 | none (phone-only) | n/a | 11px | 92.8×**24** (corrected at fan-in; first written as 93×32) | 0 |
 
 Geometry: `.sim-side` stacks **below** `.sim-main` at all three phone sizes (same 388/336 width, at doc
 y1858 / y1917) and sits beside it on desktop (x904, 360 wide). Document height in session with a recap

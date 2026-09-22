@@ -369,3 +369,27 @@ the (0,1,0) cascade claims hold and the portrait block has no overriding rule; `
 grows in page flow below the felt; the two-button dock stays 61px at 360 wide; `.sim-rotate-hint` CSS
 is unscoped and styles inside `section.history`; Biome's `noDescendingSpecificity` baseline stays at
 18 with the spec's CSS applied; no backend, `types.ts`, `App.tsx` or dependency change.
+
+**Phone review depth fan-in (2026-09-22): VERDICT PASS on both nets.** Fresh Claude `refuter` (Opus)
+on the diff: PASS, 1 should-fix (process: the docs owed by the Definition of done, done in T2) and 3
+optional — all 3 ACCEPTED and applied by the Director: O1 a standing `tabindex="-1"` on the review
+wrapper made the whole card click-focusable and the deal-key skip would then have silently switched
+off Space-to-deal on desktop → the wrapper is focusable only while "Review ↓" holds focus on it
+(attribute set before focus, removed on blur); O2 the rotate-hint markup was duplicated in two views
+→ one `SimRotateHint` component (named `Sim*` because `RotateHint.tsx` collides with `rotateHint.ts`
+on a case-insensitive disk; the typecheck caught it); O3 the portrait block's hint comment named one
+host → names both. Browser reviewer (design-reviewer, Opus, `../reviews/phone-review-depth-r2-browser.md`):
+all nine legs PASS with numbers — "Hand result" at viewport y16.0/16.0/15.8 after "Review ↓", Space
+on the wrapper scrolls and does not deal; History restore from scrollY 20,000: delta 0.00px, focus on
+the same row; in-session landscape open at y0 (was −189), close clamp −18.5px (the recorded residual,
+inside the ≤20px allowance); hint inside the replayer, dismiss shared; seven controls exactly 44px;
+`.sim-recap-why` margin 0; zero overflow; desktop `.sim-main` 864 @ (16,211.5) and `.sim-side` 360 @
+x904 unchanged; zero console errors; new dock button 15.10:1 night / 13.52:1 day. One docs
+should-fix from the browser reviewer ACCEPTED: the measurement's desktop Explain-this cell said 93×32
+and the element is 92.8×24 → corrected in place; the `.dash-leaks` 1048×92 figure it also flagged
+came from the P3b measurement's brief, not this slice's report, and is noted here (measures 1048×477.5
+with six leak cards). Two guarded paths were unreachable in the browser and are recorded as untested:
+Esc yielding to the blind-check `dialog[open]`, and the `h1` focus fallbacks when the row or the replay
+button is unmounted. Gate: `make check` green (backend 2306 passed / 2 skipped, frontend 106 tests,
+Biome `noDescendingSpecificity` baseline still 18). Re-check of legs (a) and (d) after the three
+cleanups: see the appended section of the r2 browser report.
