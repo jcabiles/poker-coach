@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template for the launchd user agent that keeps this repo's dev stack up.
+     scripts/always_on_install.sh renders @REPO@ and @NODE_DIR@ and writes the
+     result to ~/Library/LaunchAgents/. Never load this file directly: the
+     placeholders are not valid paths. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.poker-coach.serve</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>@REPO@/scripts/serve.sh</string>
+    <string>--lan</string>
+    <string>start</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>@REPO@</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Every five minutes, as twelve calendar entries rather than StartInterval
+       300. launchd.plist(5): an interval that falls due while the machine is
+       asleep is missed, while a missed calendar entry fires on wake — and that
+       wake firing is what "recover after sleep" depends on. serve.sh then finds
+       the servers gone and starts them, or finds them alive and exits 0. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Minute</key><integer>5</integer></dict>
+    <dict><key>Minute</key><integer>10</integer></dict>
+    <dict><key>Minute</key><integer>15</integer></dict>
+    <dict><key>Minute</key><integer>20</integer></dict>
+    <dict><key>Minute</key><integer>25</integer></dict>
+    <dict><key>Minute</key><integer>30</integer></dict>
+    <dict><key>Minute</key><integer>35</integer></dict>
+    <dict><key>Minute</key><integer>40</integer></dict>
+    <dict><key>Minute</key><integer>45</integer></dict>
+    <dict><key>Minute</key><integer>50</integer></dict>
+    <dict><key>Minute</key><integer>55</integer></dict>
+  </array>
+
+  <!-- serve.sh backgrounds uvicorn and vite and then exits, so launchd sees a
+       short-lived job. Keep-alive would read every exit as a crash and relaunch
+       it in a loop. -->
+  <key>KeepAlive</key>
+  <false/>
+
+  <!-- Required. launchd kills every process left in the job's process group when
+       the job exits; the backgrounded uvicorn and vite share serve.sh's group
+       (nohup changes signal disposition, not the group), so without this they
+       would be killed seconds after being started. -->
+  <key>AbandonProcessGroup</key>
+  <true/>
+
+  <!-- ProcessType is deliberately unspecified: that is launchd's standard class,
+       which the abandoned servers inherit. Interactive is the one-key lever if
+       the phone ever feels sluggish. -->
+
+  <!-- launchd gives a job almost no PATH. Vite's launcher is a `#!/usr/bin/env
+       node` shim, so node's own directory leads the list or the frontend never
+       starts; the rest are the defaults serve.sh needs for ps, pgrep, nohup and
+       ipconfig. The static list omits /opt/homebrew/bin because @NODE_DIR@
+       covers it for a Homebrew node, and serve.sh needs nothing else from
+       Homebrew. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>@NODE_DIR@:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <!-- Both streams append to one file. launchd will not create the directory;
+       the installer does. -->
+  <key>StandardOutPath</key>
+  <string>@REPO@/local/always-on/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>@REPO@/local/always-on/launchd.log</string>
+</dict>
+</plist>
