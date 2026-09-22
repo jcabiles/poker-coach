@@ -134,3 +134,38 @@ printing a real address — has never run and needs the owner's first `start --l
 and the vite child kept their sockets. The PID file records the launching subshell, not the server
 process. `scripts/serve.sh`'s stop logic is untouched by this change, so this is a separate defect;
 it is recorded here rather than fixed, because fixing it is outside P1's tickets.
+
+---
+## P1 measurement (c) — the two-client probe, 2026-09-22
+
+**Bottom line: a stale browser tab corrupts a hand silently today, so P4 (one live session across
+devices) ships a per-state token and a compare-and-set on the hand write.** Both legs of the
+roadmap's two-client test found corruption, each with HTTP 200 and no warning. Run by an Opus worker
+against a throwaway SQLite file under `$TMPDIR`, built the way `tests/test_two_mode_simulate_gate.py`
+builds its database; the owner's `backend/data/poker_coach.db` was never opened. Full report and the
+three re-runnable scripts are kept on the owner's machine under `local/p1c-probe/` (gitignored).
+
+| Situation | What the stale tab believed | What the server held | Status | Verdict |
+|---|---|---|---|---|
+| (i) other tab advanced the street | hand 1 preflop, hero BTN facing 5.0bb, submits `call` | hand 1 flop, hero to act, check/bet only | 400 `illegal action` | rejected, only because `call` happened to be illegal |
+| (ii) other tab finished the hand and dealt | hand 1 preflop, hero LJ, submits `call` | hand 2 preflop, hero UTG2 | **200** | **corrupt** — the call was applied to a hand the player never saw and graded as its decision |
+| (iii-a) villain re-raised on the same street | call = 1.0bb, pot 1.5bb | facing HJ raise to 5.5bb, call = 4.5bb, pot 13.5bb | **200** | **corrupt** — hero charged 4.5× what the screen offered |
+| (iii-b) stale raise size | min-raise 2.0bb, submits raise 2.0 | min-raise now 10.0bb | 400 `outside [10.0, 98.4]` | rejected, only because the size fell outside the new band |
+| leg 2: two submits at once, same decision point | identical, both current | identical | **200 and 200**, 10 of 10 runs | **corrupt** (lost update) — two `sim_decision` rows at the same ordinal; final pots 2.5–77.5bb from one start |
+
+**Why nothing catches it.** `SimHand` holds one mutable `state_json` and no version or `updated_at`;
+`SimSession` has neither; the action body is a bare `Decision` (`action`, `size_bb?`,
+`size_fraction?`) with no field saying which state the client saw. The existing guard at
+`sim_session.py:1008-1009` only rejects when the hero is no longer to act. Sized actions are partly
+self-checking because the legal band moves; unsized ones (`fold`/`check`/`call`) never are.
+
+**Leg 2 caveat, as the roadmap required.** The probe used two `TestClient`s on two event loops,
+which is more permissive than the one-worker, one-loop deployment. The `await` between the state
+read (`:1007`) and the write (`:1067`) is at `:1023` and its provider chain does no I/O today, so
+production serializes by accident. Leg 2 proves the data layer has no defence, not that today's
+deployment races.
+
+**Consequence for the roadmap.** P4's conditional ("if P1(c) corrupted a hand, add a per-hand version
+check") fires. The owner ruled 2026-09-22 on the shape: newest active session as the server's answer
+to "current"; a stale action is rejected, the client refetches and shows one line; no migration
+because the token is derived from `hand_no` and the hand's action count.

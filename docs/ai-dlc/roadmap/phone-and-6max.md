@@ -1,4 +1,4 @@
-# Phone access + 6-max Roadmap — updated 2026-09-18 (rev 4, after the P1 spec's blind dual review and the owner's ruling)
+# Phone access + 6-max Roadmap — updated 2026-09-22 (rev 5: P1, S1 ticked; P2 replaced by the P3a fix; P4 carries the probe verdict; P3b promoted to NOW)
 status: approved — owner, 2026-09-18 (rev 4). D1–D4 decided. Rev 4 corrects P1's security claim
 and its measurement (c) after a blind dual review of the P1 spec returned FAIL on both; owner ruled
 2026-09-18 to accept the exposure and correct the text. Evidence: `../ledger/phone-and-6max.md`
@@ -11,10 +11,11 @@ round 2.
   a redesign; six seats can borrow the six latest 9-max positions so bots and grader need no
   new charts; today's bots feel acceptable at six seats until a research pass tunes them; and
   two devices on one session do not corrupt a hand.
-- Next: the smallest thing that puts the app on the phone (slice P1, which also runs two
-  cheap tests: five landscape hands, and two tabs on one session), then the 6-max option
-  (S1), then a throwaway phone prototype the owner plays 20 hands on. Its verdict decides
-  whether phone polish goes ahead or the felt gets redesigned.
+- Where we are (2026-09-22): the app is on the phone (P1), 6-max exists (S1), and the felt page
+  is playable in landscape (P3a, which replaced the prototype). Next: one live session across
+  devices (P4, in build), then portrait polish for the other pages (P3b), then an always-on
+  stack. Still owed by the owner: one phone hand, the 20-hand landscape verdict, and the first
+  6-max session that unlocks the realism research.
 
 ## North-star outcome
 - Outcome: **Simulate sessions per week** (owner's choice) = `sim_session` rows by the week
@@ -70,7 +71,7 @@ round 2.
 
 ## NOW  (ordered; ICE = impact·confidence·ease out of 10)
 
-- [ ] **P1 — LAN walking skeleton + two cheap tests.** problem: the app exists only on the Mac ·
+- [x] **P1 — LAN walking skeleton + two cheap tests.** problem: the app exists only on the Mac ·
       outcome-link: sessions/week · ICE 8·9·9
       what: `serve.sh start --lan` passes `--host` to Vite only; the backend port stays on
       loopback because the frontend calls a relative `/api/v1` that Vite proxies server-side, so
@@ -113,8 +114,13 @@ round 2.
       two-client concurrency probe, is not yet run. The wifi-address banner has only ever taken its
       fallback path, because `ipconfig` is blocked in the build sandbox; the owner's first
       `start --lan` confirms it.
+      **Ticked 2026-09-22 on the owner's instruction, with one leg still open.** Merged as #229.
+      Leg (c) ran 2026-09-22 and found silent corruption in both legs (ledger, "P1 measurement (c)");
+      P4 carries the fix. Leg (d) was answered by the browser measurement that replaced P2: zero
+      pod overlap and zero sideways scroll at six seats in landscape (`../specs/phone-chrome-p3a.md`).
+      Leg (a), one hand dealt and graded on the owner's phone, is still owed by the owner.
 
-- [ ] **S1 — 6-max table option.** problem: 9 seats crowd a phone screen, and 6-max is the format
+- [x] **S1 — 6-max table option.** problem: 9 seats crowd a phone screen, and 6-max is the format
       the owner sees offered · outcome-link: sessions/week · ICE 8·6·4
       what: table size (6 or 9) chosen when a Simulate session starts and stored on the session
       (migration). Every hardcoded 9 takes the seat count from the session:
@@ -140,8 +146,20 @@ round 2.
       assumption-status: untested; the test runs inside this slice, before the felt work, because
       it needs the 6-seat engine to exist — a separate measurement slice would have to build
       the same engine first.
+      **Built and merged as #230 (2026-09-18); ticked 2026-09-22 on the owner's instruction.** The
+      spec's blind review moved D1 to where Simulate's key actually lives (`_sim_signature`, now
+      `sim:6:…` / `sim:9:…`; `spot_signature()` untouched), D2 kept the nit/TAG/TAG/LAG/station
+      roster, and the table size is chosen on the sit-down screen. The owner has not yet played a
+      6-max session, so the 6-max realism research in NEXT still waits on play notes.
 
-- [ ] **P2 — Phone prototype (throwaway branch, 5 screens).** problem: nobody has seen the app
+- [x] **P2 — REPLACED 2026-09-19 by a real fix (P3a, merged as #231).** A browser measurement at
+      three Android landscape sizes answered the prototype's question without building it: the felt
+      is fine (zero pod overlap, zero sideways scroll at six seats); the page chrome was the problem
+      (the table and the action buttons could not be seen at once). The owner ruled to spend the
+      effort on the fix: pinned action dock, nav as a hidden bottom sheet, all-in confirm. Spec:
+      `../specs/phone-chrome-p3a.md`. The owner's 20-hand play verdict is still owed. The original
+      entry stays below for the record.
+      ~~P2 — Phone prototype (throwaway branch, 5 screens).~~ problem: nobody has seen the app
       on a phone; the July review found the felt overlaps at ≤600px and the masthead forces
       horizontal scroll · outcome-link: sessions/week · ICE 9·6·7
       what: on a `proto/` branch, never merged: (1) landscape 6-seat felt mid-hand with the
@@ -168,6 +186,11 @@ round 2.
       of localStorage; localStorage stays as a fallback only for the 404 recovery path. If
       P1(c) corrupted a hand, this slice also adds a per-hand version check on
       `submit_decision` and moves ahead of S1.
+      **P1(c) DID corrupt a hand (2026-09-22, ledger "P1 measurement (c)"), so the version check is
+      in.** Owner rulings 2026-09-22: "current" = the newest session that has not ended (no stored
+      pointer, no migration); a stale tab's action is refused, the client refetches and shows one
+      line ("Acted elsewhere — table refreshed."), never a modal; the token is derived from the hand
+      number and the hand's action count, so no schema change. Spec: `../specs/phone-p4-live-session.md`.
       pass/fail: start on the Mac, act on the phone, act again on the Mac, and the hand state is
       one continuous line in `sim_hand`; two tabs acting at once get a clear "acted elsewhere"
       message rather than a corrupt hand; `make check` green.
@@ -183,6 +206,10 @@ round 2.
   action-button sizing and all-in confirm, landscape hint on the felt route; desktop felt
   pixel-identical at 1280px; AA and focus in both themes · open questions: which screens the
   owner approved; whether six pods need geometry retuning. Promote to NOW when P2 reports.
+  **Status 2026-09-22:** the felt-page half (P3a) shipped as #231; six pods need no retuning. The
+  owner promoted the rest (P3b: portrait home/resume, ledger, settings, stats; the app-shell
+  breakpoint that removes the 713px minimum width; a passive rotate hint; Practice/Quiz "do not
+  break" only) to NOW on 2026-09-22 without waiting for the 20-hand verdict. It runs after P4.
 - **6-max realism research.** evidence: every persona band and range was recalibrated to 9-max
   in July (persona-realism roadmap, ledger #14 and waves W5); at 6 seats the bots will be tight
   by construction · candidate slices: owner play notes from S1 → a research pass on 6-max
