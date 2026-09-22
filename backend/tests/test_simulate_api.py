@@ -90,7 +90,10 @@ def _create_live_hero_turn_session(client: TestClient) -> dict:
         if create["hand"]["is_hero_turn"]:
             return create
         # Dead end (walk to the hero's BB): retire it and deal a new one.
-        client.post(f"/api/v1/simulate/session/{create['session_id']}/leave")
+        client.post(
+            f"/api/v1/simulate/session/{create['session_id']}/leave",
+            params={"state_token": create["state_token"]},
+        )
     raise AssertionError("no live hero-turn deal in 50 sessions")
 
 
@@ -113,6 +116,7 @@ def _play_hand_to_completion(client: TestClient, session_id: str) -> dict:
         resp = client.post(
             f"/api/v1/simulate/session/{session_id}/action",
             json={"action": action},
+            params={"state_token": body["state_token"]},
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -166,7 +170,10 @@ def test_404_on_ended_session(client):
     create = client.post("/api/v1/simulate/session").json()
     session_id = create["session_id"]
 
-    leave_resp = client.post(f"/api/v1/simulate/session/{session_id}/leave")
+    leave_resp = client.post(
+        f"/api/v1/simulate/session/{session_id}/leave",
+        params={"state_token": create["state_token"]},
+    )
     assert leave_resp.status_code == 204
 
     resp = client.get(f"/api/v1/simulate/session/{session_id}")
@@ -175,16 +182,22 @@ def test_404_on_ended_session(client):
 
 
 def test_404_on_missing_session_for_action(client):
+    # The token is supplied, so this is the unknown session's 404 and not the
+    # 422 a missing required query parameter would give (P4).
     resp = client.post(
         "/api/v1/simulate/session/does-not-exist/action",
         json={"action": "fold"},
+        params={"state_token": "1.0"},
     )
     assert resp.status_code == 404
     assert resp.json()["detail"] == "session not found"
 
 
 def test_404_on_missing_session_for_hand(client):
-    resp = client.post("/api/v1/simulate/session/does-not-exist/hand")
+    resp = client.post(
+        "/api/v1/simulate/session/does-not-exist/hand",
+        params={"state_token": "1.0"},
+    )
     assert resp.status_code == 404
     assert resp.json()["detail"] == "session not found"
 
@@ -207,6 +220,7 @@ def test_illegal_hero_action_returns_400(client):
     resp = client.post(
         f"/api/v1/simulate/session/{session_id}/action",
         json=payload,
+        params={"state_token": create["state_token"]},
     )
     assert resp.status_code == 400
 
@@ -216,9 +230,12 @@ def test_next_hand_rebuys_inside_the_band_and_advances_button(client):
     session_id = create["session_id"]
     btn1 = create["hand"]["button_seat"]
 
-    _play_hand_to_completion(client, session_id)
+    settled = _play_hand_to_completion(client, session_id)
 
-    resp = client.post(f"/api/v1/simulate/session/{session_id}/hand")
+    resp = client.post(
+        f"/api/v1/simulate/session/{session_id}/hand",
+        params={"state_token": settled["state_token"]},
+    )
     assert resp.status_code == 200
     body = resp.json()
     hand2 = body["hand"]
@@ -233,7 +250,10 @@ def test_next_hand_rebuys_inside_the_band_and_advances_button(client):
     while hand2["hand_over"]:
         guard += 1
         assert guard < 20, "20 consecutive walk-outs is not a real table"
-        body = client.post(f"/api/v1/simulate/session/{session_id}/hand").json()
+        body = client.post(
+            f"/api/v1/simulate/session/{session_id}/hand",
+            params={"state_token": body["state_token"]},
+        ).json()
         hand2 = body["hand"]
     assert hand2["street"] == "preflop"
     # Mid-hand the view reports chips behind, so the seat's STARTING stack is

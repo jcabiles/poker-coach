@@ -182,6 +182,15 @@ class SessionNotFound(Exception):
     ValueError stays reserved for illegal / not-hero-turn actions (=> 400)."""
 
 
+class StaleState(Exception):
+    """A write aimed at a state the server no longer holds — the API maps this
+    to 409 (P4).
+
+    Its own class, deliberately NOT a ValueError: an illegal action stays 400
+    and asks the player for a different decision, while this asks the CLIENT to
+    refetch the table it was acting on."""
+
+
 class BlindCheckNotOpen(Exception):
     """The blind check was submitted while its gate was shut — the API maps this
     to 409. A Training session's gate never opens at all, so every submission to
@@ -318,6 +327,36 @@ def _current_hand(db: Session, session: SimSession) -> SimHand | None:
         .where(SimHand.session_id == session.id)
         .where(SimHand.hand_no == session.hand_no)
     ).first()
+
+
+def _state_token(hand: SimHand, state: HandState) -> str:
+    """Name the exact state a view showed (P4): hand number + action count.
+
+    Derived from what is already persisted, so no column and no migration. It
+    moves whenever ANY seat acts (`engine.act` appends to `action_history`) and
+    whenever a hand is dealt, which covers every corruption the two-client probe
+    found. Assembled in `_view()` only — the one place a SessionView is built."""
+    return f"{hand.hand_no}.{len(state.action_history)}"
+
+
+def _assert_fresh(
+    expected_token: str | None,
+    session_id: str,
+    hand: SimHand | None,
+    state: HandState | None = None,
+) -> None:
+    """Refuse a write aimed at a state the server no longer holds (=> 409).
+
+    `None` skips the check: service-level callers never saw a view and so carry
+    no token (spec item 2). The router always passes one."""
+    if expected_token is None:
+        return
+    if hand is None or hand.state_json is None:
+        raise StaleState(session_id)
+    if state is None:
+        state = HandState.model_validate_json(hand.state_json)
+    if expected_token != _state_token(hand, state):
+        raise StaleState(session_id)
 
 
 def _completed_hands(session: SimSession, hand: SimHand | None) -> int:
@@ -909,6 +948,7 @@ def _view(
         session_id=session.id,
         mode=mode,
         table_size=table_size,
+        state_token=_state_token(hand, state),
         blind_check=blind_check,
         hand=SimulateHandView(
             hand_no=hand.hand_no,
@@ -996,15 +1036,27 @@ def restore_session(db: Session, session_id: str, owner_id: str = "") -> Session
 
 
 async def apply_hero_action(
-    db: Session, session_id: str, decision: Decision, owner_id: str = ""
+    db: Session,
+    session_id: str,
+    decision: Decision,
+    owner_id: str = "",
+    expected_token: str | None = None,
 ) -> SessionView:
     session = _get_session(db, session_id, owner_id)
     if session is None:
         raise SessionNotFound(session_id)
     hand = _current_hand(db, session)
-    if hand is None or hand.status != "in_progress" or hand.state_json is None:
+    if hand is None or hand.state_json is None:
         raise ValueError("no hand in progress")
     state = HandState.model_validate_json(hand.state_json)
+    # Staleness BEFORE the turn guard and the legality check: an action aimed at
+    # a state the player never saw must be told to refetch (409), not told it is
+    # illegal (400) — or, worse, be legal at the new spot and apply silently.
+    _assert_fresh(expected_token, session_id, hand, state)
+    # What the compare-and-set at the write below must still find in the row.
+    observed_state_json = hand.state_json
+    if hand.status != "in_progress":
+        raise ValueError("no hand in progress")
     if state.hand_over or state.to_act_seat != HERO_SEAT:
         raise ValueError("not the hero's turn")
     # Validate/apply FIRST (raises ValueError on illegal action/size) so a
@@ -1064,15 +1116,42 @@ async def apply_hero_action(
     state = new_state
     seats = _load_seats(db, session_id)
     state, events = advance_to_hero(state, _seat_personas(seats), HERO_SEAT, _fresh_rng())
-    hand.state_json = state.model_dump_json()
     if state.hand_over:
         _apply_settlement(seats, settle(state))
-        hand.status = "complete"
         for row in seats:
             db.add(row)
-    db.add(hand)
+    # Compare-and-set, REPLACING the ORM `hand.state_json = ...` write: the read
+    # above and this write are not one step, and the `await` on the grader sits
+    # between them, so two overlapping requests would otherwise both advance
+    # from the same state and the second would silently overwrite the first
+    # (measured: two decision rows at one ordinal). An ORM assignment alongside
+    # this statement cannot work — autoflush would write the new value first and
+    # the comparison would never match. `status` rides the same UPDATE for the
+    # same reason.
+    landed = db.exec(
+        update(SimHand)
+        .where(SimHand.id == hand.id)
+        .where(SimHand.state_json == observed_state_json)
+        .values(
+            state_json=state.model_dump_json(),
+            status="complete" if state.hand_over else hand.status,
+        )
+    )
+    # rowcount BEFORE commit — after a commit there is nothing left to roll back
+    # and the double-graded rows would already be durable.
+    if landed.rowcount != 1:
+        # Discards the SimDecision/DrillAttempt rows added above, and the
+        # settlement, in one step: this request wrote nothing.
+        db.rollback()
+        raise StaleState(session_id)
+    # Explicitly expire `hand` so `_view()` below reads the state_json and
+    # status just written rather than stale ORM values, even if a future
+    # session factory sets expire_on_commit=False.
+    db.expire(hand)
     # Single commit: the SimDecision/DrillAttempt rows ride the same
-    # transaction as the hand-state advance (refuter med-1).
+    # transaction as the hand-state advance (refuter med-1). It also expires
+    # `hand`, so `_view()` below reads the state_json and status just written
+    # rather than the pre-UPDATE values still on the ORM object.
     db.commit()
     last_grade = _grade_view(sim_row, result.tiers if graded else None)
     recap = [*(_grade_view(r) for r in prior), last_grade] if state.hand_over else None
@@ -1531,11 +1610,14 @@ def reveal(
     return RevealView(available=True, scope=scope, seats=seats)
 
 
-def deal_next_hand(db: Session, session_id: str, owner_id: str = "") -> SessionView:
+def deal_next_hand(
+    db: Session, session_id: str, owner_id: str = "", expected_token: str | None = None
+) -> SessionView:
     session = _get_session(db, session_id, owner_id)
     if session is None:
         raise SessionNotFound(session_id)
     hand = _current_hand(db, session)
+    _assert_fresh(expected_token, session_id, hand)
     if hand is not None and hand.status == "in_progress":
         # Idempotent no-op: the current hand is still live — return it.
         state = HandState.model_validate_json(hand.state_json)
@@ -1673,10 +1755,16 @@ def submit_blind_check(
     return winner
 
 
-def leave_session(db: Session, session_id: str, owner_id: str = "") -> None:
+def leave_session(
+    db: Session, session_id: str, owner_id: str = "", expected_token: str | None = None
+) -> None:
     session = _get_session(db, session_id, owner_id)
     if session is None:
         return  # idempotent: already gone/ended
+    # A stale Leave is refused, never retried: one device must not end the
+    # session the other is still playing. The client refetches and the player
+    # presses Leave again if they still mean it.
+    _assert_fresh(expected_token, session_id, _current_hand(db, session))
     session.status = "ended"
     db.add(session)
     db.commit()

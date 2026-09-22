@@ -6705,6 +6705,22 @@ kbd {
   color: var(--muted);
 }
 
+/* P4 — the stale-tab notice. One line above the hero's dock saying the table
+   was refreshed under them because another device acted first. --text on
+   --surface is 14.0:1 by day and 16.1:1 at night, so it clears AA in both
+   themes without borrowing the error palette: nothing failed here. It carries
+   no control, so there is nothing to focus. */
+.sim-stale-notice {
+  margin: var(--space-3) 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+
 /* ── P3a — the phone gate ───────────────────────────────────────────────────
    ONE breakpoint for the whole phone rework, stated once. The JS half of the
    same gate is PHONE_LAYOUT_QUERY in src/lib/usePhoneLayout.ts; the two strings
@@ -6943,6 +6959,23 @@ kbd {
     background: var(--surface);
     border-top: 1px solid var(--border);
   }
+  /* The stale-tab notice leaves the flow too, and for the same reason the
+     armed-shove warning below does: in flow it is a block above a dock that is
+     no longer in flow, so it would push the felt and — once the dock grew a
+     line — the buttons out from under the thumb the moment it appeared. Fixed
+     instead, it costs no layout at all, and it cannot scroll off screen the way
+     an in-flow line above a fixed bar can. It sits ABOVE the dock's reserved
+     strip (the same constant .app pads by), never inside the dock frame, and
+     takes no pointer events, so nothing it overlaps stops being pressable. */
+  .sim-stale-notice {
+    position: fixed;
+    inset-inline: var(--space-3);
+    bottom: calc(var(--space-8) * 4);
+    z-index: 21;
+    margin: 0 0 var(--space-1);
+    pointer-events: none;
+  }
+
   /* The armed-shove warning leaves the flow entirely. In flow it was a row of
      the dock's own layout, so arming a shove grew the bottom-anchored bar
      UPWARD and carried the buttons with it — measured on a three-button dock,
@@ -6956,6 +6989,9 @@ kbd {
     position: absolute;
     inset-inline: var(--space-3);
     bottom: 100%;
+    /* One above .sim-stale-notice (21): this is an interactive safety cue and
+       must paint above the passive notice, not under it. */
+    z-index: 22;
     margin: 0 0 var(--space-1);
     padding: var(--space-1) var(--space-2);
     /* Opaque, because it now floats over the felt rather than sitting on the

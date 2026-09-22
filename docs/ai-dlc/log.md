@@ -1,5 +1,16 @@
 # AI-Org log — poker-coach
 
+## 2026-09-22 — P4 (one live session across devices) built; P1/S1 ticked, P2 retired
+- `/ai-org:spec --auto-build`, typed by the owner, after a frontloaded interview that ruled every
+  design question for P4, P3b and always-on in advance (memory: 2026-09-22 run rulings). The
+  two-client probe (P1 leg c) found silent hand corruption with HTTP 200 in both legs, so P4
+  ships a derived state token, a 409 refusal, and a compare-and-set on the hand write. No migration.
+- Spec review: Claude refuter FAIL (12 findings, all adjudicated, rev 2). Codex and Gemini both
+  unavailable in this sandbox — same-family round, labelled. Fan-in: gate green, refuter + browser
+  walk-through each found the same notice-lifetime defect; fixed with two hardenings.
+- Roadmap: P1 and S1 ticked on the owner's instruction (leg (a) still owed), P2 replaced by the
+  P3a fix, P3b promoted to NOW. Next: `/ai-org:spec --auto-build P3b` (branch stacks on this PR).
+
 ## 2026-09-18 — Phone access + 6-max roadmap drafted (PR #226, status draft)
 - `/ai-org:roadmap`, typed by the owner, after a full interview (outcome, problems, wishlist,
   no-gos, assumptions). Four NOW slices: LAN walking skeleton with two cheap tests, 6-max

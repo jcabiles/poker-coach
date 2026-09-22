@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  getCurrentSession,
   getReveal,
   getSession,
   getVillainRange,
@@ -44,6 +45,7 @@ import SimTable from "./simulate/SimTable";
 import SimVillainRange from "./simulate/SimVillainRange";
 import SimWatchToggle from "./simulate/SimWatchToggle";
 import { stagedTableState } from "./simulate/simPlayback";
+import { errorStatus, isStaleState } from "./simulate/staleState";
 
 // Simulate S9 — the playable, persistent table. Hero acts via predetermined
 // -sizing buttons; bots resolve instantly (server-side, within each request),
@@ -102,21 +104,16 @@ function writeLabelsShown(sessionId: string, shown: boolean): void {
   }
 }
 
-// The client's json<T>() throws Error("<url> -> <status>") on non-2xx and keeps
-// nothing else — the body is dropped (finding ledger B20) — so the status is
-// only recoverable as a suffix of the message. One reader for it, rather than a
-// regex per caller.
-function errorStatus(err: unknown): number | null {
-  const m = err instanceof Error ? / -> (\d{3})$/.exec(err.message) : null;
-  return m ? Number(m[1]) : null;
-}
-
-// A lost or ended session. The one status this file acts on differently,
-// because it is the one with its own recovery: hand the player back the
-// sit-down screen instead of a table they did not choose.
+// A lost or ended session. `errorStatus` (and the 409 detector beside it) live
+// in `simulate/staleState.ts`, where they are tested: the status is the only
+// thing a failed write carries, so both readers of it are pinned.
 function isSessionNotFound(err: unknown): boolean {
   return errorStatus(err) === 404;
 }
+
+// P4 — the one line the stale-tab recovery shows. Not an error: the table is
+// live and correct, it just is not the state the press was aimed at.
+const STALE_NOTICE = "Acted elsewhere — table refreshed.";
 
 // ── Client-side pacing (S11) ────────────────────────────────────────────────
 // The server resolves every bot action synchronously and returns them in one
@@ -189,6 +186,13 @@ export default function SimulateView() {
   const [busy, setBusy] = useState(false); // any in-flight action/deal
   const busyRef = useRef(false); // sync guard against click bursts
   const sessionIdRef = useRef<string | null>(null);
+  // P4 — the token of the view every write is aimed at, held in a ref beside
+  // the id for the same reason: `run`'s callbacks are created before the
+  // response that moves it lands. Set and cleared with the id, always together.
+  const stateTokenRef = useRef<string | null>(null);
+  // The stale-tab line. A notice, not an error — it has no error panel and no
+  // `role="alert"`, because nothing failed that the player must act on.
+  const [notice, setNotice] = useState<string | null>(null);
 
   // ── Sit-down gate (two-mode-simulate T6) ──────────────────────────────────
   // The mode is fixed for a session, so a session may only ever be created by an
@@ -456,6 +460,7 @@ export default function SimulateView() {
   const adopt = useCallback(
     (res: SessionView) => {
       sessionIdRef.current = res.session_id;
+      stateTokenRef.current = res.state_token;
       try {
         window.localStorage.setItem(STORAGE_KEY, res.session_id);
       } catch {
@@ -533,6 +538,8 @@ export default function SimulateView() {
 
   const clearStored = useCallback(() => {
     sessionIdRef.current = null;
+    stateTokenRef.current = null;
+    setNotice(null);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -610,9 +617,12 @@ export default function SimulateView() {
     el?.focus();
   });
 
-  // Mount: try to restore a stored session; on 404 (missing/ended) clear it and
-  // ask which room to sit in. StrictMode double-invokes effects in dev; the
-  // cancelled flag keeps the later resolve from clobbering state.
+  // Mount: ask the SERVER which session is current (P4) — the phone and the Mac
+  // must land on the same table, and this browser's storage only knows about
+  // tables this browser sat down at. 404 (no active session) clears the key and
+  // asks which room to sit in, exactly as a lost stored session always has.
+  // StrictMode double-invokes effects in dev; the cancelled flag keeps the later
+  // resolve from clobbering state.
   useEffect(() => {
     let cancelled = false;
     setError(null);
@@ -625,6 +635,23 @@ export default function SimulateView() {
     })();
 
     const boot = async () => {
+      try {
+        const current = await getCurrentSession();
+        if (!cancelled) adopt(current);
+        return;
+      } catch (e) {
+        if (isSessionNotFound(e)) {
+          // No active session anywhere — the sit-down screen, not an error.
+          clearStored();
+          if (!cancelled) askForMode("leave-focus");
+          return;
+        }
+        // Deliberate fallback, and the only one in this file: any OTHER failure
+        // of the current route falls through to the stored-id restore below, so
+        // a broken new route can never strand the player on the generic error
+        // panel with a live table sitting on the server. A stored-id restore
+        // that then fails surfaces normally.
+      }
       if (stored) {
         try {
           const res = await getSession(stored);
@@ -654,10 +681,11 @@ export default function SimulateView() {
   // error surfacing. `op` returns the new view (or starts fresh on a lost
   // session).
   const run = useCallback(
-    async (op: (id: string) => Promise<SessionView>) => {
+    async (op: (id: string, token: string) => Promise<SessionView>) => {
       if (busyRef.current) return;
       const id = sessionIdRef.current;
-      if (!id) {
+      const token = stateTokenRef.current;
+      if (!id || token == null) {
         // No live session (first-visit race) — raise the sit-down screen rather
         // than minting a table the player never asked for.
         askForMode("move-focus");
@@ -668,9 +696,18 @@ export default function SimulateView() {
       setError(null);
       try {
         try {
-          adopt(await op(id));
+          adopt(await op(id, token));
+          // The write landed, so the client is in step again.
+          setNotice(null);
         } catch (e) {
-          if (isSessionNotFound(e)) {
+          if (isStaleState(e)) {
+            // Another device moved the table on between the render and the
+            // press. Take what the server now holds and say so; the write is
+            // never retried on the player's behalf, because the spot they
+            // decided at no longer exists.
+            adopt(await getSession(id));
+            setNotice(STALE_NOTICE);
+          } else if (isSessionNotFound(e)) {
             // The session was lost mid-play. Ask for the room again rather than
             // dropping the player into a Training table they did not pick.
             clearStored();
@@ -701,23 +738,30 @@ export default function SimulateView() {
       // showdown (+ recap) exactly like a hand played out.
       if (action === "fold" && !watchRef.current) {
         clearTimer();
-        void run(async (id) => {
+        void run(async (id, token) => {
           // The fold response ends the hand but is never adopted (we jump
           // straight to the next deal) — without the bump here the per-street
           // report went stale after every fold-ended hand (final-gate refuter
           // high-1: adopt() only sees the NEXT hand, whose hand_over is false).
-          const folded = await postHeroAction(id, { action });
+          const folded = await postHeroAction(id, { action }, token);
           const foldedKey = `${folded.session_id}#${folded.hand.hand_no}`;
           if (folded.hand.hand_over && reportedHandNo.current !== foldedKey) {
             reportedHandNo.current = foldedKey;
             setReportKey((k) => k + 1);
           }
-          return postNextHand(id);
+          // P4: the deal's token is the FOLD RESPONSE's, not `token`. Nothing
+          // adopts the fold here, so `stateTokenRef` still holds the pre-fold
+          // state the server has just moved past — sending it would refuse
+          // every Watch-off fold's own deal, and with it the Challenge
+          // hand-200 blind check, which `deal_next_hand` returns in place of a
+          // new hand. If the fold above is itself refused, this line is never
+          // reached: the `await` throws first.
+          return postNextHand(id, folded.state_token);
         });
         return;
       }
-      void run((id) =>
-        postHeroAction(id, sizeBb != null ? { action, size_bb: sizeBb } : { action }),
+      void run((id, token) =>
+        postHeroAction(id, sizeBb != null ? { action, size_bb: sizeBb } : { action }, token),
       );
     },
     [run, clearTimer],
@@ -727,7 +771,7 @@ export default function SimulateView() {
     // Dealing a fresh hand after hand_over must cancel any residual playback
     // timer from the just-finished hand's final batch before the new view lands.
     clearTimer();
-    void run((id) => postNextHand(id));
+    void run((id, token) => postNextHand(id, token));
   }, [run, clearTimer]);
 
   // Open the just-completed hand in the stepped replayer. The live wire has no
@@ -766,11 +810,21 @@ export default function SimulateView() {
     setBusy(true);
     setError(null);
     const id = sessionIdRef.current;
+    const token = stateTokenRef.current;
     try {
-      if (id) {
+      if (id && token != null) {
         try {
-          await leaveSession(id);
+          await leaveSession(id, token);
         } catch (e) {
+          if (isStaleState(e)) {
+            // P4: a stale Leave is refused, not retried. Ending a table whose
+            // current state the player has not seen is the one write with no
+            // recovery, so refetch, show the notice, and leave them at the
+            // table to press Leave again if they still mean it.
+            adopt(await getSession(id));
+            setNotice(STALE_NOTICE);
+            return;
+          }
           if (!isSessionNotFound(e)) throw e;
         }
       }
@@ -782,7 +836,7 @@ export default function SimulateView() {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [clearStored, askForMode]);
+  }, [adopt, clearStored, askForMode]);
 
   const hand = view?.hand ?? null;
 
@@ -1394,6 +1448,20 @@ export default function SimulateView() {
                 errored={rangeErrored}
                 onClose={closeRange}
               />
+            )}
+
+            {/* P4 — the stale-tab line. A `role="status"` announcement, not an
+                alert: nothing failed and there is nothing to do about it, the
+                table in front of the player is simply the one the server holds.
+                In flow here, directly above the hero's dock, on desktop; under
+                the phone gate it is lifted out of flow and pinned just above
+                the fixed dock (app.css), so the buttons do not move under the
+                thumb and the line cannot scroll off screen. Never inside the
+                dock frame. */}
+            {notice && (
+              <p className="sim-stale-notice" role="status">
+                {notice}
+              </p>
             )}
 
             {hand.is_hero_turn && (

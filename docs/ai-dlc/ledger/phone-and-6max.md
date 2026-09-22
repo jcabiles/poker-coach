@@ -134,3 +134,102 @@ printing a real address — has never run and needs the owner's first `start --l
 and the vite child kept their sockets. The PID file records the launching subshell, not the server
 process. `scripts/serve.sh`'s stop logic is untouched by this change, so this is a separate defect;
 it is recorded here rather than fixed, because fixing it is outside P1's tickets.
+
+---
+## P1 measurement (c) — the two-client probe, 2026-09-22
+
+**Bottom line: a stale browser tab corrupts a hand silently today, so P4 (one live session across
+devices) ships a per-state token and a compare-and-set on the hand write.** Both legs of the
+roadmap's two-client test found corruption, each with HTTP 200 and no warning. Run by an Opus worker
+against a throwaway SQLite file under `$TMPDIR`, built the way `tests/test_two_mode_simulate_gate.py`
+builds its database; the owner's `backend/data/poker_coach.db` was never opened. Full report and the
+three re-runnable scripts are kept on the owner's machine under `local/p1c-probe/` (gitignored).
+
+| Situation | What the stale tab believed | What the server held | Status | Verdict |
+|---|---|---|---|---|
+| (i) other tab advanced the street | hand 1 preflop, hero BTN facing 5.0bb, submits `call` | hand 1 flop, hero to act, check/bet only | 400 `illegal action` | rejected, only because `call` happened to be illegal |
+| (ii) other tab finished the hand and dealt | hand 1 preflop, hero LJ, submits `call` | hand 2 preflop, hero UTG2 | **200** | **corrupt** — the call was applied to a hand the player never saw and graded as its decision |
+| (iii-a) villain re-raised on the same street | call = 1.0bb, pot 1.5bb | facing HJ raise to 5.5bb, call = 4.5bb, pot 13.5bb | **200** | **corrupt** — hero charged 4.5× what the screen offered |
+| (iii-b) stale raise size | min-raise 2.0bb, submits raise 2.0 | min-raise now 10.0bb | 400 `outside [10.0, 98.4]` | rejected, only because the size fell outside the new band |
+| leg 2: two submits at once, same decision point | identical, both current | identical | **200 and 200**, 10 of 10 runs | **corrupt** (lost update) — two `sim_decision` rows at the same ordinal; final pots 2.5–77.5bb from one start |
+
+**Why nothing catches it.** `SimHand` holds one mutable `state_json` and no version or `updated_at`;
+`SimSession` has neither; the action body is a bare `Decision` (`action`, `size_bb?`,
+`size_fraction?`) with no field saying which state the client saw. The existing guard at
+`sim_session.py:1008-1009` only rejects when the hero is no longer to act. Sized actions are partly
+self-checking because the legal band moves; unsized ones (`fold`/`check`/`call`) never are.
+
+**Leg 2 caveat, as the roadmap required.** The probe used two `TestClient`s on two event loops,
+which is more permissive than the one-worker, one-loop deployment. The `await` between the state
+read (`:1007`) and the write (`:1067`) is at `:1023` and its provider chain does no I/O today, so
+production serializes by accident. Leg 2 proves the data layer has no defence, not that today's
+deployment races.
+
+**Consequence for the roadmap.** P4's conditional ("if P1(c) corrupted a hand, add a per-hand version
+check") fires. The owner ruled 2026-09-22 on the shape: newest active session as the server's answer
+to "current"; a stale action is rejected, the client refetches and shows one line; no migration
+because the token is derived from `hand_no` and the hand's action count.
+
+---
+## Round 3, 2026-09-22 — blind review of the P4 spec (one live session across devices)
+
+Reviewers attempted: Claude `refuter` (Opus) — ran, report `../reviews/phone-p4-live-session-r1-claude.md`
+(saved by the Director from the inline return; the reviewer had no Write tool). Codex `gpt-5.6-sol` —
+did not run: its nested sandbox refused every command including a file read
+(`../reviews/phone-p4-live-session-r1-sol.md` holds its one-line failure). Gemini via `agy` — did not
+run: authentication timed out; the owner must run `agy` once in a plain terminal. **This round is
+therefore same-family only**, labelled as such; a cross-family pass on the built diff is still owed
+if either tool becomes available. Verdict FAIL: 4 blocking, 5 should-fix, 3 optional. All 12
+checked against the code before adjudication; 11 accepted (one narrowed), 1 rejected-as-stated and
+replaced by a Director refinement. Spec rev 2 and tickets rev 2 fold them.
+
+| # | Finding | Claimed | Adjudicated | Evidence checked |
+|---|---|---|---|---|
+| G1 | Watch-off fold path would send the pre-fold token with its deal and refuse its own deal; at the Challenge hand-200 gate the blind check would never appear | blocking | **ACCEPTED** — spec item 9: the deal sends `folded.state_token`; T2 acceptance cites the line | `SimulateView.tsx:702-718` never adopts the fold response; `deal_next_hand` returns the gate view. Verified. |
+| G2 | No ticket owns `client.ts`, where the fetchers build the URLs | blocking | **ACCEPTED** — T2 owns `client.ts`; `getCurrentSession` joins `getSession` | `client.ts:127-147`. Verified. |
+| G3 | T1 omits the test files it must edit; a required query param turns the unknown-session 404 into 422 | blocking | **ACCEPTED** — route-required, service-optional token; T1 owns the three route-level test files; Verify-by (f) keeps the 404 | `test_simulate_api.py:179`; 3 route-level files found by grep. Verified. |
+| G4 | The named compare-and-set golden path commits before reading `rowcount`; copied faithfully it would commit the double-graded rows | blocking | **ACCEPTED** — spec item 4: `rowcount` before commit, `rollback()` on 0; golden path is for statement shape only | `sim_session.py:1653-1662`. Verified. |
+| G5 | Two TestClients on two threads never reach the interleave window, so the concurrency test passes without the compare-and-set | should-fix | **ACCEPTED** — Verify-by (c) rewritten: two tasks on one loop, gated fake provider; test must fail with the CAS removed | `:1023` awaits a pure provider; no `busy_timeout`. Reasoning verified. |
+| G6 | Keeping the ORM assignment alongside the Core UPDATE makes the compare fail every time (autoflush) | should-fix | **ACCEPTED** — spec item 4: the ORM write is replaced, `status` rides the same UPDATE | Reviewer measured rowcount 0 vs 1. Accepted on that measurement. |
+| G7 | "Newest active wins" lets a stray sit-down on one device hijack the other's Challenge session; proposed: prefer the stored id while active | should-fix | **NARROWED** — the sit-down screen is only reachable after Leave (which ends the session) or a 404, so the hijack is not UI-reachable once boot lands on the current session. The real residual is pre-P4 orphan sessions outranking the live one. Resolved by ordering "current" by most recent hand activity (spec item 5), a refinement inside the owner's ruling; the stored-id-first proposal is rejected because it makes browser storage primary again, which the owner ruled against | `SimulateView.tsx:641,663,677,778,926` (every `askForMode` call follows a leave or a 404); `leave_session:1676-1682`. Verified. |
+| G8 | Notice placement unspecified on the phone; inside the fixed dock it would move the buttons | should-fix | **ACCEPTED** — spec item 12: in flow on desktop, fixed just above the dock under the phone gate, never inside the dock | `app.css:6732-6751, 6924-6952`. Verified. |
+| G9 | Leave takes no token; a stale tab ends the live session for both devices | should-fix | **ACCEPTED** — token on leave, 409 refuses, no auto-retry | `api/v1/simulate.py:134-137`. Verified. |
+| G10 | Blind-check answers do not move the token | optional | **ACCEPTED** as a documented non-goal (spec item 6a): that flow already has first-write-wins | `SimulateView.tsx:906-934`. Verified. |
+| G11 | `id desc` tiebreak is arbitrary (uuid) | optional | **ACCEPTED** — superseded by the activity ordering in G7 | `models.py:50`. Verified. |
+| G12 | Line count stated as 1753; it is 1962 | optional | **ACCEPTED** — corrected | `wc -l`. Verified. |
+
+Confirmed sound by the reviewer and not re-opened: the token changes on every seat's action (`engine.py:303`, `play.py:333`); `db.exec(update(...)).rowcount` works inside the open transaction and `rollback()` discards the pending rows; route declaration order decides (measured on FastAPI 0.139.0); no migration is needed; `_view` is the single `SessionView` assembly point.
+
+---
+## P4 fan-in, 2026-09-22 — gate, blind refuter on the diff, and a browser walk-through
+
+**Bottom line: the build passed its gate and both checkers on everything the slice exists for; one
+UI defect (the stale notice outliving the table) was found by both checkers independently and fixed
+in a mechanic pass, with two cheap hardenings folded in.** `make check` was green on the integrated
+worktree (backend verify OK, 84 frontend tests, build clean) before review. Tier: behaviour-touching,
+so a fresh Claude `refuter` (Opus) reviewed the diff blind
+(`../reviews/phone-p4-live-session-r2-claude.md`) and a browser-eyes reviewer drove the feature on
+an isolated stack (`../reviews/phone-p4-live-session-r2-browser.md`). Codex and Gemini remain
+unavailable (Round 3), so this pass is same-family; the browser run is the independent evidence.
+
+| # | Finding | Source | Claimed | Adjudicated |
+|---|---|---|---|---|
+| H1 | The notice survives Leave and reappears on a brand-new table | both, independently | blocking / should-fix | **ACCEPTED, FIXED** — `setNotice(null)` in `clearStored`, the teardown every table exit calls. Browser evidence: notice rendered on a fresh session with no 409 in the log. |
+| H2 | `HandState` is parsed before the `status != "in_progress"` check, so corrupt JSON on a completed hand gives a pydantic 400 instead of the clean message | refuter | optional | **REJECTED** — no reachable scenario writes corrupt `state_json`; the order is what lets the token check precede the "no hand" guard, which the spec requires. |
+| H3 | `_view` after the Core UPDATE relies on `expire_on_commit` defaulting to True | refuter | optional | **ACCEPTED, FIXED** — explicit `db.expire(hand)` after a successful compare-and-set; one line, immune to a future session-factory change. |
+| H4 | `deal_next_hand` and `leave_session` have the token check but no compare-and-set | refuter | optional | **REJECTED for this slice, RECORDED** — unreachable on one worker with a no-I/O grader; the spec scopes the compare-and-set to the hero action. Revisit if the grader ever does I/O (an LLM coach, a solver). |
+| H5 | Under the phone gate the armed all-in warning can run under the notice, which paints over it | refuter | optional | **ACCEPTED, FIXED** — the warning gets `z-index` one above the notice; it is the interactive safety cue and must win. |
+| H6 | The docs ticket is absent from the diff | refuter | note | **ACCEPTED** — this entry, the roadmap, `log.md` and the Resume block ride the same PR. |
+
+**Verified by the checkers and not re-opened:** `rowcount` read before commit and rollback discards
+the decision, attempt and settlement rows; the ORM state write is deleted, not supplemented; the
+compare uses the exact string read; token checks precede every other refusal on action, deal and
+leave; `GET /session/current` is one SELECT with a correlated `max(created_at)` subquery, declared
+before the id route; the concurrency test fails without the compare-and-set (reproduced by both the
+worker and the refuter, on a scratch copy); the Watch-off fold's deal carries the fold response's
+token in the browser (`2.5` → `2.7`); phone dock and buttons do not move when the notice appears;
+contrast 15–16:1 in both themes; every write carried a token.
+
+**Left for the owner, from the browser run:** the isolated servers could not be stopped from the
+sandbox. In a plain terminal: `kill 59019 59023 59027` (uvicorn reloader + worker on :8125, vite on
+:7781). The owner's own stack on 8008/7777 was never touched.

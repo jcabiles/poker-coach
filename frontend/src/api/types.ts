@@ -426,6 +426,11 @@ export interface SessionView {
   table_size: TableSize;
   blind_check: BlindCheckView | null;
   hand: SimulateHandView;
+  // P4 — the state this view was rendered from, derived server-side and never
+  // stored. Every hero action, deal and leave sends it back; a token the server
+  // has moved on from is refused with 409 rather than applied to a spot the
+  // player never saw.
+  state_token: string;
 }
 
 // Simulate Hand-History + Replay — hand-authored mirror of the two new backend

@@ -9,7 +9,7 @@ artifact_dir: docs/ai-dlc
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       phone-and-6max
               # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
-              # current slice: P1 (LAN walking skeleton) once approved
+              # current slice: P3b (phone polish, non-felt pages) — P1 #229, S1 #230, P3a #231 merged; P4 on PR
               # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
               #   until the owner plays Challenge mode; slice 3 (calldown) CLOSED 2026-09-18.
               # cleanup project (docs/cleanup-project-brief.md): slice 2 done; 1 and 3 wait.
@@ -61,16 +61,16 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-18 (roadmap drafted)
-commit:       main 0e7dd2a — #222, #224, #225 merged; phone-and-6max roadmap on PR #226 (draft)
-log-entry:    "2026-09-18 — Cleanup slice 2 built: `make check` is the gate"
-position:     Two-mode Simulate is on main; its roadmap box stays unticked until the owner plays
-              Challenge mode to the hand-200 check. Cleanup slice 2 is DONE: `make check` is the
-              one gate, CI runs the same targets (frontend on Node 24 — Node 20's npm 10 fails
-              `npm ci` on the npm-11 lockfile). Flywheel slice 3 CLOSED 2026-09-18.
-merged:       #222 (squash de9cb71), #224 (squash 9f26713); #223 closed as superseded.
-awaiting John: (a) play Challenge mode, then tick the slice; (b) two theory-contract items open
-              since 2026-08-24 (ledger finding B1; §10.2 of the git-excluded audit).
-authorized:   nothing standing. The 2026-09-18 merge grant is spent.
-next action:  `/ai-org:spec P1 — LAN walking skeleton + two cheap tests` (roadmap APPROVED
-              2026-09-18; D1–D4 all DECIDED by the owner 2026-09-18, see the roadmap). Cleanup slices 1 and 3 and the mypy/Biome burn-down wait behind it.
+updated:      2026-09-22 (P4 built, PR open) · commit: c480650 · log-entry: "2026-09-22 — P4 (one live session across devices) built; P1/S1 ticked, P2 retired"
+position:     P4 is built, gated, reviewed (refuter + browser) and on a PR from branch
+              feat/phone-p4-live-session. Roadmap: P1 and S1 ticked, P2 replaced by P3a (#231),
+              P3b promoted to NOW. Flywheel roadmap still waits on the owner's Challenge-mode play.
+merged:       #229 (P1), #230 (S1), #231 (P3a). P4 PR awaits the owner's merge.
+awaiting John: (a) merge the P4 PR; (b) one Simulate hand on the phone (P1 leg a) and the 20-hand
+              landscape verdict; (c) kill the stray review servers: `kill 59019 59023 59027`;
+              (d) `agy` login in a plain terminal if Gemini review is wanted again.
+authorized:   the 2026-09-22 `--auto-build` invocation covered P4 tickets T1–T3 (spent) and was
+              typed for P3b and always-on as well; each still runs its own Gate 1 playback
+              (already confirmed 2026-09-22). Owner merges every PR; Claude never merges.
+next action:  `/ai-org:spec --auto-build P3b` — branch from the P4 PR head; open its PR only after
+              P4 is merged (owner ruling on stacked PRs, 2026-09-22).

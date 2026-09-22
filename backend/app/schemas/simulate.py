@@ -259,6 +259,10 @@ class SessionView(BaseModel):
     session_id: str
     mode: SimMode
     table_size: TableSize
+    # Names the exact state this view shows (P4). Derived from the hand number
+    # and the hand's action count, never stored, so no column and no migration.
+    # Writes carry it back as `?state_token=`; a mismatch is a 409.
+    state_token: str
     blind_check: BlindCheckView | None = None
     hand: SimulateHandView
 
