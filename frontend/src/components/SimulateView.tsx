@@ -24,10 +24,12 @@ import type {
   TableSize,
   VillainRangeView,
 } from "../api/types";
+import { useIsPortrait } from "../lib/useOrientation";
 import { usePhoneLayout } from "../lib/usePhoneLayout";
 import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
 import HandReplay from "./simulate/HandReplay";
 import { BLIND_CHECK_HAND_GATE, completedHands, gateProgressPct } from "./simulate/handCount";
+import { shouldShowRotateHint } from "./simulate/rotateHint";
 import SimActionBar from "./simulate/SimActionBar";
 import SimBlindCheck, { type BlindCheckAnswers } from "./simulate/SimBlindCheck";
 import SimEventLog from "./simulate/SimEventLog";
@@ -62,6 +64,10 @@ const STORAGE_KEY = "simulate.session_id";
 const SPEED_KEY = "simulate.speed";
 const WATCH_KEY = "simulate.watch";
 const COACH_KEY = "simulate.coachMode";
+// P3b — the rotate hint's dismissal. sessionStorage, not local: the hint is
+// worth showing again at a new sitting and never worth showing twice in one,
+// so it returns when the tab is closed rather than on every hand.
+const ROTATE_HINT_KEY = "simulate.rotateHint";
 
 // ── Two-mode Simulate (T7/T8) ───────────────────────────────────────────────
 // The gate threshold and the completed-hand arithmetic live in `handCount.ts`
@@ -160,6 +166,26 @@ function readCoachMode(): boolean {
     return window.localStorage.getItem(COACH_KEY) === "on";
   } catch {
     return false;
+  }
+}
+
+// Has the rotate hint already been waved off in this tab? Absent or garbage
+// storage ⇒ not dismissed, which is the safe direction: a hint too many, never
+// a table nobody was told to turn.
+function readRotateHintDismissed(): boolean {
+  try {
+    return window.sessionStorage.getItem(ROTATE_HINT_KEY) === "dismissed";
+  } catch {
+    /* private-mode storage — unreadable means unknown, so show the hint */
+    return false;
+  }
+}
+
+function writeRotateHintDismissed(): void {
+  try {
+    window.sessionStorage.setItem(ROTATE_HINT_KEY, "dismissed");
+  } catch {
+    /* private-mode storage — setting still applies this session */
   }
 }
 
@@ -1051,6 +1077,14 @@ export default function SimulateView() {
   // viewport, and the dock is never a second copy of a button already on screen.
   const phone = usePhoneLayout();
 
+  // P3b §7 — the felt in portrait is a worse layout than the felt in landscape
+  // (8 overlapping pods at 412×915 against 0 measured sideways), and fixing the
+  // ring geometry is not this slice. The honest answer in the meantime is to
+  // say so once, in flow above the table, and let it be waved off. The
+  // predicate is pinned in `simulate/rotateHint.ts`.
+  const portrait = useIsPortrait();
+  const [rotateHintDismissed, setRotateHintDismissed] = useState(readRotateHintDismissed);
+
   // Enter or Space deals the next hand once the hand has settled — the topbar
   // button can sit above the fold, but the key saves the reach entirely. Skipped
   // when focus is on an interactive control so we never hijack a key meant for
@@ -1414,6 +1448,32 @@ export default function SimulateView() {
                   Open the check
                 </button>
               </section>
+            )}
+
+            {/* P3b §7 — passive by ruling: a line in the flow, never a fixed
+                overlay and never a dialog. It takes its own row above the felt
+                rather than sharing the context line, which the pod badges
+                already collide with in portrait. role="note" because it is an
+                aside about the page, not a status the table just produced. */}
+            {shouldShowRotateHint({
+              phone,
+              portrait,
+              atTable: true,
+              dismissed: rotateHintDismissed,
+            }) && (
+              <p className="sim-rotate-hint" role="note">
+                Turn your phone sideways for the table.{" "}
+                <button
+                  type="button"
+                  className="btn sim-rotate-dismiss"
+                  onClick={() => {
+                    setRotateHintDismissed(true);
+                    writeRotateHintDismissed();
+                  }}
+                >
+                  Got it
+                </button>
+              </p>
             )}
 
             <SimTable

@@ -9,7 +9,7 @@ artifact_dir: docs/ai-dlc
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
 active:       phone-and-6max
               # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
-              # current slice: P3b (phone polish, non-felt pages) — P1 #229, S1 #230, P3a #231 merged; P4 on PR
+              # run of 2026-09-22 complete: P4 (#232) → P3b (#233) → always-on (PR), stacked; owner merges in order
               # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
               #   until the owner plays Challenge mode; slice 3 (calldown) CLOSED 2026-09-18.
               # cleanup project (docs/cleanup-project-brief.md): slice 2 done; 1 and 3 wait.
@@ -61,16 +61,20 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-22 (P4 built, PR open) · commit: c480650 · log-entry: "2026-09-22 — P4 (one live session across devices) built; P1/S1 ticked, P2 retired"
-position:     P4 is built, gated, reviewed (refuter + browser) and on a PR from branch
-              feat/phone-p4-live-session. Roadmap: P1 and S1 ticked, P2 replaced by P3a (#231),
-              P3b promoted to NOW. Flywheel roadmap still waits on the owner's Challenge-mode play.
-merged:       #229 (P1), #230 (S1), #231 (P3a). P4 PR awaits the owner's merge.
-awaiting John: (a) merge the P4 PR; (b) one Simulate hand on the phone (P1 leg a) and the 20-hand
-              landscape verdict; (c) kill the stray review servers: `kill 59019 59023 59027`;
-              (d) `agy` login in a plain terminal if Gemini review is wanted again.
-authorized:   the 2026-09-22 `--auto-build` invocation covered P4 tickets T1–T3 (spent) and was
-              typed for P3b and always-on as well; each still runs its own Gate 1 playback
-              (already confirmed 2026-09-22). Owner merges every PR; Claude never merges.
-next action:  `/ai-org:spec --auto-build P3b` — branch from the P4 PR head; open its PR only after
-              P4 is merged (owner ruling on stacked PRs, 2026-09-22).
+updated:      2026-09-22 (always-on built; three-slice run complete) · commit: see branch feat/always-on-stack · log-entry: "2026-09-22 — Always-on stack built (launchd agent + owner-run install/uninstall), stacked on P3b"
+position:     Three stacked PRs: #232 (P4, one live session across devices) → #233 (P3b, portrait
+              polish) → always-on (launchd agent). Each is gated, reviewed and browser-checked where
+              it has UI. Roadmap NOW is empty once these merge; NEXT holds 6-max realism research
+              (needs the owner's play notes) and phone review depth (review card, stats, replayer).
+merged:       #229 (P1), #230 (S1), #231 (P3a). #232, #233 and the always-on PR await the owner.
+awaiting John: (a) merge in order: #232, then #233, then always-on — after each squash-merge the next
+              PR shows the earlier commits until rebased; say "rebase" and a fresh branch + PR
+              replaces it; (b) run `./scripts/always_on_install.sh` from the MAIN checkout after the
+              merge, then confirm the stack returns within five minutes after sleep or `stop`;
+              (c) one Simulate hand on the phone and the 20-hand landscape verdict; (d) stray dev servers that the sandbox cannot kill:
+              `kill $(lsof -ti:7790,8127,7783)` (designer's vite; the P3b review stack); (e) `agy` login if Gemini review is wanted again.
+authorized:   nothing standing. The 2026-09-22 `--auto-build` invocation is fully spent (P4, P3b,
+              always-on). Owner merges every PR; Claude never merges.
+next action:  after the merges: `/ai-org:spec --auto-build phone review depth` (review card → stats
+              & leaks → replayer at phone size; owner ruled the order 2026-09-22) — or the 6-max
+              realism research once the owner has played 6-max.

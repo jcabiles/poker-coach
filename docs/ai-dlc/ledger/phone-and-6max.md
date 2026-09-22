@@ -230,6 +230,106 @@ worker and the refuter, on a scratch copy); the Watch-off fold's deal carries th
 token in the browser (`2.5` → `2.7`); phone dock and buttons do not move when the notice appears;
 contrast 15–16:1 in both themes; every write carried a token.
 
-**Left for the owner, from the browser run:** the isolated servers could not be stopped from the
-sandbox. In a plain terminal: `kill 59019 59023 59027` (uvicorn reloader + worker on :8125, vite on
-:7781). The owner's own stack on 8008/7777 was never touched.
+**Servers from the browser run:** the isolated stack on :8125/:7781 could not be signalled from the
+sandbox at the time, but it died with its background job; the reviewer re-checked with `lsof` and
+nothing is listening. The owner's own stack on 8008/7777 was never touched.
+
+---
+## Round 4, 2026-09-22 — portrait measurement and blind review of the P3b spec
+
+**Bottom line: the portrait pages are not broken by width but by stacking order, and the first
+spec draft would have pushed the felt under the action dock on the narrowest phone; rev 2 keeps
+the session controls below the felt and returns only the app chrome to the top.** Measurement
+(`../reviews/phone-p3b-portrait-measurement.md`, headless Chromium at 412×915 / 393×851 / 360×800
++ 1280×800 baseline): five of seven screens have zero sideways overflow at every width; the
+masthead sits 585–879px below the fold with tab order contradicting visual order; History overflows
+12px at 360; `.statstrip` clips 10px of itself; ten in-session controls are under 44px; the 6-max
+felt in portrait has 8–11 overlapping pod pairs (out of scope by ruling, the rotate hint's reason);
+contrast has zero failures. Reviewer: Claude `refuter` (Opus), blind; Codex and Gemini unavailable
+(Round 3), same-family round. Report `../reviews/phone-p3b-portrait-r1-claude.md`. Verdict FAIL:
+2 blocking, 5 should-fix, 1 optional. All 8 checked against the code and ACCEPTED; spec rev 2 folds
+them.
+
+| # | Finding | Claimed | Adjudicated | Evidence checked |
+|---|---|---|---|---|
+| J1 | Returning the session control cluster above the felt stacks ~465px of chrome over a 239px table; at 360×800 the table renders under the dock | blocking | **ACCEPTED** — `.simulate .sim-topbar` keeps `order: 2` in portrait; new Verify-by (b2) | measurement figures (masthead 181, cluster 284, stage 239, dock 113). Arithmetic verified. |
+| J2 | The touch floor under the whole gate grows Practice's mode chips in landscape, above the drill table | blocking | **ACCEPTED** — `.mode-chip` and `.history-filter` floors are portrait-only; new Verify-by (h) | `App.tsx:436`; `app.css:1393`. Verified. |
+| J3 | `.tt-opt` is an aria-hidden span in a 40px clipped track | should-fix | **ACCEPTED** — floor on `.theme-toggle` only | `app.css:94-104`; `App.tsx:373`. Verified. |
+| J4 | `.sim-speed-input` is an invisible overlay; a height makes a click-catcher | should-fix | **ACCEPTED** — floor on `.sim-speed-face` | `app.css:3491-3502`. Verified. |
+| J5 | The `.nav-tabs` reset omits six gate declarations | should-fix | **ACCEPTED** — enumerated | `app.css:6797-6815`. Verified. |
+| J6 | Hint placement contradicts the measurement's assumption | should-fix | **ACCEPTED** — inserted inside `.sim-main` before `<SimTable>` | `SimulateView.tsx:1330-1332`. Verified. |
+| J7 | One-axis `overflow-x: visible` computes to `auto` | should-fix | **ACCEPTED** — wrap only | `app.css:1483`; CSS Overflow rule. Verified. |
+| J8 | Inert `min-width: 0`; wrong overflow comparison in Verify-by | optional | **ACCEPTED** — both corrected | `app.css:5077-5080`. Verified. |
+
+Also recorded from the review: the 9px "NEW" tag in the masthead EV widget becomes the first thing on
+the portrait page and is out of scope; with the reveal button hidden in portrait the 128px strip is
+dead space on non-Simulate routes, which rev 2 removes with `.app:not(:has(.simulate))`.
+
+---
+## P3b fan-in, 2026-09-22 — gate, designer build, browser design review
+
+**Bottom line: the portrait pass passed every measured leg but one on its first browser review, and
+the one failure (the stats strip's leak row still clipping on Practice and the quizzes) was fixed
+with a single wrap rule the reviewer had verified live.** `make check` green on the integrated
+worktree (backend verify OK, 106 frontend tests, build). Built by one Opus designer owning
+`app.css`, `SimulateView.tsx` and three new files; reviewed by the browser-eyes design reviewer at
+412×915 / 393×851 / 360×800, both themes, plus the 1280×800 and 915×412 controls
+(`../reviews/phone-p3b-portrait-r2-design.md`). Desktop boxes matched the baseline to the pixel;
+landscape dock and buttons unchanged; the mode chips did not grow in landscape.
+
+| # | Finding | Claimed | Adjudicated |
+|---|---|---|---|
+| K1 | `.statstrip` leak row (`.lk-row`) still `nowrap`; strip clipped 33/52/85px at 412/393/360 with real leak data; the earlier sweep had no leaks | blocking | **ACCEPTED, FIXED** — `.statstrip .lk-row { flex-wrap: wrap }` in the portrait block; re-measured below |
+| K2 | Portrait tab order jumps 532px down then back (session controls below the felt, hint above it) | should-fix | **ACCEPTED as the ruling's cost, RECORDED** — keeping the control cluster below the felt is what keeps the table above the dock at 360×800 (J1). A WCAG 2.4.3 focus-order mismatch that a later slice could address by moving the hint into the cluster or the cluster into a sheet. |
+| K3 | Sit-down screen keeps the 128px bottom strip (`:has(.simulate)` matches the route, not the dock) | optional | **RECORDED, not fixed** — cosmetic; a dock-class selector would couple CSS to the dock's markup |
+| K4 | "Got it" button's boundary is `--border` at 1.6:1, under WCAG 1.4.11's 3:1 | optional | **RECORDED** — the app-wide `.btn` pattern; fixing it here alone would make one button differ from every other |
+| K5 | Hint is 79px tall at 360 (label wraps); (b2) clears by 16px | optional | **RECORDED** — clears; the designer already reclaimed 48px for it |
+| K6 | `.nav-tab` kept the gate's `margin-bottom: 0`; underline off the hairline | optional | **ACCEPTED, FIXED** — base `-1px` restored in the portrait block |
+
+Designer deviations from the spec, recorded in the spec's "Built as" section: 48px reclaimed in
+portrait (`.topbar` top margin, nav gap) after the nav rail's 165px in-flow height was counted;
+the dismiss button reuses `.btn`; item 6 needed no rule.
+
+**Re-measure after K1/K6 (design reviewer, same stack):** with the leak chips populated,
+`.statstrip` scrollWidth/clientWidth = 386/386, 367/367, 334/334 at 412/393/360 on Practice and
+the Texture quiz; the third chip wraps onto its own line with the pill's rounded corners intact;
+document scrollWidth ≤ clientWidth at all three; active `.nav-tab` margin-bottom −1px, flush on the
+hairline; desktop 1280 unchanged (`.statstrip` 1046/1046, nowrap). VERDICT PASS. Caveat for future
+runs: the Vite dev server in this worktree served a stale stylesheet module even though the file on
+disk was correct (the same dead-watcher symptom the designer hit); the reviewer measured with the
+fresh sheet fetched directly. Restart the dev server before eyeballing a worktree build.
+
+---
+## Round 5, 2026-09-22 — blind review of the always-on stack (spec + built files)
+
+**Bottom line: the launchd plan was right about the crux (the backgrounded servers survive the
+launcher's exit only with `AbandonProcessGroup`, which the template had and the spec had not) and
+wrong about wake recovery, which needs a calendar schedule, not an interval.** Reviewer: Claude
+`refuter` (Opus), blind; Codex and Gemini unavailable (Round 3), same-family. Report
+`../reviews/always-on-stack-r1-claude.md`. Verdict FAIL: 6 should-fix, 2 optional. All 8 ACCEPTED
+(one optional narrowed); spec rev 2 folds them and the implementer applies them before fan-in.
+
+| # | Finding | Claimed | Adjudicated |
+|---|---|---|---|
+| L1 | Spec omits `AbandonProcessGroup`, the key the slice depends on | should-fix | **ACCEPTED** — spec item 1 names it and why |
+| L2 | A hand-started loopback stack wedges the agent (exit 1 every run) and the README claims "no-op" | should-fix | **ACCEPTED** — README states the wedge and the fix (`restart --lan`); `serve.sh` untouched |
+| L3 | `StartInterval` misses firings during sleep; `StartCalendarInterval` fires on wake | should-fix | **ACCEPTED** — twelve calendar entries, every five minutes |
+| L4 | ProcessType rationale wrong (unspecified ≠ Background) | should-fix | **ACCEPTED** — sentence corrected; `Interactive` recorded as the lever |
+| L5 | Installer bakes a throwaway worktree path | should-fix | **ACCEPTED** — refuses when `.git` is a file; README says main checkout |
+| L6 | launchd-started backend has no coach key → template coach, silently | should-fix | **ACCEPTED as a README statement** — a key is never written to a plist; a wrapper that sources the owner's key loader is a possible later slice |
+| L7 | "launchd refuses to start without the log dir" is undocumented | optional | **ACCEPTED** — wording softened |
+| L8 | PATH duplicate; no log rotation | optional | **NARROWED** — dedupe the PATH; rotation deferred (288 one-line appends a day is small; recorded) |
+
+**Always-on fan-in (fresh Claude `refuter`, Opus, on the corrected diff): VERDICT PASS**, with
+two should-fix and four low findings, all cheap and taken except one: M1 `sed` `&`/`\` in a path
+corrupts the render yet lints clean → the installer now refuses such paths; M2 a `bootstrap` right
+after `bootout` can fail with "Input/output error" and went undetected → verified with
+`launchctl print` and retried up to three times; L1 render to a temp file and lint before replacing
+the old plist → done; L2 spec PATH line matched to the template → done; L3 the post-install
+`status` can read "not running" for up to a minute → labelled; L4 `--print` claimed automated
+coverage that does not exist → wording fixed; a `bash -n` + lint step in the gate is recorded as a
+follow-up, not added (the gate is `make check` and its targets are the cleanup project's business).
+Verified by the reviewer: `plutil -lint` OK; a `plistlib` type audit (12 integer Minute dicts, real
+booleans, dict EnvironmentVariables, absolute paths); system bash 3.2 probes for `"$@"` under
+`set -u`, `$UID`, nested-quote expansion; README claims cross-checked against `serve.sh` and
+`coach.py:211`.

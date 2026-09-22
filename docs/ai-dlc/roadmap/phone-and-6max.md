@@ -210,6 +210,17 @@ round 2.
   owner promoted the rest (P3b: portrait home/resume, ledger, settings, stats; the app-shell
   breakpoint that removes the 713px minimum width; a passive rotate hint; Practice/Quiz "do not
   break" only) to NOW on 2026-09-22 without waiting for the 20-hand verdict. It runs after P4.
+  **P3b measured and built 2026-09-22** (spec `../specs/phone-p3b-portrait.md`, stacked on P4):
+  portrait is NOT broken by width — five of seven screens have zero sideways overflow at 412, 393
+  and 360 wide, so the 713px minimum is gone — but by stacking order: the landscape fix put the
+  masthead 585–879px below the fold with tab order contradicting visual order. P3b returns the app
+  chrome to the top in portrait only, keeps the session controls below the felt (they would push
+  the table under the dock at 360×800), puts the nav tabs back in flow, wraps the stats strip,
+  fixes History's 12px overflow, raises the in-session controls to 44px, and adds the rotate hint.
+  Director decisions inside the rulings: "settings" is a portrait pass over the existing controls
+  (no settings screen exists; building one is a later slice if wanted); the felt in portrait is
+  recorded, not fixed (8–11 overlapping pod pairs; the hint is the answer). Still owed by the
+  owner: the 20-hand landscape verdict.
 - **6-max realism research.** evidence: every persona band and range was recalibrated to 9-max
   in July (persona-realism roadmap, ledger #14 and waves W5); at 6 seats the bots will be tight
   by construction · candidate slices: owner play notes from S1 → a research pass on 6-max
@@ -217,9 +228,16 @@ round 2.
   existing `(format, pool, source)` provenance rule → gates that keep 9-max byte-identical ·
   open questions: does this reopen the paused persona-realism lane or run as its own slice
   under this roadmap (owner call).
-- **Always-on stack.** evidence: the phone only works while the Mac runs the stack; the owner
-  chose "start by hand" for v1 · candidate slices: a launchd job with sleep/wake handling ·
-  open questions: does forgetting to start it actually cost sessions (measure after P1).
+- **Always-on stack — BUILT 2026-09-22** (spec `../specs/always-on-stack.md`, stacked on P3b).
+  evidence: the phone only works while the Mac runs the stack; the owner chose "start by hand" for
+  v1, then on 2026-09-22 ruled for a launchd user agent that starts the stack with `--lan` at
+  login and re-runs the launcher every five minutes (a no-op while the stack is up, which is what
+  brings it back after sleep or a crash). Shipped as a plist template plus owner-run
+  `scripts/always_on_install.sh` / `always_on_uninstall.sh`, because the sandbox cannot write to
+  LaunchAgents. Accepted cost, recorded in the README: with it installed the unauthenticated API
+  is on the home wifi whenever the Mac is awake. **Owed by the owner:** run the install once in a
+  plain terminal and confirm the stack returns within five minutes after a sleep or a `stop`. The
+  original open question (does forgetting to start it cost sessions) is moot once installed.
 - **Phone review depth.** evidence: v1 phone scope includes review, ledger, stats but the
   prototype covers ledger only · candidate slices: post-hand review card, stats and leaks, hand
   replayer at phone size · open questions: which the owner uses on the phone at all.
