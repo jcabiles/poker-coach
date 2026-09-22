@@ -199,3 +199,37 @@ replaced by a Director refinement. Spec rev 2 and tickets rev 2 fold them.
 | G12 | Line count stated as 1753; it is 1962 | optional | **ACCEPTED** — corrected | `wc -l`. Verified. |
 
 Confirmed sound by the reviewer and not re-opened: the token changes on every seat's action (`engine.py:303`, `play.py:333`); `db.exec(update(...)).rowcount` works inside the open transaction and `rollback()` discards the pending rows; route declaration order decides (measured on FastAPI 0.139.0); no migration is needed; `_view` is the single `SessionView` assembly point.
+
+---
+## P4 fan-in, 2026-09-22 — gate, blind refuter on the diff, and a browser walk-through
+
+**Bottom line: the build passed its gate and both checkers on everything the slice exists for; one
+UI defect (the stale notice outliving the table) was found by both checkers independently and fixed
+in a mechanic pass, with two cheap hardenings folded in.** `make check` was green on the integrated
+worktree (backend verify OK, 84 frontend tests, build clean) before review. Tier: behaviour-touching,
+so a fresh Claude `refuter` (Opus) reviewed the diff blind
+(`../reviews/phone-p4-live-session-r2-claude.md`) and a browser-eyes reviewer drove the feature on
+an isolated stack (`../reviews/phone-p4-live-session-r2-browser.md`). Codex and Gemini remain
+unavailable (Round 3), so this pass is same-family; the browser run is the independent evidence.
+
+| # | Finding | Source | Claimed | Adjudicated |
+|---|---|---|---|---|
+| H1 | The notice survives Leave and reappears on a brand-new table | both, independently | blocking / should-fix | **ACCEPTED, FIXED** — `setNotice(null)` in `clearStored`, the teardown every table exit calls. Browser evidence: notice rendered on a fresh session with no 409 in the log. |
+| H2 | `HandState` is parsed before the `status != "in_progress"` check, so corrupt JSON on a completed hand gives a pydantic 400 instead of the clean message | refuter | optional | **REJECTED** — no reachable scenario writes corrupt `state_json`; the order is what lets the token check precede the "no hand" guard, which the spec requires. |
+| H3 | `_view` after the Core UPDATE relies on `expire_on_commit` defaulting to True | refuter | optional | **ACCEPTED, FIXED** — explicit `db.expire(hand)` after a successful compare-and-set; one line, immune to a future session-factory change. |
+| H4 | `deal_next_hand` and `leave_session` have the token check but no compare-and-set | refuter | optional | **REJECTED for this slice, RECORDED** — unreachable on one worker with a no-I/O grader; the spec scopes the compare-and-set to the hero action. Revisit if the grader ever does I/O (an LLM coach, a solver). |
+| H5 | Under the phone gate the armed all-in warning can run under the notice, which paints over it | refuter | optional | **ACCEPTED, FIXED** — the warning gets `z-index` one above the notice; it is the interactive safety cue and must win. |
+| H6 | The docs ticket is absent from the diff | refuter | note | **ACCEPTED** — this entry, the roadmap, `log.md` and the Resume block ride the same PR. |
+
+**Verified by the checkers and not re-opened:** `rowcount` read before commit and rollback discards
+the decision, attempt and settlement rows; the ORM state write is deleted, not supplemented; the
+compare uses the exact string read; token checks precede every other refusal on action, deal and
+leave; `GET /session/current` is one SELECT with a correlated `max(created_at)` subquery, declared
+before the id route; the concurrency test fails without the compare-and-set (reproduced by both the
+worker and the refuter, on a scratch copy); the Watch-off fold's deal carries the fold response's
+token in the browser (`2.5` → `2.7`); phone dock and buttons do not move when the notice appears;
+contrast 15–16:1 in both themes; every write carried a token.
+
+**Left for the owner, from the browser run:** the isolated servers could not be stopped from the
+sandbox. In a plain terminal: `kill 59019 59023 59027` (uvicorn reloader + worker on :8125, vite on
+:7781). The owner's own stack on 8008/7777 was never touched.
