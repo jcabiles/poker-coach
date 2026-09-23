@@ -225,4 +225,50 @@ phone gate and before the portrait block.
 
 ## Built as
 
-(filled in after the build)
+**Bottom line.** All six tickets are built on `feat/phone-table-fit`. In three build rounds, a blind
+browser review measured zero seat overlaps and no clipped seats at 914×290 and 800×360, 6 and 9
+seats, on the live table and in the History replayer. Spot checks at 915×412 and 1280×540 were also
+clean. The final gate is `make check`, green. What remains is the owner's phone check.
+
+**Built:**
+- **Ring.** At 914×290 it is 732×224, up from 840×154. It is 618×294 at 800×360. The seat-count
+  selector keys on `data-seats`.
+- **Dock.** A right-edge column, `--dock-col-w` = 112px rather than ~96px, so the ☰ and the
+  full-screen button fit side by side in the corner row. Buttons stack from the bottom, and the
+  toolbar is vertical with ArrowUp/Down (`lib/toolbarKeys.ts`, tested).
+- **Seats.** Villain seats are two rows (`SimCompactSeat.tsx`, split out of `SimTable.tsx` to keep
+  it under 500 lines).
+  - The board is 0.85× in landscape.
+  - The compact chip drops "· all-in"; the stack line carries it until the final batch has played
+    out.
+  - Folded seats lose their pill and use an 80% ink, measured 4.96:1 on the lamp-lit Night felt.
+  - Top-centre seats open sideways so their details never cover the board.
+- **Hero.** 176×64 live and ≤152 wide in the replayer, with its action text under its cards.
+- **Full screen.** `lib/fullscreen.ts` (tested) and `SimFullscreenButton.tsx`. The accessible name
+  is fixed, "Full screen", and `aria-pressed` carries the state. That is a Director ruling that
+  overrides §6's "tracks fullscreenchange for its label", because a changing label with
+  `aria-pressed` would be announced twice.
+
+**Accepted additions beyond the spec** (reviewed and recorded in the ledger, round 7 fan-in):
+- **Two portrait changes**, against the bottom line's "portrait does not change":
+  - `overflow-anchor: none` on `.sim-topbar` stops the felt drifting off the top as bots act.
+  - Taking a seat on any phone no longer scrolls the table off screen.
+  Both are fixes to older bugs the reviews found.
+- **Day-theme fixes.** The gold Raise button is a solid fill at 4.94:1. The armed-shove hover is
+  5.03:1. "Your turn" and the pot line clear 4.5:1.
+- **Changes on every viewport:**
+  - "Raise small" / "Bet big" labels use a no-break space.
+  - The Esc key while a shove is armed moved to a page-level listener. It yields to the nav sheet
+    (which now claims the key with `preventDefault`), dialogs and the range panel.
+- **Range panel.** Closing it in landscape returns the page to the felt, with focus on RANGE, the
+  seat button, or the table heading.
+
+**Not verified in a browser; owed by the owner's phone:**
+- the ring growing when full screen adds height;
+- the back gesture leaving full screen;
+- the button hiding on an iPhone.
+
+**Recorded, not built:** `useSeatDetails` (when an expanded seat closes) has no unit test.
+`usePhoneLandscape` is a third copy of the `matchMedia` hook pattern. `app.css` (~7,800 lines) and
+`SimulateView.tsx` (~1,700) grew; splitting the landscape block into its own stylesheet is a later
+refactor.

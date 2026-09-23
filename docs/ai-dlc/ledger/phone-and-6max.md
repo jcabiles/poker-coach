@@ -434,3 +434,23 @@ arithmetic/specificity blockers. All findings were accepted and folded into rev 
 | O2 | The safe-area inset is always 0 (no `viewport-fit=cover`) | optional | **ACCEPTED** — dropped from the spec. |
 | O3 | The stack is already ungated by the lockstep | optional | **ACCEPTED** — the rule is reworded to "nothing new leads". |
 | O4 | `.sim-actrow` has `order: -2`; the warning needs a width | optional | **ACCEPTED** — both are noted in the spec. |
+
+## Phone table fit fan-in, 2026-09-23 — three build rounds, browser reviews, blind refuter on the diff
+
+**Bottom line.** Built in three rounds: ring and dock, then seats, then full screen. Each round went
+through a designer (Opus) and a separate blind browser reviewer (Opus). The final code review passed
+with no blocker. Every finding was accepted, except where noted below. Gate: `make check` green.
+
+| Round | Review verdict | What it caught | Adjudication |
+|---|---|---|---|
+| A (ring + dock) | PASS | Day gold Raise 3.45–3.97:1; session start scrolled the table off screen (older bug); Raise labels split inconsistently; nav sheet leftovers | All ACCEPTED, fixed in round B. The ☰ corner differing between Simulate and History is left as the spec asked (owner's call). |
+| B iteration 1 | FAIL | Seats hit the board at 800×360 (6 and 9) and on 914×290 6-max all-in showdowns; chip wrap; expanded seat over a flop card; RANGE close left the page below the felt; armed-shove hover 1.1–1.7:1; portrait drift; folded seats not dimmed; `SimTable.tsx` over 500 lines | All ACCEPTED. A fresh designer fixed all 12, with no change to `slotStyle`. |
+| B iteration 2 | PASS | ~100 hands at 914×290 and 800×360, 6 and 9 seats, all-in showdowns, 3,000+ expansions: 0 violations. Legibility judged "reads cleanly". | — |
+| C (full screen) | FAIL | Folded-seat ink 4.25–4.45:1 on the lamp-lit Night felt (72% mix) | ACCEPTED — raised to 80%, which the reviewer measured at 4.96:1. The two optional findings (uncaught exit rejection, duplicated sr-only rule) were fixed by the Director and a test added. |
+| Refuter on the full diff | PASS | Untracked new files; two portrait changes undocumented; Esc double-close with the nav sheet (older bug); final-batch all-in marker hidden early; focus fallback | All ACCEPTED: staged by name; recorded in "Built as"; `preventDefault` in the sheet's Esc; a `sim-ring-settled` class keyed on `playbackComplete`; the fallback to the table heading. Deferred: a unit test for `useSeatDetails` and a shared `useMediaQuery`. |
+
+Rescued facts:
+- Vite's file watcher never picked up edits in this worktree, even with polling. Every review needed
+  a fresh frontend port (7801–7860 were used), and the sandbox cannot kill the old servers.
+- Headless Playwright can enter full screen but cannot grow the viewport, so the ring's growth in
+  full screen is an owner-phone check.
