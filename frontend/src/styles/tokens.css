@@ -125,6 +125,10 @@
      face, which still clears the 22px serif rank plus the 20px suit. */
   --card-w-phone: 40px;
   --card-h-phone: 56px;
+  /* Phone landscape: the right-edge column the Simulate dock stands in, and the
+     width .app reserves for it. Two 44px corner buttons side by side (☰ and
+     full screen) with an 8px gutter either side and between: 8+44+8+44+8. */
+  --dock-col-w: calc((var(--space-8) + var(--space-3)) * 2 + var(--space-2) * 3);
 
   /* Elevation model — distinct levels for felt (base surface) → panel →
      card → overlay (highest, for future modals/popovers). Light theme

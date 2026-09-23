@@ -1,5 +1,28 @@
 # AI-Org log — poker-coach
 
+## 2026-09-23 — Phone table fit built (right-edge dock, two-row seats, full screen)
+
+The owner's first real phone session in landscape ("it looks awful, too crowded") showed that P3a's
+zero-overlap verdict was measured at whole-screen sizes. A Chrome tab with its address bar is
+914×290. There the ring squashed to 840×154, because `aspect-ratio` lost to the phone gate's height
+cap, and five-row seats overlapped by up to 2,670px².
+
+The owner picked the fix in a `/ai-org:design` interview: buttons in a right-edge column, two-row
+villain seats with persona and RANGE on a tap, a full-screen button, and 9-max included. A blind
+spec review failed rev 1 on three pieces of arithmetic, all accepted:
+- a 320px button column on a 290px screen;
+- a specificity loss that would have kept the ring capped;
+- a hero seat too wide for 9-max.
+
+The build ran in three rounds (ring and dock, seats, full screen), each through an Opus designer and
+a separate Opus browser reviewer. Round B failed once on seats hitting the board at 800×360, and
+round C once on folded-seat contrast by night. Final measurement: zero overlaps at 914×290 and
+800×360, 6 and 9 seats, live and replayer. The ring is now 732×224 at 914×290.
+
+The refuter passed the full diff. Its findings led to three changes: the nav sheet now claims Esc,
+the all-in marker is keyed on settled playback, and the portrait scroll changes are documented.
+Codex was not run (nested-sandbox EPERM), so every review was Claude-only.
+
 ## 2026-09-22 — Phone review depth built (review card reach, replayer open/close, touch floor)
 
 The roadmap's last NEXT-lane phone slice, run under the owner's `--auto-build` invocation with no

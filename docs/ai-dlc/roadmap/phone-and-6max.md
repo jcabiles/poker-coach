@@ -20,6 +20,10 @@ round 2.
   the always-on agent from the main checkout, one phone hand (ticks P1 leg (a) and P4's
   cross-device leg), the 20-hand landscape verdict, and the first 6-max session that unlocks
   the realism research.
+- Update 2026-09-23: the owner's first real phone session showed P3a's landscape verdict was
+  measured at the wrong size. A Chrome tab with its address bar is 914×290, not 800×360. The
+  phone table fit slice (below) fixes it: a right-edge button column, two-row seats, and a
+  full-screen button, for 6-max and 9-max.
 
 ## North-star outcome
 - Outcome: **Simulate sessions per week** (owner's choice) = `sim_session` rows by the week
@@ -272,6 +276,19 @@ round 2.
   backend change and is its own slice if the owner reaches for History on the phone. Recorded,
   optional: Simulate has two H1s and no `<main>` landmark; the in-session replayer's street rail is
   not tappable, so a 22-step hand is 22 taps.
+- **Phone table fit — BUILT 2026-09-23** (spec `../specs/phone-table-fit-ux.md`, branch
+  `feat/phone-table-fit`).
+  - evidence: the owner's phone screenshot (2026-09-22). At 914×290 the ring squashed to 840×154
+    and seats overlapped by up to 2,670px². P3a's zero-overlap result had been measured at
+    whole-screen sizes.
+  - Owner picked the approach in the interview: buttons in a right-edge column, two-row villain
+    seats with persona and RANGE on a tap, a full-screen button, 9-max included.
+  - Browser-measured: zero seat overlaps at 914×290 and 800×360, 6 and 9 seats, live table and
+    History replayer.
+  - pass/fail for the owner: one 6-max and one 9-max hand in landscape on the phone, with and
+    without full screen. No seat covers another, the board or the header, and every button is on
+    screen.
+  - Portrait felt geometry is still recorded, not fixed.
 
 ## LATER (bets, no dates)
 - Bet: one-handed play on the couch needs a portrait, compact felt · segment: owner ·

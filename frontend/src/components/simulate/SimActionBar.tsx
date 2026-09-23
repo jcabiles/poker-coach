@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ActionType, LegalAction, Spot } from "../../api/types";
 import { legalDecisions } from "../../lib/decisions";
+import { nextToolbarIndex, type ToolbarOrientation } from "../../lib/toolbarKeys";
 import { usePhoneLayout } from "../../lib/usePhoneLayout";
 import { isAllIn } from "./allIn";
 
@@ -15,8 +16,8 @@ import { isAllIn } from "./allIn";
 // The roving-tabindex toolbar wiring mirrors DecisionBar so keyboard travel and
 // focus states match the rest of the app.
 //
-// P3a §5 — on a phone-shaped viewport this bar is pinned to the bottom of the
-// screen under the player's thumb, and a shove is the one action on the table
+// P3a §5 — on a phone-shaped viewport this bar is pinned under the player's
+// thumb (the bottom edge upright, the right edge sideways), and a shove is the one action on the table
 // that cannot be taken back. All-in therefore asks twice, the same way
 // SimBlindCheck's skip does: the first press arms the button and says what it
 // is about to do, the second commits. Fold, call and raise never ask — a
@@ -26,12 +27,15 @@ export default function SimActionBar({
   heroStackBb,
   disabled,
   onDecide,
+  orientation,
 }: {
   legalActions: LegalAction[];
   /** Hero's chips behind — half of "is this button a shove?" (see allIn.ts). */
   heroStackBb: number;
   disabled: boolean;
   onDecide: (action: ActionType, sizeBb?: number | null) => void;
+  /** "vertical" where the dock stands as a column (phone landscape). */
+  orientation: ToolbarOrientation;
 }) {
   // Memoized on the wire array so both the options and the shove flags below
   // hold their identity between renders — which is what lets the keyboard
@@ -124,29 +128,33 @@ export default function SimActionBar({
     return () => window.removeEventListener("keydown", handler);
   }, [options, disabled, commit]);
 
-  const focusAt = (i: number) => {
-    if (options.length === 0) return;
-    const next = (i + options.length) % options.length;
-    setActiveIndex(next);
-    btnRefs.current[next]?.focus();
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      focusAt(activeSafe + 1);
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      focusAt(activeSafe - 1);
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      focusAt(0);
-    } else if (e.key === "End") {
-      e.preventDefault();
-      focusAt(options.length - 1);
-    } else if (e.key === "Escape" && armedIndex != null) {
+  // Esc backs an armed shove out from wherever focus is, not only from inside
+  // this toolbar: the warning says "press Escape", and a player who armed it and
+  // then tabbed to a seat's button (or tapped the felt, leaving focus on the
+  // page) must not find the key dead. The shove owns Esc first — an open seat's
+  // details yield to its warning (SimCompactSeat) — and only three things claim
+  // the key ahead of it: the nav sheet and a native dialog (the guard
+  // HandReplayTable uses) and the range panel, whose own Esc closes it. One
+  // press never closes two things. Bound only while a shove is armed.
+  useEffect(() => {
+    if (armedIndex == null) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector(".nav-tabs-open, dialog[open]")) return;
+      if (e.target instanceof Element && e.target.closest(".sim-vrange")) return;
       e.preventDefault();
       setArmedIndex(null);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [armedIndex]);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const next = nextToolbarIndex(e.key, orientation, activeSafe, options.length);
+    if (next != null) {
+      e.preventDefault();
+      setActiveIndex(next);
+      btnRefs.current[next]?.focus();
     }
   };
 
@@ -157,7 +165,7 @@ export default function SimActionBar({
       className="decisionbar sim-actionbar"
       role="toolbar"
       aria-label="Your action"
-      aria-orientation="horizontal"
+      aria-orientation={orientation}
       onKeyDown={onKeyDown}
     >
       {options.map((d, i) => {

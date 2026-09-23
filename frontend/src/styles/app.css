@@ -3097,6 +3097,14 @@ kbd {
     inset 0 0 0 1px var(--sim-tier-bad-ink),
     var(--shadow-panel);
 }
+/* Hovered, it keeps that pair. The hover rules above outweigh this one — the
+   gilded plate's brighter foil at (0,4,0) put the bad ink on gold at 1.1–1.7:1
+   — and Android holds :hover on the button after the tap that armed it, so the
+   armed state is exactly when the hover is showing. */
+.decision-btn.sim-action-armed:not(:disabled):hover {
+  background: var(--sim-tier-bad-fill);
+  border-color: var(--sim-tier-bad-ink);
+}
 .sim-action-warn {
   flex: 1 0 100%;
   margin: var(--space-1) 0 0;
@@ -6863,6 +6871,36 @@ kbd {
     border-color: var(--primary);
   }
 
+  /* The full-screen switch (SimFullscreenButton, Simulate only). Upright it is
+     a labelled button in the top bar, beside the heading; the landscape block
+     below lifts it into the corner row as the ☰'s twin. Same plate as the ☰ —
+     raised panel, hairline, and the brass rule once it is on — so the pair
+     reads as one set of room controls. The glyph is struck in brass. */
+  .sim-fullscreen-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: calc(var(--space-8) + var(--space-3)); /* 44px touch floor */
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-base);
+    line-height: 1.2;
+    color: var(--text);
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+  }
+  .sim-fullscreen-btn[aria-pressed="true"] {
+    border-color: var(--primary);
+  }
+  .sim-fullscreen-btn:active {
+    transform: translateY(calc(var(--space-1) / 4));
+  }
+  .sim-fullscreen-glyph {
+    flex: none;
+    width: calc(var(--space-4) + var(--space-1));
+    height: calc(var(--space-4) + var(--space-1));
+    stroke: var(--primary);
+  }
+
   /* ── Simulate ──────────────────────────────────────────────────────────── */
   /* The felt first, the session's own controls (speed, watch, grading, leave)
      after it. They are settings, and settings belong under the table on a
@@ -6873,6 +6911,11 @@ kbd {
   .simulate .sim-topbar {
     order: 2;
     margin-top: var(--space-2);
+    /* It is first in the DOM and painted below the felt, so the browser's
+       scroll anchoring picked it and "kept it still" as the felt above it
+       changed height mid-hand — dragging the felt up out of view (−59 to
+       −157px at 412×915, 5 of 6 hands). Never an anchor. */
+    overflow-anchor: none;
   }
   .sim-layout {
     gap: var(--space-3);
@@ -6923,12 +6966,14 @@ kbd {
      Measured at 800×360 on one nine-handed hand, clamp on vs off: the worst
      pod-label overlap went 65.6px² → 498.5px² and the total 65.6px² → 768.2px²,
      which is a villain's stack figure with its first digits under a neighbour's
-     verb. Nine-max on a phone is out of this slice's scope, but it must not get
-     WORSE, so it keeps the tall ring and scrolls instead. The ring's first two
-     children are the rail and the centre, so the ninth pod is child 11 — the
-     same structure in both SimTable and HandReplayTable. */
-  .simulate .tablering:not(:has(> .tseat:nth-child(11))),
-  .history-replay .tablering:not(:has(> .tseat:nth-child(11))) {
+     verb. Portrait keeps that answer — the tall ring, scrolled — and phone
+     landscape replaces this cap outright in the block after this one. The seat
+     count is read from the ring's own `data-seats` (SimTable, HandReplayTable),
+     not from its child count, so a wrapper added inside the ring cannot
+     silently move a nine-seat table under the cap. (0,3,0): the landscape rule
+     after this block is written at the same weight so source order settles it. */
+  .simulate .tablering:not([data-seats="9"]),
+  .history-replay .tablering:not([data-seats="9"]) {
     max-height: calc(100dvh - (var(--space-8) * 4 + var(--space-2)));
   }
   /* Pod rows sit flush on a phone. The rows carry their own padding and
@@ -7074,6 +7119,619 @@ kbd {
   }
 }
 
+/* ── Phone landscape — the felt on a real phone browser ────────────────────
+   The gate above was sized on whole-screen landscape (800×360 to 915×412). A
+   real Chrome tab on the same phone keeps its address bar, and the owner's
+   measures 914×290: the bottom dock took 61px of it, the gate's cap left the
+   ring 840×154 (5.5:1 against a 2.1:1 design) and the seats piled up. Height is
+   the scarce axis here and width is not, so this block gives the dock the
+   right edge instead of the bottom one and hands the table every vertical
+   pixel the frame does not need.
+
+   THE QUERY HAS TWO HOMES and they must stay byte-identical: this opener and
+   `PHONE_LANDSCAPE_QUERY` in `src/lib/usePhoneLandscape.ts`, which is what
+   turns the dock's toolbar vertical exactly where this block stands it up.
+
+   Everything the dock touches is scoped to `.app:has(.simulate)`: History,
+   Practice and Quiz have no dock and keep the gate's layout unchanged. After
+   the gate, so equal-specificity rules resolve here; before the portrait
+   block, which cannot match at the same time (orientation). */
+@media (max-height: 560px) and (orientation: landscape) {
+  /* The dock's reservation moves from the foot of the page to its right edge:
+     the column's own width plus one gutter, so the felt's edge never touches
+     the column's hairline. The bottom strip it replaces is given back. */
+  .app:has(.simulate) {
+    padding-block-end: var(--space-2);
+    padding-inline-end: calc(var(--dock-col-w) + var(--space-2));
+  }
+  /* Nothing is pinned to the foot of the screen any more, so a programmatic
+     scroll has nothing to stop short of. */
+  html:has(.simulate) {
+    scroll-padding-bottom: 0;
+  }
+
+  /* The ring is sized by the height the screen has, not by its ratio: the
+     aspect-ratio lost to the gate's max-height anyway (the 5.5:1 ring), and a
+     wide, full-height ellipse is what spreads the seats apart vertically.
+     What it leaves out is the page's top pad, the felt's two pads, the .ctx
+     line and its margin, the hero-clearance margin under the ring, and one
+     --space-1 that covers the stage's two hairlines and lets the frame end
+     just short of the viewport edge. 224px at 290 tall, six seats or nine —
+     both counts fit here, so the nine-seat opt-out above does not apply.
+     (0,3,0), the same weight as that cap, and later, so it wins. */
+  .simulate .tablering[data-seats],
+  .history-replay .tablering[data-seats] {
+    aspect-ratio: auto;
+    height: calc(
+      100dvh -
+      (var(--space-2) * 3 + var(--text-sm) * 1.5 + var(--space-1) * 2 + var(--space-4))
+    );
+    max-height: none;
+  }
+  /* The History replayer has no .ctx line over its felt but a header row
+     above it — Back, the title, the hero's cards — and a gap under that, so
+     the same budget with those swapped in: 190px at 290 tall. The header is
+     one Back button tall (the 44px touch floor) once the title gives up the
+     browser's default heading margins, which alone had made it 64px and put
+     the felt's foot 44px under the screen edge. The hero's cards in it
+     (0.62 of a card, 45px) sit inside the --space-1 of slack. */
+  .history-replay .tablering[data-seats] {
+    height: calc(
+      100dvh -
+      (var(--space-2) * 3 + var(--space-8) + var(--space-3) * 2 + var(--space-1) + var(--space-4))
+    );
+  }
+  .history-replay .hrt-title {
+    margin-block: 0;
+  }
+
+  /* Taking a seat brings this section to the top of the screen (SimulateView),
+     and opening a replay does the same for the replayer (HandReplayTable);
+     this keeps the page's own top pad above the felt, so the frame does not
+     land flush against the screen edge and read as cut off. */
+  .simulate,
+  .history-replay {
+    scroll-margin-top: var(--space-2);
+  }
+
+  /* The board, one step smaller than the phone card. The ring is a wide,
+     short ellipse here, so the flank and top seats sit level with the cards
+     and a five-card river reached into them (80px² at 914×290, 59px² at
+     800×360). The pods' card marker is sized from the stage's tokens, not
+     these, so only the board and its figures shrink. */
+  .simulate .table-center,
+  .history-replay .table-center {
+    --card-w: calc(var(--card-w-phone) * 0.85);
+    --card-h: calc(var(--card-h-phone) * 0.85);
+  }
+  .simulate .table-center .card .r,
+  .history-replay .table-center .card .r {
+    font-size: var(--text-lg);
+  }
+  .simulate .table-center .card .s,
+  .history-replay .table-center .card .s {
+    font-size: var(--text-md);
+  }
+  /* And set closer: the six-seat flanks at 29.5% reach in to the board's
+     corner at 800×360 (a dealer disc and an all-in stack make that pod
+     149px), so the river gives back 16px of width rather than meet them. */
+  .simulate .table-center .board,
+  .history-replay .table-center .board {
+    gap: var(--space-1);
+  }
+  /* The pot line, in the hero cue's paler foil. With the ring this short the
+     line sits high in the lamp's glow, where --gold-bright fell to 4.46:1 on
+     the Day felt; mixed toward the felt's own ink, as .toact is below, it
+     clears AA under the lamp by day and is lighter still by night. */
+  .simulate .felt-staged .pot,
+  .history-replay .felt-staged .pot {
+    color: color-mix(in srgb, var(--gold-bright) 70%, var(--felt-text));
+  }
+  /* A chip is one figure; broken over lines it made its row three tall. */
+  .simulate .sim-chips {
+    white-space: nowrap;
+  }
+  /* Once a seat's cards are face up the hand is settled and its chips are
+     already in the pot (the base rule ghosts the puck), but on the one action row
+     they made it verb + chips + two cards: 160–198px, wide enough for a flank
+     seat to reach the river and the hero (42 and 36px² at 800×360). The chips
+     step out; the verb and the cards stay. */
+  .simulate .sim-seat-compact .sim-actrow:has(.sim-reveal) .sim-chips {
+    display: none;
+  }
+  /* Likewise the all-in tag once the hand is over: the stack beside it is
+     the settled one by then (a winner's 197.35bb, still flagged all-in), and
+     the pair made a flank pod wide enough to reach the river (82px² at
+     800×360, six seats). While the hand runs the stack is 0bb and the tag
+     stays; the seat button, whose name repeats it, is gone at hand over. */
+  .simulate .sim-ring-settled .sim-seat-compact .sim-allin {
+    display: none;
+  }
+
+  /* The corner row: ☰ at the top-right, with the slot to its left kept for the
+     full-screen button. Fixed on its own rather than inside the dock, because
+     no dock is mounted while the bots act or before the deal and the sections
+     must stay one tap away then too. The sheet it opens is unchanged.
+     :where() keeps this at the gate's own weight, so the portrait block's
+     display:none still settles on source order. */
+  :where(.app:has(.simulate)) .nav-reveal {
+    top: var(--space-2);
+    bottom: auto;
+    inset-inline-start: auto;
+    inset-inline-end: var(--space-2);
+  }
+  /* The full-screen switch takes the slot kept for it, one gutter to the ☰'s
+     left: two 44px plates and three gutters are exactly the dock column's
+     width, so the pair sits over the column's top pad. Out of the top bar's
+     flow (which paints below the felt here) and shaped as the ☰ is; its words
+     stay in the accessibility tree and the brackets carry it on screen. */
+  .simulate .sim-fullscreen-btn {
+    position: fixed;
+    top: var(--space-2);
+    inset-inline-end: calc(var(--space-2) * 2 + var(--space-8) + var(--space-3));
+    z-index: 40; /* the ☰'s layer, over the dock column's top pad (z 20) */
+    justify-content: center;
+    width: calc(var(--space-8) + var(--space-3));
+    height: calc(var(--space-8) + var(--space-3));
+    padding: 0;
+    box-shadow: var(--shadow-overlay);
+  }
+
+  /* The dock, stood up as a column on the right edge. It runs the full height
+     so its surface is one continuous rail, and its top pad is the corner row
+     (8 + 44 + 8) the ☰ sits in. Buttons stack from the BOTTOM: the last
+     option — the raise, the room's gilded plate — lands in the same corner
+     under the right thumb however many options come before it, and the
+     height budget (60 + four 44px buttons + three gaps + 8 = 268 of 290)
+     holds with room for one wrapped label. */
+  .app:has(.simulate) .decisionbar.sim-actionbar,
+  .app:has(.simulate) .decisionbar.sim-nextdock {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    inset: 0 0 0 auto;
+    width: var(--dock-col-w);
+    padding: calc(var(--space-2) * 2 + var(--space-8) + var(--space-3)) var(--space-2)
+      var(--space-2);
+    border-top: 0;
+    border-inline-start: thin solid var(--border);
+  }
+  /* In a column the gate's equal-share basis would stretch each button to a
+     quarter of the screen; they keep their own height and wrap a long label to
+     a second line rather than widen the column. "Raise small" is one word to
+     the line breaker (decisions.ts joins it with a no-break space), and the
+     narrow side pad is what gives it room, so a sized label breaks only before
+     its size — "Raise small / 11bb" — and four buttons stay inside the height
+     budget above. Balanced, so a wrap splits "Next hand →" as "Next / hand →",
+     never orphaning the arrow. */
+  .app:has(.simulate) .decisionbar .decision-btn {
+    flex: none;
+    padding-inline: var(--space-1);
+    text-wrap: balance;
+  }
+
+  /* The dock's two satellites re-anchor to the column's left edge, at its
+     foot, where the button they concern is. Both get an explicit measure: out
+     of the flow and beside a 112px column there is no container width to
+     shrink to. z 20/21/22 (dock, notice, warning) is the gate's, unchanged. */
+  .app:has(.simulate) .sim-stale-notice {
+    inset-inline: auto calc(var(--dock-col-w) + var(--space-2));
+    bottom: var(--space-2);
+    width: max-content;
+    max-width: calc(var(--space-8) * 9);
+    margin: 0;
+  }
+  .app:has(.simulate) .sim-action-warn {
+    inset-inline: auto 100%;
+    bottom: var(--space-2);
+    width: max-content;
+    max-width: calc(var(--space-8) * 9);
+    margin-block: 0;
+    margin-inline: 0 var(--space-2);
+  }
+  /* Both satellites can be up at once — the table refreshed from another tab
+     while a shove is armed — and they share the column's foot. The warning is
+     the one about the button under the thumb, so it keeps the foot and the
+     passive notice steps up over it, by the old bottom strip's constant: the
+     warning's measure caps it at four lines here, which that clears. */
+  .app:has(.simulate):has(.sim-action-warn) .sim-stale-notice {
+    bottom: calc(var(--space-8) * 4);
+  }
+
+  /* The gilded Raise, as a solid plate. The gradient's bright top is where the
+     Day theme's cream ink fell to 3.45–3.97:1 once the column made the button
+     narrow and tall enough for the label to sit on it; --primary is the
+     gradient's own body colour and holds the label at 4.9:1 by day and 7.6:1
+     by night (tokens.css). Hovered it sinks to the gradient's darker end
+     instead of brightening, which keeps both themes above 4.5:1. The armed
+     shove and the disabled plate keep their own fills. */
+  .app:has(.simulate) .decisionbar .decision-btn.btn-primary:not(:disabled, .sim-action-armed) {
+    background: var(--primary);
+  }
+  .app:has(.simulate)
+    .decisionbar
+    .decision-btn.btn-primary:not(:disabled, .sim-action-armed):hover {
+    background: color-mix(in srgb, var(--primary) 80%, var(--stage-bg));
+  }
+
+  /* The section sheet on the table screen. It still rises from the foot, but
+     the right edge now belongs to the dock column, so the sheet stops at its
+     hairline instead of covering the column's last buttons; and the inset it
+     kept for a bottom-left ☰ is dropped, because the ☰ is in the top corner.
+     :where() for the same reason as the ☰ rule above. */
+  :where(.app:has(.simulate)) .nav-tabs {
+    inset-inline-end: var(--dock-col-w);
+    padding-inline-start: var(--space-3);
+  }
+
+  /* ── Slim seats ──────────────────────────────────────────────────────────
+     A pod here is two rows, not five: the action row (verb and chips, only
+     when there is one) over the position row — position, dealer disc, stack
+     and a miniature of the seat's cards on one line. At 290px tall the nine
+     seats sit about 40px apart vertically, and a five-row pod was 95px.
+     SimTable renders this markup (SimCompactSeat) only under
+     `usePhoneLandscape()` (the same query as this block); the History replayer keeps its markup and is laid
+     out as the same two rows by the grid further down. */
+  .simulate .sim-seat-compact {
+    gap: 0;
+  }
+  .sim-seat-compact .sim-actrow {
+    line-height: 1.25;
+  }
+  .sim-podrow,
+  .sim-seat-id,
+  .sim-seat-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    white-space: nowrap;
+  }
+  /* The position and stack share the .pos chip's ground as one pill; the chip
+     inside gives up its own so the row does not read as a pill in a pill. */
+  .sim-seat-id,
+  .sim-seat-btn {
+    padding: 0 var(--space-2) 0 0;
+    border-radius: var(--radius-pill);
+    background: var(--felt-chip-bg);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--felt-text) 14%, transparent);
+  }
+  .sim-seat-compact .pos {
+    background: none;
+    box-shadow: none;
+  }
+  /* Out of the hand, the pill steps back with its text: the desktop's folded
+     treatment (the 62%/72% ink the pos and stack rules above already apply,
+     the 8% hairline of a folded .pos) and no ground, so the seats still in
+     are the ones that read as chips on the felt. */
+  .tseat-folded .sim-seat-id {
+    background: none;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--felt-text) 8%, transparent);
+  }
+  /* Without that ground the text sits on bare felt, which the lamp lightens past
+     the flat --felt token: 72% ink measured 4.25–4.45:1 there by night, 80%
+     measured 4.96:1. Day stays well clear. */
+  .tseat-folded .sim-seat-id .pos,
+  .tseat-folded .sim-seat-id .stack {
+    color: color-mix(in srgb, var(--felt-text) 80%, var(--felt));
+  }
+  .sim-seat-compact .sim-stack-row {
+    line-height: 1.25;
+  }
+
+  /* The seat button: the same pill, with the RANGE token's brass hairline so
+     it reads as something to press. 24px, the AA target minimum — the 44px
+     phone floor would push nine seats into each other (spec §3). */
+  .sim-seat-btn {
+    min-height: var(--space-6);
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    border: 1px solid color-mix(in srgb, var(--primary) 70%, transparent);
+    box-shadow: none;
+    cursor: pointer;
+  }
+  /* The room's focus ring, struck in the bright foil. The global --primary
+     ring measured 2.64:1 by day where the lamp glow lifts the felt, under the
+     3:1 it needs; --gold-bright holds 3.81:1 there by day and 4.96:1 by night.
+     RANGE, opened beside it, takes the same ring. */
+  .sim-seat-btn:focus-visible,
+  .sim-seat-details .sim-vrange-btn:focus-visible {
+    outline-color: var(--gold-bright);
+  }
+  .sim-seat-btn:hover,
+  .sim-seat-btn[aria-expanded="true"] {
+    border-color: var(--primary);
+  }
+  /* Open, the pill takes the scrim's opaque ground, so it reads as the tab the
+     details hang from rather than as one more chip on the felt. */
+  .sim-seat-btn[aria-expanded="true"] {
+    background: color-mix(in srgb, var(--felt) 78%, var(--stage-bg));
+  }
+  .sim-seat-btn:active {
+    transform: translateY(calc(var(--space-1) / 4));
+  }
+
+  /* The card marker. Face down it is a fanned pair of backs; face up (a
+     showdown or an R1 reveal) the two cards keep rank and suit side by side.
+     Height pinned at 0.32 of a card so the row stays one line (spec §2). */
+  .simulate .sim-seat-compact .card,
+  .history-replay .tseat:not(.hrt-hero-pod) .card {
+    height: calc(var(--card-h) * 0.32);
+    min-width: calc(var(--card-w) * 0.32);
+    width: auto;
+    flex-direction: row;
+    gap: calc(var(--space-1) / 2);
+    padding-inline: calc(var(--space-1) / 2);
+    border-radius: var(--radius-xs);
+  }
+  .simulate .sim-seat-compact .card.back,
+  .history-replay .tseat:not(.hrt-hero-pod) .card.back {
+    width: calc(var(--card-w) * 0.32);
+    padding: 0;
+  }
+  .sim-seat-compact .tseat-cards,
+  .history-replay .tseat-cards {
+    gap: 0;
+  }
+  .sim-seat-compact .tseat-cards .card + .card,
+  .history-replay .tseat-cards .card.back + .card.back {
+    margin-inline-start: calc(var(--card-w) * -0.12);
+  }
+  .sim-seat-compact .cards,
+  .history-replay .tseat:not(.hrt-hero-pod) .cards {
+    gap: calc(var(--space-1) / 2);
+  }
+  .simulate .sim-seat-compact .card .r,
+  .history-replay .tseat:not(.hrt-hero-pod) .card .r {
+    font-size: var(--text-sm);
+  }
+  .simulate .sim-seat-compact .card .s,
+  .history-replay .tseat:not(.hrt-hero-pod) .card .s {
+    font-size: var(--text-xs);
+  }
+
+  /* Seat details: the persona plate and RANGE, on the same opaque scrim the
+     verb's pill uses, lifted over the neighbours. They grow toward the ring's
+     centre — down from a top-half seat, up from a bottom-half one — so the
+     stage's overflow:hidden can never shear them; the top-centre seats open
+     beside their pods instead (below). */
+  .sim-seat-open {
+    z-index: 3;
+  }
+  .sim-seat-details {
+    position: absolute;
+    bottom: calc(100% + var(--space-1));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    width: max-content;
+    max-width: calc(var(--card-w) * 3.2);
+    padding: var(--space-1) var(--space-2);
+    background: color-mix(in srgb, var(--felt) 78%, var(--stage-bg));
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+  }
+  .sim-seat-top .sim-seat-details {
+    top: calc(100% + var(--space-1));
+    bottom: auto;
+  }
+  /* A top-centre seat (the ring's middle third across) opens beside its pod,
+     level with its top edge and on the side away from the board's centre:
+     below it is the river, above it the .ctx line (SimCompactSeat). The
+     neighbouring flank pod it may cover is the overlay the spec allows. */
+  .sim-seat-beside .sim-seat-details {
+    top: 0;
+    bottom: auto;
+    transform: none;
+  }
+  .sim-seat-west .sim-seat-details {
+    left: auto;
+    right: calc(100% + var(--space-1));
+  }
+  .sim-seat-east .sim-seat-details {
+    left: calc(100% + var(--space-1));
+  }
+  /* The plate was cut to an ellipsis to share a pod row; opened, it is the
+     thing being read, so it wraps instead. */
+  .sim-seat-details .sim-persona-plate {
+    max-width: none;
+    white-space: normal;
+    line-height: 1.25;
+    text-align: center;
+  }
+  .sim-seat-details .sim-vrange-btn {
+    margin-top: 0;
+  }
+  /* RANGE scrolls the panel it opens to the top of the screen (SimulateView),
+     and it arrives mid-entrance, still a few px low; the same margin the
+     "Review ↓" target keeps stops it resting with its top edge cut off. */
+  .sim-vrange {
+    scroll-margin-top: var(--space-4);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sim-seat-details {
+      animation: sim-details-in var(--dur-2) var(--ease-1) both;
+    }
+    @keyframes sim-details-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+  }
+
+  /* ── The hero, compact: cards left, a short meta column right ────────────
+     The column is two cards wide and holds one line each: position and
+     dealer, stack, "your turn", the verdict; the verb and chips hang under
+     the cards. The brass rule that marks the
+     hero's meta moves from under it to its leading edge. ≤180×64 at every
+     landscape viewport, so the 9-max seats beside it keep their distance. */
+  .sim-hero-compact {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  .sim-hero-compact .herometa {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: calc(var(--card-w) * 2);
+    margin: 0;
+    padding: 0 0 0 var(--space-2);
+    border-bottom: 0;
+    border-inline-start: calc(var(--space-1) / 2) solid var(--primary);
+    line-height: 1.25;
+    text-align: start;
+  }
+  /* The turn cue, in a paler foil. The room's --gold-bright is 4.46:1 on the
+     Day felt at this size — the hero's cue sat just under AA by day. Mixed
+     toward the felt's own ink it is 5.6:1 under the lamp by day and lighter
+     still by night, and it still reads as the gold caps. */
+  .sim-hero-compact .toact {
+    color: color-mix(in srgb, var(--gold-bright) 70%, var(--felt-text));
+  }
+  .sim-hero-line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    white-space: nowrap;
+  }
+  /* The verb and chips hang UNDER the hero's cards, centred on them: out of
+     the pod's flow, so the pod stays ≤180×64. Not above, where every other pod
+     keeps them — at 290px tall the pot line sits 8px over the hero's cards and
+     a verb there covered it (526px² at hand over) — and not beside, where the
+     9-max neighbours at 79% height reach in (185px² at 800×360). Below is the
+     one side no seat and no board shares; the stage keeps ≥8px under it.
+     Centred on the cards by a row as wide as their ring, and grown only to
+     the right past that: centred on its own width, a long "Call 87.61bb"
+     reached out past the pod's left edge toward the 79% seat. */
+  .sim-hero-compact .sim-actrow {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: calc(var(--card-w) * 2 + var(--space-2) + var(--space-1) * 2);
+    white-space: nowrap;
+  }
+  /* The verdict is a line of the column, not the side flag it is on a wide
+     felt, and it may break between its word and its figures. */
+  .sim-hero-compact .sim-badge {
+    position: static;
+    flex-wrap: wrap;
+    column-gap: var(--space-1);
+    row-gap: 0;
+    max-width: 100%;
+    white-space: normal;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sim-hero-compact .sim-badge {
+      animation-name: sim-badge-strike-inline;
+    }
+    /* The side flag's strike carries its translateY; in the column there is
+       none to carry, so the same strike without it. */
+    @keyframes sim-badge-strike-inline {
+      from {
+        opacity: 0;
+        transform: scale(0.86);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  }
+
+  /* ── The History replayer's pods, same two rows ──────────────────────────
+     No seat button there (no persona to show), so its markup is unchanged and
+     a grid does the job: the action row — the verb, or the showdown delta, or
+     both side by side — over position and the card marker. */
+  .history-replay .tseat {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-items: center;
+    align-items: center;
+    column-gap: var(--space-1);
+  }
+  .history-replay .tseat > .sim-actrow,
+  .history-replay .tseat > .hrt-pod-delta {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    line-height: 1.25;
+  }
+  /* The net figure, struck on the verdict tiers' chips. At 9px its bare
+     tone ink read 3.4:1 (loss) and 4.2:1 (win) on the Night felt; the tier
+     pairs are verified ≥5.0:1 in both themes and read as tokens on the felt.
+     The sign and the figure still carry the meaning; the tone repeats it. */
+  .history-replay .tseat > .hrt-pod-delta {
+    padding-inline: var(--space-1);
+    border-radius: var(--radius-pill);
+    color: var(--sim-tier-muted-ink);
+    background: var(--sim-tier-muted-fill);
+  }
+  .history-replay .tseat > .hrt-pod-delta.sim-net-up {
+    color: var(--sim-tier-good-ink);
+    background: var(--sim-tier-good-fill);
+  }
+  .history-replay .tseat > .hrt-pod-delta.sim-net-down {
+    color: var(--sim-tier-bad-ink);
+    background: var(--sim-tier-bad-fill);
+  }
+  .history-replay .tseat:has(> .hrt-pod-delta) > .sim-actrow {
+    grid-column: 1;
+  }
+  .history-replay .tseat:has(> .sim-actrow) > .hrt-pod-delta {
+    grid-column: 2;
+  }
+  .history-replay .tseat > .sim-meta {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .history-replay .tseat > .tseat-cards,
+  .history-replay .tseat > .sim-reveal {
+    grid-row: 2;
+    grid-column: 2;
+  }
+  .history-replay .tseat:not(:has(> .tseat-cards, > .sim-reveal)) > .sim-meta {
+    grid-column: 1 / -1;
+  }
+  /* The hero's own hand is the one pair on this felt read as cards, not as a
+     marker: full phone size, as on the live table (spec §4), face up in the
+     deal and at the showdown alike. The miniature rules above skip this pod. */
+  .history-replay .hrt-hero-pod .tseat-cards .card,
+  .history-replay .hrt-hero-pod .sim-reveal .card {
+    width: var(--card-w);
+    height: var(--card-h);
+  }
+  /* Beside cards that size, the verb and the showdown delta would each widen a
+     column over them (192px measured), so the delta tucks under the position
+     and the verb hangs under the whole pod, out of its flow, as it does on the
+     live hero. Kept as a top row it made the pod 72px tall, and once the ring
+     gave the header its height back that row reached the pot line (321px² at
+     914×290); hung, the pod is its cards' height and the verb lands in the
+     hero-clearance margin the ring keeps under itself. */
+  .history-replay .tseat.hrt-hero-pod > .sim-actrow {
+    position: absolute;
+    top: 100%;
+    inset-inline: 0;
+    white-space: nowrap;
+  }
+  .history-replay .tseat.hrt-hero-pod > .hrt-pod-delta {
+    grid-row: 3;
+    grid-column: 1;
+  }
+  .history-replay .tseat.hrt-hero-pod > .tseat-cards,
+  .history-replay .tseat.hrt-hero-pod > .sim-reveal {
+    grid-row: 2 / span 2;
+  }
+}
+
 /* ── P3b — portrait ─────────────────────────────────────────────────────────
    The phone gate above serves BOTH orientations from one rule set that was
    sized for a 412px-TALL landscape screen, where moving the page chrome below
@@ -7082,7 +7740,7 @@ kbd {
    the sit-down screen and y1320 in session — 585 to 879px below the fold —
    while staying FIRST in the tab order, so three Tab presses scrolled the page
    down 1203px and straight back to the top. This block is the portrait-only
-   correction, and it is the only thing in the file that fires on orientation.
+   correction; the phone-landscape block just above is its sideways mirror.
 
    LAST IN THE FILE ON PURPOSE. At 412×915 the phone gate, the 920px height
    gate and four width gates all match at once; equal-specificity rules are

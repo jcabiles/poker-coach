@@ -16,6 +16,12 @@ const BASE_KEY: Record<string, string> = {
   bet: "B",
 };
 
+// "Raise small" / "Bet big" are joined by a no-break space: they name ONE
+// option, and a narrow button (the phone-landscape dock column) must break
+// before the size — "Raise small / 11bb" — never inside the name, which read
+// as "Raise / small 11bb" on one button and "Raise small / 2.5bb" on the next.
+const NBSP = "\u00a0";
+
 // Resolve the legal actions into labelled, keyboard-mapped options. Handles the
 // postflop case of TWO bet sizes (small/big) — which collide on action alone —
 // by sizing the label and giving the big bet its own key (V).
@@ -33,7 +39,7 @@ export function legalDecisions(spot: Spot): DecisionOption[] {
         action: "bet",
         size_bb: la.min_bb,
         key: small ? "B" : "V",
-        label: `${small ? "Bet small" : "Bet big"} ${la.min_bb}bb`,
+        label: `${small ? `Bet${NBSP}small` : `Bet${NBSP}big`} ${la.min_bb}bb`,
         primary: !small,
       };
     }
@@ -43,7 +49,7 @@ export function legalDecisions(spot: Spot): DecisionOption[] {
         action: "raise",
         size_bb: la.size_bb,
         key: small ? "R" : "E",
-        label: `${small ? "Raise small" : "Raise big"} ${la.size_bb}bb`,
+        label: `${small ? `Raise${NBSP}small` : `Raise${NBSP}big`} ${la.size_bb}bb`,
         primary: !small,
       };
     }

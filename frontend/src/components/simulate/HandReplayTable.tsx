@@ -207,7 +207,12 @@ export default function HandReplayTable({
         <div className="hrt-stage-col">
           <div className="stage">
             <div className="felt felt-staged">
-              <div className="tablering sim-tablering" role="group" aria-label="table seats">
+              <div
+                className="tablering sim-tablering"
+                data-seats={felt.seats.length}
+                role="group"
+                aria-label="table seats"
+              >
                 <div className="rail" aria-hidden="true" />
                 <div className="table-center">
                   {felt.board.length > 0 && (
