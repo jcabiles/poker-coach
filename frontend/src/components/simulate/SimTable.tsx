@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type { GradeView, SeatView, ShowdownSeatView, SimulateHandView } from "../../api/types";
 import Card from "../Card";
 import { personaLabel } from "./personaLabel";
+import SimCompactSeat, { useSeatDetails } from "./SimCompactSeat";
 import { fmtBb, fmtEvLoss, tierOf } from "./simGrade";
 
 // Simulate S9 table. A purpose-built felt for the persistent session: it reuses
@@ -69,6 +70,7 @@ export default function SimTable({
   onToggleRange,
   revealedBySeat,
   labelsVisible,
+  compact,
 }: {
   hand: SimulateHandView;
   // Playback-scoped public board/street. The server snapshot may already be at
@@ -119,6 +121,14 @@ export default function SimTable({
   // leak (every non-hero seat is a bot) but opens a panel whose header is one.
   // `seat.persona_type` is never nulled: all hiding is here, in the rendering.
   labelsVisible: boolean;
+  // Phone held sideways (`usePhoneLandscape`, the same query string as the CSS
+  // block that slims the pods). Only the MARKUP inside each pod changes: a
+  // villain's position row carries its stack and card marker, the persona plate
+  // and RANGE move behind a tap on that row, and the hero's meta stands beside
+  // its cards. Nothing is inserted before the seats in the ring, and every value
+  // is gated exactly as in the full pod. False everywhere else, where the pods
+  // render as they always have.
+  compact: boolean;
 }) {
   const { seats, pot_bb, hero, to_act_seat, button_seat } = hand;
   const showdownBySeat = new Map<number, ShowdownSeatView>(
@@ -145,6 +155,18 @@ export default function SimTable({
   // exists yet, so the strip also discloses that the ranges shown are 9-max
   // ranges (spec §8, D-no-new-strategy-content).
   const tableSize = ordered.length;
+
+  // Compact seat button: live until the STAGED fold narrates, never on raw status.
+  const tappable = (s: SeatView): boolean =>
+    compact &&
+    labelsVisible &&
+    s.persona_type != null &&
+    !(isRevealed(s.position) && s.status === "folded") &&
+    !hand.hand_over;
+  const details = useSeatDetails(hand.hand_no, (seatIndex) => {
+    const s = seats.find((x) => x.seat_index === seatIndex);
+    return s != null && !s.is_hero && tappable(s);
+  });
 
   return (
     <div className="stage">
@@ -206,12 +228,13 @@ export default function SimTable({
 
             // Chips-in-front: this street's commitment, shown as a small puck in
             // front of the seat. Suppressed for folded seats (nothing to show)
-            // and until this seat's action is narrated (lockstep).
+            // and until this seat's action is narrated (lockstep). A compact pod
+            // says all-in on its stack line instead of on the puck.
             const chips =
               revealed && seat.invested_street_bb > 0 && !folded ? (
                 <span className="sim-chips" title="chips in front">
                   {fmtBb(seat.invested_street_bb)}bb
-                  {allin && <span className="sim-chips-allin"> · all-in</span>}
+                  {allin && !compact && <span className="sim-chips-allin"> · all-in</span>}
                 </span>
               ) : null;
 
@@ -227,7 +250,58 @@ export default function SimTable({
                 </span>
               ) : null;
 
+            const actRow = (lastAction || chips) && (
+              // Verb + chips share ONE row above the cards. Stacked they
+              // cost two lines, which is what pushed flank pods past the
+              // 98px gap between neighbouring seats on the ellipse.
+              <span className="sim-actrow">
+                {lastAction}
+                {chips}
+              </span>
+            );
+            const dealer = isButton && (
+              <span className="dealer" aria-label="dealer button">
+                D
+              </span>
+            );
+
             if (seat.is_hero) {
+              if (compact) {
+                // Compact hero: the cards, and a narrow column on their right
+                // with one short line each — position, stack, the turn cue, the
+                // verdict. The verb and chips keep their row; the landscape CSS
+                // hangs it under the cards, clear of the pot line and the seats.
+                return (
+                  <div
+                    className={
+                      "tseat heroseat sim-seat sim-hero-compact" + (isToAct ? " sim-seat-act" : "")
+                    }
+                    key={seat.seat_index}
+                    style={style}
+                  >
+                    {actRow}
+                    <div className={"hero-ring" + (isToAct ? " sim-ring-live" : "")}>
+                      <div className="cards">
+                        {hero.hole_cards.map((c, j) => (
+                          <Card key={j} card={c} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="herometa">
+                      <span className="sim-hero-line">
+                        {hero.position}
+                        {dealer}
+                      </span>
+                      <span className="sim-hero-line sim-stack num">
+                        {fmtBb(hero.stack_bb)}bb
+                        {allin && <span className="sim-allin"> all-in</span>}
+                      </span>
+                      {isToAct && <span className="sim-hero-line toact">your turn</span>}
+                      {lastGrade && <SimVerdictBadge grade={lastGrade} />}
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div
                   className={"tseat heroseat sim-seat" + (isToAct ? " sim-seat-act" : "")}
@@ -245,12 +319,7 @@ export default function SimTable({
                   </div>
                   <div className="herometa">
                     {hero.position}
-                    {isButton && (
-                      <span className="dealer" aria-label="dealer button">
-                        D
-                      </span>
-                    )}{" "}
-                    · <span className="sim-stack num">{fmtBb(hero.stack_bb)}bb</span>
+                    {dealer} · <span className="sim-stack num">{fmtBb(hero.stack_bb)}bb</span>
                     {isToAct && (
                       <>
                         {" "}
@@ -263,95 +332,134 @@ export default function SimTable({
               );
             }
 
-            return (
-              <div
+            const cardsEl = revealedCards ? (
+              <span className="cards sim-reveal" aria-label={`${seat.position} shows`}>
+                {revealedCards.map((c, j) => (
+                  <Card key={j} card={c} />
+                ))}
+              </span>
+            ) : (
+              !folded && (
+                <span className="tseat-cards">
+                  <Card faceDown />
+                  <Card faceDown />
+                </span>
+              )
+            );
+            // Persona type — a plate of its own. T7: the plate AND its title=
+            // tooltip go together — a tooltip left behind would hand the
+            // archetype to any hover.
+            const plate = labelsVisible && seat.persona_type && (
+              <span className="sim-persona-plate" title={personaLabel(seat.persona_type)}>
+                {personaLabel(seat.persona_type)}
+              </span>
+            );
+            // Range reveal (V2): live villain pods only. Gated on the STAGED fold
+            // state (`folded` above) — same value the pod display uses — so the
+            // button stays until the fold narrates (spec low-2), not the instant
+            // server-truth flips. Also requires a persona (no estimate without a
+            // pack). Hidden at hand_over: the felt reveals real cards, an
+            // estimate is noise. T7 adds `labelsVisible`: the button reveals
+            // nothing itself, but the panel it opens is headed by the archetype.
+            // Its click stops here: on a compact pod it is the seat button's
+            // sibling, and a RANGE tap toggles the range and nothing else.
+            const rangeBtn = labelsVisible && seat.persona_type && !folded && !hand.hand_over && (
+              <button
+                type="button"
                 className={
-                  "tseat sim-seat" +
-                  (folded ? " tseat-folded" : "") +
-                  (isToAct ? " sim-seat-act" : "") +
-                  // Stacking lift: a pod carrying a verb paints ABOVE its
-                  // neighbours, so the label can never be buried by an adjacent
-                  // pod's meta row (the flank-collision defect).
-                  (lastAction ? " sim-seat-labeled" : "")
+                  "sim-vrange-btn" + (openRangeSeat === seat.seat_index ? " sim-vrange-btn-on" : "")
                 }
-                key={seat.seat_index}
-                style={style}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleRange(seat.seat_index);
+                }}
+                aria-pressed={openRangeSeat === seat.seat_index}
+                aria-label={`${
+                  openRangeSeat === seat.seat_index ? "Hide" : "Show"
+                } estimated range for ${seat.position}`}
               >
-                {(lastAction || chips) && (
-                  // Verb + chips share ONE row above the cards. Stacked they
-                  // cost two lines, which is what pushed flank pods past the
-                  // 98px gap between neighbouring seats on the ellipse.
-                  <span className="sim-actrow">
-                    {lastAction}
-                    {chips}
-                  </span>
-                )}
-                {revealedCards ? (
-                  <span className="cards sim-reveal" aria-label={`${seat.position} shows`}>
-                    {revealedCards.map((c, j) => (
-                      <Card key={j} card={c} />
-                    ))}
-                  </span>
-                ) : (
-                  !folded && (
-                    <span className="tseat-cards">
-                      <Card faceDown />
-                      <Card faceDown />
-                    </span>
-                  )
-                )}
+                range
+              </button>
+            );
+            const stackFig = (
+              <span className="stack num sim-stack-row">
+                {fmtBb(seat.stack_bb)}bb
+                {allin && <span className="sim-allin"> all-in</span>}
+              </span>
+            );
+            const podClass =
+              "tseat sim-seat" +
+              (folded ? " tseat-folded" : "") +
+              (isToAct ? " sim-seat-act" : "") +
+              // Stacking lift: a pod carrying a verb paints ABOVE its
+              // neighbours, so the label can never be buried by an adjacent
+              // pod's meta row (the flank-collision defect).
+              (lastAction ? " sim-seat-labeled" : "");
+
+            if (compact) {
+              return (
+                <SimCompactSeat
+                  key={seat.seat_index}
+                  podClass={podClass}
+                  style={style}
+                  seatIndex={seat.seat_index}
+                  position={seat.position}
+                  name={`${seat.position}${isButton ? " dealer" : ""} ${fmtBb(seat.stack_bb)}bb${
+                    allin ? " all-in" : ""
+                  } details`}
+                  actRow={
+                    (lastAction || chips || revealedCards) && (
+                      <span className="sim-actrow">
+                        {lastAction}
+                        {chips}
+                        {revealedCards && cardsEl}
+                      </span>
+                    )
+                  }
+                  ident={
+                    <>
+                      <span className="pos">
+                        {seat.position}
+                        {dealer}
+                      </span>
+                      {stackFig}
+                    </>
+                  }
+                  marker={!revealedCards && cardsEl}
+                  details={
+                    <>
+                      {plate}
+                      {rangeBtn}
+                    </>
+                  }
+                  tappable={tappable(seat)}
+                  open={details.openSeat === seat.seat_index}
+                  onToggle={() => details.toggle(seat.seat_index)}
+                  onClose={details.close}
+                />
+              );
+            }
+
+            return (
+              <div className={podClass} key={seat.seat_index} style={style}>
+                {actRow}
+                {cardsEl}
                 {/* Persona type on its OWN row — a plate above the position line.
                     Splitting it out of the meta row keeps that row (position ·
                     stack · range) from cramming four items across the narrow
-                    flank pods; the full archetype now has room to read.
-                    T7: the plate AND its title= tooltip go together — a tooltip
-                    left behind would hand the archetype to any hover. */}
-                {labelsVisible && seat.persona_type && (
-                  <span className="sim-persona-plate" title={personaLabel(seat.persona_type)}>
-                    {personaLabel(seat.persona_type)}
-                  </span>
-                )}
+                    flank pods; the full archetype now has room to read. */}
+                {plate}
                 {/* Position + range on one row under the persona plate; the
                     stack figure sits on its own row below (owner request). */}
                 <span className="sim-meta">
                   <span className="pos">
                     {seat.position}
-                    {isButton && (
-                      <span className="dealer" aria-label="dealer button">
-                        D
-                      </span>
-                    )}
+                    {dealer}
                   </span>
-                  {/* Range reveal (V2): live villain pods only. Gated on the
-                      STAGED fold state (`folded` above) — same value the pod
-                      display uses — so the button stays until the fold narrates
-                      (spec low-2), not the instant server-truth flips. Also
-                      requires a persona (no estimate without a pack). Hidden at
-                      hand_over: the felt reveals real cards, an estimate is noise.
-                      T7 adds `labelsVisible`: the button reveals nothing itself,
-                      but the panel it opens is headed by the archetype. */}
-                  {labelsVisible && seat.persona_type && !folded && !hand.hand_over && (
-                    <button
-                      type="button"
-                      className={
-                        "sim-vrange-btn" +
-                        (openRangeSeat === seat.seat_index ? " sim-vrange-btn-on" : "")
-                      }
-                      onClick={() => onToggleRange(seat.seat_index)}
-                      aria-pressed={openRangeSeat === seat.seat_index}
-                      aria-label={`${
-                        openRangeSeat === seat.seat_index ? "Hide" : "Show"
-                      } estimated range for ${seat.position}`}
-                    >
-                      range
-                    </button>
-                  )}
+                  {rangeBtn}
                 </span>
                 {/* Stack figure on its own row, below the position line. */}
-                <span className="stack num sim-stack-row">
-                  {fmtBb(seat.stack_bb)}bb
-                  {allin && <span className="sim-allin"> all-in</span>}
-                </span>
+                {stackFig}
               </div>
             );
           })}

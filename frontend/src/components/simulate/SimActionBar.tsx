@@ -128,15 +128,33 @@ export default function SimActionBar({
     return () => window.removeEventListener("keydown", handler);
   }, [options, disabled, commit]);
 
+  // Esc backs an armed shove out from wherever focus is, not only from inside
+  // this toolbar: the warning says "press Escape", and a player who armed it and
+  // then tabbed to a seat's button (or tapped the felt, leaving focus on the
+  // page) must not find the key dead. The shove owns Esc first — an open seat's
+  // details yield to its warning (SimCompactSeat) — and only three things claim
+  // the key ahead of it: the nav sheet and a native dialog (the guard
+  // HandReplayTable uses) and the range panel, whose own Esc closes it. One
+  // press never closes two things. Bound only while a shove is armed.
+  useEffect(() => {
+    if (armedIndex == null) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector(".nav-tabs-open, dialog[open]")) return;
+      if (e.target instanceof Element && e.target.closest(".sim-vrange")) return;
+      e.preventDefault();
+      setArmedIndex(null);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [armedIndex]);
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const next = nextToolbarIndex(e.key, orientation, activeSafe, options.length);
     if (next != null) {
       e.preventDefault();
       setActiveIndex(next);
       btnRefs.current[next]?.focus();
-    } else if (e.key === "Escape" && armedIndex != null) {
-      e.preventDefault();
-      setArmedIndex(null);
     }
   };
 

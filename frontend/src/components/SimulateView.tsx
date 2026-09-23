@@ -179,6 +179,21 @@ function prefersReducedMotion(): boolean {
   }
 }
 
+// Bring a panel below the felt onto the screen and put the keyboard on it.
+//
+// `preventScroll` on the focus call, or it would undo the scroll it follows.
+//
+// The panel is focusable only for the moment it holds focus. A standing
+// tabindex="-1" would make the whole card click-focusable, and the deal-key
+// handler below skips `[tabindex="-1"]` — so a desktop click anywhere on it
+// would have silently switched off Space-to-deal.
+function scrollToPanel(el: HTMLElement): void {
+  el.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  el.tabIndex = -1;
+  el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true });
+  el.focus({ preventScroll: true });
+}
+
 // Delay before revealing the NEXT staged event, given the effective speed.
 // reduced-motion collapses to instant regardless of the stored setting.
 function stepDelayMs(speed: SimSpeed): number {
@@ -633,6 +648,18 @@ export default function SimulateView() {
             : target === "check-resume"
               ? resumeCheckRef.current
               : errorPanelRef.current;
+    // Under the phone gate the table's heading sits BELOW the felt (its topbar
+    // is ordered after it), so a plain focus scrolled the page down to it —
+    // 838px in landscape — and the table the player just sat at was off screen.
+    // Instead the section (the felt first) is brought to the top, from wherever
+    // the room card that was tapped had scrolled the page, and the focus
+    // handoff still lands, without a scroll of its own — HandReplayTable's
+    // mount does the same.
+    if (target === "table" && phone && el) {
+      el.closest(".simulate")?.scrollIntoView({ block: "start" });
+      el.focus({ preventScroll: true });
+      return;
+    }
     el?.focus();
   });
 
@@ -1110,20 +1137,9 @@ export default function SimulateView() {
   // nothing on screen says a review exists. A button, not an automatic scroll:
   // the felt is where the showdown cards are, and taking it away at the moment
   // the player wants to see it is the opposite of the fix.
-  //
-  // `preventScroll` on the focus call, or it would undo the scroll it follows.
-  //
-  // The wrapper is focusable only for the moment it holds focus. A standing
-  // tabindex="-1" would make the whole card click-focusable, and the deal-key
-  // handler below skips `[tabindex="-1"]` — so a desktop click anywhere on the
-  // recap would have silently switched off Space-to-deal.
   const scrollToReview = useCallback(() => {
     const el = reviewRef.current;
-    if (!el) return;
-    el.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
-    el.tabIndex = -1;
-    el.addEventListener("blur", () => el.removeAttribute("tabindex"), { once: true });
-    el.focus({ preventScroll: true });
+    if (el) scrollToPanel(el);
   }, []);
 
   // Enter or Space deals the next hand once the hand has settled — the topbar
@@ -1218,10 +1234,48 @@ export default function SimulateView() {
       return revealed && openSeat.status === "folded";
     })();
 
-  const toggleRange = useCallback((seatIndex: number) => {
-    setOpenRangeSeat((prev) => (prev === seatIndex ? null : seatIndex));
-  }, []);
-  const closeRange = useCallback(() => setOpenRangeSeat(null), []);
+  // In phone landscape the felt fills the screen and the panel mounts below it,
+  // so a RANGE press would open something the player cannot see. The press that
+  // OPENS a panel there marks it to be brought on screen; the effect after the
+  // render that mounts it (the same render) delivers that and clears the mark,
+  // the same one-shot handoff as `focusAfterSwap`. Closing it there marks the
+  // way back: the panel was the page's focus and the reason it was scrolled
+  // down, so without this the player is left under the felt with the keyboard
+  // on <body>. The felt returns to the top and focus to the seat's RANGE, or to
+  // its seat button once the details that held RANGE have closed.
+  const rangeHandoff = useRef<"none" | "reveal" | { back: number }>("none");
+  const toggleRange = useCallback(
+    (seatIndex: number) => {
+      if (phoneLandscape) {
+        rangeHandoff.current = openRangeSeat !== seatIndex ? "reveal" : { back: seatIndex };
+      }
+      setOpenRangeSeat((prev) => (prev === seatIndex ? null : seatIndex));
+    },
+    [phoneLandscape, openRangeSeat],
+  );
+  useEffect(() => {
+    const handoff = rangeHandoff.current;
+    if (handoff === "none") return;
+    rangeHandoff.current = "none";
+    if (handoff === "reveal") {
+      // SimVillainRange takes no ref, and it is the only range panel on the page.
+      const el = document.querySelector<HTMLElement>(".sim-vrange");
+      if (el) scrollToPanel(el);
+      return;
+    }
+    const pod = document.querySelector(`.sim-seat-compact[data-seat="${handoff.back}"]`);
+    const target =
+      pod?.querySelector<HTMLElement>(".sim-vrange-btn") ??
+      pod?.querySelector<HTMLElement>(".sim-seat-btn");
+    // The same pair the table handoff uses: scroll first, then a focus that
+    // does not scroll again.
+    document.querySelector(".simulate")?.scrollIntoView({ block: "start" });
+    target?.focus({ preventScroll: true });
+  });
+  const closeRange = useCallback(() => {
+    if (phoneLandscape && openRangeSeat != null) rangeHandoff.current = { back: openRangeSeat };
+    setOpenRangeSeat(null);
+  }, [phoneLandscape, openRangeSeat]);
 
   // Auto-close: the open villain's staged fold narrates, or the hand ends
   // (hand_over reveals real cards — an estimate beside the truth is noise). Both
@@ -1230,9 +1284,13 @@ export default function SimulateView() {
   useEffect(() => {
     if (openRangeSeat == null) return;
     if (hand?.hand_over || openSeat == null || openSeatStagedFolded) {
+      // Focus inside the panel would fall to <body> as it unmounts.
+      if (phoneLandscape && document.activeElement?.closest(".sim-vrange")) {
+        rangeHandoff.current = { back: openRangeSeat };
+      }
       setOpenRangeSeat(null);
     }
-  }, [openRangeSeat, hand?.hand_over, openSeat, openSeatStagedFolded]);
+  }, [openRangeSeat, hand?.hand_over, openSeat, openSeatStagedFolded, phoneLandscape]);
 
   // Fetch on open + REFETCH as the narrated count advances while open (lockstep
   // narrowing). Stale-response guard mirrors SimRangeChart: each request is
@@ -1528,6 +1586,7 @@ export default function SimulateView() {
               onToggleRange={toggleRange}
               revealedBySeat={revealedBySeat}
               labelsVisible={labelsVisible}
+              compact={phoneLandscape}
             />
 
             {/* Villain-range panel (V2) — one open villain at a time, keyed by
