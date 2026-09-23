@@ -11,11 +11,15 @@ round 2.
   a redesign; six seats can borrow the six latest 9-max positions so bots and grader need no
   new charts; today's bots feel acceptable at six seats until a research pass tunes them; and
   two devices on one session do not corrupt a hand.
-- Where we are (2026-09-22): the app is on the phone (P1), 6-max exists (S1), and the felt page
-  is playable in landscape (P3a, which replaced the prototype). Next: one live session across
-  devices (P4, in build), then portrait polish for the other pages (P3b), then an always-on
-  stack. Still owed by the owner: one phone hand, the 20-hand landscape verdict, and the first
-  6-max session that unlocks the realism research.
+- Where we are (2026-09-22, evening): everything in NOW is merged — the app is on the phone
+  (P1), 6-max exists (S1), the felt page is playable in landscape (P3a), one session is live
+  across devices (P4, #232), the non-felt pages read top-down in portrait (P3b) and the
+  always-on launchd stack ships as owner-run scripts (both #235). The phone review depth slice
+  (NEXT) is built on `feat/phone-review-depth`: the review surfaces were already readable on
+  the phone; reaching them was what failed, and that is fixed. Still owed by the owner: install
+  the always-on agent from the main checkout, one phone hand (ticks P1 leg (a) and P4's
+  cross-device leg), the 20-hand landscape verdict, and the first 6-max session that unlocks
+  the realism research.
 
 ## North-star outcome
 - Outcome: **Simulate sessions per week** (owner's choice) = `sim_session` rows by the week
@@ -179,7 +183,7 @@ round 2.
       riskiest-assumption: the existing felt is playable on a phone in landscape without a
       redesign · cheapest-test: P1(d) first, then this slice · assumption-status: untested.
 
-- [ ] **P4 — One live session across devices.** problem: the resume pointer lives in each
+- [x] **P4 — One live session across devices.** problem: the resume pointer lives in each
       browser's storage, so the Mac and the phone cannot see the same table ·
       outcome-link: sessions/week (pick up where you left off) · ICE 6·8·7
       what: the server keeps the current session id; the client asks the server on load instead
@@ -198,6 +202,12 @@ round 2.
       riskiest-assumption: two clients on one session can be serialized by the existing
       per-request bot resolution without a lock · cheapest-test: P1(c) ·
       assumption-status: untested until P1 reports.
+      **Built and merged as #232 (2026-09-22); ticked the same day.** The machine-checkable legs
+      passed at fan-in (ledger "P4 fan-in"): the concurrency test only passes with the
+      compare-and-set write, and two tabs acting at once get the 409 refusal and the one-line
+      notice. The riskiest assumption was refuted by P1(c) and answered by the compare-and-set, so
+      it is no longer an assumption. Still owed by the owner: the cross-device leg by hand (start on
+      the Mac, act on the phone, act again on the Mac), which is the same phone hand P1 leg (a) owes.
 
 ## NEXT (validated problems, not yet spec'd)
 - **P3 — Phone polish.** evidence: P2's per-screen verdict (not yet held) · candidate slices:
@@ -238,9 +248,30 @@ round 2.
   is on the home wifi whenever the Mac is awake. **Owed by the owner:** run the install once in a
   plain terminal and confirm the stack returns within five minutes after a sleep or a `stop`. The
   original open question (does forgetting to start it cost sessions) is moot once installed.
-- **Phone review depth.** evidence: v1 phone scope includes review, ledger, stats but the
-  prototype covers ledger only · candidate slices: post-hand review card, stats and leaks, hand
-  replayer at phone size · open questions: which the owner uses on the phone at all.
+- **Phone review depth — BUILT 2026-09-22** (spec `../specs/phone-review-depth.md`, branch
+  `feat/phone-review-depth`, PR pending). evidence: v1 phone scope includes review, ledger, stats but
+  the prototype covers ledger only · candidate slices: post-hand review card, stats and leaks, hand
+  replayer at phone size · open questions: which the owner uses on the phone at all (the owner ruled
+  the order card → stats and leaks → replayer on 2026-09-22 without playing first).
+  **What the measurement found** (`../reviews/phone-review-depth-measurement.md`): all three
+  surfaces were already readable on the phone (zero sideways overflow, zero contrast failures); what
+  failed was REACHING them. At hand end in landscape the review card began 268px below a 351px
+  screen with only "Next hand" on screen; opening a replay from either entry point landed the
+  viewport past the felt because the page shrinks under the scroll position, and closing one dropped
+  the player at a random point in a 126,448px History list with focus on the body; every review
+  control was under the 44px touch floor. Stats and leaks measured clean and got no change.
+  **What shipped:** a "Review ↓" button in the pinned dock beside "Next hand →"; both replayers open
+  with their felt on screen and close back to the saved scroll with focus on the row or button that
+  opened them (all sizes, not only the phone); Esc closes them, yielding to the nav sheet and the
+  blind-check dialog; the rotate hint inside the History replayer in portrait; six controls raised
+  to 44px; the coach note uses the card's full width. Browser-verified at 915×412, 412×915, 360×800
+  and 1280×800 (`../reviews/phone-review-depth-r2-browser.md`, all legs PASS; desktop boxes identical).
+  pass/fail for the owner: on the phone, finish a hand, tap "Review ↓", read the card; open a hand
+  from History and come back to the same row. **Follow-up recorded, not built:** the History list
+  renders every hand (1,964 rows, 158 screens at 360 wide) with no paging; a "load more" needs a
+  backend change and is its own slice if the owner reaches for History on the phone. Recorded,
+  optional: Simulate has two H1s and no `<main>` landmark; the in-session replayer's street rail is
+  not tappable, so a 22-step hand is 22 taps.
 
 ## LATER (bets, no dates)
 - Bet: one-handed play on the couch needs a portrait, compact felt · segment: owner ·

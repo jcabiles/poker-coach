@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { HandReplayView, ReplayStepView, ShowdownSeatView } from "../../api/types";
 import Card from "../Card";
@@ -59,6 +59,7 @@ export default function HandReplayTable({
   revealPending = false,
   revealUnavailable = false,
   onReveal,
+  rotateHint,
 }: {
   replay: HandReplayView;
   onClose: () => void;
@@ -78,6 +79,14 @@ export default function HandReplayTable({
   revealPending?: boolean;
   revealUnavailable?: boolean;
   onReveal?: (scope: RevealScope) => void;
+  // The "turn your phone sideways" line, rendered by the host under its own
+  // gate (it owns the media queries and the dismissal). Optional like the
+  // reveal props above, for the same reason: the required signature stays
+  // `{ replay, onClose }`. It renders INSIDE this section because the mount
+  // scroll below puts the section's top at the viewport top, so a hint the
+  // host placed above the section would be scrolled off the one screen it
+  // exists for.
+  rotateHint?: ReactNode;
 }) {
   const model = useMemo(() => buildReplayModel(replay), [replay]);
   const visible = model.visibleSteps.length ? model.visibleSteps : [replay.steps.length - 1];
@@ -89,6 +98,23 @@ export default function HandReplayTable({
   useEffect(() => {
     setVpos(0);
   }, [replay.sim_hand_id]);
+
+  const sectionRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  // Open with the replayer on screen, not wherever the list happened to be.
+  // The host swaps a 126,448px list for this section, and the browser clamps
+  // the old scroll position to the shorter document — measured at 303px past
+  // the felt. The correction belongs HERE, after that swap, because this is the
+  // first moment the section exists at its real height. No smooth behaviour:
+  // the player asked for a different screen, not for a journey.
+  //
+  // Once per mount — the host already remounts per hand via `key`.
+  useEffect(() => {
+    sectionRef.current?.scrollIntoView({ block: "start" });
+    // preventScroll, or the focus call would undo the line above.
+    titleRef.current?.focus({ preventScroll: true });
+  }, []);
   const clampedV = Math.min(Math.max(vpos, 0), visible.length - 1);
   const cursor = visible[clampedV];
 
@@ -113,12 +139,14 @@ export default function HandReplayTable({
     [replay],
   );
 
-  // ← / → step over VISIBLE steps. Same input-guard as HandReplay: ignored on
-  // form/editable targets and when a modifier is held, so a key meant for another
-  // control isn't hijacked. Native <button>s keep Enter/Space for jump/step.
+  // ← / → step over VISIBLE steps, Esc closes. Same input-guard as HandReplay:
+  // ignored on form/editable targets and when a modifier is held, so a key meant
+  // for another control isn't hijacked. Native <button>s keep Enter/Space for
+  // jump/step.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.metaKey || e.ctrlKey || e.altKey) {
+      const stepping = e.key === "ArrowLeft" || e.key === "ArrowRight";
+      if ((!stepping && e.key !== "Escape") || e.metaKey || e.ctrlKey || e.altKey) {
         return;
       }
       const target = e.target;
@@ -126,6 +154,16 @@ export default function HandReplayTable({
         target instanceof Element &&
         target.closest('input, textarea, select, [contenteditable="true"]')
       ) {
+        return;
+      }
+      if (!stepping) {
+        // Esc belongs to whatever is on top of this. The phone's nav sheet
+        // closes on its own window handler without preventDefault, and the
+        // hand-200 check is a native dialog — one press must not close two
+        // things, which here would throw away the place in the list.
+        if (document.querySelector(".nav-tabs-open, dialog[open]")) return;
+        e.preventDefault();
+        onClose();
         return;
       }
       e.preventDefault();
@@ -138,15 +176,19 @@ export default function HandReplayTable({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [visible.length]);
+  }, [visible.length, onClose]);
 
   return (
-    <section className="hrt history-replay" aria-label={`Replay of hand ${replay.hand_no}`}>
+    <section
+      className="hrt history-replay"
+      aria-label={`Replay of hand ${replay.hand_no}`}
+      ref={sectionRef}
+    >
       <header className="hrt-head">
         <button type="button" className="btn hrt-back" onClick={onClose}>
           ← Back
         </button>
-        <h2 className="hrt-title">
+        <h2 className="hrt-title" ref={titleRef} tabIndex={-1}>
           Hand <span className="hrt-title-no num">{replay.hand_no}</span>
         </h2>
         <span className="hrt-hero-note">
@@ -157,6 +199,8 @@ export default function HandReplayTable({
           <Card card={replay.hero_cards[1]} />
         </span>
       </header>
+
+      {rotateHint}
 
       <div className="hrt-body">
         {/* LEFT — the live-Simulate felt, stepped. */}

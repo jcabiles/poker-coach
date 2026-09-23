@@ -333,3 +333,63 @@ Verified by the reviewer: `plutil -lint` OK; a `plistlib` type audit (12 integer
 booleans, dict EnvironmentVariables, absolute paths); system bash 3.2 probes for `"$@"` under
 `set -u`, `$UID`, nested-quote expansion; README claims cross-checked against `serve.sh` and
 `coach.py:211`.
+
+---
+## Round 6, 2026-09-22 — blind review of the phone review depth spec
+
+**Bottom line: the measurement reframed the slice (the review surfaces are readable on the phone;
+reaching them is what fails), and the blind review caught four ways the spec's own fix would have
+misfired — a Space press after "Review ↓" would have dealt the next hand, `focus()` would have undone
+the restored scroll, one Esc would have closed the nav sheet and the replayer together, and the
+History rotate hint would have been scrolled off by the mount scroll.** Reviewer: Claude `refuter`
+(Opus), blind; Codex Sol failed to launch in the sandbox (`../reviews/phone-review-depth-r1-sol.md`),
+so the round is same-family. Report `../reviews/phone-review-depth-r1-claude.md`. Measurement
+`../reviews/phone-review-depth-measurement.md` (design-reviewer, Opus, browser). Verdict FAIL: 6
+should-fix, 7 optional. All 13 ACCEPTED; spec rev 2 folds them.
+
+| # | Finding | Claimed | Adjudicated |
+|---|---|---|---|
+| N1 | Focusing the review wrapper arms the global Space/Enter deal key (`SimulateView.tsx:1102-1113`) | should-fix | **ACCEPTED** — verified in code; `[tabindex="-1"]` joins the skip list |
+| N2 | The spec's claimed global focus-ring opt-out does not exist; the app opts out per element (`app.css:6047`) | should-fix | **ACCEPTED** — verified; wrapper added to that rule, headings deliberately not |
+| N3 | Window Escape in the replayers also fires under the nav sheet's own Escape (`App.tsx:297-307`) and the blind-check dialog | should-fix | **ACCEPTED** — verified; guard on `.nav-tabs-open, dialog[open]` |
+| N4 | `focus()` scrolls its target and the 128px `scroll-padding-bottom` undoes the restored `scrollY` | should-fix | **ACCEPTED** — `preventScroll: true` at every focus move |
+| N5 | Hint above the History replayer section is scrolled off by the mount scroll | should-fix | **ACCEPTED** — hint renders inside the section via an optional prop |
+| N6 | `.sim-review-btn` floor rule is dead (`.decision-btn` already 44px at `app.css:626`) | should-fix | **ACCEPTED** — verified; rule dropped, leg (e) keeps the check |
+| N7 | Stale line references; `app.css:5414` is 40px not 32px | optional | **ACCEPTED** — corrected |
+| N8 | `closeReplay` doubles as the load-error Dismiss; a pending-restore ref set there goes stale | optional | **ACCEPTED** — ref set only when a replay is open |
+| N9 | Simulate's restore can clamp ~18px while the side panel refetches | optional | **ACCEPTED as recorded residual** — reviewer records the number |
+| N10 | Helpers already exist (`SimulateView.tsx:175,184,192`); spec renamed one and forgot the key | optional | **ACCEPTED** — move, names unchanged; comments updated |
+| N11 | Verify-by leg (j) tested nothing new | optional | **ACCEPTED** — leg rewritten; History wiring is browser-verified only |
+| N12 | `HandReplay`'s empty-hand branch has its own section and title | optional | **ACCEPTED** — ref on both |
+| N13 | "Review ↓" with Coach off scrolls to the settlement slip | optional | **ACCEPTED as stated behaviour** |
+
+Verified sound by the reviewer, recorded so nobody re-checks: the wrapper `div` is box-neutral (no
+`.sim-main > *` / `:has` / nth-child dependency; the nine-seat opt-out reads `.tablering`'s children);
+the (0,1,0) cascade claims hold and the portrait block has no overriding rule; `.hrt-move` at 44px
+grows in page flow below the felt; the two-button dock stays 61px at 360 wide; `.sim-rotate-hint` CSS
+is unscoped and styles inside `section.history`; Biome's `noDescendingSpecificity` baseline stays at
+18 with the spec's CSS applied; no backend, `types.ts`, `App.tsx` or dependency change.
+
+**Phone review depth fan-in (2026-09-22): VERDICT PASS on both nets.** Fresh Claude `refuter` (Opus)
+on the diff: PASS, 1 should-fix (process: the docs owed by the Definition of done, done in T2) and 3
+optional — all 3 ACCEPTED and applied by the Director: O1 a standing `tabindex="-1"` on the review
+wrapper made the whole card click-focusable and the deal-key skip would then have silently switched
+off Space-to-deal on desktop → the wrapper is focusable only while "Review ↓" holds focus on it
+(attribute set before focus, removed on blur); O2 the rotate-hint markup was duplicated in two views
+→ one `SimRotateHint` component (named `Sim*` because `RotateHint.tsx` collides with `rotateHint.ts`
+on a case-insensitive disk; the typecheck caught it); O3 the portrait block's hint comment named one
+host → names both. Browser reviewer (design-reviewer, Opus, `../reviews/phone-review-depth-r2-browser.md`):
+all nine legs PASS with numbers — "Hand result" at viewport y16.0/16.0/15.8 after "Review ↓", Space
+on the wrapper scrolls and does not deal; History restore from scrollY 20,000: delta 0.00px, focus on
+the same row; in-session landscape open at y0 (was −189), close clamp −18.5px (the recorded residual,
+inside the ≤20px allowance); hint inside the replayer, dismiss shared; seven controls exactly 44px;
+`.sim-recap-why` margin 0; zero overflow; desktop `.sim-main` 864 @ (16,211.5) and `.sim-side` 360 @
+x904 unchanged; zero console errors; new dock button 15.10:1 night / 13.52:1 day. One docs
+should-fix from the browser reviewer ACCEPTED: the measurement's desktop Explain-this cell said 93×32
+and the element is 92.8×24 → corrected in place; the `.dash-leaks` 1048×92 figure it also flagged
+came from the P3b measurement's brief, not this slice's report, and is noted here (measures 1048×477.5
+with six leak cards). Two guarded paths were unreachable in the browser and are recorded as untested:
+Esc yielding to the blind-check `dialog[open]`, and the `h1` focus fallbacks when the row or the replay
+button is unmounted. Gate: `make check` green (backend 2306 passed / 2 skipped, frontend 106 tests,
+Biome `noDescendingSpecificity` baseline still 18). Re-check of legs (a) and (d) after the three
+cleanups: see the appended section of the r2 browser report.
