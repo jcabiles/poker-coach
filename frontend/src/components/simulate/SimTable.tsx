@@ -5,6 +5,7 @@ import Card from "../Card";
 import { personaLabel } from "./personaLabel";
 import SimCompactSeat, { useSeatDetails } from "./SimCompactSeat";
 import { fmtBb, fmtEvLoss, tierOf } from "./simGrade";
+import type { SeatAction } from "./simPlayback";
 
 // Simulate S9 table. A purpose-built felt for the persistent session: it reuses
 // PokerTable's felt/ring/rail CSS classes and elliptical geometry verbatim (so
@@ -64,6 +65,7 @@ export default function SimTable({
   street,
   stagedIndex,
   revealAt,
+  stagedSeats,
   playbackComplete,
   lastGrade,
   openRangeSeat,
@@ -87,6 +89,10 @@ export default function SimTable({
   // ahead of the log. Positions absent from the map settled before this batch
   // (hero, seats already folded) → revealed from the start.
   revealAt: Map<string, number>;
+  // Each villain's verb + chips at the narrated point of the batch
+  // (`stagedSeatActions`); null once the batch has played, when the server's
+  // last_action / invested_street_bb are the truth.
+  stagedSeats: ReadonlyMap<string, SeatAction> | null;
   // True once the staged replay has reached the end of the current batch (the
   // board has fully run out). `hand.showdown` is populated the moment the hand
   // is over server-side, but during a hero-fold the client still stages the
@@ -230,30 +236,34 @@ export default function SimTable({
               ? reveal.hole_cards
               : revealedBySeat.get(seat.seat_index);
             const style = slotStyle(i, ordered.length);
+            const staged =
+              stagedSeats && !seat.is_hero
+                ? (stagedSeats.get(seat.position) ?? { verb: null, chips: 0 })
+                : null;
+            const verb = staged ? staged.verb : revealed ? seat.last_action : null;
+            const chipsBb = staged ? staged.chips : revealed ? seat.invested_street_bb : 0;
 
             // Chips-in-front: this street's commitment, shown as a small puck in
             // front of the seat. Suppressed for folded seats (nothing to show)
             // and until this seat's action is narrated (lockstep). A compact pod
             // says all-in on its stack line instead of on the puck.
             const chips =
-              revealed && seat.invested_street_bb > 0 && !folded ? (
+              chipsBb > 0 && !folded ? (
                 <span className="sim-chips" title="chips in front">
-                  {fmtBb(seat.invested_street_bb)}bb
+                  {fmtBb(chipsBb)}bb
                   {allin && !compact && <span className="sim-chips-allin"> · all-in</span>}
                 </span>
               ) : null;
 
-            // Last-action verb, sat above the cards (and the chips puck). Gated on
-            // the SAME lockstep `revealed` flag as chips/fold state, so the felt
-            // never shows a verb before the event log narrates it. Per-street:
-            // the backend clears it when the street advances (null ⇒ no label).
-            // "Fold" persists for folded seats (backend override).
-            const lastAction =
-              revealed && seat.last_action ? (
-                <span className="sim-last-action" title="last action">
-                  {actionLabel(seat.last_action)}
-                </span>
-              ) : null;
+            // Last-action verb, sat above the cards (and the chips puck). While a
+            // batch plays it comes from the narrated events (`staged`), so it
+            // never leads the log; after that, from the server. Per-street, and
+            // "Fold" persists for folded seats.
+            const lastAction = verb ? (
+              <span className="sim-last-action" title="last action">
+                {actionLabel(verb)}
+              </span>
+            ) : null;
 
             const actRow = (lastAction || chips) && (
               // Verb + chips share ONE row above the cards. Stacked they

@@ -19,6 +19,7 @@ import type {
   GradeView,
   HandReplayView,
   RevealedSeatView,
+  SeatView,
   SessionView,
   SimMode,
   TableSize,
@@ -53,7 +54,7 @@ import SimStreetReport from "./simulate/SimStreetReport";
 import SimTable from "./simulate/SimTable";
 import SimVillainRange from "./simulate/SimVillainRange";
 import SimWatchToggle from "./simulate/SimWatchToggle";
-import { stagedTableState } from "./simulate/simPlayback";
+import { type SeatAction, stagedSeatActions, stagedTableState } from "./simulate/simPlayback";
 import { errorStatus, isStaleState } from "./simulate/staleState";
 
 // Simulate S9 — the playable, persistent table. Hero acts via predetermined
@@ -366,6 +367,10 @@ export default function SimulateView() {
   const narratedBaseRef = useRef(0);
   const narratedHandRef = useRef<string | null>(null);
   const prevEventCountRef = useRef(0);
+  // Each seat's label when the current batch began (the previous view of the
+  // same hand), and the seats of the last adopted view to build the next one.
+  const batchBaselineRef = useRef<ReadonlyMap<string, SeatAction>>(new Map());
+  const lastSeatsRef = useRef<SeatView[]>([]);
 
   // Which villain seat's estimated-range panel is open (one at a time), plus the
   // resolved estimate + its fetch status. openRangeSeat drives the SimTable
@@ -556,9 +561,17 @@ export default function SimulateView() {
         // panel so revealed cards can't carry onto the next dealt hand).
         setRevealScope(null);
         setRevealedSeats([]);
+        batchBaselineRef.current = new Map();
       } else {
         narratedBaseRef.current = narratedBaseRef.current + prevEventCountRef.current + 1;
+        batchBaselineRef.current = new Map(
+          lastSeatsRef.current.map((s) => [
+            s.position,
+            { verb: s.last_action, chips: s.invested_street_bb },
+          ]),
+        );
       }
+      lastSeatsRef.current = res.hand.seats;
       prevEventCountRef.current = newBatch;
       // Reset the staged index ATOMICALLY with the base bump: the playback
       // effect also resets it, but that runs a flush later — in between,
@@ -1084,6 +1097,19 @@ export default function SimulateView() {
   // towards — after the unlock the `/ 200` and the bar both go (spec para 19).
   const gateProgress = challenge && !labelsUnlocked ? gateProgressPct(hand) : null;
 
+  const stagedSeats = useMemo(
+    () =>
+      hand
+        ? stagedSeatActions({
+            baseline: batchBaselineRef.current,
+            startStreet: hand.last_grade?.street,
+            events: hand.events,
+            stagedIndex,
+          })
+        : null,
+    [hand, stagedIndex],
+  );
+
   const tableState = useMemo(
     () =>
       hand
@@ -1585,6 +1611,7 @@ export default function SimulateView() {
               street={tableState?.street ?? hand.street}
               stagedIndex={stagedIndex}
               revealAt={revealAt}
+              stagedSeats={stagedSeats}
               playbackComplete={!playing}
               lastGrade={coachMode ? heroBadge : null}
               openRangeSeat={openRangeSeat}

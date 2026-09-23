@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { EventView } from "../../api/types";
-import { stagedTableState } from "./simPlayback";
+import { stagedSeatActions, stagedTableState } from "./simPlayback";
 
 function event(street: string, position = "BTN"): EventView {
   return {
@@ -100,5 +100,74 @@ describe("stagedTableState", () => {
         stagedIndex: 0,
       }),
     ).toEqual({ street: "flop", board: finalBoard.slice(0, 3) });
+  });
+});
+
+function act(street: string, position: string, action: string, amount_bb = 0): EventView {
+  return { seat_index: 1, position, action, amount_bb, street, all_in: false };
+}
+
+describe("stagedSeatActions", () => {
+  // Hero folded preflop; the bots play the flop and turn in one batch.
+  const events = [
+    act("preflop", "CO", "call", 2),
+    act("flop", "BB", "check"),
+    act("flop", "CO", "bet", 3),
+    act("flop", "BB", "call", 3),
+    act("turn", "BB", "check"),
+    act("turn", "CO", "check"),
+  ];
+  const base = { startStreet: "preflop", events };
+  const baseline = new Map([
+    ["BTN", { verb: "raise", chips: 2.5 }],
+    ["SB", { verb: "fold", chips: 0 }],
+    ["BB", { verb: null, chips: 1 }],
+    ["CO", { verb: null, chips: 0 }],
+  ]);
+
+  it("shows a call the moment it is narrated, though the seat acts again later", () => {
+    const m = stagedSeatActions({ ...base, baseline, stagedIndex: 1 });
+    expect(m?.get("CO")).toEqual({ verb: "call", chips: 2 });
+  });
+
+  it("keeps the batch-start labels and chips on the starting street", () => {
+    const m = stagedSeatActions({ ...base, baseline, stagedIndex: 1 });
+    expect(m?.get("BTN")).toEqual({ verb: "raise", chips: 2.5 });
+    expect(m?.get("BB")).toEqual({ verb: null, chips: 1 });
+  });
+
+  it("clears verbs and chips when the street advances, but a fold persists", () => {
+    const m = stagedSeatActions({ ...base, baseline, stagedIndex: 2 });
+    expect(m?.get("BB")).toEqual({ verb: "check", chips: 0 });
+    expect(m?.get("BTN")).toEqual({ verb: null, chips: 0 });
+    expect(m?.get("SB")).toEqual({ verb: "fold", chips: 0 });
+    expect(m?.get("CO")).toEqual({ verb: null, chips: 0 });
+  });
+
+  it("shows checks and calls on later streets, summing the street's chips", () => {
+    const flop = stagedSeatActions({ ...base, baseline, stagedIndex: 4 });
+    expect(flop?.get("CO")).toEqual({ verb: "bet", chips: 3 });
+    expect(flop?.get("BB")).toEqual({ verb: "call", chips: 3 });
+    const turn = stagedSeatActions({ ...base, baseline, stagedIndex: 6 });
+    expect(turn).toBeNull();
+    const midTurn = stagedSeatActions({ ...base, baseline, stagedIndex: 5 });
+    expect(midTurn?.get("BB")).toEqual({ verb: "check", chips: 0 });
+    expect(midTurn?.get("CO")).toEqual({ verb: null, chips: 0 });
+  });
+
+  it("never lets a blind post count as an action, but its chips do", () => {
+    const m = stagedSeatActions({
+      startStreet: "preflop",
+      events: [act("preflop", "SB", "post", 0.5), act("preflop", "BB", "post", 1)],
+      baseline: new Map(),
+      stagedIndex: 1,
+    });
+    expect(m?.get("SB")).toEqual({ verb: null, chips: 0.5 });
+    expect(m?.has("BB")).toBe(false);
+  });
+
+  it("returns null when there is nothing left to play, so the server's view rules", () => {
+    expect(stagedSeatActions({ ...base, baseline, stagedIndex: events.length })).toBeNull();
+    expect(stagedSeatActions({ ...base, events: [], baseline, stagedIndex: 0 })).toBeNull();
   });
 });
