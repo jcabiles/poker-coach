@@ -165,6 +165,7 @@ export default function SimTable({
         </div>
         <div
           className={"tablering sim-tablering" + (hand.hand_over ? " sim-ring-over" : "")}
+          data-seats={ordered.length}
           role="group"
           aria-label="table seats"
         >

@@ -25,6 +25,7 @@ import type {
   VillainRangeView,
 } from "../api/types";
 import { useIsPortrait } from "../lib/useOrientation";
+import { usePhoneLandscape } from "../lib/usePhoneLandscape";
 import { usePhoneLayout } from "../lib/usePhoneLayout";
 import { archetypeName, isOwnSubmission } from "./simulate/blindCheck";
 import HandReplay from "./simulate/HandReplay";
@@ -1093,6 +1094,9 @@ export default function SimulateView() {
   // viewport). ONE instance either way: the topbar keeps it on every other
   // viewport, and the dock is never a second copy of a button already on screen.
   const phone = usePhoneLayout();
+  // Sideways, the dock is a column on the right edge (app.css), so its toolbar
+  // is vertical there.
+  const phoneLandscape = usePhoneLandscape();
 
   // P3b §7 — the felt in portrait is a worse layout than the felt in landscape
   // (8 overlapping pods at 412×915 against 0 measured sideways), and fixing the
@@ -1566,6 +1570,7 @@ export default function SimulateView() {
                 heroStackBb={hand.hero.stack_bb}
                 disabled={busy || playing}
                 onDecide={decide}
+                orientation={phoneLandscape ? "vertical" : "horizontal"}
               />
             )}
 

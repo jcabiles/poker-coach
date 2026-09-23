@@ -6923,12 +6923,14 @@ kbd {
      Measured at 800×360 on one nine-handed hand, clamp on vs off: the worst
      pod-label overlap went 65.6px² → 498.5px² and the total 65.6px² → 768.2px²,
      which is a villain's stack figure with its first digits under a neighbour's
-     verb. Nine-max on a phone is out of this slice's scope, but it must not get
-     WORSE, so it keeps the tall ring and scrolls instead. The ring's first two
-     children are the rail and the centre, so the ninth pod is child 11 — the
-     same structure in both SimTable and HandReplayTable. */
-  .simulate .tablering:not(:has(> .tseat:nth-child(11))),
-  .history-replay .tablering:not(:has(> .tseat:nth-child(11))) {
+     verb. Portrait keeps that answer — the tall ring, scrolled — and phone
+     landscape replaces this cap outright in the block after this one. The seat
+     count is read from the ring's own `data-seats` (SimTable, HandReplayTable),
+     not from its child count, so a wrapper added inside the ring cannot
+     silently move a nine-seat table under the cap. (0,3,0): the landscape rule
+     after this block is written at the same weight so source order settles it. */
+  .simulate .tablering:not([data-seats="9"]),
+  .history-replay .tablering:not([data-seats="9"]) {
     max-height: calc(100dvh - (var(--space-8) * 4 + var(--space-2)));
   }
   /* Pod rows sit flush on a phone. The rows carry their own padding and
@@ -7074,6 +7076,122 @@ kbd {
   }
 }
 
+/* ── Phone landscape — the felt on a real phone browser ────────────────────
+   The gate above was sized on whole-screen landscape (800×360 to 915×412). A
+   real Chrome tab on the same phone keeps its address bar, and the owner's
+   measures 914×290: the bottom dock took 61px of it, the gate's cap left the
+   ring 840×154 (5.5:1 against a 2.1:1 design) and the seats piled up. Height is
+   the scarce axis here and width is not, so this block gives the dock the
+   right edge instead of the bottom one and hands the table every vertical
+   pixel the frame does not need.
+
+   THE QUERY HAS TWO HOMES and they must stay byte-identical: this opener and
+   `PHONE_LANDSCAPE_QUERY` in `src/lib/usePhoneLandscape.ts`, which is what
+   turns the dock's toolbar vertical exactly where this block stands it up.
+
+   Everything the dock touches is scoped to `.app:has(.simulate)`: History,
+   Practice and Quiz have no dock and keep the gate's layout unchanged. After
+   the gate, so equal-specificity rules resolve here; before the portrait
+   block, which cannot match at the same time (orientation). */
+@media (max-height: 560px) and (orientation: landscape) {
+  /* The dock's reservation moves from the foot of the page to its right edge:
+     the column's own width plus one gutter, so the felt's edge never touches
+     the column's hairline. The bottom strip it replaces is given back. */
+  .app:has(.simulate) {
+    padding-block-end: var(--space-2);
+    padding-inline-end: calc(var(--dock-col-w) + var(--space-2));
+  }
+  /* Nothing is pinned to the foot of the screen any more, so a programmatic
+     scroll has nothing to stop short of. */
+  html:has(.simulate) {
+    scroll-padding-bottom: 0;
+  }
+
+  /* The ring is sized by the height the screen has, not by its ratio: the
+     aspect-ratio lost to the gate's max-height anyway (the 5.5:1 ring), and a
+     wide, full-height ellipse is what spreads the seats apart vertically.
+     What it leaves out is the page's top pad, the felt's two pads, the .ctx
+     line and its margin, the hero-clearance margin under the ring, and one
+     --space-1 that covers the stage's two hairlines and lets the frame end
+     just short of the viewport edge. 224px at 290 tall, six seats or nine —
+     both counts fit here, so the nine-seat opt-out above does not apply.
+     (0,3,0), the same weight as that cap, and later, so it wins. */
+  .simulate .tablering[data-seats],
+  .history-replay .tablering[data-seats] {
+    aspect-ratio: auto;
+    height: calc(
+      100dvh -
+      (var(--space-2) * 3 + var(--text-sm) * 1.5 + var(--space-1) * 2 + var(--space-4))
+    );
+    max-height: none;
+  }
+
+  /* The corner row: ☰ at the top-right, with the slot to its left kept for the
+     full-screen button. Fixed on its own rather than inside the dock, because
+     no dock is mounted while the bots act or before the deal and the sections
+     must stay one tap away then too. The sheet it opens is unchanged.
+     :where() keeps this at the gate's own weight, so the portrait block's
+     display:none still settles on source order. */
+  :where(.app:has(.simulate)) .nav-reveal {
+    top: var(--space-2);
+    bottom: auto;
+    inset-inline-start: auto;
+    inset-inline-end: var(--space-2);
+  }
+
+  /* The dock, stood up as a column on the right edge. It runs the full height
+     so its surface is one continuous rail, and its top pad is the corner row
+     (8 + 44 + 8) the ☰ sits in. Buttons stack from the BOTTOM: the last
+     option — the raise, the room's gilded plate — lands in the same corner
+     under the right thumb however many options come before it, and the
+     height budget (60 + four 44px buttons + three gaps + 8 = 268 of 290)
+     holds with room for one wrapped label. */
+  .app:has(.simulate) .decisionbar.sim-actionbar,
+  .app:has(.simulate) .decisionbar.sim-nextdock {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    inset: 0 0 0 auto;
+    width: var(--dock-col-w);
+    padding: calc(var(--space-2) * 2 + var(--space-8) + var(--space-3)) var(--space-2)
+      var(--space-2);
+    border-top: 0;
+    border-inline-start: thin solid var(--border);
+  }
+  /* In a column the gate's equal-share basis would stretch each button to a
+     quarter of the screen; they keep their own height and wrap a long label to
+     a second line rather than widen the column. The narrow side pad is what
+     keeps "Raise small" on one line, so the longest label is two lines, not
+     three, and four buttons stay inside the height budget above. Balanced, so
+     a wrap splits "Next hand →" as "Next / hand →", never orphaning the arrow. */
+  .app:has(.simulate) .decisionbar .decision-btn {
+    flex: none;
+    padding-inline: var(--space-1);
+    text-wrap: balance;
+  }
+
+  /* The dock's two satellites re-anchor to the column's left edge, at its
+     foot, where the button they concern is. Both get an explicit measure: out
+     of the flow and beside a 112px column there is no container width to
+     shrink to. z 20/21/22 (dock, notice, warning) is the gate's, unchanged. */
+  .app:has(.simulate) .sim-stale-notice {
+    inset-inline: auto calc(var(--dock-col-w) + var(--space-2));
+    bottom: var(--space-2);
+    width: max-content;
+    max-width: calc(var(--space-8) * 9);
+    margin: 0;
+  }
+  .app:has(.simulate) .sim-action-warn {
+    inset-inline: auto 100%;
+    bottom: var(--space-2);
+    width: max-content;
+    max-width: calc(var(--space-8) * 9);
+    margin-block: 0;
+    margin-inline: 0 var(--space-2);
+  }
+}
+
 /* ── P3b — portrait ─────────────────────────────────────────────────────────
    The phone gate above serves BOTH orientations from one rule set that was
    sized for a 412px-TALL landscape screen, where moving the page chrome below
@@ -7082,7 +7200,7 @@ kbd {
    the sit-down screen and y1320 in session — 585 to 879px below the fold —
    while staying FIRST in the tab order, so three Tab presses scrolled the page
    down 1203px and straight back to the top. This block is the portrait-only
-   correction, and it is the only thing in the file that fires on orientation.
+   correction; the phone-landscape block just above is its sideways mirror.
 
    LAST IN THE FILE ON PURPOSE. At 412×915 the phone gate, the 920px height
    gate and four width gates all match at once; equal-specificity rules are
