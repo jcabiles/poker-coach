@@ -6871,6 +6871,36 @@ kbd {
     border-color: var(--primary);
   }
 
+  /* The full-screen switch (SimFullscreenButton, Simulate only). Upright it is
+     a labelled button in the top bar, beside the heading; the landscape block
+     below lifts it into the corner row as the ☰'s twin. Same plate as the ☰ —
+     raised panel, hairline, and the brass rule once it is on — so the pair
+     reads as one set of room controls. The glyph is struck in brass. */
+  .sim-fullscreen-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: calc(var(--space-8) + var(--space-3)); /* 44px touch floor */
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-base);
+    line-height: 1.2;
+    color: var(--text);
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+  }
+  .sim-fullscreen-btn[aria-pressed="true"] {
+    border-color: var(--primary);
+  }
+  .sim-fullscreen-btn:active {
+    transform: translateY(calc(var(--space-1) / 4));
+  }
+  .sim-fullscreen-glyph {
+    flex: none;
+    width: calc(var(--space-4) + var(--space-1));
+    height: calc(var(--space-4) + var(--space-1));
+    stroke: var(--primary);
+  }
+
   /* ── Simulate ──────────────────────────────────────────────────────────── */
   /* The felt first, the session's own controls (speed, watch, grading, leave)
      after it. They are settings, and settings belong under the table on a
@@ -7138,11 +7168,29 @@ kbd {
     );
     max-height: none;
   }
+  /* The History replayer has no .ctx line over its felt but a header row
+     above it — Back, the title, the hero's cards — and a gap under that, so
+     the same budget with those swapped in: 190px at 290 tall. The header is
+     one Back button tall (the 44px touch floor) once the title gives up the
+     browser's default heading margins, which alone had made it 64px and put
+     the felt's foot 44px under the screen edge. The hero's cards in it
+     (0.62 of a card, 45px) sit inside the --space-1 of slack. */
+  .history-replay .tablering[data-seats] {
+    height: calc(
+      100dvh -
+      (var(--space-2) * 3 + var(--space-8) + var(--space-3) * 2 + var(--space-1) + var(--space-4))
+    );
+  }
+  .history-replay .hrt-title {
+    margin-block: 0;
+  }
 
-  /* Taking a seat brings this section to the top of the screen (SimulateView);
+  /* Taking a seat brings this section to the top of the screen (SimulateView),
+     and opening a replay does the same for the replayer (HandReplayTable);
      this keeps the page's own top pad above the felt, so the frame does not
      land flush against the screen edge and read as cut off. */
-  .simulate {
+  .simulate,
+  .history-replay {
     scroll-margin-top: var(--space-2);
   }
 
@@ -7171,6 +7219,14 @@ kbd {
   .history-replay .table-center .board {
     gap: var(--space-1);
   }
+  /* The pot line, in the hero cue's paler foil. With the ring this short the
+     line sits high in the lamp's glow, where --gold-bright fell to 4.46:1 on
+     the Day felt; mixed toward the felt's own ink, as .toact is below, it
+     clears AA under the lamp by day and is lighter still by night. */
+  .simulate .felt-staged .pot,
+  .history-replay .felt-staged .pot {
+    color: color-mix(in srgb, var(--gold-bright) 70%, var(--felt-text));
+  }
   /* A chip is one figure; broken over lines it made its row three tall. */
   .simulate .sim-chips {
     white-space: nowrap;
@@ -7188,7 +7244,7 @@ kbd {
      the pair made a flank pod wide enough to reach the river (82px² at
      800×360, six seats). While the hand runs the stack is 0bb and the tag
      stays; the seat button, whose name repeats it, is gone at hand over. */
-  .simulate .sim-ring-over .sim-seat-compact .sim-allin {
+  .simulate .sim-ring-settled .sim-seat-compact .sim-allin {
     display: none;
   }
 
@@ -7203,6 +7259,22 @@ kbd {
     bottom: auto;
     inset-inline-start: auto;
     inset-inline-end: var(--space-2);
+  }
+  /* The full-screen switch takes the slot kept for it, one gutter to the ☰'s
+     left: two 44px plates and three gutters are exactly the dock column's
+     width, so the pair sits over the column's top pad. Out of the top bar's
+     flow (which paints below the felt here) and shaped as the ☰ is; its words
+     stay in the accessibility tree and the brackets carry it on screen. */
+  .simulate .sim-fullscreen-btn {
+    position: fixed;
+    top: var(--space-2);
+    inset-inline-end: calc(var(--space-2) * 2 + var(--space-8) + var(--space-3));
+    z-index: 40; /* the ☰'s layer, over the dock column's top pad (z 20) */
+    justify-content: center;
+    width: calc(var(--space-8) + var(--space-3));
+    height: calc(var(--space-8) + var(--space-3));
+    padding: 0;
+    box-shadow: var(--shadow-overlay);
   }
 
   /* The dock, stood up as a column on the right edge. It runs the full height
@@ -7335,6 +7407,13 @@ kbd {
   .tseat-folded .sim-seat-id {
     background: none;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--felt-text) 8%, transparent);
+  }
+  /* Without that ground the text sits on bare felt, which the lamp lightens past
+     the flat --felt token: 72% ink measured 4.25–4.45:1 there by night, 80%
+     measured 4.96:1. Day stays well clear. */
+  .tseat-folded .sim-seat-id .pos,
+  .tseat-folded .sim-seat-id .stack {
+    color: color-mix(in srgb, var(--felt-text) 80%, var(--felt));
   }
   .sim-seat-compact .sim-stack-row {
     line-height: 1.25;
@@ -7631,10 +7710,17 @@ kbd {
     height: var(--card-h);
   }
   /* Beside cards that size, the verb and the showdown delta would each widen a
-     column over them (192px measured). The verb keeps the top row to itself
-     and the delta tucks under the position, so the pod stays under 180px. */
+     column over them (192px measured), so the delta tucks under the position
+     and the verb hangs under the whole pod, out of its flow, as it does on the
+     live hero. Kept as a top row it made the pod 72px tall, and once the ring
+     gave the header its height back that row reached the pot line (321px² at
+     914×290); hung, the pod is its cards' height and the verb lands in the
+     hero-clearance margin the ring keeps under itself. */
   .history-replay .tseat.hrt-hero-pod > .sim-actrow {
-    grid-column: 1 / -1;
+    position: absolute;
+    top: 100%;
+    inset-inline: 0;
+    white-space: nowrap;
   }
   .history-replay .tseat.hrt-hero-pod > .hrt-pod-delta {
     grid-row: 3;

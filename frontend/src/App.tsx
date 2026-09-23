@@ -298,6 +298,8 @@ export default function App() {
     if (!sectionsOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Claims the key: SimActionBar's armed-shove listener skips handled events.
+        e.preventDefault();
         setSectionsOpen(false);
         navRevealRef.current?.focus();
       }

@@ -186,7 +186,12 @@ export default function SimTable({
           {tableSize === 6 && <span className="sim-ctx-note">ranges shown are 9-max ranges</span>}
         </div>
         <div
-          className={"tablering sim-tablering" + (hand.hand_over ? " sim-ring-over" : "")}
+          className={
+            "tablering sim-tablering" +
+            (hand.hand_over ? " sim-ring-over" : "") +
+            // Settled = the final batch has also played out; hand_over alone is set before it has.
+            (hand.hand_over && playbackComplete ? " sim-ring-settled" : "")
+          }
           data-seats={ordered.length}
           role="group"
           aria-label="table seats"

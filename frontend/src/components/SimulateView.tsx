@@ -38,6 +38,7 @@ import {
 import SimActionBar from "./simulate/SimActionBar";
 import SimBlindCheck, { type BlindCheckAnswers } from "./simulate/SimBlindCheck";
 import SimEventLog from "./simulate/SimEventLog";
+import SimFullscreenButton from "./simulate/SimFullscreenButton";
 import SimGradingToggle from "./simulate/SimGradingToggle";
 import SimLabelsToggle from "./simulate/SimLabelsToggle";
 import SimLedger from "./simulate/SimLedger";
@@ -1266,7 +1267,8 @@ export default function SimulateView() {
     const pod = document.querySelector(`.sim-seat-compact[data-seat="${handoff.back}"]`);
     const target =
       pod?.querySelector<HTMLElement>(".sim-vrange-btn") ??
-      pod?.querySelector<HTMLElement>(".sim-seat-btn");
+      pod?.querySelector<HTMLElement>(".sim-seat-btn") ??
+      tableHeadingRef.current;
     // The same pair the table handoff uses: scroll first, then a focus that
     // does not scroll again.
     document.querySelector(".simulate")?.scrollIntoView({ block: "start" });
@@ -1377,6 +1379,9 @@ export default function SimulateView() {
             </span>
           )}
         </h1>
+        {/* Spec §6: phone only, both orientations, seated or not. Sideways the
+            CSS lifts it out of this bar into the corner row beside the ☰. */}
+        {phone && <SimFullscreenButton />}
         {view && (
           <div className="sim-topbar-controls">
             {/* Primary next-step lives here, first in the cluster and above the
