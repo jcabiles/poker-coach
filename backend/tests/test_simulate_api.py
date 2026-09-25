@@ -15,7 +15,6 @@ from app.db.migrate import run_migrations
 from app.db.session import get_session
 from app.domain.spot import ActionType, validate_card
 from app.main import app
-from app.services.sim_session import _BUYIN_MAX_BB, _BUYIN_MIN_BB
 
 
 @pytest.fixture
@@ -225,7 +224,7 @@ def test_illegal_hero_action_returns_400(client):
     assert resp.status_code == 400
 
 
-def test_next_hand_rebuys_inside_the_band_and_advances_button(client):
+def test_next_hand_carries_stacks_over_and_advances_button(client):
     create = client.post("/api/v1/simulate/session").json()
     session_id = create["session_id"]
     btn1 = create["hand"]["button_seat"]
@@ -241,15 +240,17 @@ def test_next_hand_rebuys_inside_the_band_and_advances_button(client):
     hand2 = body["hand"]
     assert hand2["hand_no"] == 2
     assert hand2["button_seat"] == (btn1 + 1) % 9
-    # T-STACK: every seat re-buys inside the band before each deal — nothing
-    # carries over. Guard on LIVENESS, not street: a hand that walked to the
-    # big blind comes back already `hand_over`, and its seat stacks are then
+    finished = {seat["seat_index"]: seat["stack_bb"] for seat in settled["hand"]["seats"]}
+    # Stacks carry over; only a seat below 50bb tops back up to 100bb. Guard
+    # on LIVENESS, not street: a hand that walked to the big blind comes back
+    # already `hand_over`, and its seat stacks are then
     # post-settlement, not starting stacks. Deal on until a live hand (in one,
     # the hero always has a preflop decision).
     guard = 0
     while hand2["hand_over"]:
         guard += 1
         assert guard < 20, "20 consecutive walk-outs is not a real table"
+        finished = {seat["seat_index"]: seat["stack_bb"] for seat in hand2["seats"]}
         body = client.post(
             f"/api/v1/simulate/session/{session_id}/hand",
             params={"state_token": body["state_token"]},
@@ -261,10 +262,11 @@ def test_next_hand_rebuys_inside_the_band_and_advances_button(client):
     # is its whole commitment.
     for seat in hand2["seats"]:
         starting = round(seat["stack_bb"] + seat["invested_street_bb"], 2)
-        assert _BUYIN_MIN_BB <= starting <= _BUYIN_MAX_BB
-    # The re-buy is chips entering/leaving play, never P&L: the table's net
+        want = 100.0 if finished[seat["seat_index"]] < 50.0 else finished[seat["seat_index"]]
+        assert starting == want
+    # A top-up is chips entering/leaving play, never P&L: the table's net
     # still sums to zero. (net_bb carrying real P&L across hands is covered
-    # over 20 hands in test_sim_session_buyin_cap.py.)
+    # over 20 hands in test_sim_session_stacks.py.)
     assert round(sum(seat["net_bb"] for seat in hand2["seats"]), 2) == 0.0
     _assert_no_leaked_hole_cards(body)
 

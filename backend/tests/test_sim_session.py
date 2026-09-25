@@ -101,9 +101,7 @@ def test_create_session_seats_and_lineup(db):
     assert by_index[0].is_hero and by_index[0].persona_type is None
     bots = sorted(by_index[i].persona_type for i in range(1, 9))
     assert bots == sorted(v.value for v in play.LINEUP)
-    # T-STACK: hand 1's deal already re-bought every seat inside the band, so
-    # the seeded 100/100 is redrawn — but the ledger still starts at zero.
-    assert all(sim_session._BUYIN_MIN_BB <= s.stack_bb <= sim_session._BUYIN_MAX_BB for s in seats)
+    assert all(s.stack_bb == 100.0 for s in seats)
     assert all(round(s.stack_bb - s.buyins_bb, 2) == 0.0 for s in seats)
     assert len(view.hand.seats) == 9
     assert view.hand.hero.hole_cards is not None
@@ -266,21 +264,8 @@ def test_deal_reproducible_from_rng_seed(db):
     dealt = deal_hand(random.Random(int(row.rng_seed)))
     assert [tuple(s.hole_cards) for s in state.seats] == dealt.hole_cards
     assert state.full_board == dealt.board
-    # T-STACK: the per-hand buy-in draw is pinned to the same recorded seed, so
-    # the START STACKS — an input to the hand, like the cards — are re-derivable
-    # from rng_seed alone. A seat's starting stack is what it has behind plus
-    # everything it has put in.
-    replay_seats = [
-        SimSeat(session_id="s", seat_index=i, is_hero=i == 0, stack_bb=0.0, buyins_bb=0.0)
-        for i in range(9)
-    ]
-    for r, s in zip(replay_seats, state.seats, strict=True):
-        r.stack_bb = round(s.stack_bb + s.invested_total_bb, 2)
-    expected = [r.stack_bb for r in replay_seats]
-    sim_session._rebuy_seats(replay_seats, random.Random(int(row.rng_seed) ^ 1))
-    assert [r.stack_bb for r in replay_seats] == expected
     # NOT full-hand replay: bot actions use a separate, unseeded-from-rng_seed
-    # stream by design — only the deal and the buy-in are pinned to rng_seed.
+    # stream by design — only the deal is pinned to rng_seed.
 
 
 # ---------------------------------------------------- per-decision parity

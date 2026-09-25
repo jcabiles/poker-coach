@@ -24,6 +24,10 @@ round 2.
   measured at the wrong size. A Chrome tab with its address bar is 914×290, not 800×360. The
   phone table fit slice (below) fixes it: a right-edge button column, two-row seats, and a
   full-screen button, for 6-max and 9-max.
+- Update 2026-09-25: the owner played in landscape and ruled it good (P1 leg (a), P4's
+  cross-device leg and the 20-hand landscape verdict all PASS), said the bots feel good at
+  6-max, and ruled that stacks carry over between hands like a real game (below). Bot labels
+  stay hidden until hand 200 in Challenge mode (owner ruling, no change).
 
 ## North-star outcome
 - Outcome: **Simulate sessions per week** (owner's choice) = `sim_session` rows by the week
@@ -289,6 +293,17 @@ round 2.
     without full screen. No seat covers another, the board or the header, and every button is on
     screen.
   - Portrait felt geometry is still recorded, not fixed.
+  - **Owner verdict 2026-09-25: PASS** ("feels great").
+- **Stacks carry over — BUILT 2026-09-25** (owner ruling; supersedes T-STACK, the re-buy of
+  every seat to a random 95–105bb before every hand).
+  - evidence: the owner found the stacks "random" — they moved even in hands the owner sat out,
+    because every seat was reset before each deal.
+  - What shipped: each hand starts from the last hand's finishing stacks. A seat below 50bb (a
+    bust included) tops back up to 100bb before the next deal; there is no upper cap. The
+    ledger's running result is unchanged.
+  - Accepted cost: the table drifts deep, while the bots' all-in logic and the grader are tuned
+    for ~100bb, so deep spots play and grade less exactly. The analytics export keeps the old
+    reset (`--buyin-spread`) so pinned measurement runs stay reproducible.
 
 ## LATER (bets, no dates)
 - Bet: one-handed play on the couch needs a portrait, compact felt · segment: owner ·

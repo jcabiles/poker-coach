@@ -1,8 +1,8 @@
 """Simulate session service (S9) — playable, persistent 6- or 9-max sessions.
 
 Lives in the service layer (not pure domain) because it owns persistence:
-`SimSession`/`SimSeat`/`SimHand` rows, the per-hand re-buy-in that puts every
-seat back on a ~100bb stack before each deal (T-STACK), and the
+`SimSession`/`SimSeat`/`SimHand` rows, the stacks that carry over between
+hands (with a top-up for a seat below 50bb), and the
 serialized live `HandState` (`state_json`, server-side only). All returned
 views are privacy-scrubbed field-by-field — the only hole cards that ever
 leave this module are the hero's plus, at showdown, the settlement's
@@ -10,9 +10,8 @@ leave this module are the hero's plus, at showdown, the settlement's
 never exposed.
 
 RNG lifecycle (spec §RNG lifecycle): the DEAL uses `random.Random(int(rng_seed))`
-with `rng_seed` persisted (reproducible), and so does the per-hand BUY-IN draw
-(`random.Random(seed ^ 1)`) — the start stacks are an input to the hand, like
-the cards, and must be re-derivable from the recorded seed. Bot ACTIONS use a fresh
+with `rng_seed` persisted (reproducible); the start stacks are recoverable from
+the stored state (stack behind + chips invested). Bot ACTIONS use a fresh
 `random.Random(secrets.randbits(256))` per `advance_to_hero` call — re-seeding
 from `rng_seed` each request would replay identical draw sequences per street.
 Bot actions are therefore intentionally NOT replayable from `rng_seed`; restore
@@ -126,39 +125,18 @@ from app.schemas.simulate import (
 )
 
 HERO_SEAT = 0
-# T-STACK (supersedes the W5-c3 200bb carry-over cap): every seat re-buys in
-# before every deal, so no stack carries over. Capped carry-over still let the
-# table compound deep — median start 111-113bb, 34.7-38.7% of seat-hands over
-# 150bb — and every SPR-dependent behaviour (the pack `spr_commit` levers, the
-# content, the grader) is AUTHORED AGAINST the "~100bb" reference pool declared
-# in persona-realism-theory-contract.md §1 (line 17) and §10 (line 317).
-#
-# ⚠️ What this reset does NOT do (measured, four regimes, same lineup and
-# seeds, n=600 — theory review 2026-07-26): it does not fix the roster's
-# over-commitment. Hands committing 60bb+ run 25.7% under carry-over, 24.2%
-# at a flat 100.0, 24.3% under the spread below, 20.7% under a realistically
-# wide distribution — against ~5% in the real world. Normalizing stacks moves
-# it ~1.5 points; the roster is still ~5x reality at exactly 100bb. The cause
-# is POLICY (`personas_postflop.py:889-900`), not depth. This reset removes a
-# CONFOUND — it makes every hand measurable at the authored SPR — and leaves
-# the defect itself to the slice that fits the commitment levers.
-#
-# The re-buy is a narrow SPREAD, not a single constant: `engine.settle` builds
-# side-pot levels from distinct `invested_total_bb`, so a second pot level can
-# only exist if one live seat is all-in for less than another can cover. An
-# exactly-equal table makes side pots structurally impossible — a training
-# product cannot silently lose that situation. +/-5bb recovers ~89% of the
-# side-pot incidence a fully realistic distribution reaches (6.2% of hands vs
-# 7.0%) while keeping every hand at the authored SPR. Known cost, filed as a
-# follow-up, do NOT patch by widening this symmetric box: a +/-5bb box also
-# deletes short-stack ARRIVAL (postflop nodes acted by a <=40bb seat go
-# 7.59% -> 0.00%), which needs an asymmetric mixture and a coverage delta.
-_BUYIN_MIN_BB = 95.0
-_BUYIN_MAX_BB = 105.0
-# Seed value at session creation only; the first deal immediately redraws it
-# from the spread above. Kept at the band's midpoint so a freshly created row
-# is never outside it.
+# Stacks carry over hand to hand, like a real cash game (owner ruling
+# 2026-09-25, superseding T-STACK's re-buy before every deal). A seat that
+# drops below `_TOPUP_BELOW_BB` — a bust included — re-buys to
+# `_STARTING_STACK_BB` before the next deal, like an online auto-rebuy; there
+# is no upper cap. Accepted cost: the table drifts deep (under a 200bb cap,
+# 35-39% of seat-hands started over 150bb), while the pack `spr_commit`
+# levers, the content and the grader are authored against a ~100bb pool
+# (persona-realism-theory-contract.md §1, §10), so deep spots play and grade
+# less exactly. Unequal stacks after hand 1 are also what makes side pots
+# reachable (`engine.settle` levels on distinct `invested_total_bb`).
 _STARTING_STACK_BB = 100.0
+_TOPUP_BELOW_BB = 50.0
 
 # R1 capability seam: gates the on-demand villain reveal after a hero fold. A
 # future hidden-persona mode can flip this off to withhold reveals without a
@@ -247,9 +225,9 @@ def _apply_settlement(seats: list[SimSeat], settlement: Settlement) -> None:
     No correction happens here — `buyins_bb` is untouched, so the whole delta
     lands in `net_bb` (`stack_bb - buyins_bb`, the ledger the UI renders) and
     table-wide chip conservation follows from settlement deltas summing to
-    zero. The re-buy-in that puts the seat back on ~100bb happens at DEAL
-    time (`_rebuy_seats`), which keeps this row — and therefore the settled
-    view a client renders — showing what the seat actually finished with.
+    zero. Any top-up happens at DEAL time (`_top_up_seats`), which keeps this
+    row — and therefore the settled view a client renders — showing what the
+    seat actually finished with.
 
     Rounds to 2dp on every write (engine convention) so net_bb stays free of
     IEEE-754 display noise.
@@ -259,20 +237,18 @@ def _apply_settlement(seats: list[SimSeat], settlement: Settlement) -> None:
         row.stack_bb = round(row.stack_bb + delta, 2)
 
 
-def _rebuy_seats(seats: list[SimSeat], rng: random.Random) -> None:
-    """Re-buy every seat to a fresh stack drawn from the `_BUYIN_*` spread,
-    immediately before a hand is dealt (T-STACK).
+def _top_up_seats(seats: list[SimSeat]) -> None:
+    """Re-buy every seat below `_TOPUP_BELOW_BB` to `_STARTING_STACK_BB`,
+    immediately before a hand is dealt; every other seat keeps its stack.
 
-    Net-invariant: `buyins_bb` absorbs exactly the amount `stack_bb` moves by,
-    so `stack_bb - buyins_bb` is unchanged — topping up or racking off is
-    chips entering/leaving play, not a win or a loss. Draws in whole cents so
-    the stack is exactly representable at 2dp and the ledger stays exact.
+    Net-invariant: `buyins_bb` absorbs exactly the chips added, so
+    `stack_bb - buyins_bb` is unchanged — a top-up is chips entering play,
+    not a win.
     """
-    lo, hi = int(_BUYIN_MIN_BB * 100), int(_BUYIN_MAX_BB * 100)
     for row in seats:
-        target = rng.randint(lo, hi) / 100
-        row.buyins_bb = round(row.buyins_bb + (target - row.stack_bb), 2)
-        row.stack_bb = target
+        if row.stack_bb < _TOPUP_BELOW_BB:
+            row.buyins_bb = round(row.buyins_bb + (_STARTING_STACK_BB - row.stack_bb), 2)
+            row.stack_bb = _STARTING_STACK_BB
 
 
 def _deal_and_advance(
@@ -288,14 +264,9 @@ def _deal_and_advance(
     # call already holds, which is the same basis `start_hand` reads below
     # (`len(stacks_bb)`), so the deal and the seating can never disagree.
     dealt = deal_hand(random.Random(seed), len(seats))
-    # T-STACK: everyone re-buys before the cards are dealt, so `row.stack_bb`
-    # is this hand's STARTING stack for the whole hand and its true FINISHED
-    # stack after `_apply_settlement` — one basis, never a carried-over one.
-    # Derived from the PERSISTED `seed` (not a fresh secrets draw) so the start
-    # stacks — an input to the hand, like the cards — are re-derivable from
-    # `rng_seed` alone. `^ 1` keeps it a distinct stream from the deal's.
-    # Bot ACTIONS stay deliberately unseeded (see the RNG lifecycle note above).
-    _rebuy_seats(seats, random.Random(seed ^ 1))
+    # `row.stack_bb` is this hand's STARTING stack for the whole hand and its
+    # true FINISHED stack after `_apply_settlement`; the next hand starts from it.
+    _top_up_seats(seats)
     state = start_hand(
         dealt,
         button_seat=session.button_seat,

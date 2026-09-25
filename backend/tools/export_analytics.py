@@ -89,24 +89,20 @@ SCHEMA_PATH_VERSION = "v1"  # data-path major; bumps only on a breaking change
 STACKS_BB = 100.0  # every seat starts each hand at 100bb (reset per hand)
 _CONFIG_HASH_RE = re.compile(r"[0-9a-f]{64}")
 
-# F1 (flywheel S6 T2): mirrors the live table's re-buy spread EXACTLY
-# (`app/services/sim_session.py:148-149` `_BUYIN_MIN_BB`/`_BUYIN_MAX_BB`) —
-# same bounds, same integer-cent granularity, same per-hand-seed-derived
-# stream. Kept as a distinct pair of constants (not imported from
-# sim_session, a web-layer module the domain-pure export tool must not
-# depend on) — cross-checked against the live values by a conformance test.
+# F1 (flywheel S6 T2): the T-STACK re-buy spread the live table used until
+# 2026-09-25 (the live table now carries stacks over). Frozen here so runs
+# pinned with `--buyin-spread` stay reproducible; `test_buyin_spread.py`
+# pins the draw.
 _BUYIN_MIN_BB = 95.0
 _BUYIN_MAX_BB = 105.0
 
 
 def _draw_buyin_targets(hand_seed: int) -> list[float]:
-    """Nine per-seat buy-in targets (seat order 0..8), mirroring
-    `sim_session._rebuy_seats`: integer cents drawn uniform on
-    `[_BUYIN_MIN_BB, _BUYIN_MAX_BB]` from a distinct per-hand RNG stream
-    (`hand_seed ^ 1`, matching sim_session.py:220-255's `seed ^ 1`
-    derivation from the hand's OWN seed — never the run's global RNG
-    mid-stream) so the same hand seed reproduces the same targets
-    regardless of how many hands preceded it."""
+    """Nine per-seat buy-in targets (seat order 0..8): integer cents drawn
+    uniform on `[_BUYIN_MIN_BB, _BUYIN_MAX_BB]` from a distinct per-hand RNG
+    stream (`hand_seed ^ 1`, derived from the hand's OWN seed — never the
+    run's global RNG mid-stream) so the same hand seed reproduces the same
+    targets regardless of how many hands preceded it."""
     lo, hi = int(_BUYIN_MIN_BB * 100), int(_BUYIN_MAX_BB * 100)
     rng = random.Random(hand_seed ^ 1)
     return [rng.randint(lo, hi) / 100 for _ in range(9)]
@@ -328,8 +324,8 @@ def run_export(
     as-loaded packs").
 
     `buyin_spread` (F1, flywheel S6 T2): when True, every seat re-buys to a
-    fresh per-hand target drawn by `_draw_buyin_targets` (mirrors the live
-    table's `_rebuy_seats` exactly) instead of the flat 100bb reset; `run_id`
+    fresh per-hand target drawn by `_draw_buyin_targets` (the retired T-STACK
+    live policy) instead of the flat 100bb reset; `run_id`
     gains a `-bspread-` mode token and the manifest records the mode +
     bounds. Default False: output is byte-identical (canonical comparison,
     per the S4 convention) to the pre-flag export — no new manifest fields,
