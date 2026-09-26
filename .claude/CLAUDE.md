@@ -12,25 +12,27 @@ Local NLHE (No-Limit Hold'em) training web app. Monorepo:
 
 See `README.md` for setup, architecture, and status.
 
-## Active initiative — Phone access + 6-max (2026-09)
+## Active initiative — Bot realism at 6-max (2026-09)
 
-Making the trainer playable from the owner's Android phone on the home wifi, then adding 6-max
-tables. Read before touching anything:
-- Roadmap (slices, decisions D1–D4, pass/fail — no separate PRD exists yet for this initiative):
-  `docs/ai-dlc/roadmap/phone-and-6max.md`
-- Finding ledger (review rounds, rescued facts, measurements): `docs/ai-dlc/ledger/phone-and-6max.md`
+Making every bot at the 6-max table play like its type, judged by the owner in a 200-hand
+Challenge session, with each bot's stats in real 6-max ranges as the supporting check. Read before
+touching anything:
+- Roadmap (slices, bets, pass/fail): `docs/ai-dlc/roadmap/bot-realism-6max.md`
+- Evidence: `docs/ai-dlc/reviews/bot-review-200-hands-2026-09-25.md` (a blind review of the
+  owner's 200 hands)
 - Orientation for a fresh session: `docs/ai-dlc/START-HERE.md`
 
-**The bot-realism flywheel initiative that preceded this one is still open, not closed.** Its
-roadmap, `docs/ai-dlc/roadmap/bot-realism-flywheel.md`, has exactly one unticked box: two-mode
-Simulate (Training vs Challenge) is built, and stays open until the owner plays a Challenge-mode
-session and reaches its hand-200 threshold — that play session, not a ticket count, is what closes
-it. Its own persona-realism predecessor roadmap remains **PAUSED**, and its two blocked NEXT items,
-**`T-cover`** (cause of "No baseline yet" is `grade_map_postflop.py`'s *gates*, not the turn/river
-graders) and **`T-agentcoach`** (LLM session coaching, narrate-only, session-level first), stay
-blocked. The phase-3 fix-vs-overhaul question itself was decided 2026-08-15 (ruling A: fix the
-current bots); what both items still wait on is the flywheel's finale — the owner's Challenge-mode
-play session that closes the last open box above.
+**Rules this initiative adds:** 9-max stays byte-identical, with one exception — the
+board-straight bug fix, which applies at both table sizes. Tuning the other bots waits until the
+owner judges the retuned LAG.
+
+**The predecessors are closed or parked.** The phone + 6-max roadmap
+(`docs/ai-dlc/roadmap/phone-and-6max.md`) is built. The bot-realism flywheel closed on
+2026-09-25, when the owner played a 200-hand Challenge session. Its two parked NEXT items,
+**`T-cover`** (the cause of "No baseline yet" is `grade_map_postflop.py`'s *gates*, not the
+turn/river graders) and **`T-agentcoach`** (LLM session coaching, narrate-only, session-level
+first), are no longer blocked by the flywheel. Neither is scheduled. The persona-realism roadmap
+remains **PAUSED**.
 
 ## Session boot checklist + misalignment tripwires (owner-mandated, 2026-08-05)
 

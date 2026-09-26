@@ -524,9 +524,14 @@ S6, the only planned measurement of it, is built but deferred — it now sits in
 > blocks. Slice 3 (calldown) will be spec'd and measured against this interim regime, not the
 > old frozen bands; see the slice 3 entry above.
 
-- [ ] **Two-mode Simulate (Training / Challenge) — supersedes the persona-label toggle. BUILT
-      AND REVIEWED 2026-08-27, MERGED 2026-09-18; the box stays unticked until the owner plays
-      Challenge mode.**
+- [x] **Two-mode Simulate (Training / Challenge) — supersedes the persona-label toggle. BUILT
+      AND REVIEWED 2026-08-27, MERGED 2026-09-18; CLOSED 2026-09-25 on the owner's play.**
+
+      > **State, 2026-09-25 — CLOSED.** The owner played a 200-hand 6-max Challenge session
+      > (`4b35736f`, 2026-09-25) and reached the hand-200 check, which is this box's condition. The
+      > owner skipped the guesses, so no blind-check score exists. This closes the flywheel
+      > initiative. Its owner-facing successor is `bot-realism-6max.md`, which does not reopen the
+      > detection-rate research.
 
       > **State, 2026-09-18.** The owner authorized the merge on 2026-09-18, conditional on green
       > gates and a fresh reviewer's approval; both were met the same day (a fresh Opus refuter
