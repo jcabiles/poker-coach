@@ -239,7 +239,8 @@ round 2.
   (no settings screen exists; building one is a later slice if wanted); the felt in portrait is
   recorded, not fixed (8–11 overlapping pod pairs; the hint is the answer). Still owed by the
   owner: the 20-hand landscape verdict.
-- **6-max realism research.** evidence: every persona band and range was recalibrated to 9-max
+- **6-max realism research — MOVED 2026-09-26 to its own roadmap, `bot-realism-6max.md`** (owner
+  play notes arrived; owner chose a separate roadmap). Original entry kept for history. evidence: every persona band and range was recalibrated to 9-max
   in July (persona-realism roadmap, ledger #14 and waves W5); at 6 seats the bots will be tight
   by construction · candidate slices: owner play notes from S1 → a research pass on 6-max
   population stats (VPIP/PFR/RFI by seat, c-bet, WTSD) → per-format pack values with the
