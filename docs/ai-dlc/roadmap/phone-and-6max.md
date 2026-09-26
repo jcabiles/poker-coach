@@ -28,6 +28,10 @@ round 2.
   cross-device leg and the 20-hand landscape verdict all PASS), said the bots feel good at
   6-max, and ruled that stacks carry over between hands like a real game (below). Bot labels
   stay hidden until hand 200 in Challenge mode (owner ruling, no change).
+  This supersedes the "still owed" list above: the landscape verdict and the phone checks are
+  done. The always-on agent is installed but fails, because macOS blocks background jobs from
+  reading `~/Documents` (the fix is the owner's). This roadmap is no longer the active one; the
+  bot work continues in `bot-realism-6max.md`.
 
 ## North-star outcome
 - Outcome: **Simulate sessions per week** (owner's choice) = `sim_session` rows by the week

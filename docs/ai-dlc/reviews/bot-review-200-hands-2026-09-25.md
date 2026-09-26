@@ -1,3 +1,8 @@
+> **Note (2026-09-25):** the `hands.txt` listing and the analysis scripts this review mentions sat
+> in a temporary scratch folder and are not kept. The hands can be rebuilt from
+> `backend/data/poker_coach.db`, session `4b35736fa8c7438eb57ca9d09874f8dc` (table `sim_hand`,
+> `state_json`).
+
 # Bot review: 200-hand 6-max Challenge session `4b35736f…`
 
 ## Bottom line

@@ -6,7 +6,9 @@ status: approved (owner, 2026-09-25)
   200-hand Challenge session. Today the owner flags 2 of the 5 bots (the LAG and the calling
   station). A blind reviewer of the same 200 hands flagged 4 of the 5.
 - **The bet:** these problems can be fixed by changing each bot's settings files (the values in
-  `content/personas/*.json`) at 6-max only, without rewriting how bots make decisions.
+  `content/personas/*.json`) at 6-max only, without rewriting how bots make decisions. There are
+  two named exceptions: M1b (settings that can differ by table size) and the board-straight bug
+  fix.
 - **Testing the bet first:** measure all five bots on thousands of simulated 6-max hands, then
   retune the LAG alone and have the owner play it. Tuning the other bots waits until the owner
   judges the LAG.
@@ -49,7 +51,8 @@ status: approved (owner, 2026-09-25)
 - **The LAG's early-seat width is authored, not a bug.** At 6-max the first seat is LJ, because
   6-max drops the three UTG seats (`backend/app/domain/table/deck.py:34-38`). The LAG's LJ open
   rate is authored at 37.6% (`content/personas/ladders/lag.unopened.json`), which matches the
-  observed 39%. A real 6-max LAG opens about 20–25% there.
+  observed 39%. A real 6-max LAG opens about 20–25% there (approximate — the reviewer's estimate;
+  M1 sources it).
 - **Two facts that shape M2 (blind roadmap review, 2026-09-25):**
   - **There is no 6-max-only settings path today.** Each bot has one settings file, read the same
     way at 6 and 9 seats (`backend/app/domain/personas.py:41-54`, `play.py:234`). So "change 6-max,
@@ -65,10 +68,10 @@ status: approved (owner, 2026-09-25)
 ## NOW (in order; ICE = impact · confidence · ease, each out of 10)
 
 - [ ] **M1 — Measure the 6-max baseline.** ICE 9·8·6.
-  - **Problem:** every number we have comes from 200 hands, and one headline number contradicts
-    its settings file.
-  - **Outcome link:** it provides the stats half of the north star, and it decides whether the
-    LAG problem is a bug or a tuning problem.
+  - **Problem:** every number we have comes from 200 hands, which is too few per bot and per seat
+    to tune against.
+  - **Outcome link:** it provides the stats half of the north star, and it checks that the
+    simulator can stand in for the owner's play before any tuning relies on it.
   - **What it delivers:**
     - Teach the bot-vs-bot simulator (`backend/tools/export_analytics.py`, 9-max only today) to
       run the live 6-max lineup: nit, LAG, TAG, TAG and station, with a TAG as the stand-in for
@@ -94,15 +97,20 @@ status: approved (owner, 2026-09-25)
     table.
   - **Cheapest test** (fixed before the run):
     - Compare each bot's VPIP, PFR and flop c-bet rate between the simulation and the 200 real
-      hands in session `4b35736f`.
-    - **Passes** if the real rate falls inside the simulated 95% confidence interval widened by
-      the real sample's own interval.
-    - **Fails** if two or more of the 15 comparisons fall outside that interval. On a failure, M1
-      stops and reports, and nothing downstream starts.
+      hands in session `4b35736f`. That is up to 15 comparisons.
+    - **A comparison is eligible only if the real hands gave it 30 or more chances** (owner ruling,
+      2026-09-25).
+    - **Fewer than 8 eligible comparisons: the result is "can't tell yet".** Tuning does not start.
+      The owner plays more Challenge hands, up to the 500–1,000 already offered, and the check
+      re-runs on the combined sessions.
+    - **Passes** if every eligible real rate falls inside the simulated 95% confidence interval
+      widened by the real sample's own interval. **Fails** if two or more eligible comparisons
+      fall outside it. On a failure M1 stops and reports, and nothing downstream starts.
     - Known limit: the owner, not a stand-in, sat in the real hero seat.
   - **Assumption status:** untested.
 
-- [ ] **M1b — Let bot settings differ by table size.** Owner ruled it in, 2026-09-25.
+- [ ] **M1b — Let bot settings differ by table size.** ICE 6·8·7. Owner ruled it in, 2026-09-25.
+  Can run alongside M1; M2 needs both.
   - **What it delivers:** a bot's settings can carry 6-max-specific values, while 9-max keeps
     reading exactly what it reads today.
   - **Pass/fail:**
@@ -114,7 +122,8 @@ status: approved (owner, 2026-09-25)
   - **Cheapest test:** the byte-identical 9-max check.
   - **Assumption status:** untested.
 
-- [ ] **M2 — Retune the LAG only, at 6-max only.** ICE 8·5·7. **Starts only after M1 reports.**
+- [ ] **M2 — Retune the LAG only, at 6-max only.** ICE 8·5·7. **Starts only after M1 passes and
+  M1b is merged.**
   - **Problem:** the owner's top complaint. The LAG is too loose from early seats, and aggressive
     at odd times: 5× raises into bets, bluff-raising the station, and all-ins with hands that only
     tie the board.
@@ -133,7 +142,10 @@ status: approved (owner, 2026-09-25)
   - **No-gos:**
     - no change to the decision code, apart from the board-straight fix;
     - no other bot is touched.
-  - **Riskiest assumption:** settings changes alone can make the LAG feel right.
+  - **Riskiest assumption:** settings changes, plus the board-straight fix, can make the LAG feel
+    right. The owner judges both together (owner's choice, 2026-09-25), so a pass is not proof
+    that settings alone suffice. The separate commit lets the simulation report each part's
+    share.
   - **Cheapest test:** this slice itself.
     - If the owner still flags the LAG, the other lanes do **not** proceed.
     - Instead the roadmap returns to framing: are the defects in the decision code rather than
@@ -185,7 +197,9 @@ status: approved (owner, 2026-09-25)
   - **Evidence:** live stacks reach 455bb, while the commitment dials assume about 100bb.
   - **Direction (owner, 2026-09-25):** the bots adjust to depth. Stacks keep carrying over, with
     no table maximum.
-  - **Waits on R1's numbers** and on M1's count of how often deep stacks cause bad commitments.
+  - **Waits on R1's numbers.** Its first step is its own measurement: how often deep stacks
+    (over 150bb) lead to bad commitments, taken from the owner's real sessions and from a
+    simulation run with deep starting stacks.
   - **Open question:** the grader's advice is also about 100bb-based. In scope or not?
 
 ## LATER (bets, no dates)
@@ -207,7 +221,8 @@ status: approved (owner, 2026-09-25)
 ## Out of scope / no-gos
 - **9-max stays byte-identical.** Every change is 6-max-only. The one exception is the board-straight
   bug fix (owner, 2026-09-25).
-- **No change to the decision engine unless M2 fails,** and then only after re-framing.
+- **No change to the decision engine unless M2 fails,** and then only after re-framing. There are
+  two named exceptions: M1b's table-size settings layer and the board-straight bug fix.
 - **The repo's global no-gos still apply:**
   - no solver tables (heuristic EVs only, labelled approximate);
   - no hand-history imports;
