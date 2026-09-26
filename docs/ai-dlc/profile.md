@@ -61,18 +61,17 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-25 (bot-realism-6max roadmap approved) · commit: see branch docs/bot-realism-6max-roadmap · log-entry: "2026-09-25 — Bot realism at 6-max roadmap approved; flywheel closed"
-position:     Active initiative is now bot-realism-6max (`roadmap/bot-realism-6max.md`). The phone
-              work is merged and owner-verified in landscape (#236, #237), and stacks now carry
-              over between hands (#239). The owner played 200 Challenge hands at 6-max (session
-              `4b35736f`), which closed the flywheel's last box. The owner's notes flag the LAG
-              and the calling station; a blind review of the same hands is at
-              `reviews/bot-review-200-hands-2026-09-25.md`.
-merged:       #236, #237, #238, #239. The roadmap docs PR is not merged yet.
-awaiting John: (a) merge the roadmap docs PR; (b) fix the always-on agent — macOS blocks it from
-              reading ~/Documents (grant /bin/bash Full Disk Access, or move the repo); (c) `git
-              worktree prune` to clear stale worktree records.
-authorized:   nothing standing. The owner merges every PR; Claude never merges.
-next action:  `/ai-org:spec` for M1 (the 6-max baseline measurement), with R1 (stack-depth
-              research) alongside. M1b, then M2 (the LAG retune plus the board-straight bug fix at
-              both table sizes), follow in order.
+updated:      2026-09-26 (M1 spec written and reviewed) · commit: see branch docs/m1-6max-baseline-spec · log-entry: "2026-09-26 — M1 (6-max baseline) spec + tickets, review adjudicated"
+position:     Roadmap `roadmap/bot-realism-6max.md` is merged (#240). M1 (measure the bots on
+              6,000 simulated 6-max hands and check the simulation against the owner's 200 real
+              hands) is spec'd: `specs/m1-6max-baseline.md` rev 2, `tickets/m1-6max-baseline.md`
+              (6 tickets, T1–T6), `ledger/m1-6max-baseline.md` (8 findings, all folded). Build has
+              not started.
+merged:       #236–#240. The M1 spec PR is not.
+awaiting John: (a) merge the M1 spec PR; (b) approve the M1 tickets for build; (c) always-on
+              agent fix (macOS Full Disk Access for /bin/bash, or move the repo); (d) `git worktree
+              prune`.
+authorized:   nothing standing. The ticket file says `status: proposed`; build needs the owner's
+              explicit go, then `/ai-org:build` in a fresh session. Does NOT cover M1b, M2 or R1.
+next action:  on approval: `/clear`, then `/ai-org:build M1 — measure the 6-max baseline`. R1
+              (stack-depth research) can run alongside via `/research`.
