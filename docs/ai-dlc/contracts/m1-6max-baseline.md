@@ -25,6 +25,10 @@ reads of `export_session.py` and `export_analytics.py`. Line numbers are at `ori
 - `:191` `play_one_hand` defaults stacks to `[STACKS_BB] * 9`.
 - `:349` `run_export` builds `persona_by_seat` over `range(9)`.
 - `:369` `run_export` rotates the button with `i % 9`.
+- `:192` `play_one_hand` calls `deal_hand(random.Random(hand_seed))` with no table size, so it
+  deals in 9-seat card order. The live table passes `len(seats)` (`sim_session.py:266`), and
+  `deck.py:61-63` warns that a mismatched size draws the board from the wrong place. Found by
+  the spec review.
 - `:114` `DEFAULT_LINEUP` is the 9-max roster.
 - The per-seat row loop iterates `state.seats`, so it already works at any size.
 

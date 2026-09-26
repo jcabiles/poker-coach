@@ -1,6 +1,6 @@
 # Tickets — M1, measure the 6-max baseline
 
-status: **proposed** — awaiting the owner's approval at the build gate. Nothing below is
+status: **proposed** (rev 2, after review) — awaiting the owner's approval at the build gate. Nothing below is
 cleared to build.
 - Spec: `../specs/m1-6max-baseline.md`.
 - Contracts: `../contracts/m1-6max-baseline.md`.
@@ -15,25 +15,29 @@ alongside T1–T4, and T6 needs both.
   - At every later barrier, run the whole suite, not a name-filtered selection.
   - "Clean" means no failure beyond that baseline, and no drop in the passing count.
 - **Session ID** used below: `S=4b35736fa8c7438eb57ca9d09874f8dc`.
-- **Before T2:** capture `python -m tools.export_session --session $S > $TMPDIR/es-before.txt`
-  on `origin/main`, from `backend/` with the main checkout's venv.
+- **Before T2:** on `origin/main`, from `backend/` with the main checkout's venv, capture
+  `python -m tools.export_session --session $S --max-hand-no 201 --db $DB | grep -v 'tool SHA' > $TMPDIR/es-before.txt`.
+  `$DB` is the main checkout's `backend/data/poker_coach.db`. The `tool SHA` line changes with
+  every commit, so it is removed from both sides.
 
 ---
 
 ### T1 — Let the simulator's single-hand function play any table size
 - **What:**
   - `_draw_buyin_targets(hand_seed, n=9)` draws `n` targets.
-  - `play_one_hand` takes its seat count from `len(stacks_bb)`, keeps the 9 × 100bb default,
+  - `play_one_hand` takes its seat count from `len(stacks_bb)`, deals with
+    `deal_hand(random.Random(hand_seed), len(stacks_bb))` as the live table does, keeps the 9 × 100bb default,
     and adds `"state": state`, the final `HandState`, to its return value.
   - `run_export` is untouched.
-- **Owns:** `backend/tools/export_analytics.py`, plus one new test in
-  `backend/tests/test_buyin_spread.py`.
-  - The new test only adds: `_draw_buyin_targets(seed, 6)` returns 6 targets, equal to the first
-    6 of the 9-target draw.
-  - No existing line in that file changes.
+- **Owns:** `backend/tools/export_analytics.py`, `backend/tests/test_export_analytics_table_size.py`
+  (new).
+  - Its tests: `_draw_buyin_targets(seed, 6)` returns 6 targets, equal to the first 6 of the
+    9-target draw; and `play_one_hand` with 6 stacks returns 6 seats with only 6-max positions
+    and a `"state"`.
+  - `test_buyin_spread.py` is not touched.
 - **Imitate:** the frozen-oracle test already in `test_buyin_spread.py`.
 - **Done when:**
-  - `git diff origin/main -- backend/tests/test_buyin_spread.py` shows additions only;
+  - `git diff origin/main -- backend/tests/test_buyin_spread.py` is empty;
   - `pytest tests/test_buyin_spread.py tests/test_export_analytics_schema.py tests/test_capped_composition_probe.py`
     passes;
   - the four pinned digests still match.
@@ -53,7 +57,8 @@ alongside T1–T4, and T6 needs both.
   - `stats_for` returns the same counts as a hand-computed expectation for 2 hand-built hands.
 - **Imitate:** `export_session.py` itself — this is a move, not a rewrite.
 - **Done when:**
-  - `diff $TMPDIR/es-before.txt <(python -m tools.export_session --session $S)` is empty;
+  - `diff $TMPDIR/es-before.txt <(python -m tools.export_session --session $S --max-hand-no 201 --db $DB | grep -v 'tool SHA')`
+    is empty;
   - `wc -l tools/export_session.py` is under 500;
   - the full backend suite is clean.
 
@@ -69,6 +74,7 @@ alongside T1–T4, and T6 needs both.
   - a limp: a chance, but not an open;
   - a BB walk: no chance;
   - raiser checked to on the flop, then bets: a c-bet;
+  - raiser all-in before the flop: no c-bet chance;
   - a donk bet before the raiser acts: no c-bet chance;
   - a fold-out before the flop: no flop and no c-bet chance;
   - `wilson(0, 0)` handled without dividing by zero, plus a known value, for example
@@ -78,7 +84,7 @@ alongside T1–T4, and T6 needs both.
   - the `export_session` diff from T2 is still empty.
 
 ### T4 — `tools/sixmax_baseline.py`: the 6-max run and the fidelity check
-- **What:** the CLI `--hands 6000 --seed 20260926 --session <id> [--db path]`. It holds:
+- **What:** the CLI `--hands 6000 --seed 20260926 --session <id> --max-hand-no <n> [--db path]`. It holds:
   - `run_baseline(n_hands, seed)`, using the spec's seat map, `i % 6` rotation,
     `_draw_buyin_targets(hand_seed, 6)` and the raw packs;
   - `load` for the real session;
@@ -90,14 +96,14 @@ alongside T1–T4, and T6 needs both.
 - **Imitate:** `export_session.py` `main()` for the CLI, and `test_buyin_spread.py` for the
   oracle and determinism tests.
 - **Tests:**
-  - `fidelity_check` gives `PASS` with 0 misses and with 1 miss, `FAIL` with 2, and `CANT_TELL`
+  - `fidelity_check` gives `PASS` with 0 misses and with 1 miss (owner ruling, 2026-09-26), `FAIL` with 2, and `CANT_TELL`
     with 7 eligible;
   - a comparison with 29 real chances is excluded;
   - `run_baseline(60, 1)` is identical across two calls, and every position is one of the six
     6-max labels.
 - **Done when:**
   - the tests pass;
-  - `python -m tools.sixmax_baseline --hands 600 --session $S` completes and prints every
+  - `python -m tools.sixmax_baseline --hands 600 --session $S --max-hand-no 201` completes and prints every
     table;
   - the full suite and `make check` are clean.
 
@@ -106,7 +112,9 @@ alongside T1–T4, and T6 needs both.
   VPIP, PFR, RFI at LJ, HJ, CO, BTN and SB, flop c-bet and WTSD.
   - Record each as a `(format, pool, source)` triple, with VERIFIED only for a directly fetched
     page, DERIVED for arithmetic on sourced figures, and UNVERIFIED otherwise.
-  - Reuse `rfi-seat-provenance.md`'s T2 6-max opening charts.
+  - Reuse `rfi-seat-provenance.md`'s T2 6-max opening charts, labelled as a reference for
+    balanced (solver-style) play only. They are not ranges for a nit, LAG or station; a per-type
+    opening range with no type-specific source is `unsourced`.
   - A stat with no source is written `unsourced`, never filled with a guess.
 - **Owns:** the "Ranges and sources" section of
   `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md` (it creates the file with that section
@@ -118,7 +126,7 @@ alongside T1–T4, and T6 needs both.
 
 ### T6 — Run it and write the report
 - **What:**
-  - Run `python -m tools.sixmax_baseline --session $S` at the defaults (6,000 hands, seed
+  - Run `python -m tools.sixmax_baseline --session $S --max-hand-no 201` at the defaults (6,000 hands, seed
     20260926).
   - Write the rest of `m1-baseline.md` per spec section 6: summary first, the per-bot tables
     against T5's ranges, the fidelity table and verdict, c-bet labelled untested, and known
@@ -131,5 +139,5 @@ alongside T1–T4, and T6 needs both.
   `docs/ai-dlc/roadmap/bot-realism-6max.md`.
 - **Done when:**
   - re-running the command reproduces the report's numbers exactly;
-  - the report states its command, seed, SHA and date;
+  - the report states its command, seed, `--max-hand-no`, SHA and date;
   - `make check` is clean.

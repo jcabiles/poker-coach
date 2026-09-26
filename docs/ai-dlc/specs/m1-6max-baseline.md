@@ -1,4 +1,4 @@
-# Spec — M1, measure the 6-max baseline (rev 1, 2026-09-26)
+# Spec — M1, measure the 6-max baseline (rev 2, 2026-09-26)
 
 **Bottom line:**
 - **What gets built:** a script that plays 6,000 simulated 6-max hands with the same bots you
@@ -17,6 +17,11 @@
     second simulator.
   - The fidelity check runs on the 10 pre-flop comparisons that qualify. C-bet is reported, but
     labelled as never tested against real play.
+- **Exactly one miss out of the 10 comparisons counts as a pass** (owner ruling, 2026-09-26).
+  The roadmap left that case undefined. With 10 comparisons, requiring every one to pass would
+  falsely fail an accurate simulation about 1 time in 5; "2 or more misses fail" does so about
+  1 time in 50.
+- Review: `../ledger/m1-6max-baseline.md`.
 
 ## 1. What changes
 
@@ -26,7 +31,7 @@
 | `backend/tools/table_stats.py` (new) | New home for `Hand`, `load`, `settle_hand`, `replay` and `stats_for`, moved from `export_session.py` without changing behaviour. It gains opening rate by seat and flop c-bet, plus a Wilson 95% interval helper. |
 | `backend/tools/export_session.py` | Imports those names from `table_stats.py` instead of defining them. The printed output is unchanged. |
 | `backend/tools/sixmax_baseline.py` (new) | Runs the 6-max simulation, loads your session, computes both sides through `table_stats`, runs the fidelity check, and prints Markdown tables. |
-| `backend/tests/test_table_stats.py`, `backend/tests/test_sixmax_baseline.py` (new) | Tests. |
+| `backend/tests/test_export_analytics_table_size.py`, `backend/tests/test_table_stats.py`, `backend/tests/test_sixmax_baseline.py` (new) | Tests. |
 | `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md` (new) | The report. |
 | `docs/ai-dlc/roadmap/bot-realism-6max.md` | Tick M1 only if it passes. Record the assumption's status either way. |
 
@@ -43,8 +48,8 @@
     action is a raise. Limps are counted separately and are not opens. This is reported for
     LJ, HJ, CO, BTN and SB.
   - **Flop c-bet** — the chance is a hand where the seat made the last pre-flop raise, saw the
-    flop, and nobody bet on the flop before its first flop action. A c-bet means that first
-    action is a bet. Heads-up and multiway pots are pooled.
+    flop, and made at least one flop action, with nobody betting before its first one. A c-bet
+    means that first action is a bet. A raiser who is all-in before the flop has no chance. Heads-up and multiway pots are pooled.
   - **WTSD** — unchanged: showdown count over hands where the seat saw the flop, using
     `settle()`'s `showdown_seats` and the revealed board.
   - **95% interval** — the Wilson score interval, stdlib only.
@@ -59,6 +64,8 @@
   - **Hand seed:** derived as `run_export` does, with `rng.randrange(1_000_000_000)` from
     `random.Random(seed)`. The same `rng` is passed to `play_one_hand`.
   - **Packs:** the raw as-loaded packs from `load_persona_packs()`.
+  - **Real session:** pinned with `--max-hand-no 201`, because the session can still grow if the
+    owner resumes it.
   - **Output:** the tool writes no Parquet and never calls `run_export`, `derobo_gate`,
     `sweep_runner` or the data-contract check.
 - **Per-bot grouping:**
@@ -84,6 +91,8 @@
   **unedited**.
 - **The `_draw_buyin_targets` signature** gains `n: int = 9`. Existing callers pass nothing, so
   the draw is identical. `test_buyin_spread.py`'s frozen oracle must pass unedited.
+- **`play_one_hand` deals with `deal_hand(random.Random(hand_seed), len(stacks_bb))`,** as the
+  live table does (`sim_session.py:266`). At 9 seats this is the same call as today.
 - **The `play_one_hand` stacks default** becomes `[STACKS_BB] * 9` when `stacks_bb` is None.
   That is unchanged, and table size comes from `len(stacks_bb)`.
 - **The `export_session.py` import surface:** anything that imported `stats_for`, `Hand` and so
@@ -109,7 +118,9 @@
   - `fidelity_check(real_rows, sim_rows)` is tested with hand-made counts for `PASS`, `FAIL`,
     `CANT_TELL`, the 30-chance cutoff and the 1-miss boundary;
   - `run_baseline(n_hands=60, seed=…)` is tested to be deterministic across two runs and to
-    contain six seats with no 9-max position labels.
+    contain six seats with no 9-max position labels;
+  - T1's table-size checks live in the new `tests/test_export_analytics_table_size.py`, never in
+    `test_buyin_spread.py`.
 - **9-max guard:** `tests/test_buyin_spread.py` and `tests/test_export_analytics_schema.py` pass
   unedited.
 
@@ -162,9 +173,10 @@
 1. `make check` passes with no failure beyond the baseline recorded before the first ticket.
 2. `test_buyin_spread.py` passes with its pinned digests unedited:
    `git diff origin/main -- backend/tests/test_buyin_spread.py` is empty.
-3. `python -m tools.export_session --session 4b35736fa8c7438eb57ca9d09874f8dc` prints output
-   identical to `origin/main`.
-4. `python -m tools.sixmax_baseline --session 4b35736fa8c7438eb57ca9d09874f8dc` runs to
+3. `python -m tools.export_session --session 4b35736fa8c7438eb57ca9d09874f8dc --max-hand-no 201 --db <main checkout's backend/data/poker_coach.db>`
+   prints output identical to `origin/main`'s, once the `tool SHA` line is removed from both
+   sides with `grep -v 'tool SHA'`. That line changes with every commit.
+4. `python -m tools.sixmax_baseline --session 4b35736fa8c7438eb57ca9d09874f8dc --max-hand-no 201` runs to
    completion, is deterministic, and its tables match those in the report.
 
 ## 10. Definition of done
