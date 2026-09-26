@@ -1,10 +1,10 @@
 """F1 (flywheel S6 T2): `--buyin-spread` conformance + identity tests.
 
 Three legs, per the ticket:
-1. Conformance — `export_analytics._draw_buyin_targets` reproduces the live
-   `sim_session._rebuy_seats` distribution/semantics exactly (same bounds,
+1. Conformance — `export_analytics._draw_buyin_targets` reproduces the
+   T-STACK re-buy the live table used until 2026-09-25 (same bounds,
    integer-cent granularity, nine draws in seat order, per-hand stream
-   isolation), using the live implementation itself as the oracle.
+   isolation), against a frozen copy of that retired implementation.
 2. Default-path regression — flag OFF is canonically unchanged: no spread
    fields in the manifest, no mode token in run_id, deterministic across two
    runs (canonical compare excludes `exported_at`/`_TIMING.json`, the S4
@@ -25,29 +25,15 @@ import pytest
 pa = pytest.importorskip("pyarrow")
 pq = pytest.importorskip("pyarrow.parquet")
 
-from app.services import sim_session  # noqa: E402 — READ-ONLY oracle
 from tools import export_analytics as ea  # noqa: E402
 from tools.export_analytics import run_export  # noqa: E402
 from tools.sweep_runner import tables_equal  # noqa: E402 — S4's canonical-compare helper
 
 
-class _FakeSeat:
-    """Minimal stand-in for `SimSeat`: `_rebuy_seats` only reads/writes
-    `buyins_bb`/`stack_bb` and is iterated in the given order."""
-
-    def __init__(self, seat_index: int) -> None:
-        self.seat_index = seat_index
-        self.buyins_bb = 0.0
-        self.stack_bb = 100.0
-
-
 def _live_targets(hand_seed: int) -> list[float]:
-    """Oracle: drive the REAL `sim_session._rebuy_seats` with the same
-    `seed ^ 1` derivation `_deal_and_advance` uses, and read back the nine
-    resulting `stack_bb` values in seat order."""
-    seats = [_FakeSeat(i) for i in range(9)]
-    sim_session._rebuy_seats(seats, random.Random(hand_seed ^ 1))
-    return [row.stack_bb for row in seats]
+    """Oracle: the retired live `sim_session._rebuy_seats` draw, frozen."""
+    rng = random.Random(hand_seed ^ 1)
+    return [rng.randint(9500, 10500) / 100 for _ in range(9)]
 
 
 # ---------------------------------------------------------------------------
@@ -55,9 +41,9 @@ def _live_targets(hand_seed: int) -> list[float]:
 # ---------------------------------------------------------------------------
 
 
-def test_bounds_match_live_constants():
-    assert ea._BUYIN_MIN_BB == sim_session._BUYIN_MIN_BB == 95.0
-    assert ea._BUYIN_MAX_BB == sim_session._BUYIN_MAX_BB == 105.0
+def test_bounds_are_the_retired_tstack_band():
+    assert ea._BUYIN_MIN_BB == 95.0
+    assert ea._BUYIN_MAX_BB == 105.0
 
 
 @pytest.mark.parametrize("hand_seed", [0, 1, 42, 123456789, 999999999])
