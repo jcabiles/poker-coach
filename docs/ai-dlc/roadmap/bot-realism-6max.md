@@ -1,4 +1,4 @@
-# Bot Realism at 6-max Roadmap — updated 2026-09-26
+# Bot Realism at 6-max Roadmap — updated 2026-09-25
 status: draft
 
 ## Bottom line
@@ -17,7 +17,7 @@ status: draft
 ## North-star outcome
 - **Outcome:** in one 200-hand 6-max Challenge session, the owner rules each bot "plays like its
   type".
-  - **Baseline** (session `4b35736f`, 2026-09-26): 3 of 5 pass on the owner's feel. The owner
+  - **Baseline** (session `4b35736f`, 2026-09-25): 3 of 5 pass on the owner's feel. The owner
     flagged the LAG and the calling station.
   - **Target:** 5 of 5.
 - **Supporting check, never the verdict:** each bot's stats land inside real 6-max ranges, with a
@@ -26,29 +26,38 @@ status: draft
   - opening rate by seat;
   - c-bet — how often the pre-flop raiser bets the flop;
   - WTSD — how often a bot that sees the flop goes to showdown.
-- **Separation guard:** the fixes must not blur the types. A LAG must still read as a LAG, and
-  the two TAG seats may differ but must both read as TAGs.
+- **Separation guard:** the fixes must not blur the types. It is checked in the owner's verdict:
+  the owner must still be able to name each bot's type. The hand-200 guess, if answered, is the
+  record.
 - **How a round works:** tune → simulate → the owner plays ~200 hands → the owner's verdict. No
   new round starts before the verdict on the last one.
 
 ## Evidence this roadmap starts from
-- **The owner's notes, 2026-09-26:**
+- **The owner's notes, 2026-09-25:**
   - The LAG plays like a maniac: aggressive at odd times and too loose, especially from early
     seats.
   - The calling station's pre-flop range feels too wide, and it bets into the last aggressor
     (hand 86).
   - The other bots feel good.
 - **The blind review of the same 200 hands, done without the owner's notes:**
-  `../reviews/bot-review-200-hands-2026-09-26.md`.
+  `../reviews/bot-review-200-hands-2026-09-25.md`.
   - It agreed on the LAG.
   - It rated the station the most realistic bot, and missed hand 86.
   - It added three problems: the regular bots play backwards after the flop, every bot plays too
     tight behind a limper, and every bot goes to showdown far too often.
   - Its stats come from 10–34 chances per seat, so they are indicative only.
-- **An open contradiction for M1 to settle:** the LAG opened 39% from the first seat, but its
-  settings file authors roughly 15–19% for that seat (`content/personas/ladders/lag.unopened.json`).
-  Either 6-max reads the wrong seat's range, which would be a bug, or the file is being read
-  differently than it looks.
+- **The LAG's early-seat width is authored, not a bug.** At 6-max the first seat is LJ, because
+  6-max drops the three UTG seats (`backend/app/domain/table/deck.py:34-38`). The LAG's LJ open
+  rate is authored at 37.6% (`content/personas/ladders/lag.unopened.json`), which matches the
+  observed 39%. A real 6-max LAG opens about 20–25% there.
+- **Two facts that shape M2 (blind roadmap review, 2026-09-25):**
+  - **There is no 6-max-only settings path today.** Each bot has one settings file, read the same
+    way at 6 and 9 seats (`backend/app/domain/personas.py:41-54`, `play.py:234`). So "change 6-max,
+    keep 9-max identical" first needs settings that can differ by table size (slice M1b).
+  - **Some all-ins are a code bug, not a setting.** A bot treats any straight or better as a
+    monster, even when the board alone makes it and the bot's own cards add nothing
+    (`backend/app/domain/personas_postflop.py:121-122`). This is the likely cause of the "all-in
+    with hands that only tie the board" plays (hands 30 and 134). Retuning cannot fix it.
 - **Stacks now carry over** (PR #239, 2026-09-25). The owner's own stack reached 455bb, while the
   bots are tuned for about 100bb (`spr_commit`, the stack-to-pot commitment dial, is authored per
   persona).
@@ -62,14 +71,19 @@ status: draft
     LAG problem is a bug or a tuning problem.
   - **What it delivers:**
     - Teach the bot-vs-bot simulator (`backend/tools/export_analytics.py`, 9-max only today) to
-      run the live 6-max lineup: nit, LAG, TAG, TAG and station, plus a stand-in for the hero seat.
-    - Run 5,000 or more hands, with stacks that carry over as they do live.
-    - Produce a per-bot stats table set against cited real 6-max ranges.
+      run the live 6-max lineup: nit, LAG, TAG, TAG and station, with a TAG as the stand-in for
+      the hero seat.
+    - Run 5,000 or more hands at the existing 95–105bb starting spread. Deep-stack effects belong
+      to the deep-stack lane, not here.
+    - Source the real 6-max ranges each stat is judged against, cited with the existing
+      `(format, pool, source)` provenance rule. Reuse `docs/ai-dlc/research/rfi-seat-provenance.md`
+      where it applies. Today's persona bands are 9-max.
+    - Produce a per-bot stats table set against those ranges.
   - **Pass/fail:** the report exists at `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md`
     and does all of the following:
-    - gives every stat above with its sample size, per bot;
-    - answers the first-seat question for the LAG (bug or authoring) by tracing the code;
-    - reports how often a bot commits its stack at depths over 150bb.
+    - gives every stat above with its sample size and a 95% confidence interval, per bot;
+    - cites a real 6-max range for each stat, or marks the stat unsourced;
+    - reports the fidelity check below.
   - **Appetite:** a few days.
   - **No-gos:**
     - no change to any settings file;
@@ -78,8 +92,26 @@ status: draft
       unchanged).
   - **Riskiest assumption:** simulated bot-vs-bot hands reproduce what the owner sees at the
     table.
-  - **Cheapest test:** compare the simulated stats with the 200 real hands in session
-    `4b35736f`. They should agree within sampling noise.
+  - **Cheapest test** (fixed before the run):
+    - Compare each bot's VPIP, PFR and flop c-bet rate between the simulation and the 200 real
+      hands in session `4b35736f`.
+    - **Passes** if the real rate falls inside the simulated 95% confidence interval widened by
+      the real sample's own interval.
+    - **Fails** if two or more of the 15 comparisons fall outside that interval. On a failure, M1
+      stops and reports, and nothing downstream starts.
+    - Known limit: the owner, not a stand-in, sat in the real hero seat.
+  - **Assumption status:** untested.
+
+- [ ] **M1b — Let bot settings differ by table size.** ⚠️ Owner ruling needed (see the gate).
+  - **What it delivers:** a bot's settings can carry 6-max-specific values, while 9-max keeps
+    reading exactly what it reads today.
+  - **Pass/fail:**
+    - 9-max bot decisions are byte-identical on a fixed seed set;
+    - one 6-max override is proved live by a test.
+  - **No-gos:** no settings values change in this slice.
+  - **Riskiest assumption:** an override layer can be added without making settings hard to
+    reason about.
+  - **Cheapest test:** the byte-identical 9-max check.
   - **Assumption status:** untested.
 
 - [ ] **M2 — Retune the LAG only, at 6-max only.** ICE 8·5·7. **Starts only after M1 reports.**
@@ -88,16 +120,17 @@ status: draft
     tie the board.
   - **Outcome link:** it moves one bot toward the north star. More importantly, it tests the whole
     roadmap's bet.
-  - **What it delivers:** 6-max-only LAG settings, changed through the existing
-    `(format, pool, source)` provenance rule that records where each value came from. If M1 finds
-    a seat bug, the bug fix comes first.
+  - **What it delivers:** 6-max-only LAG settings through M1b, each value cited with the
+    `(format, pool, source)` provenance rule.
+  - **Also in scope, owner ruling pending:** the board-straight bug fix (see Evidence), which
+    touches every bot and changes 9-max.
   - **Pass/fail:**
     - the simulated LAG stats land inside the cited 6-max LAG ranges;
     - 9-max output is byte-identical;
     - the owner plays about 200 Challenge hands and rules the LAG "plays like a LAG".
   - **Appetite:** one round.
   - **No-gos:**
-    - no change to the decision code beyond a seat-bug fix, if M1 finds one;
+    - no change to the decision code, apart from the board-straight fix if the owner rules it in;
     - no other bot is touched.
   - **Riskiest assumption:** settings changes alone can make the LAG feel right.
   - **Cheapest test:** this slice itself.
@@ -149,7 +182,7 @@ status: draft
     - Both TAG seats read from one settings file.
 - **Deep-stack behaviour.**
   - **Evidence:** live stacks reach 455bb, while the commitment dials assume about 100bb.
-  - **Direction (owner, 2026-09-26):** the bots adjust to depth. Stacks keep carrying over, with
+  - **Direction (owner, 2026-09-25):** the bots adjust to depth. Stacks keep carrying over, with
     no table maximum.
   - **Waits on R1's numbers** and on M1's count of how often deep stacks cause bad commitments.
   - **Open question:** the grader's advice is also about 100bb-based. In scope or not?
@@ -160,9 +193,16 @@ status: draft
   - **Test:** which table size the owner picks across the next ten sessions.
   - **Review:** after the north star is hit.
 - **Bet:** the hand-200 blind check (guessing each bot's type) is a useful second realism signal.
-  - **Confidence:** low. The owner skipped it on 2026-09-26.
+  - **Confidence:** low. The owner skipped it on 2026-09-25.
   - **Test:** the owner answers it once and says whether it helped.
   - **Review:** after M2.
+
+## Bookkeeping
+- **This roadmap becomes `active:` in `docs/ai-dlc/profile.md` on approval.** It replaces
+  `phone-and-6max`, whose remaining phone items are owner-owed checks, not builds (owner ruling
+  pending).
+- **The flywheel roadmap is closed:** the owner's 200-hand Challenge session `4b35736f` met its
+  last box.
 
 ## Out of scope / no-gos
 - **9-max stays byte-identical.** Every change is 6-max-only.
