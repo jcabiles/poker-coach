@@ -1,5 +1,5 @@
 # Bot Realism at 6-max Roadmap — updated 2026-09-25
-status: draft
+status: approved (owner, 2026-09-25)
 
 ## Bottom line
 - **Goal:** make every bot at the 6-max table play like its type, judged by the owner in a
@@ -102,7 +102,7 @@ status: draft
     - Known limit: the owner, not a stand-in, sat in the real hero seat.
   - **Assumption status:** untested.
 
-- [ ] **M1b — Let bot settings differ by table size.** ⚠️ Owner ruling needed (see the gate).
+- [ ] **M1b — Let bot settings differ by table size.** Owner ruled it in, 2026-09-25.
   - **What it delivers:** a bot's settings can carry 6-max-specific values, while 9-max keeps
     reading exactly what it reads today.
   - **Pass/fail:**
@@ -122,15 +122,16 @@ status: draft
     roadmap's bet.
   - **What it delivers:** 6-max-only LAG settings through M1b, each value cited with the
     `(format, pool, source)` provenance rule.
-  - **Also in scope, owner ruling pending:** the board-straight bug fix (see Evidence), which
-    touches every bot and changes 9-max.
+  - **Also in scope (owner ruling, 2026-09-25):** the board-straight bug fix (see Evidence),
+    applied at both table sizes. It is the one sanctioned 9-max change. Land it as a separate
+    commit, so the simulation can report its effect apart from the LAG retune.
   - **Pass/fail:**
     - the simulated LAG stats land inside the cited 6-max LAG ranges;
-    - 9-max output is byte-identical;
+    - 9-max output is byte-identical except for hands the board-straight fix changes;
     - the owner plays about 200 Challenge hands and rules the LAG "plays like a LAG".
   - **Appetite:** one round.
   - **No-gos:**
-    - no change to the decision code, apart from the board-straight fix if the owner rules it in;
+    - no change to the decision code, apart from the board-straight fix;
     - no other bot is touched.
   - **Riskiest assumption:** settings changes alone can make the LAG feel right.
   - **Cheapest test:** this slice itself.
@@ -198,14 +199,14 @@ status: draft
   - **Review:** after M2.
 
 ## Bookkeeping
-- **This roadmap becomes `active:` in `docs/ai-dlc/profile.md` on approval.** It replaces
-  `phone-and-6max`, whose remaining phone items are owner-owed checks, not builds (owner ruling
-  pending).
+- **This roadmap is `active:` in `docs/ai-dlc/profile.md`** (owner, 2026-09-25). It replaces
+  `phone-and-6max`, whose remaining items are checks the owner owes, not builds.
 - **The flywheel roadmap is closed:** the owner's 200-hand Challenge session `4b35736f` met its
   last box.
 
 ## Out of scope / no-gos
-- **9-max stays byte-identical.** Every change is 6-max-only.
+- **9-max stays byte-identical.** Every change is 6-max-only. The one exception is the board-straight
+  bug fix (owner, 2026-09-25).
 - **No change to the decision engine unless M2 fails,** and then only after re-framing.
 - **The repo's global no-gos still apply:**
   - no solver tables (heuristic EVs only, labelled approximate);

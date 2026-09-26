@@ -7,7 +7,7 @@ artifact_dir: docs/ai-dlc
 # and resumes from its first unchecked slice — never from memory of what seemed
 # next. This field was missing entirely until 2026-08-18, which is why the boot
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
-active:       phone-and-6max
+active:       bot-realism-6max
               # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
               # run of 2026-09-22 complete: P4 (#232) → P3b (#233) → always-on (PR), stacked; owner merges in order
               # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
@@ -61,23 +61,18 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-23 (phone table fit built; PR opening) · commit: see branch feat/phone-table-fit · log-entry: "2026-09-23 — Phone table fit built (right-edge dock, two-row seats, full screen)"
-position:     Every phone slice in NOW is merged, and so is phone review depth (#236). The owner's
-              first real phone session found the landscape felt crowded: a Chrome tab is 914×290,
-              not the 800×360 P3a measured. The phone table fit slice (`/ai-org:design`) is built,
-              gated, browser-verified in three rounds and refuted on `feat/phone-table-fit`; its PR
-              awaits the owner. The 6-max realism research still needs the owner's 6-max play
-              notes. The flywheel roadmap still has one box open (Challenge-mode session to hand 200).
-merged:       #229, #230, #231, #232, #235, #236. The table-fit PR is not.
-awaiting John: (a) merge the table-fit PR; (b) on the phone in landscape, one 6-max and one 9-max
-              hand with and without the full-screen button (this slice's pass/fail), which also
-              covers P1 leg (a), P4's cross-device leg and the 20-hand landscape verdict; (c) run
-              `./scripts/always_on_install.sh` from the MAIN checkout; (d) a 6-max session with play
-              notes; (e) Challenge mode to hand 200; (f) stray dev servers the sandbox cannot kill:
-              `kill $(lsof -ti:7790,7783,7791,7792,7793,8131,8141) $(lsof -ti:7801-7860)`; (g) `git
-              worktree prune` (clears the half-removed review-depth worktree record).
-authorized:   nothing standing. The 2026-09-22 `/ai-org:design` phone-table fix is fully spent.
-              Owner merges every PR; Claude never merges.
-next action:  after the owner's phone check: fix anything it finds, or `/ai-org:spec` for the 6-max
-              realism research once 6-max play notes exist. Portrait felt geometry and History paging
-              remain recorded, not built.
+updated:      2026-09-25 (bot-realism-6max roadmap approved) · commit: see branch docs/bot-realism-6max-roadmap · log-entry: "2026-09-25 — Bot realism at 6-max roadmap approved; flywheel closed"
+position:     Active initiative is now bot-realism-6max (`roadmap/bot-realism-6max.md`). The phone
+              work is merged and owner-verified in landscape (#236, #237), and stacks now carry
+              over between hands (#239). The owner played 200 Challenge hands at 6-max (session
+              `4b35736f`), which closed the flywheel's last box. The owner's notes flag the LAG
+              and the calling station; a blind review of the same hands is at
+              `reviews/bot-review-200-hands-2026-09-25.md`.
+merged:       #236, #237, #238, #239. The roadmap docs PR is not merged yet.
+awaiting John: (a) merge the roadmap docs PR; (b) fix the always-on agent — macOS blocks it from
+              reading ~/Documents (grant /bin/bash Full Disk Access, or move the repo); (c) `git
+              worktree prune` to clear stale worktree records.
+authorized:   nothing standing. The owner merges every PR; Claude never merges.
+next action:  `/ai-org:spec` for M1 (the 6-max baseline measurement), with R1 (stack-depth
+              research) alongside. M1b, then M2 (the LAG retune plus the board-straight bug fix at
+              both table sizes), follow in order.
