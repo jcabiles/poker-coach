@@ -8,8 +8,8 @@ approval covers:
 
 It does **not** cover merging, shipping any 6-max override file or settings value, or starting M2
 or R1.
-**Baseline** (`make check` on `9d20026`, the docs-only commit on top of `main` @ `7d9f575`): recorded
-at the first barrier below.
+**Baseline** (`make check` on `9d20026`, docs only on top of `main` @ `7d9f575`, 2026-09-27): backend
+2338 passed, 2 skipped; frontend 135 passed; lint, format and types clean.
 - Spec: `../specs/m1b-table-size-settings.md` (rev 2).
 - Contracts: `../contracts/m1b-table-size-settings.md`.
 - Ledger: `../ledger/m1b-table-size-settings.md`.
