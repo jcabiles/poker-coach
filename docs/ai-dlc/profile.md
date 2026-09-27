@@ -61,17 +61,17 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-26 (M1 built, reviewed, PR opened) · commit: see branch feat/m1-6max-baseline · log-entry: "2026-09-26 — M1 6-max baseline built; fidelity PASS"
-position:     M1 (the 6-max baseline measurement) is built on `feat/m1-6max-baseline` and ticked
-              in the roadmap. Fidelity check PASS: 10 of 10 pre-flop comparisons eligible, 0
-              misses. Report: `research/bot-realism-6max/m1-baseline.md`. It found the LAG and
-              the TAGs opening far too wide from every seat, the station almost never raising,
-              and the nit, TAGs and station going to showdown about twice as often as real
-              players. Every review finding is fixed (ledger `ledger/m1-6max-baseline.md`).
-merged:       #236–#241. The M1 build PR is open, not merged.
-awaiting John: (a) merge the M1 build PR; (b) choose what comes next: M1b (settings that can
-              differ by table size), which M2 (the LAG retune) needs, and R1 (stack-depth research)
-              alongside; (c) older items: the always-on agent fix, `git worktree prune`.
-authorized:   nothing standing. M1's authorization is spent once its PR is open. M1b, M2 and R1
-              each need their own spec and approval.
-next action:  after the merge: `/ai-org:spec M1b — let bot settings differ by table size`.
+updated:      2026-09-27 (M1b spec approved via --auto-build; build started) · commit: 9d20026 · log-entry: "2026-09-27 — M1b spec rev 2 + tickets; build under --auto-build"
+position:     M1 is merged (#242). M1b (bot settings that can differ by table size) has spec rev 2,
+              contracts, ledger (8 findings, all adjudicated, none open) and tickets T1–T5 on
+              branch `feat/m1b-table-size-settings` (worktree in this session's scratchpad). Build
+              is in progress, strictly T1 → T2 → T3 → T4, then the Director's close-out T5.
+merged:       #236–#242.
+awaiting John: (a) Gemini login (`agy` once in a plain terminal): its fallback review timed out on
+              auth, and Codex cannot reach its service from the sandbox, so M1b's reviews are
+              Claude-only; (b) older items: the always-on agent fix, `git worktree prune`.
+authorized:   M1b tickets T1–T5, pre-authorized by John's `--auto-build` invocation on 2026-09-27:
+              build, test, live-app check, commit, push `feat/m1b-table-size-settings`, open a PR.
+              NOT covered: merging, shipping any 6-max override file or settings value, M2, R1.
+next action:  continue the M1b build from the first ticket without a commit on the branch; after
+              the PR, John merges, then `/ai-org:spec M2 — retune the LAG at 6-max`.

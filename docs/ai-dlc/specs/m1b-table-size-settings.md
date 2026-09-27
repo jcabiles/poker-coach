@@ -1,4 +1,4 @@
-# Spec — M1b, let bot settings differ by table size (rev 1, 2026-09-27)
+# Spec — M1b, let bot settings differ by table size (rev 2, 2026-09-27)
 
 **Bottom line:**
 - **What gets built:** a bot can carry 6-max-only values in a small separate file,
@@ -18,7 +18,9 @@
   - An override may replace **all preflop rules for a named situation** (a "facing", e.g.
     `unopened`) and **any single sizing or post-flop dial**. Nothing finer (no per-rule patches).
   - The golden fingerprint covers **both** table sizes, beyond the roadmap's 9-max-only check.
-- Review: `../ledger/m1b-table-size-settings.md`.
+- Review: `../ledger/m1b-table-size-settings.md`. Rev 2 folds in round 1's eight findings: a `null`
+  that deletes a dial; every settings-file safety check run at 6-max too; play-level tests that fail
+  when their situation never occurs; and an exact villain-range assertion.
 
 ## 1. What changes
 
@@ -27,11 +29,13 @@
 | `backend/tests/test_bot_decisions_golden.py` (new) | The golden fingerprint, written and passing on **unchanged** code first (T1). |
 | `backend/app/domain/content/persona_override.py` (new) | `PersonaTableOverride`, the model for one override file. Its own module because `content/models.py` is already 558 lines. |
 | `content/schema/persona_override.schema.json` (new) | Generated from `PersonaTableOverride.model_json_schema()`; kept in sync by a test. |
+| `backend/app/domain/table/deck.py` | Becomes the one home of `TableSize = Literal[6, 9]`, next to the 6-max seat rotation it already owns. |
+| `backend/app/schemas/simulate.py` | Imports `TableSize` from `deck.py` instead of defining it (delete, don't duplicate: the domain may not import `schemas`, so the alias moves down). |
 | `backend/app/domain/personas.py` | `load_persona_packs(content_dir=None, table_size=9)`; a private merge function. |
-| `backend/app/services/sim_session.py` | `_packs(table_size)` and `_seat_personas(seats, table_size)`, both with the size **required**; the two `advance_to_hero` call sites (`:275`, `:1089`) and the villain-range endpoint (`:1516`) pass the session's size. |
+| `backend/app/services/sim_session.py` | `_packs(table_size)` and `_seat_personas(seats, table_size)`, both with the size **required**; the two `advance_to_hero` call sites (`:275`, `:1089`) and the villain-range endpoint (`:1516`) pass the session's size. ⚠️ This file is already 2,021 lines. The slice changes about five lines with near-zero net growth and does not split it; splitting is out of scope. |
 | `backend/tools/sixmax_baseline.py` | Loads with `table_size=6`; its docstring line about packs is updated to match. |
 | `backend/tests/test_persona_table_override.py` (new) | Model, merge, error and liveness tests; the schema sync test. |
-| `backend/tests/test_persona_pack_invariants.py` | 6-max coverage check over every shipped override file and over the test fixture. |
+| `backend/tests/test_persona_pack_invariants.py` | Every existing check runs at both table sizes, and over the merged test fixture. Coverage at 6-max checks the six seated positions. |
 | `backend/tests/test_sim_session_table_size_packs.py` (new) | Live-session wiring tests. |
 | `docs/ai-dlc/roadmap/bot-realism-6max.md` | Tick M1b when its pass/fail holds; record the assumption's status. |
 
@@ -43,8 +47,10 @@
     `preflop: dict[PersonaFacing, list[PersonaNode]]` (default empty),
     `sizing: dict[str, Any]` (default empty), `postflop: dict[str, Any]` (default empty).
   - A `_doc` list of strings is accepted, the same convention the settings files use, because M2
-    must cite a source for every value it authors. **Every other unknown top-level key is an
-    error** (`extra="forbid"`).
+    must cite a source for every value it authors. It is declared as
+    `doc: list[str] = Field(default_factory=list, alias="_doc")`, because pydantic treats a field
+    literally named `_doc` as private and `extra="forbid"` would then reject it. **Every other
+    unknown top-level key is an error** (`extra="forbid"`).
   - **Every `sizing` key must name a `PersonaSizing` field and every `postflop` key a
     `PersonaPostflop` field**, checked against `model_fields`. This check is required because
     `PersonaPostflop` silently ignores unknown keys, so a misspelled dial would otherwise do
@@ -53,9 +59,8 @@
     must carry at least one node.
   - **An override that changes nothing** (all three maps empty) is an error.
 - **Loading and merging are owned by `personas.py`:**
-  - `load_persona_packs(content_dir=None, table_size=9)`, where `table_size` is `Literal[6, 9]`
-    defined in the domain. `app/schemas/simulate.TableSize` must not be imported, because the
-    domain may not import the web layer.
+  - `load_persona_packs(content_dir=None, table_size=9)`, typed with `TableSize` from
+    `app/domain/table/deck.py`, which becomes its one home (see §1).
   - **At 9:** exactly today's code path. The `six_max/` directory is never listed or read.
   - **At 6:** load the base packs as today, then read `<content_dir>/six_max/*.json` in sorted
     order. A missing directory means no overrides. It is an error if two files name the same
@@ -65,22 +70,41 @@
     - For each facing in `preflop`, drop every base node with that facing and append the
       override's nodes in the order given. Lookup filters by facing first, so where they sit
       relative to other facings never changes a decision.
-    - Update `sizing` and `postflop` key by key; any other key is left untouched.
+    - Update `sizing` and `postflop` key by key; any other key is left untouched. **An override
+      value of `null` deletes that key** from the merged dict, where any other value sets it. This
+      is what makes "any single dial" true. Several validators check whether a key is *present*,
+      not its value. Adding `size_elasticity` to the LAG, TAG or nit, for example, is rejected
+      unless `stickiness` is deleted in the same override, and a flat `open_bb_mix` needs
+      `open_bb_mix_by_position` deleted. The override model's schema description states this
+      meaning of `null`.
+    - An override with `postflop` keys, applied to a base pack whose `postflop` is `None`, is an
+      error naming the file.
     - Rebuild with `PersonaPack.model_validate`, so every existing validator runs on the merged
-      result: node ordering, weight sums, and the nine-position completeness of
-      `open_bb_mix_by_position`. That means an override replacing that mix must still list all
-      nine positions. A failure raises at load, naming the override file.
+      result: node ordering, weight sums, split-lever authorship, and the nine-position
+      completeness of `open_bb_mix_by_position`. That means an override replacing that mix must
+      still list all nine positions, and deleting a required dial such as `aggression` fails.
+      Every failure raises at load, naming the override file.
   - The merged pack keeps the base pack's `id` and `version`.
 - **The live session's cache is owned by `sim_session._packs(table_size)`:** `@cache` keyed by
   size, so the two sizes are two cached dicts. There is no default argument, because a silent 9
   at a 6-max call site is the failure this slice exists to prevent. The villain-range endpoint
   reads its pack through `_seat_personas(seats, _table_size(session))[seat_index]`, the same
   function the bots use, so the two cannot drift apart.
-- **6-max coverage** is checked by `test_persona_pack_invariants.py`, using
-  `_check_position_coverage` generalised to take the positions to check. For every shipped
-  override (none today) and for the test fixture, the merged 6-max pack must answer every facing
-  and role it authors at the six seated positions `BTN, SB, BB, LJ, HJ, CO`. The nine-position
-  check on base packs is unchanged.
+- **Every settings-file safety check runs at 6-max too,** owned by `test_persona_pack_invariants.py`.
+  Its `packs` fixture is parametrised over `table_size` 9 and 6, so each existing check also runs on
+  `load_persona_packs(table_size=6)`. With no shipped override, the 6 run equals the 9 run today; it
+  starts to matter when M2 ships one. The checks covered:
+  - the post-flop size grid;
+  - gradeable preflop sizes, including the seat table;
+  - a regular's open under the hero's 3-bet-line cap;
+  - no seat mix playing as one size;
+  - no shadowed mix;
+  - position coverage.
+
+  Each check also runs once on the merged test fixture. The coverage helper,
+  `_check_position_coverage`, is generalised to take the positions to check: all nine at 9, and at
+  6 only the six seated positions, `BTN, SB, BB, LJ, HJ, CO`. The nine-position check on base
+  packs is unchanged.
 
 ## 3. Contracts this slice changes, and how their dependents stay correct
 
@@ -88,8 +112,11 @@
   zero-argument callers (tools, tests) keep today's behaviour with no edit. Only
   `sixmax_baseline.py` switches to 6.
 - **`sim_session._packs` / `_seat_personas`:** private, and the size becomes required. All three
-  in-file call sites are updated in the same ticket; `grep -n "_packs()\|_seat_personas(" ` must
-  find no zero-size call.
+  in-file call sites are updated in the same ticket. Because the argument has no default, mypy
+  (part of `make check`) rejects any call that omits it.
+- **`TableSize`:** moves from `app/schemas/simulate.py` to `app/domain/table/deck.py`. Its value and
+  meaning are unchanged, and `schemas/simulate.py` imports it, so every existing importer keeps
+  working.
 - **`sixmax_baseline.py` docstring contract** ("packs are the raw as-loaded
   `load_persona_packs()`"): reworded to "`load_persona_packs(table_size=6)`: the base packs with
   any 6-max override merged". M1's report numbers stay valid, because no override ships.
@@ -111,6 +138,10 @@
     constant.
   - It is captured on unchanged `main` code, and the constants must not change for the rest of the
     slice.
+  - The test module exposes a helper that returns the **per-hand** digests the constant is built
+    from. M2 is expected to change both constants: 9-max for the board-straight fix, and 6-max for
+    the LAG override. So M2 re-pins them and reports which hands changed, by comparing per-hand
+    digests from the old and new commits. A re-pin with that report is not a weakened test.
   - **Before committing, the worker proves the digest is stable across three separate Python
     processes** with different `PYTHONHASHSEED` values. If it is not, the worker reports the
     source of the non-determinism and stops, and does not weaken the fingerprint.
@@ -119,25 +150,41 @@
   `content/personas/*.json` into `tmp_path` and add a fixture `six_max/lag.json` that:
   - replaces the LAG's `unopened` nodes with one wildcard node whose only mix is `AA`, weight
     `raise: 1.0`, so every other hand class folds with no random draw;
-  - sets one post-flop dial (`aggression`) to a value different from the base.
+  - sets one post-flop dial (`aggression`) to a value different from the base;
+  - carries a `_doc` list.
   - **Assert:**
     - At 6, the LAG raises only `AA` unopened from LJ, reached through `sample_preflop_action` on
       the merged pack, and `postflop.aggression` equals the override value.
     - At 9, the LAG from the same folder equals the base pack loaded from `content/personas` with
       no override, and opens many classes from LJ.
-    - At 6, a hand played with `play_one_hand` on the fixture packs shows the LAG's first action
-      in an unopened pot is a fold unless it holds AA.
+    - At 6, hands played with `play_one_hand` on the fixture packs, with the button chosen so the
+      LAG sits in LJ (first to act preflop at 6-max, so its pot is always unopened), show a LAG
+      decision row that exists for every hand. That row is a fold unless the LAG holds AA, and a
+      raise when it does.
+- **Deleting a dial:** a second fixture override for the LAG,
+  `{size_elasticity: 1.0, stickiness: null}`, loads, and the merged pack has no `stickiness`.
+  `{aggression: null}` fails, naming the file.
 - **Errors, one test each:** unknown sizing key; unknown postflop key; unknown top-level key; facing
-  mismatch; empty override; duplicate persona; persona with no base pack; a merged pack that fails
-  `PersonaPack` validation; `table_size` not 6 or 9.
+  mismatch; empty override; duplicate persona; persona with no base pack; postflop keys against a
+  base pack with no postflop block; a merged pack that fails `PersonaPack` validation;
+  `table_size` not 6 or 9.
 - **Live session:** point `app.domain.personas.PERSONA_DIR` at the fixture folder (monkeypatch;
-  real files, not a mock) and clear `sim_session._packs`'s cache before and after.
+  real files, not a mock) and clear `sim_session._packs`'s cache before and after. Session creation
+  follows `backend/tests/test_two_mode_simulate_gate.py`.
   - **Assert:**
     - `_packs(6)` carries the override and `_packs(9)` does not, in the call order 9, 6, 9.
-    - A 6-max session created through the service plays hands whose LAG unopened decisions obey
-      the override.
-    - The villain-range endpoint serves a 6-max session without error.
-  - Session creation follows `backend/tests/test_two_mode_simulate_gate.py`.
+    - **Both bot call sites obey the override, and the test proves each one ran.** The site at
+      `:275` fires when a hand is dealt; the site at `:1089` fires after the hero acts.
+      - Rewrite every villain seat's `persona_type` to the LAG so that every bot decision is a LAG
+        decision.
+      - Play hands in a 6-max session through the service, with the hero folding.
+      - Read hole cards and action history from `SimHand.state_json`.
+      - Continue until at least one unopened LAG decision has been seen from each call site. Fail if
+        that has not happened within a fixed cap of hands.
+      - Every such decision must be a fold, or a raise holding AA.
+    - **The villain-range endpoint uses the 6-max pack.** Store a hand in which a LAG seat raised
+      first-in from LJ. The villain-range endpoint for that seat must return weights whose classes
+      are exactly `{"AA"}`, and the same hand in a 9-max session must return more than `AA`.
 
 ## 5. Golden paths to imitate
 
@@ -173,7 +220,7 @@
 2. The golden test passes with its T1 constants unchanged (`git diff` of the two constants since
    T1 is empty).
 3. `grep -rn "six_max" backend/app` shows the directory read only inside the table-size-6 branch of
-   `load_persona_packs`.
+   `load_persona_packs`, and `grep -n "TableSize = " -r backend/app` finds exactly one definition.
 4. Live app: `./scripts/serve.sh start`, then:
    - create a 6-max session and a 9-max session (`POST /api/v1/simulate/session`);
    - act through one hand in each;
