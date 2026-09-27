@@ -60,3 +60,10 @@ The reviewer also confirmed:
     - Post-flop type labels are mapped by us.
     - Every figure is coaching guidance, not measured pool data. So T6 treats the spread across
       sources as the tolerance, not any single point.
+- **T2 (moving the stats code into `tools/table_stats.py`), 2026-09-26: STOPPED by the owner
+  mid-run to save usage.**
+  - **What is saved:** the partial files (`table_stats.py` 269 lines, `export_session.py` 429,
+    `tests/test_table_stats.py`) are committed as "WIP — UNVERIFIED".
+  - **What was never run:** the done-condition, including the output-equality diff and the full
+    suite.
+  - **Status:** open, and blocks T3.

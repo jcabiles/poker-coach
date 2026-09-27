@@ -61,17 +61,20 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-26 (M1 spec written and reviewed) · commit: see branch docs/m1-6max-baseline-spec · log-entry: "2026-09-26 — M1 (6-max baseline) spec + tickets, review adjudicated"
-position:     Roadmap `roadmap/bot-realism-6max.md` is merged (#240). M1 (measure the bots on
-              6,000 simulated 6-max hands and check the simulation against the owner's 200 real
-              hands) is spec'd: `specs/m1-6max-baseline.md` rev 2, `tickets/m1-6max-baseline.md`
-              (6 tickets, T1–T6), `ledger/m1-6max-baseline.md` (8 findings, all folded). Build has
-              not started.
-merged:       #236–#240. The M1 spec PR is not.
-awaiting John: (a) merge the M1 spec PR; (b) approve the M1 tickets for build; (c) always-on
-              agent fix (macOS Full Disk Access for /bin/bash, or move the repo); (d) `git worktree
-              prune`.
-authorized:   nothing standing. The ticket file says `status: proposed`; build needs the owner's
-              explicit go, then `/ai-org:build` in a fresh session. Does NOT cover M1b, M2 or R1.
-next action:  on approval: `/clear`, then `/ai-org:build M1 — measure the 6-max baseline`. R1
-              (stack-depth research) can run alongside via `/research`.
+updated:      2026-09-26 (M1 build PAUSED by owner to save usage) · commit: see branch feat/m1-6max-baseline · log-entry: "2026-09-26 — M1 build paused after T1+T5; T2 stopped mid-way"
+position:     M1 build (approved 2026-09-26; tickets `tickets/m1-6max-baseline.md`) is paused on
+              branch `feat/m1-6max-baseline` (pushed to origin). DONE + committed: T1 (simulator
+              deals any table size; Director re-ran checks, pinned 9-max digests unchanged) and
+              T5 (cited 6-max ranges, 32/36 cells VERIFIED). T2 (move stats code into
+              `tools/table_stats.py`) was STOPPED mid-run: its files are committed in a commit
+              marked "WIP — UNVERIFIED" and must be re-verified before anything builds on them.
+merged:       #236–#241. The M1 build branch has no PR yet.
+awaiting John: resume the build when usage allows; (older) always-on agent fix; `git worktree prune`.
+authorized:   T1–T6 of M1 (ticket file `status: approved`), building + committing + pushing
+              `feat/m1-6max-baseline` + opening its PR. NOT merging; NOT M1b, M2 or R1.
+next action:  `/ai-org:build M1 — measure the 6-max baseline` (resume). First: recreate a worktree
+              for `feat/m1-6max-baseline` (symlink backend/.venv and frontend/node_modules from
+              the main checkout), then re-run T2's done-condition from the ticket (capture the
+              "before" file from origin/main first — the one in $TMPDIR may be gone), fix what
+              fails, then T3 → T4 → T6 per the ticket file. Baseline: backend 2306 passed/2
+              skipped, frontend 135.
