@@ -46,3 +46,17 @@ The reviewer also confirmed:
     applies because the deterministic checks cover every acceptance criterion.
   - **File size:** `export_analytics.py` is now 544 lines, up from 536. This is the known excess
     the spec flags.
+- **T5 (sourcing real 6-max ranges), 2026-09-26:** accepted, with the Director's spot-check as
+  the check. The final reviewer re-checks it at T6.
+  - **Worker:** general-purpose on Opus.
+  - **Result:** 32 of 36 cells VERIFIED, 1 UNVERIFIED, and 3 unsourced (LAG c-bet, LAG WTSD,
+    station c-bet).
+  - **Director re-fetch:**
+    - PokerStrategy "Average Pre-flop Ranges: LAG" (S3) gives 20/23/33/50/43, matching the file;
+    - BlackRain79's WTSD page (S11) gives "27 in 6max" and "25 in full ring", matching the file,
+      and the full-ring column was correctly excluded.
+  - **Caveats carried into the report:**
+    - The S1–S4 format is inferred from a six-seat position list, which is 6-max.
+    - Post-flop type labels are mapped by us.
+    - Every figure is coaching guidance, not measured pool data. So T6 treats the spread across
+      sources as the tolerance, not any single point.
