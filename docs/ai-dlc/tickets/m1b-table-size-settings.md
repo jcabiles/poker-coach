@@ -93,10 +93,14 @@ before any code changes.
 - **Owns:**
   - `backend/app/domain/personas.py`;
   - `backend/tests/test_persona_table_override.py` (extends);
-  - `backend/tests/test_persona_pack_invariants.py`.
+  - `backend/tests/test_persona_pack_invariants.py`;
+  - `backend/tests/persona_override_fixture.py` (new; the shared fixture writer);
+  - the docstring of `backend/app/domain/content/persona_override.py`, plus its regenerated
+    `content/schema/persona_override.schema.json`. The docstring is the schema description, so
+    fixing its stale claim forces the regeneration.
 
   Fixtures are written into `tmp_path` by the tests: the real `content/personas/*.json` copied in,
-  plus `six_max/lag.json`. No fixture file is committed.
+  plus `six_max/lag.json`. No fixture data file is committed.
 - **Tests (spec §4):**
   - liveness at 6 and base behaviour at 9 through `sample_preflop_action`;
   - `play_one_hand` with the LAG pinned to LJ, asserting a LAG decision row in every hand played;

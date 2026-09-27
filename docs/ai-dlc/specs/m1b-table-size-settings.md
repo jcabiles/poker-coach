@@ -35,6 +35,7 @@
 | `backend/app/services/sim_session.py` | `_packs(table_size)` and `_seat_personas(seats, table_size)`, both with the size **required**; the two `advance_to_hero` call sites (`:275`, `:1089`) and the villain-range endpoint (`:1516`) pass the session's size. ⚠️ This file is already 2,021 lines. The slice changes about five lines with near-zero net growth and does not split it; splitting is out of scope. |
 | `backend/tools/sixmax_baseline.py` | Loads with `table_size=6`; its docstring line about packs is updated to match. |
 | `backend/tests/test_persona_table_override.py` (new) | Model, merge, error and liveness tests; the schema sync test. |
+| `backend/tests/persona_override_fixture.py` (new) | The one shared helper that writes the §4 fixture folder (real packs plus `six_max/` overrides) into `tmp_path`; used by three test modules. Added at T3's review. |
 | `backend/tests/test_persona_pack_invariants.py` | Every existing check runs at both table sizes, and over the merged test fixture. Coverage at 6-max checks the six seated positions. |
 | `backend/tests/test_sim_session_table_size_packs.py` (new) | Live-session wiring tests. |
 | `docs/ai-dlc/roadmap/bot-realism-6max.md` | Tick M1b when its pass/fail holds; record the assumption's status. |

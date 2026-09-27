@@ -109,7 +109,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "One override file: the values a persona's settings carry at 6-max that\ndiffer from its base pack (M1b). Nothing in this repo loads or merges\nthese files yet \u2014 see `app.domain.personas.load_persona_packs`.",
+  "description": "One override file: the values a persona's settings carry at 6-max that\ndiffer from its base pack. `app.domain.personas.load_persona_packs` reads\nthem from `six_max/` and merges them over the base packs at table size 6.",
   "properties": {
     "id": {
       "title": "Id",

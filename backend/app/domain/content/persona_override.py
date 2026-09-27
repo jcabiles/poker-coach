@@ -12,8 +12,8 @@ from app.domain.content.models import PersonaFacing, PersonaNode, PersonaPostflo
 
 class PersonaTableOverride(BaseModel):
     """One override file: the values a persona's settings carry at 6-max that
-    differ from its base pack (M1b). Nothing in this repo loads or merges
-    these files yet — see `app.domain.personas.load_persona_packs`."""
+    differ from its base pack. `app.domain.personas.load_persona_packs` reads
+    them from `six_max/` and merges them over the base packs at table size 6."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

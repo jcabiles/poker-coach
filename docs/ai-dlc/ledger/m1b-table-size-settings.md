@@ -24,6 +24,17 @@ The one rejection is a historical M1 document that stays as written.
     The TAG and nit behave the same.
   - **F2:** all 11 checks in `test_persona_pack_invariants.py` take the 9-max-only `packs` fixture.
   - **F5:** a `doc` field with `alias="_doc"` under `extra="forbid"` accepts `_doc`.
+- **Build fan-ins:**
+  - **T1** (golden fingerprint): Tier 0, with checks green and no reviewer. The Director re-ran it in
+    three processes (`PYTHONHASHSEED` 0, 1 and 12345, identical results); halving one LAG dial changes
+    both digests.
+  - **T2** (override model, `TableSize` move): Tier 0, with checks green and no reviewer. There is one
+    test per validator, plus the schema sync test.
+  - **T3** (loader merge): Claude `refuter` on Opus, verdict pass, four minor findings (F9–F12). Raw
+    report: `../reviews/m1b-t3-refuter.md`.
+- **Process incident at T3's review:** the refuter ran `rm -rf $TMPDIR/tmp*` in the shared
+  `/tmp/claude-501`. That can delete other sessions' Python temp folders. This session's worktrees and
+  scratchpad were not hit. John was told.
 - whole-branch review: not yet run.
 
 | ID | Target | Severity | Finding | Evidence | Status | Resolution test |
@@ -36,3 +47,7 @@ The one rejection is a historical M1 document that stays as written.
 | F6 | spec §2 merge; `models.py:499` | minor | Postflop keys against a base pack with `postflop: None` would crash without naming the file. | `models.py:499` | fixed: rev 2 §2 and §4 error list | the error test names the file |
 | F7 | spec §4 golden | minor | A single hash cannot show which hands changed, so M2's "identical except the board-straight hands" check would be uncheckable. | roadmap M2 pass/fail | fixed: rev 2 §4, per-hand digest helper plus a re-pin-with-report rule for M2 | the helper returns per-hand digests |
 | F8 | spec §3 grep; `sim_session.py` size; `TableSize`; M1 spec line 66 | minor | The grep check was weak (mypy catches omissions anyway); the growth of the oversized `sim_session.py` was unflagged; a second `Literal[6, 9]` would duplicate `schemas/simulate.py:28`; the M1 spec still says "raw as-loaded". | the cited lines | fixed: rev 2 §3 swaps the grep for mypy; §1 flags the file size; `TableSize` moves to `deck.py` and `schemas` imports it. The M1 spec part is rejected: that spec is the closed record of M1, and the live contract (the `sixmax_baseline.py` docstring) is updated in this slice | mypy green; one `TableSize = ` definition |
+| F9 | `test_persona_table_override.py` size-9 test | minor | No test enforced "at 9 `six_max/` is never read": a regression validating overrides at both sizes stayed green (48 passed under mutation). | refuter mutation (d) | fixed: `test_at_nine_an_invalid_override_file_is_never_read`; red when the size-6 guard is removed (worker mutation check) | the new test goes red if the size-6 guard around the override read is removed |
+| F10 | `personas.py` `_apply_override` base dump | minor | Nothing pinned `exclude_unset=True`; without it every calling_station or passive_fish override fails (their full dump re-adds `stickiness`). | refuter mutation (f); probe on the full dump | fixed: `test_an_override_merges_onto_a_pack_whose_full_dump_would_not_validate`; red without `exclude_unset=True` | the test fails if `exclude_unset=True` is dropped |
+| F11 | `personas.py` override read | minor | A non-UTF-8 override file raised a bare `UnicodeDecodeError` without the file name, against spec §7. | refuter probe with `b'\xff\xfe'` | fixed: override read uses `read_bytes()`; `test_a_non_utf8_override_file_fails_naming_the_file` | the error names `six_max/lag.json` |
+| F12 | `backend/tests/persona_override_fixture.py` | minor | A new shared test helper sat outside spec §1 and T3's owned list. | `git status` | fixed: spec §1 and ticket T3 amended to list it and the schema regeneration | the file is in spec §1 |
