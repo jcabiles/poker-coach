@@ -61,17 +61,19 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-27 (M1b spec approved via --auto-build; build started) · commit: 9d20026 · log-entry: "2026-09-27 — M1b spec rev 2 + tickets; build under --auto-build"
-position:     M1 is merged (#242). M1b (bot settings that can differ by table size) has spec rev 2,
-              contracts, ledger (8 findings, all adjudicated, none open) and tickets T1–T5 on
-              branch `feat/m1b-table-size-settings` (worktree in this session's scratchpad). Build
-              is in progress, strictly T1 → T2 → T3 → T4, then the Director's close-out T5.
-merged:       #236–#242.
-awaiting John: (a) Gemini login (`agy` once in a plain terminal): its fallback review timed out on
-              auth, and Codex cannot reach its service from the sandbox, so M1b's reviews are
-              Claude-only; (b) older items: the always-on agent fix, `git worktree prune`.
-authorized:   M1b tickets T1–T5, pre-authorized by John's `--auto-build` invocation on 2026-09-27:
-              build, test, live-app check, commit, push `feat/m1b-table-size-settings`, open a PR.
-              NOT covered: merging, shipping any 6-max override file or settings value, M2, R1.
-next action:  continue the M1b build from the first ticket without a commit on the branch; after
-              the PR, John merges, then `/ai-org:spec M2 — retune the LAG at 6-max`.
+updated:      2026-09-27 (M1b built, reviewed, PR #243 opened) · commit: 053ac67 · log-entry: "2026-09-27 — M1b table-size settings built; PR #243"
+position:     M1 merged (#242). M1b (bot settings that can differ by table size) is BUILT, ticked in the
+              roadmap, and open as PR #243 on `feat/m1b-table-size-settings`. 6-max override files
+              (`content/personas/six_max/<bot>.json`, none shipped) merge at 6 seats only. The golden
+              fingerprint of every bot decision is unchanged at both sizes. make check green (backend
+              2419, frontend 135). Ledger `ledger/m1b-table-size-settings.md`: 20 findings, none open.
+merged:       #236–#242. PR #243 (M1b) open, not merged.
+known issues: `scripts/verify.sh` boot probe flakes ~2.8% (needs a vs_4bet drill spot in 80 random
+              draws; 4.35% of the pool). Unrelated to M1b; re-run clears it.
+awaiting John: (a) merge PR #243; (b) Gemini login (`agy` once in a plain terminal) — M1b's reviews were
+              Claude-only because Codex cannot reach its service and Gemini auth timed out; (c) older:
+              the always-on agent fix, `git worktree prune`.
+authorized:   nothing standing. M1b's --auto-build authorization is spent now that its PR is open.
+              M2 and R1 each need their own spec and approval.
+next action:  after the merge: `/ai-org:spec M2 — retune the LAG at 6-max` (its spec should use the
+              six_max/ override path and re-pin the golden constants with a per-hand diff report).
