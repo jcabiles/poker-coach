@@ -27,6 +27,7 @@ Traps this module must not reintroduce (see the ticket):
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 from collections import defaultdict
@@ -178,6 +179,18 @@ def replay(hand: Hand) -> list[dict]:
     return out
 
 
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for k successes in n trials (default 95%)."""
+    # n == 0: no evidence, so return the whole [0, 1] range rather than divide by zero.
+    if n == 0:
+        return 0.0, 1.0
+    p = k / n
+    denom = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return center - half, center + half
+
+
 def stats_for(seat_list, seats, hands, replays, nets, shows):
     """Compute standard poker tracking stats for a set of seats."""
     st: dict[str, float] = defaultdict(float)
@@ -217,6 +230,19 @@ def stats_for(seat_list, seats, hands, replays, nets, shows):
                 st["limp"] += 1
             if first["action"] == "raise" and not prior_raise_before_first:
                 st["open_raise"] += 1
+            # RFI: folded to this seat's first decision (BB excluded; a BB walk
+            # never reaches here since BB then has no non-post preflop action).
+            folded_to = all(
+                a["action"] == "fold"
+                for a in acts[:idx]
+                if a["street"] == "preflop" and a["action"] != "post"
+            )
+            if folded_to and pos != "BB":
+                st["rfi_opp"] += 1
+                per_pos[pos]["rfi_opp"] += 1
+                if first["action"] == "raise":
+                    st["rfi"] += 1
+                    per_pos[pos]["rfi"] += 1
             if prior_raise_before_first:
                 st["faced_raise"] += 1
                 if first["action"] == "raise":
@@ -237,6 +263,16 @@ def stats_for(seat_list, seats, hands, replays, nets, shows):
                 st["saw_flop"] += 1
                 if nets[h.hand_no].get(seat, 0) > 0:
                     st["won_after_flop"] += 1
+            # Flop c-bet: last preflop raiser, first flop action taken with no
+            # flop bet before it. An all-in preflop raiser has no flop action.
+            pre_raises = [a for a in acts if a["street"] == "preflop" and a["action"] == "raise"]
+            my_flop = [a for a in mine if a["street"] == "flop"]
+            if pre_raises and pre_raises[-1]["seat"] == seat and my_flop:
+                fidx = acts.index(my_flop[0])
+                if not any(a["street"] == "flop" and a["action"] == "bet" for a in acts[:fidx]):
+                    st["cbet_opp"] += 1
+                    if my_flop[0]["action"] == "bet":
+                        st["cbet"] += 1
             for street in ("flop", "turn", "river"):
                 sm = [a for a in mine if a["street"] == street]
                 if not sm:
