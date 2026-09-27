@@ -60,10 +60,13 @@ The reviewer also confirmed:
     - Post-flop type labels are mapped by us.
     - Every figure is coaching guidance, not measured pool data. So T6 treats the spread across
       sources as the tolerance, not any single point.
-- **T2 (moving the stats code into `tools/table_stats.py`), 2026-09-26: STOPPED by the owner
-  mid-run to save usage.**
-  - **What is saved:** the partial files (`table_stats.py` 269 lines, `export_session.py` 429,
-    `tests/test_table_stats.py`) are committed as "WIP — UNVERIFIED".
-  - **What was never run:** the done-condition, including the output-equality diff and the full
-    suite.
-  - **Status:** open, and blocks T3.
+- **T2 (moving the stats code into `tools/table_stats.py`), 2026-09-26:** Tier 0, checks green,
+  no reviewer. It was stopped mid-run by the owner, then re-verified by the Director on resume.
+  - **Output unchanged:** `export_session` prints the same 4,879 lines before and after once the
+    `tool SHA` line is removed (`diff` exit 0).
+  - **Checks:** `test_table_stats.py` 2 passed; ruff, format and mypy clean.
+  - **No duplicates or importers:** no definition remains in `export_session.py`, which now
+    imports from `table_stats`, and nothing else imports those names.
+  - **File sizes:** `export_session.py` is 429 lines and `table_stats.py` 269.
+  - **Full suite deferred:** the ~8-minute run moves to the T3 barrier, because T2 changes only
+    `tools/` files that no existing test imports.
