@@ -10,12 +10,16 @@ from __future__ import annotations
 import random
 from functools import cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
+
+from pydantic import ValidationError
 
 from app.domain.archetypes import VillainType
 from app.domain.content.models import PersonaPack
 from app.domain.content.notation import hole_cards_to_class, parse_range
+from app.domain.content.persona_override import PersonaTableOverride
 from app.domain.spot import ActionType, Card, Position
+from app.domain.table.deck import TableSize
 
 # backend/app/domain/personas.py -> parents[3] == repo root
 PERSONA_DIR = Path(__file__).resolve().parents[3] / "content" / "personas"
@@ -38,12 +42,20 @@ class PersonaAction(NamedTuple):
     action: ActionType  # wire translation
 
 
-def load_persona_packs(content_dir: Path | None = None) -> dict[VillainType, PersonaPack]:
+def load_persona_packs(
+    content_dir: Path | None = None, table_size: TableSize = 9
+) -> dict[VillainType, PersonaPack]:
     """Load + validate all persona packs; raises on duplicate persona.
 
     Duplicate (facing, position) node coverage within a pack raises at model
     validation (PersonaPack._node_ordering) — no silent last-wins.
+
+    `table_size=6` additionally merges each `six_max/*.json` override file
+    (PersonaTableOverride) over its persona's base pack; at 9 that directory
+    is never read. Every override problem raises naming the file.
     """
+    if table_size not in (6, 9):
+        raise ValueError(f"table_size must be 6 or 9, got {table_size!r}")
     d = content_dir or PERSONA_DIR
     packs: dict[VillainType, PersonaPack] = {}
     for path in sorted(d.glob("*.json")):
@@ -51,7 +63,49 @@ def load_persona_packs(content_dir: Path | None = None) -> dict[VillainType, Per
         if pack.persona in packs:
             raise ValueError(f"duplicate persona pack: {pack.persona} ({path.name})")
         packs[pack.persona] = pack
+    if table_size == 6:
+        override_dir = d / "six_max"
+        merged_from: dict[VillainType, str] = {}
+        for path in sorted(override_dir.glob("*.json")):
+            where = f"six_max/{path.name}"
+            try:
+                override = PersonaTableOverride.model_validate_json(path.read_bytes())
+            except ValidationError as e:
+                raise ValueError(f"invalid override file {where}: {e}") from e
+            if override.persona in merged_from:
+                raise ValueError(
+                    f"duplicate override for {override.persona}: {where} "
+                    f"(also six_max/{merged_from[override.persona]})"
+                )
+            if override.persona not in packs:
+                raise ValueError(f"override {where} names {override.persona}, which has no pack")
+            merged_from[override.persona] = path.name
+            packs[override.persona] = _apply_override(packs[override.persona], override, where)
     return packs
+
+
+def _apply_override(pack: PersonaPack, override: PersonaTableOverride, where: str) -> PersonaPack:
+    """Merge one override over its base pack: a listed facing replaces every
+    base node of that facing; sizing/postflop merge key by key, `None`
+    deleting the key. The rebuild re-runs every PersonaPack validator."""
+    if override.postflop and pack.postflop is None:
+        raise ValueError(f"override {where} sets postflop keys but {pack.persona} has no postflop")
+    data = pack.model_dump(mode="json", exclude_unset=True)
+    for facing, nodes in override.preflop.items():
+        data["preflop"] = [n for n in data["preflop"] if n["facing"] != facing] + [
+            n.model_dump(mode="json", exclude_unset=True) for n in nodes
+        ]
+    for section in ("sizing", "postflop"):
+        values: dict[str, Any] = getattr(override, section)
+        for key, value in values.items():
+            if value is None:
+                data[section].pop(key, None)
+            else:
+                data[section][key] = value
+    try:
+        return PersonaPack.model_validate(data)
+    except ValidationError as e:
+        raise ValueError(f"override {where} makes an invalid {pack.persona} pack: {e}") from e
 
 
 @cache

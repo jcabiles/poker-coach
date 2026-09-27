@@ -17,23 +17,35 @@ that inversion. The other two invariants are kept alongside it for symmetry.
 
 The `_check_*` helpers take a pack and return the violations they find, so
 later tickets can reuse them on candidate packs.
+
+Every check runs at both table sizes: the `packs` fixture loads the shipped
+packs at 9 and again at 6 (base packs with any `six_max/` override merged), and
+one test runs every helper over a merged 6-max test fixture.
 """
 
 from __future__ import annotations
 
 import pytest
+from persona_override_fixture import write_fixture_content
 
 from app.domain.content.models import PersonaPack
 from app.domain.personas import _combos, load_persona_packs
 from app.domain.spot import Position
+from app.domain.table.deck import positions_for_button
 from app.domain.table.sizing import RECOGNIZED_BET_FRACS
 
 ALL_POSITIONS = set(Position)
+SEATED_POSITIONS = {9: ALL_POSITIONS, 6: set(positions_for_button(0, 6))}
+
+
+@pytest.fixture(scope="module", params=[9, 6])
+def table_size(request) -> int:
+    return request.param
 
 
 @pytest.fixture(scope="module")
-def packs() -> dict:
-    return load_persona_packs()
+def packs(table_size) -> dict:
+    return load_persona_packs(table_size=table_size)
 
 
 # --- 1. postflop sizes stay on the grader's recognised grid ------------------
@@ -188,16 +200,19 @@ def test_a_regulars_open_never_exceeds_the_hero_3bet_lines_cap(packs):
     cost hero a spot at those nodes. It is also why the regulars can carry the
     +0.5bb small-blind bump RES-B 4.1 asks for.
     """
+    offenders = [v for pack in packs.values() for v in _check_regular_open_cap(pack)]
+    assert not offenders, "\n".join(offenders)
+
+
+def _check_regular_open_cap(pack: PersonaPack) -> list[str]:
     from app.domain.table import grade_map_preflop as gmp
 
-    offenders = []
-    for name, pack in packs.items():
-        if pack.sizing.open_bb > gmp._STD_OPEN_CAP + 1e-9:
-            continue  # recreational: already outside, by design
-        too_big = [s for s in _authored_opens(pack, blinds=False) if s > gmp._STD_OPEN_CAP + 1e-9]
-        if too_big:
-            offenders.append(f"{name}: {too_big} above {gmp._STD_OPEN_CAP}")
-    assert not offenders, "\n".join(offenders)
+    if pack.sizing.open_bb > gmp._STD_OPEN_CAP + 1e-9:
+        return []  # recreational: already outside, by design
+    too_big = [s for s in _authored_opens(pack, blinds=False) if s > gmp._STD_OPEN_CAP + 1e-9]
+    if too_big:
+        return [f"{pack.persona}: {too_big} above {gmp._STD_OPEN_CAP}"]
+    return []
 
 
 def test_no_authored_seat_mix_plays_as_one_size(packs):
@@ -210,15 +225,19 @@ def test_no_authored_seat_mix_plays_as_one_size(packs):
     because they fail for different reasons: this one catches a value written
     too heavy, that one catches a value that never reaches the engine.
     """
-    ceiling = 0.90
-    offenders = []
-    for name, pack in packs.items():
-        table = pack.sizing.open_bb_mix_by_position
-        mixes = table.items() if table else [("flat", pack.sizing.open_bb_mix or {})]
-        for seat, mix in mixes:
-            if mix and max(mix.values()) > ceiling + 1e-9:
-                offenders.append(f"{name}@{seat}: {max(mix.values())} > {ceiling}")
+    offenders = [v for pack in packs.values() for v in _check_seat_mix_spread(pack)]
     assert not offenders, "\n".join(offenders)
+
+
+def _check_seat_mix_spread(pack: PersonaPack) -> list[str]:
+    ceiling = 0.90
+    table = pack.sizing.open_bb_mix_by_position
+    mixes = table.items() if table else [("flat", pack.sizing.open_bb_mix or {})]
+    return [
+        f"{pack.persona}@{seat}: {max(mix.values())} > {ceiling}"
+        for seat, mix in mixes
+        if mix and max(mix.values()) > ceiling + 1e-9
+    ]
 
 
 # --- 2. no preflop mix is shadowed dead -------------------------------------
@@ -271,8 +290,9 @@ def test_shadowing_check_catches_a_dead_mix(packs):
 # --- 3. every position is answered ------------------------------------------
 
 
-def _check_position_coverage(pack: PersonaPack) -> list[str]:
-    """Positions that would fall through to the implicit-fold path.
+def _check_position_coverage(pack: PersonaPack, positions: set[Position]) -> list[str]:
+    """Positions (of those seated, `positions`) that would fall through to the
+    implicit-fold path.
 
     `PersonaPack._node_ordering` rejects overlap and ordering errors but never
     requires COMPLETE coverage. When no node matches, `sample_preflop_action`
@@ -303,7 +323,7 @@ def _check_position_coverage(pack: PersonaPack) -> list[str]:
         for want_role in ("opener", "cold"):
             missing = [
                 position
-                for position in sorted(ALL_POSITIONS, key=lambda p: p.value)
+                for position in sorted(positions, key=lambda p: p.value)
                 if not any(matches(n, facing, position, want_role) for n in pack.preflop)
             ]
             if missing:
@@ -315,12 +335,13 @@ def _check_position_coverage(pack: PersonaPack) -> list[str]:
     return violations
 
 
-def test_every_facing_answers_every_position(packs):
-    violations = [v for pack in packs.values() for v in _check_position_coverage(pack)]
+def test_every_facing_answers_every_position(packs, table_size):
+    seated = SEATED_POSITIONS[table_size]
+    violations = [v for pack in packs.values() for v in _check_position_coverage(pack, seated)]
     assert not violations, "\n".join(violations)
 
 
-def test_coverage_check_catches_a_dropped_seat(packs):
+def test_coverage_check_catches_a_dropped_seat(packs, table_size):
     """Negative case: drop one seat from an explicit-position facing that has
     no wildcard to catch it."""
     pack = packs["lag"].model_copy(deep=True)
@@ -334,5 +355,33 @@ def test_coverage_check_catches_a_dropped_seat(packs):
     )
     assert target is not None, "fixture assumption: lag has an explicit BTN open node"
     target.positions = [p for p in target.positions if p is not Position.BTN]
-    violations = _check_position_coverage(pack)
+    violations = _check_position_coverage(pack, SEATED_POSITIONS[table_size])
     assert any("btn" in v.lower() for v in violations), violations
+
+
+def test_six_seated_positions_are_the_nine_minus_the_utg_seats():
+    assert SEATED_POSITIONS[6] == ALL_POSITIONS - {Position.UTG, Position.UTG1, Position.UTG2}
+
+
+# --- 4. every check holds on a merged 6-max override ---------------------------
+
+
+def test_every_check_passes_on_the_merged_six_max_fixture(tmp_path):
+    """The shipped packs carry no override yet, so the 6-max `packs` run above
+    equals the 9-max one; this runs the same checks over a pack that really
+    was merged."""
+    merged = load_persona_packs(write_fixture_content(tmp_path), table_size=6)
+    assert merged["lag"] != load_persona_packs()["lag"], "fixture override did not merge"
+    violations = [
+        v
+        for pack in merged.values()
+        for v in (
+            _check_grid(pack)
+            + _check_preflop_sizes(pack)
+            + _check_regular_open_cap(pack)
+            + _check_seat_mix_spread(pack)
+            + _check_shadowed_mixes(pack)
+            + _check_position_coverage(pack, SEATED_POSITIONS[6])
+        )
+    ]
+    assert not violations, "\n".join(violations)

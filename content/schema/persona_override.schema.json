@@ -1,0 +1,183 @@
+{
+  "$defs": {
+    "PersonaActionMix": {
+      "properties": {
+        "combos": {
+          "title": "Combos",
+          "type": "string"
+        },
+        "weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Weights",
+          "type": "object"
+        }
+      },
+      "required": [
+        "combos",
+        "weights"
+      ],
+      "title": "PersonaActionMix",
+      "type": "object"
+    },
+    "PersonaNode": {
+      "properties": {
+        "facing": {
+          "enum": [
+            "unopened",
+            "vs_limpers",
+            "vs_rfi",
+            "vs_3bet",
+            "vs_4bet"
+          ],
+          "title": "Facing",
+          "type": "string"
+        },
+        "positions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Position"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Positions"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "opener",
+                "cold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "mixes": {
+          "items": {
+            "$ref": "#/$defs/PersonaActionMix"
+          },
+          "title": "Mixes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "facing",
+        "mixes"
+      ],
+      "title": "PersonaNode",
+      "type": "object"
+    },
+    "Position": {
+      "enum": [
+        "UTG",
+        "UTG1",
+        "UTG2",
+        "LJ",
+        "HJ",
+        "CO",
+        "BTN",
+        "SB",
+        "BB"
+      ],
+      "title": "Position",
+      "type": "string"
+    },
+    "VillainType": {
+      "enum": [
+        "calling_station",
+        "nit",
+        "lag",
+        "passive_fish",
+        "tag",
+        "maniac"
+      ],
+      "title": "VillainType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One override file: the values a persona's settings carry at 6-max that\ndiffer from its base pack. `app.domain.personas.load_persona_packs` reads\nthem from `six_max/` and merges them over the base packs at table size 6.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "domain": {
+      "const": "persona_override",
+      "title": "Domain",
+      "type": "string"
+    },
+    "persona": {
+      "$ref": "#/$defs/VillainType"
+    },
+    "table_size": {
+      "const": 6,
+      "title": "Table Size",
+      "type": "integer"
+    },
+    "_doc": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Doc",
+      "type": "array"
+    },
+    "preflop": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/PersonaNode"
+        },
+        "type": "array"
+      },
+      "propertyNames": {
+        "enum": [
+          "unopened",
+          "vs_limpers",
+          "vs_rfi",
+          "vs_3bet",
+          "vs_4bet"
+        ]
+      },
+      "title": "Preflop",
+      "type": "object"
+    },
+    "sizing": {
+      "additionalProperties": true,
+      "description": "Per-key overrides of PersonaSizing fields; a value of null deletes that key from the base settings when merged.",
+      "title": "Sizing",
+      "type": "object"
+    },
+    "postflop": {
+      "additionalProperties": true,
+      "description": "Per-key overrides of PersonaPostflop fields; a value of null deletes that key from the base settings when merged.",
+      "title": "Postflop",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "domain",
+    "persona",
+    "table_size"
+  ],
+  "title": "PersonaTableOverride",
+  "type": "object"
+}

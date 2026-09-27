@@ -182,9 +182,14 @@ SINGLE_PERSONA_CELLS = {("flat", "1.5"), ("cbet_wet", "1.5")}
 MIN_BAND_SHARE = 0.10
 
 
+@pytest.fixture(scope="module", params=[9, 6])
+def table_size(request) -> int:
+    return request.param
+
+
 @pytest.fixture(scope="module")
-def packs() -> dict:
-    return load_persona_packs()
+def packs(table_size) -> dict:
+    return load_persona_packs(table_size=table_size)
 
 
 _CANON_SPELLING = {float(s): s for s in GRID}

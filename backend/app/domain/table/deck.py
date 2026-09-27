@@ -8,10 +8,16 @@ Pure domain: no web/DB imports, no shared RNG state. Callers own the
 from __future__ import annotations
 
 import random
+from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
 from app.domain.spot import RANKS, SUITS, Card, Position, validate_card
+
+# The table's seat count. Defined in the domain (app.schemas imports it) because
+# the domain may not import the schemas layer; a literal union so a bad value is
+# rejected at the edge instead of indexing a rotation that does not exist.
+TableSize = Literal[6, 9]
 
 # Default table size for both functions below. The default is load-bearing:
 # roughly 150 existing call sites pass no seat count, and no 9-max test may be
