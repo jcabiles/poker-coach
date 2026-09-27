@@ -67,7 +67,7 @@ status: approved (owner, 2026-09-25)
 
 ## NOW (in order; ICE = impact · confidence · ease, each out of 10)
 
-- [ ] **M1 — Measure the 6-max baseline.** ICE 9·8·6.
+- [x] **M1 — Measure the 6-max baseline.** ICE 9·8·6.
   - **Problem:** every number we have comes from 200 hands, which is too few per bot and per seat
     to tune against.
   - **Outcome link:** it provides the stats half of the north star, and it checks that the
@@ -107,7 +107,8 @@ status: approved (owner, 2026-09-25)
       interval widened by the real sample's own interval (one miss is a pass: owner ruling,
       2026-09-26). **Fails** if two or more eligible comparisons fall outside it. On a failure M1 stops and reports, and nothing downstream starts.
     - Known limit: the owner, not a stand-in, sat in the real hero seat.
-  - **Assumption status:** untested.
+  - **Assumption status:** tested 2026-09-26 — held for pre-flop play (VPIP/PFR, 10 of 10 eligible, 0 misses); post-flop untested against real play.
+  - **Report:** `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md`.
 
 - [ ] **M1b — Let bot settings differ by table size.** ICE 6·8·7. Owner ruled it in, 2026-09-25.
   Can run alongside M1; M2 needs both.
