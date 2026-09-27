@@ -93,3 +93,23 @@ The reviewer also confirmed:
     `export_session._git_sha` reads `.git/`. T6 records the SHA from `git rev-parse` instead.
   - **Review:** folded into one final Opus review covering T4 and T6 together, a deviation from
     the announced plan made to save the owner's usage.
+- **T6 (running the tool and writing the report), 2026-09-26:**
+  - **Worker:** implementer on Opus.
+  - **Verdict:** PASS, with 10 of 10 comparisons eligible and 0 misses. M1 is ticked.
+  - **Checks:** `make check` green, with 2334 backend and 135 frontend tests passing. All 45
+    report cells match a fresh run.
+- **Final review of T4 and T6,** by an Opus `refuter`, verdict approve-with-fixes
+  (`../reviews/m1-t4-t6-refuter.md`):
+  - (1) the bottom line overstated the result — fixed by the Director: it now names what was
+    and was not tested, and the near-miss when the real TAG seats are pooled;
+  - (2) the wrong reason was given for testing only VPIP and PFR — fixed by the Director;
+  - (3) the stale roadmap test description — fixed by the Director: the narrowing ruling and
+    the LAG c-bet result are recorded, and the Next action is refreshed;
+  - (4) the missing pairing guard — fixed: `build_pairs()` was extracted, with 4 tests that
+    fail against both mutants;
+  - (5) the SHA import — fixed: the tool now uses `export_analytics._git_sha`, which works in a
+    worktree;
+  - (6) the annotation — fixed: `Hand` id is typed `int | str | None`;
+  - for (4)–(6): a Sonnet worker made the changes and the Director checked them. The tool
+    output is identical to the reviewer's fresh run apart from the SHA and date lines;
+  - (7) the ambiguous "both TAGs" — fixed by the Director.

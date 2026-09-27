@@ -61,20 +61,17 @@ process:      may push + open PRs on feat/*|fix/*|chore/* autonomously; never pu
 
 ## Resume
 
-updated:      2026-09-26 (M1 build PAUSED by owner to save usage) · commit: see branch feat/m1-6max-baseline · log-entry: "2026-09-26 — M1 build paused after T1+T5; T2 stopped mid-way"
-position:     M1 build (approved 2026-09-26; tickets `tickets/m1-6max-baseline.md`) is paused on
-              branch `feat/m1-6max-baseline` (pushed to origin). DONE + committed: T1 (simulator
-              deals any table size; Director re-ran checks, pinned 9-max digests unchanged) and
-              T5 (cited 6-max ranges, 32/36 cells VERIFIED). T2 (move stats code into
-              `tools/table_stats.py`) was STOPPED mid-run: its files are committed in a commit
-              marked "WIP — UNVERIFIED" and must be re-verified before anything builds on them.
-merged:       #236–#241. The M1 build branch has no PR yet.
-awaiting John: resume the build when usage allows; (older) always-on agent fix; `git worktree prune`.
-authorized:   T1–T6 of M1 (ticket file `status: approved`), building + committing + pushing
-              `feat/m1-6max-baseline` + opening its PR. NOT merging; NOT M1b, M2 or R1.
-next action:  `/ai-org:build M1 — measure the 6-max baseline` (resume). First: recreate a worktree
-              for `feat/m1-6max-baseline` (symlink backend/.venv and frontend/node_modules from
-              the main checkout), then re-run T2's done-condition from the ticket (capture the
-              "before" file from origin/main first — the one in $TMPDIR may be gone), fix what
-              fails, then T3 → T4 → T6 per the ticket file. Baseline: backend 2306 passed/2
-              skipped, frontend 135.
+updated:      2026-09-26 (M1 built, reviewed, PR opened) · commit: see branch feat/m1-6max-baseline · log-entry: "2026-09-26 — M1 6-max baseline built; fidelity PASS"
+position:     M1 (the 6-max baseline measurement) is built on `feat/m1-6max-baseline` and ticked
+              in the roadmap. Fidelity check PASS: 10 of 10 pre-flop comparisons eligible, 0
+              misses. Report: `research/bot-realism-6max/m1-baseline.md`. It found the LAG and
+              the TAGs opening far too wide from every seat, the station almost never raising,
+              and the nit, TAGs and station going to showdown about twice as often as real
+              players. Every review finding is fixed (ledger `ledger/m1-6max-baseline.md`).
+merged:       #236–#241. The M1 build PR is open, not merged.
+awaiting John: (a) merge the M1 build PR; (b) choose what comes next: M1b (settings that can
+              differ by table size), which M2 (the LAG retune) needs, and R1 (stack-depth research)
+              alongside; (c) older items: the always-on agent fix, `git worktree prune`.
+authorized:   nothing standing. M1's authorization is spent once its PR is open. M1b, M2 and R1
+              each need their own spec and approval.
+next action:  after the merge: `/ai-org:spec M1b — let bot settings differ by table size`.

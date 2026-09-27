@@ -59,7 +59,7 @@ class Hand:
     `state_json` — never from `SimSeat` (that row is a live carry-over
     value, overwritten at every settlement)."""
 
-    def __init__(self, hand_no: int, hand_id: int | None, state: HandState) -> None:
+    def __init__(self, hand_no: int, hand_id: int | str | None, state: HandState) -> None:
         self.hand_no = hand_no
         self.id = hand_id
         self.state = state

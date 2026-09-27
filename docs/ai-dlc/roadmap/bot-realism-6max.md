@@ -14,7 +14,8 @@ status: approved (owner, 2026-09-25)
   judges the LAG.
 - **Running alongside:** research on how poker strategy changes as stacks get deeper, which feeds
   the deep-stack lane.
-- **Next action:** `/ai-org:spec` for slice M1 (the 6-max measurement).
+- **Next action:** M1 is done (the simulation matches the owner's table). Next is M1b (settings that
+  can differ by table size), which M2 needs; R1 can run alongside.
 
 ## North-star outcome
 - **Outcome:** in one 200-hand 6-max Challenge session, the owner rules each bot "plays like its
@@ -98,6 +99,10 @@ status: approved (owner, 2026-09-25)
   - **Cheapest test** (fixed before the run):
     - Compare each bot's VPIP, PFR and flop c-bet rate between the simulation and the 200 real
       hands in session `4b35736f`. That is up to 15 comparisons.
+    - **Narrowed at spec time (owner ruling, 2026-09-26):** flop c-bet had too few real chances
+      for most bots, so the pre-registered check is VPIP and PFR only, 10 comparisons. The one
+      c-bet comparison that did reach 30 chances, the LAG's, would also have passed (real 50.0%,
+      pass range 28.2–69.2%).
     - **A comparison is eligible only if the real hands gave it 30 or more chances** (owner ruling,
       2026-09-25).
     - **Fewer than 8 eligible comparisons: the result is "can't tell yet".** Tuning does not start.

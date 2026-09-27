@@ -28,8 +28,7 @@ from datetime import UTC, datetime
 
 from app.domain.archetypes import VillainType
 from app.domain.personas import load_persona_packs
-from tools.export_analytics import _draw_buyin_targets, play_one_hand
-from tools.export_session import _git_sha
+from tools.export_analytics import _draw_buyin_targets, _git_sha, play_one_hand
 from tools.table_stats import Hand, load, replay, resolve_db_path, settle_hand, stats_for, wilson
 
 SEATS: dict[int, str] = {
@@ -153,6 +152,28 @@ def fidelity_check(pairs: list[dict]) -> dict:
     return {"verdict": verdict, "eligible": len(eligible_rows), "misses": misses, "rows": rows}
 
 
+def build_pairs(real: dict, sim: dict) -> list[dict]:
+    """One pair per (real bot seat, fidelity stat), per `REAL_ROWS` (spec
+    section 2): each real seat pairs with the simulated group it maps to
+    (`REAL_ROWS[name][1]`), never with the seat-0 stand-in's own group."""
+    pairs = []
+    for name, (_, sim_group) in REAL_ROWS.items():
+        for stat in FIDELITY_STATS:
+            real_k, real_n = real[name][stat]
+            sim_k, sim_n = sim[sim_group][stat]
+            pairs.append(
+                {
+                    "bot": name,
+                    "stat": stat,
+                    "real_k": real_k,
+                    "real_n": real_n,
+                    "sim_k": sim_k,
+                    "sim_n": sim_n,
+                }
+            )
+    return pairs
+
+
 def _pct(x: float) -> str:
     text = f"{100 * x:.1f}"
     # wilson() can return a lower bound a hair below zero from float rounding.
@@ -245,21 +266,7 @@ def main() -> None:
     sim = measure(sim_hands, SEATS, SIM_GROUPS)
     real_groups = {name: [seat] for name, (seat, _) in REAL_ROWS.items()}
     real = measure(real_hands, real_seats, real_groups)
-    pairs = []
-    for name, (_, sim_group) in REAL_ROWS.items():
-        for stat in FIDELITY_STATS:
-            real_k, real_n = real[name][stat]
-            sim_k, sim_n = sim[sim_group][stat]
-            pairs.append(
-                {
-                    "bot": name,
-                    "stat": stat,
-                    "real_k": real_k,
-                    "real_n": real_n,
-                    "sim_k": sim_k,
-                    "sim_n": sim_n,
-                }
-            )
+    pairs = build_pairs(real, sim)
     result = fidelity_check(pairs)
 
     command = "python -m tools.sixmax_baseline " + " ".join(sys.argv[1:])

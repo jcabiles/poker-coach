@@ -1,16 +1,16 @@
 # M1 — 6-max baseline report
 
 **Bottom line.**
-- **The simulation matches your table (verdict PASS).** In all 10 checks, the simulated bots enter and raise pots at rates consistent with what you saw in your 201 real hands, with no misses. The simulator can stand in for your play when tuning pre-flop behaviour. How the bots play after the flop has not been checked against your hands.
+- **The simulation matches your table (verdict PASS).** In all 10 checks, the simulated bots enter and raise pots at rates consistent with what you saw in your 201 real hands, with no misses. That supports trusting the simulator for how often each bot plays and raises overall. Opening rate by seat, which the LAG retune (slice M2) will change, was not part of the pre-registered check, and how the bots play after the flop was not checked either. The two real TAG seats ran a little tighter than the simulated TAG on all four of their comparisons; each passed, but if the two seats are pooled, their raise rate (PFR, 13.3%) would just miss the pass range (from 13.9%).
 - **Several bots sit outside real 6-max ranges.** How often each bot plays and raises overall is in range for every bot except the calling station, which almost never raises.
   - **Opening by seat:** the TAG and LAG open far too many hands, most of all from the early seats. The TAG opens 29% from the first seat against a sourced 14%, and the LAG opens 38% against 20%. The calling station raises about 1% from every seat against a sourced 8–14%. The nit is in range except in the small blind, where it opens slightly too few hands.
-  - **After the flop:** the nit and both TAGs reach showdown about twice as often as real players of their type. The TAG continuation-bets about 41% of the time against a sourced 60–70%.
+  - **After the flop:** the nit and the TAG (seats 3 and 4 pooled; the seat-0 stand-in too) reach showdown about twice as often as real players of their type. The TAG continuation-bets about 41% of the time against a sourced 60–70%.
 
 ## Run details
 
 - **Command** (from `backend/`): `PYTHONPATH=. .venv/bin/python -m tools.sixmax_baseline --session 4b35736fa8c7438eb57ca9d09874f8dc --max-hand-no 201 --db /Users/johncabiles/Documents/Github/poker-coach/backend/data/poker_coach.db`
 - **Seed:** 20260926 (default). **Simulated hands:** 6,000 (default). **Real session:** `4b35736fa8c7438eb57ca9d09874f8dc`, `--max-hand-no 201`, which gives 201 hands.
-- **Git SHA:** `e12e244`, on branch `feat/m1-6max-baseline`. The tool prints `git SHA: unknown` when run inside a worktree, so the SHA was taken from `git rev-parse --short HEAD`.
+- **Git SHA:** `e12e244`, on branch `feat/m1-6max-baseline`. At the time of this run the tool printed `git SHA: unknown` inside a worktree, so the SHA was taken from `git rev-parse --short HEAD`; the tool now prints the real SHA (review fix, same day), and its numbers are unchanged.
 - **Date:** 2026-09-26. The tool's own UTC date line reads 2026-09-27.
 - **Reproducibility:** the command was run twice, and the two outputs were byte-identical. Every number below is copied from that output.
 - **Conditions:** the seats copy the real session. Seat 0, which you occupy in real play, holds a TAG stand-in. Seats 3 and 4 are both TAGs and are pooled into one row in the simulation. Each simulated hand draws fresh 95–105bb stacks.
@@ -244,6 +244,6 @@ B3's SB mixes raises and limps, so its raise-only 24 is not comparable to B1's r
 
 - **The stand-in TAG sat in your seat.** In the real session you, not a bot, occupied seat 0, so the other bots faced a different opponent there than in the simulation.
 - **Stack depth differs.** Simulated stacks were 95–105bb each hand, while the real session carried stacks over between hands, up to about 455bb. The bots' pre-flop decisions do not read stack size, so the VPIP and PFR comparisons are unaffected. Post-flop stats (c-bet, WTSD) may be affected.
-- **The real sample is 201 hands.** That gives each bot about 195 VPIP/PFR chances and only 5 to 34 chances per seat for opening, which is why only VPIP and PFR could be checked against real play.
+- **The real sample is 201 hands.** That gives each bot about 195 VPIP/PFR chances and only 5 to 34 chances per seat for opening, The check compares only VPIP and PFR because that was fixed before the run (the pre-registered design, narrowed by the owner's 2026-09-26 ruling), not because other stats lacked chances: opening from LJ reached 33–34 real chances for every bot, and the LAG's flop c-bet reached 30.
 - **The ranges are coaching guidance, not measured pool data.** No verified source is a published hand-database measurement split by player type. The only per-seat opening source (S1–S4) never states that it is 6-max; its format is inferred from its seat names.
 - **WTSD is compared across definitions.** This tool counts an all-in player who sees the board as having seen the flop. Tracking software may count this case differently; the size of that effect was not measured.

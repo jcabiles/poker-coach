@@ -1,11 +1,14 @@
 """M1 T4: the 6-max baseline tool's fidelity check and seeded simulation.
 
-Two legs:
+Three legs:
 1. `fidelity_check` oracle — hand-made counts for PASS (0 and 1 miss, owner
    ruling 2026-09-26), FAIL (2 misses), CANT_TELL (7 eligible), the
    30-chance cutoff, and the inclusive edge of one comparison's pass range.
 2. `run_baseline` — deterministic across two calls with the same seed, and
    every hand is a 6-seat table with only 6-max position labels.
+3. `build_pairs` — pins the spec's grouping rules (section 2): each real bot
+   seat pairs with the right simulated group, the tag group is exactly seats
+   {3, 4}, and seat 0 (the owner's stand-in) never appears in any pair.
 """
 
 from __future__ import annotations
@@ -102,3 +105,56 @@ def test_run_baseline_is_six_max_with_rotating_button():
         assert set(h.pos_of.values()) == set(sb.SIXMAX_POSITIONS)
         assert h.button == i % 6
         assert h.state.hand_over
+
+
+def _counts(*groups: str) -> dict[str, dict[str, tuple[int, int]]]:
+    """A group->{stat: (k, n)} dict with a distinct (k, n) per group so a
+    mis-paired test fails loudly instead of by coincidence."""
+    return {g: {"VPIP": (i + 1, 100), "PFR": (i + 1, 50)} for i, g in enumerate(groups)}
+
+
+def test_sim_groups_tag_is_exactly_seats_3_and_4():
+    assert sb.SIM_GROUPS["tag"] == [3, 4]
+
+
+def test_seat_0_stand_in_is_never_pooled_with_a_bot_group():
+    for name, seats in sb.SIM_GROUPS.items():
+        if name != "stand-in tag (seat 0)":
+            assert 0 not in seats
+
+
+def test_build_pairs_has_exactly_ten_pairs_vpip_and_pfr_times_five_bots():
+    real = _counts("nit", "lag", "tag seat 3", "tag seat 4", "station")
+    sim = _counts("nit", "lag", "tag", "station", "stand-in tag (seat 0)")
+    pairs = sb.build_pairs(real, sim)
+    assert len(pairs) == 10
+    assert {p["stat"] for p in pairs} == {"VPIP", "PFR"}
+    assert {p["bot"] for p in pairs} == {
+        "nit",
+        "lag",
+        "tag seat 3",
+        "tag seat 4",
+        "station",
+    }
+
+
+def test_build_pairs_grouping_matches_the_spec_section_2():
+    real = _counts("nit", "lag", "tag seat 3", "tag seat 4", "station")
+    sim = _counts("nit", "lag", "tag", "station", "stand-in tag (seat 0)")
+    pairs = sb.build_pairs(real, sim)
+    by_bot_stat = {(p["bot"], p["stat"]): p for p in pairs}
+
+    # nit -> nit, lag -> lag, station -> station.
+    for bot, group in [("nit", "nit"), ("lag", "lag"), ("station", "station")]:
+        p = by_bot_stat[(bot, "VPIP")]
+        assert (p["sim_k"], p["sim_n"]) == sim[group]["VPIP"]
+
+    # tag seat 3 and tag seat 4 both pair with the pooled tag group, never
+    # with the seat-0 stand-in's own group.
+    for bot in ("tag seat 3", "tag seat 4"):
+        p = by_bot_stat[(bot, "VPIP")]
+        assert (p["sim_k"], p["sim_n"]) == sim["tag"]["VPIP"]
+        assert (p["sim_k"], p["sim_n"]) != sim["stand-in tag (seat 0)"]["VPIP"]
+
+    # seat 0's stand-in group never appears as a bot in any pair.
+    assert "stand-in tag (seat 0)" not in {p["bot"] for p in pairs}
