@@ -59,7 +59,7 @@ class Hand:
     `state_json` — never from `SimSeat` (that row is a live carry-over
     value, overwritten at every settlement)."""
 
-    def __init__(self, hand_no: int, hand_id: str, state: HandState) -> None:
+    def __init__(self, hand_no: int, hand_id: int | None, state: HandState) -> None:
         self.hand_no = hand_no
         self.id = hand_id
         self.state = state
@@ -188,7 +188,9 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     denom = 1 + z * z / n
     center = (p + z * z / (2 * n)) / denom
     half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
-    return center - half, center + half
+    # Clamp: floating point can push the bound a hair past [0, 1] (e.g.
+    # wilson(0, 10) lo ~= -2.8e-17, wilson(5, 5) hi ~= 1.0000000000000002).
+    return max(0.0, center - half), min(1.0, center + half)
 
 
 def stats_for(seat_list, seats, hands, replays, nets, shows):
@@ -231,7 +233,10 @@ def stats_for(seat_list, seats, hands, replays, nets, shows):
             if first["action"] == "raise" and not prior_raise_before_first:
                 st["open_raise"] += 1
             # RFI: folded to this seat's first decision (BB excluded; a BB walk
-            # never reaches here since BB then has no non-post preflop action).
+            # never reaches here since BB then has no non-post preflop action
+            # at 100bb — but the guard still matters when an all-in SB leaves
+            # BB a check-or-raise option, e.g. SB posts its whole 0.5bb stack
+            # and everyone folds to BB; that cannot arise at 100bb).
             folded_to = all(
                 a["action"] == "fold"
                 for a in acts[:idx]

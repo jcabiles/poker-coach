@@ -200,6 +200,17 @@ def test_preflop_fold_out_has_no_flop_and_no_cbet_chance():
     assert st["cbet_opp"] == 0
 
 
+def test_cbet_chance_goes_to_last_preflop_raiser_not_first():
+    # LJ opens, BTN 3-bets, everyone else folds, LJ calls; flop: LJ checks,
+    # BTN bets. Pins that c-bet chance follows the LAST preflop raiser
+    # (BTN), not the first (LJ) — a `pre_raises[0]` mutant fails this.
+    s = _scripted([_r(2.5), _F, _F, _r(8.0), _F, _F, _C, _X, _b(4.0)])
+    st_btn, _ = _seat_stats(s, 0)
+    assert (st_btn["cbet_opp"], st_btn["cbet"]) == (1, 1)
+    st_lj, _ = _seat_stats(s, 3)
+    assert st_lj["cbet_opp"] == 0
+
+
 def test_cbet_all_in_preflop_raiser_is_no_chance():
     # LJ (20bb stack) jams, BB calls: no flop action for either seat.
     stacks = [100.0, 100.0, 100.0, 20.0, 100.0, 100.0]
@@ -211,8 +222,21 @@ def test_cbet_all_in_preflop_raiser_is_no_chance():
     assert st["cbet_opp"] == 0
 
 
+def test_rfi_bb_excluded_even_with_check_or_raise_option_on_all_in_sb():
+    # SB posts its whole 0.5bb stack (all-in), everyone else folds to BB.
+    # BB then has a real check-or-raise option (not a walk) but must still
+    # be excluded from rfi_opp — this cannot arise at 100bb.
+    stacks = [100.0, 0.5, 100.0, 100.0, 100.0, 100.0]
+    s = _scripted([_F, _F, _F, _F, _X], stacks)
+    st_bb, _ = _seat_stats(s, 2)
+    assert st_bb["rfi_opp"] == 0
+
+
 def test_wilson_interval():
     assert wilson(0, 0) == (0.0, 1.0)
     lo, hi = wilson(20, 100)
     assert round(lo, 3) == 0.133
     assert round(hi, 3) == 0.289
+    # Floating point can push a bound a hair past [0, 1]; both ends clamp.
+    assert wilson(0, 10)[0] == 0.0
+    assert wilson(5, 5)[1] == 1.0

@@ -70,3 +70,15 @@ The reviewer also confirmed:
   - **File sizes:** `export_session.py` is 429 lines and `table_stats.py` 269.
   - **Full suite deferred:** the ~8-minute run moves to the T3 barrier, because T2 changes only
     `tools/` files that no existing test imports.
+- **T3 (opening rate by seat, c-bet and Wilson intervals), 2026-09-26:**
+  - **Worker:** implementer on Opus. The full suite passed with 2323 passed, 2 skipped, and the
+    export output was identical.
+  - **Review:** Opus `refuter`, verdict approve-with-fixes
+    (`../reviews/m1-t3-refuter.md`). Findings:
+    - (1) should-fix, no 3-bet-pot test for the last-raiser rule — accepted, fix in progress;
+    - (2) optional, the BB-guard test and comment — accepted;
+    - (3) optional, the Wilson clamp — accepted;
+    - (4) optional, the mypy `Hand` id type — accepted.
+  - **Status:** all four fixed (Sonnet worker, Director re-ran the checks): test_table_stats
+    12 passed; mypy on `app` and `tools/table_stats.py` clean; the export output is unchanged; the new
+    3-bet test fails against the first-raiser mutant.
