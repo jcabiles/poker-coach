@@ -103,9 +103,9 @@ status: approved (owner, 2026-09-25)
     - **Fewer than 8 eligible comparisons: the result is "can't tell yet".** Tuning does not start.
       The owner plays more Challenge hands, up to the 500–1,000 already offered, and the check
       re-runs on the combined sessions.
-    - **Passes** if every eligible real rate falls inside the simulated 95% confidence interval
-      widened by the real sample's own interval. **Fails** if two or more eligible comparisons
-      fall outside it. On a failure M1 stops and reports, and nothing downstream starts.
+    - **Passes** if at most one eligible real rate falls outside the simulated 95% confidence
+      interval widened by the real sample's own interval (one miss is a pass: owner ruling,
+      2026-09-26). **Fails** if two or more eligible comparisons fall outside it. On a failure M1 stops and reports, and nothing downstream starts.
     - Known limit: the owner, not a stand-in, sat in the real hero seat.
   - **Assumption status:** untested.
 
