@@ -16,16 +16,12 @@ from pydantic import BaseModel, model_validator
 from app.domain.archetypes import VillainType
 from app.domain.evaluation import ReasoningParts
 from app.domain.spot import Hero, LegalAction
+from app.domain.table.deck import TableSize
 
 # Two-mode Simulate (two-mode-simulate T2): the session's persona-label
 # visibility mode. A literal union, never a bare `str`, so an invalid value
 # fails schema validation instead of silently persisting.
 SimMode = Literal["training", "challenge"]
-
-# The session's seat count (simulate-6max S1). A literal union for the same
-# reason as SimMode: a bad value is rejected at the edge with a 422 instead of
-# reaching the engine, where it would index a rotation that does not exist.
-TableSize = Literal[6, 9]
 
 
 class CreateSessionRequest(BaseModel):

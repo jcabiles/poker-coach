@@ -220,7 +220,7 @@
 2. The golden test passes with its T1 constants unchanged (`git diff` of the two constants since
    T1 is empty).
 3. `grep -rn "six_max" backend/app` shows the directory read only inside the table-size-6 branch of
-   `load_persona_packs`, and `grep -n "TableSize = " -r backend/app` finds exactly one definition.
+   `load_persona_packs`, and `grep -rn "TableSize = Literal" backend/app` finds exactly one definition.
 4. Live app: `./scripts/serve.sh start`, then:
    - create a 6-max session and a 9-max session (`POST /api/v1/simulate/session`);
    - act through one hand in each;

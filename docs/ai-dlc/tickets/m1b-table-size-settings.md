@@ -74,7 +74,7 @@ before any code changes.
   - `pytest tests/test_persona_table_override.py tests/test_domain_purity.py tests/test_bot_decisions_golden.py`
     passes;
   - `PYTHONPATH=. .venv/bin/mypy app` is clean;
-  - `grep -rn "TableSize = " app` finds exactly one line, in `deck.py`;
+  - `grep -rn "TableSize = Literal" app` finds exactly one line, in `deck.py`;
   - a model test proves each validator rejects its bad case and that `_doc` is accepted.
 
 ### T3 — Merge 6-max override files in the settings loader
