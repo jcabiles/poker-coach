@@ -54,9 +54,14 @@ def _width(combos: str, already_seen: frozenset[str]) -> float:
     return sum(_combo_count(c) for c in fresh) / 1326.0
 
 
+@pytest.fixture(scope="module", params=[9, 6])
+def table_size(request) -> int:
+    return request.param
+
+
 @pytest.fixture(scope="module")
-def packs() -> dict:
-    return load_persona_packs()
+def packs(table_size) -> dict:
+    return load_persona_packs(table_size=table_size)
 
 
 def _wide_deterministic_blocks(pack) -> list[str]:

@@ -176,8 +176,8 @@ class BlindCheckNotOpen(Exception):
 
 
 @cache
-def _packs() -> dict:
-    return load_persona_packs()
+def _packs(table_size: TableSize) -> dict:
+    return load_persona_packs(table_size=table_size)
 
 
 def _grading_provider():
@@ -195,8 +195,8 @@ def _load_seats(db: Session, session_id: str) -> list[SimSeat]:
     return sorted(rows, key=lambda r: r.seat_index)
 
 
-def _seat_personas(seats: list[SimSeat]) -> dict[int, PersonaPack]:
-    packs = _packs()
+def _seat_personas(seats: list[SimSeat], table_size: TableSize) -> dict[int, PersonaPack]:
+    packs = _packs(table_size)
     return {
         row.seat_index: packs[row.persona_type] for row in seats if row.persona_type is not None
     }
@@ -272,7 +272,9 @@ def _deal_and_advance(
         button_seat=session.button_seat,
         stacks_bb=[row.stack_bb for row in seats],
     )
-    state, events = advance_to_hero(state, _seat_personas(seats), HERO_SEAT, _fresh_rng())
+    state, events = advance_to_hero(
+        state, _seat_personas(seats, _table_size(session)), HERO_SEAT, _fresh_rng()
+    )
     hand = SimHand(
         session_id=session.id,
         hand_no=session.hand_no,
@@ -1086,7 +1088,9 @@ async def apply_hero_action(
 
     state = new_state
     seats = _load_seats(db, session_id)
-    state, events = advance_to_hero(state, _seat_personas(seats), HERO_SEAT, _fresh_rng())
+    state, events = advance_to_hero(
+        state, _seat_personas(seats, _table_size(session)), HERO_SEAT, _fresh_rng()
+    )
     if state.hand_over:
         _apply_settlement(seats, settle(state))
         for row in seats:
@@ -1513,7 +1517,7 @@ def villain_range(
     persona_type = seats[seat_index].persona_type
     if persona_type is None:
         return VillainRangeView(available=False, seat_index=seat_index)
-    pack = _packs()[VillainType(persona_type)]
+    pack = _seat_personas(seats, _table_size(session))[seat_index]
 
     history = _public_history(state)
     total = len(history.actions)

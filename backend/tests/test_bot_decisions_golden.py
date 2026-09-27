@@ -17,9 +17,9 @@ N_HANDS = 360
 NINE_MAX_SEED = 20260927
 SIX_MAX_SEED = 20260927
 
-# Pinned 2026-09-27. A later slice re-pins these when a bot decision
-# intentionally changes; diff `per_hand_digests()` between commits to see
-# exactly which hands moved.
+# Pinned 2026-09-27. A future change to bot behaviour re-pins these constants
+# when a bot decision intentionally changes; diff `per_hand_digests()` between
+# commits to see exactly which hands moved.
 NINE_MAX_DIGEST = "e6f5e36cc81add06cf84473cc2f3f4ae7989168f319a5ff59194b704a57d67e5"
 SIX_MAX_DIGEST = "e0a811d107bc0f08565b69137393e211bab08505a70e30abae631818b3548d39"
 

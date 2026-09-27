@@ -94,9 +94,9 @@ def _mix_id(mix) -> str:
     return mix.combos.split(",")[0].strip()
 
 
-def _scan_packs():
+def _scan_packs(table_size: int):
     """Compute (gaps, inert, interleave) defect sets over all packs."""
-    packs = load_persona_packs()
+    packs = load_persona_packs(table_size=table_size)
     gaps: set[tuple] = set()
     inert: set[tuple] = set()
     interleave: set[tuple] = set()
@@ -288,11 +288,11 @@ _WEIGHT_INTERLEAVING = {
 }
 
 
-@pytest.fixture(scope="module")
-def scan():
-    if not load_persona_packs():
+@pytest.fixture(scope="module", params=[9, 6])
+def scan(request):
+    if not load_persona_packs(table_size=request.param):
         pytest.skip("no persona packs")
-    return _scan_packs()
+    return _scan_packs(request.param)
 
 
 def _diff_message(kind: str, computed: set, inventory: set) -> str:

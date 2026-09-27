@@ -32,11 +32,12 @@
 | `backend/app/domain/table/deck.py` | Becomes the one home of `TableSize = Literal[6, 9]`, next to the 6-max seat rotation it already owns. |
 | `backend/app/schemas/simulate.py` | Imports `TableSize` from `deck.py` instead of defining it (delete, don't duplicate: the domain may not import `schemas`, so the alias moves down). |
 | `backend/app/domain/personas.py` | `load_persona_packs(content_dir=None, table_size=9)`; a private merge function. |
-| `backend/app/services/sim_session.py` | `_packs(table_size)` and `_seat_personas(seats, table_size)`, both with the size **required**; the two `advance_to_hero` call sites (`:275`, `:1089`) and the villain-range endpoint (`:1516`) pass the session's size. ⚠️ This file is already 2,021 lines. The slice changes about five lines with near-zero net growth and does not split it; splitting is out of scope. |
+| `backend/app/services/sim_session.py` | `_packs(table_size)` and `_seat_personas(seats, table_size)`, both with the size **required**; the two `advance_to_hero` call sites (`:276`, `:1092`) and the villain-range endpoint (`:1520`) pass the session's size. ⚠️ This file is already 2,021 lines. The slice changes about five lines with near-zero net growth and does not split it; splitting is out of scope. |
 | `backend/tools/sixmax_baseline.py` | Loads with `table_size=6`; its docstring line about packs is updated to match. |
 | `backend/tests/test_persona_table_override.py` (new) | Model, merge, error and liveness tests; the schema sync test. |
 | `backend/tests/persona_override_fixture.py` (new) | The one shared helper that writes the §4 fixture folder (real packs plus `six_max/` overrides) into `tmp_path`; used by three test modules. Added at T3's review. |
 | `backend/tests/test_persona_pack_invariants.py` | Every existing check runs at both table sizes, and over the merged test fixture. Coverage at 6-max checks the six seated positions. |
+| `backend/tests/test_pack_range_lint.py`, `test_persona_range_edges.py`, `test_persona_size_ecology.py` | Pack loading parametrised over table sizes 9 and 6, so the range lint, the ramp-edge rule and the size-ecology rule also see 6-max overrides. Added at the whole-branch review. `test_persona_size_ecology.py` was already over 500 lines and grows by a few. |
 | `backend/tests/test_sim_session_table_size_packs.py` (new) | Live-session wiring tests. |
 | `docs/ai-dlc/roadmap/bot-realism-6max.md` | Tick M1b when its pass/fail holds; record the assumption's status. |
 
@@ -91,8 +92,9 @@
   at a 6-max call site is the failure this slice exists to prevent. The villain-range endpoint
   reads its pack through `_seat_personas(seats, _table_size(session))[seat_index]`, the same
   function the bots use, so the two cannot drift apart.
-- **Every settings-file safety check runs at 6-max too,** owned by `test_persona_pack_invariants.py`.
-  Its `packs` fixture is parametrised over `table_size` 9 and 6, so each existing check also runs on
+- **Every settings-file safety check runs at 6-max too.** Most live in `test_persona_pack_invariants.py`;
+  the range lint, ramp-edge and size-ecology checks in the three files §1 lists get the same
+  parametrisation. The invariants file's `packs` fixture is parametrised over `table_size` 9 and 6, so each existing check also runs on
   `load_persona_packs(table_size=6)`. With no shipped override, the 6 run equals the 9 run today; it
   starts to matter when M2 ships one. The checks covered:
   - the post-flop size grid;
@@ -175,17 +177,27 @@
   - **Assert:**
     - `_packs(6)` carries the override and `_packs(9)` does not, in the call order 9, 6, 9.
     - **Both bot call sites obey the override, and the test proves each one ran.** The site at
-      `:275` fires when a hand is dealt; the site at `:1089` fires after the hero acts.
+      `:276` fires when a hand is dealt; the site at `:1092` fires after the hero acts.
       - Rewrite every villain seat's `persona_type` to the LAG so that every bot decision is a LAG
         decision.
       - Play hands in a 6-max session through the service, with the hero folding.
       - Read hole cards and action history from `SimHand.state_json`.
-      - Continue until at least one unopened LAG decision has been seen from each call site. Fail if
-        that has not happened within a fixed cap of hands.
+      - Continue until at least 30 unopened LAG decisions have been seen from each call site. Fail
+        if that has not happened within a fixed cap of hands (80). One observation is not enough,
+        because the base LAG also folds most unopened hands, so a single fold cannot tell 6-max
+        settings from 9-max ones. With one, a site wired to 9 passed; with 30, it failed 5 runs in 5.
       - Every such decision must be a fold, or a raise holding AA.
     - **The villain-range endpoint uses the 6-max pack.** Store a hand in which a LAG seat raised
       first-in from LJ. The villain-range endpoint for that seat must return weights whose classes
       are exactly `{"AA"}`, and the same hand in a 9-max session must return more than `AA`.
+    - **A 9-max session's bots ignore the override.** With every villain rewritten to the LAG, each
+      bot call site must produce at least one unopened non-AA raise within a cap. That test fails if
+      a site is hard-coded to 6.
+    - The live-session tests seed the service's randomness (`_fresh_rng`, `secrets.randbits`, as in
+      `test_grade_map.py`), so a red run can be replayed.
+  - **The measurement tool reads 6-max settings:** `sixmax_baseline.run_baseline` on the fixture folder
+    must show the LAG's unopened decisions obeying the override. The test fails if the tool loads
+    without `table_size=6`.
 
 ## 5. Golden paths to imitate
 

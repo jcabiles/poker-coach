@@ -10,7 +10,8 @@ Binding rules live in `docs/ai-dlc/specs/m1-6max-baseline.md` section 2:
   `_draw_buyin_targets(hand_seed, 6)` (no carry-over); the hand seed is
   derived exactly as `run_export` derives it, from the same `rng` that is
   then handed to `play_one_hand`.
-- Packs are the raw as-loaded `load_persona_packs()`.
+- Packs are `load_persona_packs(table_size=6)`: the base packs with any 6-max
+  override merged.
 - The tool writes no Parquet and never calls `run_export`, `derobo_gate`,
   `sweep_runner` or the data-contract check. It only prints Markdown.
 
@@ -66,7 +67,7 @@ MAX_MISSES_FOR_PASS = 1  # owner ruling 2026-09-26: one miss still passes
 
 def run_baseline(n_hands: int, seed: int) -> list[Hand]:
     """Play `n_hands` 6-max hands with the live bots; deterministic per seed."""
-    packs = load_persona_packs()
+    packs = load_persona_packs(table_size=6)
     rng = random.Random(seed)
     hands: list[Hand] = []
     for i in range(n_hands):

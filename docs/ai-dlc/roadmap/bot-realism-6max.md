@@ -14,8 +14,9 @@ status: approved (owner, 2026-09-25)
   judges the LAG.
 - **Running alongside:** research on how poker strategy changes as stacks get deeper, which feeds
   the deep-stack lane.
-- **Next action:** M1 is done (the simulation matches the owner's table). Next is M1b (settings that
-  can differ by table size), which M2 needs; R1 can run alongside.
+- **Next action:** M1 and M1b are done: the simulation matches the owner's table, and bot settings can
+  now differ at 6-max. Next is M2 (retune the LAG at 6-max), once the M1b PR is merged. R1 can run
+  alongside.
 
 ## North-star outcome
 - **Outcome:** in one 200-hand 6-max Challenge session, the owner rules each bot "plays like its
@@ -115,8 +116,15 @@ status: approved (owner, 2026-09-25)
   - **Assumption status:** tested 2026-09-26 — held for pre-flop play (VPIP/PFR, 10 of 10 eligible, 0 misses); post-flop untested against real play.
   - **Report:** `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md`.
 
-- [ ] **M1b — Let bot settings differ by table size.** ICE 6·8·7. Owner ruled it in, 2026-09-25.
-  Can run alongside M1; M2 needs both.
+- [x] **M1b — Let bot settings differ by table size.** ICE 6·8·7. Owner ruled it in, 2026-09-25.
+  Can run alongside M1; M2 needs both. Built 2026-09-27 on `feat/m1b-table-size-settings`:
+  - **Where values go:** a bot's 6-max values live in `content/personas/six_max/<bot>.json`, holding
+    only what differs.
+  - **What an override can replace:** all preflop rules for a situation, and any single dial (`null`
+    deletes a dial).
+  - **Where it is read:** the live table, the villain-range view and the M1 tool at 6 seats. 9-max
+    never reads it.
+  - **Specs:** `../specs/m1b-table-size-settings.md` and `../ledger/m1b-table-size-settings.md`.
   - **What it delivers:** a bot's settings can carry 6-max-specific values, while 9-max keeps
     reading exactly what it reads today.
   - **Pass/fail:**
@@ -126,7 +134,16 @@ status: approved (owner, 2026-09-25)
   - **Riskiest assumption:** an override layer can be added without making settings hard to
     reason about.
   - **Cheapest test:** the byte-identical 9-max check.
-  - **Assumption status:** untested.
+  - **Assumption status:** held, 2026-09-27. Both pass/fail checks pass:
+    - A golden fingerprint of every bot decision over 360 seeded hands, pinned before any code
+      changed, is unchanged at 9-max and at 6-max.
+    - A test-only override is proved live through the loader, played hands, both live-table call
+      sites and the villain-range view. 9-max sessions are proved to ignore it.
+    - "Easy to reason about" is judged by these facts:
+      - one small file per bot holds only what differs;
+      - one merge function applies it;
+      - every settings safety check also runs on the merged 6-max result.
+      - The real test comes when M2 authors the first override.
 
 - [ ] **M2 — Retune the LAG only, at 6-max only.** ICE 8·5·7. **Starts only after M1 passes and
   M1b is merged.**

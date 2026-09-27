@@ -35,7 +35,21 @@ The one rejection is a historical M1 document that stays as written.
 - **Process incident at T3's review:** the refuter ran `rm -rf $TMPDIR/tmp*` in the shared
   `/tmp/claude-501`. That can delete other sessions' Python temp folders. This session's worktrees and
   scratchpad were not hit. John was told.
-- whole-branch review: not yet run.
+- **T4** (live-table and tool wiring): reviewed within the whole-branch pass below. The maker's own
+  mutation checks turned red at every sim_session site, and raised the per-site count to 30 after one
+  observation let a wrongly wired site pass.
+- **Known issue, not this branch:** the boot probe in `scripts/verify.sh:40-44` needs a "facing a 4-bet"
+  drill spot in 80 random draws. That spot is 4.35% of the drill pool (measured over 2,000 draws), so
+  the probe fails by chance about 2.8% of the time. It failed once on this branch, and the re-run was
+  green. The probe does not read bot settings, and the branch touches none of its code; it is reported
+  to John, not changed here.
+- whole-branch review: ran 2026-09-27. Gate first: `make check` green on the finished tree (backend
+  2383 passed, frontend 135). The reviewers were Claude only, same family:
+  - `refuter` on Opus, `mode: whole-branch`;
+  - `refuter` on Sonnet, `mode: standards`.
+  - Cross-family: none. Codex cannot reach its service, and Gemini's login times out.
+  - Raw reports: `../reviews/m1b-branch-whole-branch.md` and `../reviews/m1b-branch-standards.md`.
+  - Rows B1–B6.
 
 | ID | Target | Severity | Finding | Evidence | Status | Resolution test |
 |----|--------|----------|---------|----------|--------|-----------------|
@@ -51,3 +65,9 @@ The one rejection is a historical M1 document that stays as written.
 | F10 | `personas.py` `_apply_override` base dump | minor | Nothing pinned `exclude_unset=True`; without it every calling_station or passive_fish override fails (their full dump re-adds `stickiness`). | refuter mutation (f); probe on the full dump | fixed: `test_an_override_merges_onto_a_pack_whose_full_dump_would_not_validate`; red without `exclude_unset=True` | the test fails if `exclude_unset=True` is dropped |
 | F11 | `personas.py` override read | minor | A non-UTF-8 override file raised a bare `UnicodeDecodeError` without the file name, against spec §7. | refuter probe with `b'\xff\xfe'` | fixed: override read uses `read_bytes()`; `test_a_non_utf8_override_file_fails_naming_the_file` | the error names `six_max/lag.json` |
 | F12 | `backend/tests/persona_override_fixture.py` | minor | A new shared test helper sat outside spec §1 and T3's owned list. | `git status` | fixed: spec §1 and ticket T3 amended to list it and the schema regeneration | the file is in spec §1 |
+| B1 | `backend/tests/test_sim_session_table_size_packs.py:1` | major | A new test module's docstring opened with a ticket label (`M1b T4:`), breaking the no-ticket-IDs comment rule. | standards review; line 1 | fixed: docstring describes behaviour, no label | `grep -n "M1b\|T4" ` on the file finds nothing |
+| B2 | `backend/tests/test_bot_decisions_golden.py` digest comment | minor | "A later slice re-pins these" names a work unit, borderline against the comment rule. | standards review | fixed: comment reworded; `git diff 1457448` shows 3 comment lines, constants unchanged | the comment names no work unit; `git diff 1457448` shows comment lines only |
+| B3 | `backend/tools/sixmax_baseline.py:70` | major | The measurement tool's switch to 6-max settings had no test: reverting it left every test green, and M2 depends on the tool. | whole-branch mutation, "18 passed" with the line reverted | fixed: `test_sixmax_baseline_loads_the_six_max_pack`; the Director re-ran the mutation (line reverted gives 1 failed) | the new test goes red with the line reverted |
+| B4 | `sim_session.py:276, :1092` | minor | The reverse direction was unguarded: both bot sites hard-coded to 6 left every test green, which would break 9-max once M2 ships an override. | whole-branch mutation, "111 passed" | fixed: `test_both_bot_call_sites_use_the_nine_max_pack`; the Director re-ran the mutation (both sites set to 6 gives 1 failed) | the new leg goes red when both sites are hard-coded to 6 |
+| B5 | `test_pack_range_lint.py:99`, `test_persona_range_edges.py:59`, `test_persona_size_ecology.py:187` | minor | Three more settings safety checks loaded at 9-max only, so M2's override nodes would bypass them (the same kind of gap as F2). | grep for `load_persona_packs()` | fixed: all three are parametrised over [9, 6] (tests 3→6, 18→36, 13→26); spec §1 and §2 amended | each file's tests run at both sizes |
+| B6 | `test_sim_session_table_size_packs.py` live-session loop | minor | The live-session tests drew unseeded randomness, so a red run could not be replayed. | whole-branch review; 200 of 200 passes, 400 of 400 red when mutated | fixed: a `seeded` fixture pins `_fresh_rng` and `secrets.randbits`; the call-site mutations still go red under the seed | the tests monkeypatch `_fresh_rng` and `secrets.randbits` |

@@ -120,8 +120,8 @@ before any code changes.
   - In `sim_session.py`:
     - `_packs(table_size: TableSize)` becomes `@cache`d per size, with no default;
     - `_seat_personas(seats, table_size)`, with no default;
-    - the call sites at `:275` and `:1089` pass `_table_size(session)`;
-    - the villain-range endpoint (`:1516`) reads `_seat_personas(seats, _table_size(session))[seat_index]`.
+    - the call sites at `:276` and `:1092` pass `_table_size(session)`;
+    - the villain-range endpoint (`:1520`) reads `_seat_personas(seats, _table_size(session))[seat_index]`.
   - `sixmax_baseline.run_baseline` loads with `table_size=6`, and its module docstring's packs line
     says so.
 - **Owns:**
@@ -130,9 +130,10 @@ before any code changes.
   - `backend/tests/test_sim_session_table_size_packs.py` (new).
 - **Tests (spec §4 "Live session"):**
   - `_packs(6)` and `_packs(9)` are distinct in the call order 9, 6, 9.
-  - Every villain is rewritten to the LAG and the hero folds. The loop must see at least one
-    unopened LAG decision from each bot call site within a fixed cap, and every such decision is a
-    fold, or a raise holding AA.
+  - Every villain is rewritten to the LAG and the hero folds. The loop must see at least 30
+    unopened LAG decisions from each bot call site within an 80-hand cap, and every such decision
+    is a fold, or a raise holding AA. (Raised from "at least one" during the build: one observation
+    let a site wired to 9-max pass.)
   - The villain range for a stored LAG first-in raise from LJ has classes exactly `{"AA"}` at 6-max,
     and wider at 9-max.
   - Monkeypatch `app.domain.personas.PERSONA_DIR` to the fixture folder, and clear `_packs`'s cache
