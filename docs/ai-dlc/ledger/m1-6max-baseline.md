@@ -82,3 +82,14 @@ The reviewer also confirmed:
   - **Status:** all four fixed (Sonnet worker, Director re-ran the checks): test_table_stats
     12 passed; mypy on `app` and `tools/table_stats.py` clean; the export output is unchanged; the new
     3-bet test fails against the first-raiser mutant.
+- **T4 (the `sixmax_baseline` tool and the fidelity check), 2026-09-26:**
+  - **Worker:** implementer on Opus.
+  - **Checks:** `test_sixmax_baseline.py` 9 passed; full suite 2332 passed, 2 skipped, 0
+    failed; ruff and mypy clean. The 6,000-hand run takes about 10 seconds.
+  - **Provisional result:** the 600-hand smoke run gives PASS, with 10 eligible and 0 misses.
+  - **Spec amended:** `fidelity_check(pairs)`, a single list, replaces
+    `fidelity_check(real_rows, sim_rows)`.
+  - **Known wrinkle:** the header's git SHA reads `unknown` in a linked worktree, because
+    `export_session._git_sha` reads `.git/`. T6 records the SHA from `git rev-parse` instead.
+  - **Review:** folded into one final Opus review covering T4 and T6 together, a deviation from
+    the announced plan made to save the owner's usage.
