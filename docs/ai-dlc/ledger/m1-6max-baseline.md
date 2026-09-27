@@ -29,3 +29,20 @@ The reviewer also confirmed:
 - stack depth cannot bias VPIP or PFR, because the bots' pre-flop policy never reads the stack
   (`play.py:237-252`);
 - no importers of `export_session` exist.
+
+## Build fan-in records
+
+- **T1 (simulator plays any table size), 2026-09-26:** Tier 0, checks green, no reviewer.
+  - **Worker:** implementer on Sonnet.
+  - **The Director re-ran the done-condition in a fresh process:**
+    - 43 passed across the new table-size tests, `test_buyin_spread.py`,
+      `test_export_analytics_schema.py` and `test_capped_composition_probe.py`;
+    - the four pinned 9-max digests still match;
+    - `git diff origin/main -- backend/tests/test_buyin_spread.py` is empty;
+    - ruff is clean.
+  - **Why no reviewer:** the diff is 26 lines, and the pinned digests fully prove the ticket's
+    risk, 9-max byte identity.
+  - **Deviation from the announced plan,** which listed an Opus reviewer here: the exemption
+    applies because the deterministic checks cover every acceptance criterion.
+  - **File size:** `export_analytics.py` is now 544 lines, up from 536. This is the known excess
+    the spec flags.
