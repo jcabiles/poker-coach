@@ -1,7 +1,11 @@
 # Tickets — M1, measure the 6-max baseline
 
-status: **proposed** (rev 2, after review) — awaiting the owner's approval at the build gate. Nothing below is
-cleared to build.
+status: **approved** — owner, 2026-09-26, at the `/ai-org:build` go gate. T1–T6 are cleared
+to build in the declared order, on branch `feat/m1-6max-baseline`. Approval covers building,
+running the local simulation, reading the local DB, and committing and pushing a feature branch
+and PR. It does **not** cover merging, or starting M1b, M2 or R1.
+**Baseline** (`make check` on `96ec038`, 2026-09-26): backend 2306 passed, 2 skipped; frontend
+135 passed; lint, format and types clean.
 - Spec: `../specs/m1-6max-baseline.md`.
 - Contracts: `../contracts/m1-6max-baseline.md`.
 - Ledger: `../ledger/m1-6max-baseline.md`.

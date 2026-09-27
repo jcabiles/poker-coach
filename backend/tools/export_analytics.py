@@ -97,15 +97,17 @@ _BUYIN_MIN_BB = 95.0
 _BUYIN_MAX_BB = 105.0
 
 
-def _draw_buyin_targets(hand_seed: int) -> list[float]:
-    """Nine per-seat buy-in targets (seat order 0..8): integer cents drawn
+def _draw_buyin_targets(hand_seed: int, n: int = 9) -> list[float]:
+    """`n` per-seat buy-in targets (seat order 0..n-1): integer cents drawn
     uniform on `[_BUYIN_MIN_BB, _BUYIN_MAX_BB]` from a distinct per-hand RNG
     stream (`hand_seed ^ 1`, derived from the hand's OWN seed — never the
     run's global RNG mid-stream) so the same hand seed reproduces the same
-    targets regardless of how many hands preceded it."""
+    targets regardless of how many hands preceded it. The stream is drawn
+    in seat order, so the first `n` draws of a larger table's stream equal
+    a smaller table's `n`-draw in full."""
     lo, hi = int(_BUYIN_MIN_BB * 100), int(_BUYIN_MAX_BB * 100)
     rng = random.Random(hand_seed ^ 1)
-    return [rng.randint(lo, hi) / 100 for _ in range(9)]
+    return [rng.randint(lo, hi) / 100 for _ in range(n)]
 
 
 # Default lineup mirrors the persona test harness: the 6 personas in sorted
@@ -185,11 +187,17 @@ def play_one_hand(
     three tables. Deliberately thin: derivations that SQL can do (facing,
     aggression, VPIP flags...) belong downstream in dbt, not here.
 
-    `stacks_bb`: per-seat starting stacks (seat order 0..8). Defaults to
-    the flat 100bb reset (F1 default path); `run_export`'s `--buyin-spread`
-    path supplies `_draw_buyin_targets(hand_seed)` instead."""
+    `stacks_bb`: per-seat starting stacks (seat order 0..len(stacks_bb)-1).
+    Defaults to the flat 9-seat 100bb reset (F1 default path); `run_export`'s
+    `--buyin-spread` path supplies `_draw_buyin_targets(hand_seed)` instead.
+    The table size is `len(stacks_bb)` — dealt with `deal_hand`'s matching
+    `table_size` arg, the same basis the live table uses
+    (`app/services/sim_session.py`), so the deal and the seating can never
+    disagree."""
     stacks_bb = stacks_bb if stacks_bb is not None else [STACKS_BB] * 9
-    state = start_hand(deal_hand(random.Random(hand_seed)), button_seat, stacks_bb=stacks_bb)
+    state = start_hand(
+        deal_hand(random.Random(hand_seed), len(stacks_bb)), button_seat, stacks_bb=stacks_bb
+    )
     decision_rows: list[dict] = []
     seq = 0
     # Blind posts happen inside start_hand; emit them as action rows so the
@@ -302,7 +310,7 @@ def play_one_hand(
         "went_to_showdown": bool(settlement.showdown_seats),
         "n_saw_flop": len(saw_flop),
     }
-    return {"hand": hand_row, "seats": seat_rows, "decisions": decision_rows}
+    return {"hand": hand_row, "seats": seat_rows, "decisions": decision_rows, "state": state}
 
 
 def run_export(

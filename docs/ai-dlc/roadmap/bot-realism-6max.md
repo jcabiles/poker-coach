@@ -14,7 +14,8 @@ status: approved (owner, 2026-09-25)
   judges the LAG.
 - **Running alongside:** research on how poker strategy changes as stacks get deeper, which feeds
   the deep-stack lane.
-- **Next action:** `/ai-org:spec` for slice M1 (the 6-max measurement).
+- **Next action:** M1 is done (the simulation matches the owner's table). Next is M1b (settings that
+  can differ by table size), which M2 needs; R1 can run alongside.
 
 ## North-star outcome
 - **Outcome:** in one 200-hand 6-max Challenge session, the owner rules each bot "plays like its
@@ -67,7 +68,7 @@ status: approved (owner, 2026-09-25)
 
 ## NOW (in order; ICE = impact · confidence · ease, each out of 10)
 
-- [ ] **M1 — Measure the 6-max baseline.** ICE 9·8·6.
+- [x] **M1 — Measure the 6-max baseline.** ICE 9·8·6.
   - **Problem:** every number we have comes from 200 hands, which is too few per bot and per seat
     to tune against.
   - **Outcome link:** it provides the stats half of the north star, and it checks that the
@@ -98,6 +99,10 @@ status: approved (owner, 2026-09-25)
   - **Cheapest test** (fixed before the run):
     - Compare each bot's VPIP, PFR and flop c-bet rate between the simulation and the 200 real
       hands in session `4b35736f`. That is up to 15 comparisons.
+    - **Narrowed at spec time (owner ruling, 2026-09-26):** flop c-bet had too few real chances
+      for most bots, so the pre-registered check is VPIP and PFR only, 10 comparisons. The one
+      c-bet comparison that did reach 30 chances, the LAG's, would also have passed (real 50.0%,
+      pass range 28.2–69.2%).
     - **A comparison is eligible only if the real hands gave it 30 or more chances** (owner ruling,
       2026-09-25).
     - **Fewer than 8 eligible comparisons: the result is "can't tell yet".** Tuning does not start.
@@ -107,7 +112,8 @@ status: approved (owner, 2026-09-25)
       interval widened by the real sample's own interval (one miss is a pass: owner ruling,
       2026-09-26). **Fails** if two or more eligible comparisons fall outside it. On a failure M1 stops and reports, and nothing downstream starts.
     - Known limit: the owner, not a stand-in, sat in the real hero seat.
-  - **Assumption status:** untested.
+  - **Assumption status:** tested 2026-09-26 — held for pre-flop play (VPIP/PFR, 10 of 10 eligible, 0 misses); post-flop untested against real play.
+  - **Report:** `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md`.
 
 - [ ] **M1b — Let bot settings differ by table size.** ICE 6·8·7. Owner ruled it in, 2026-09-25.
   Can run alongside M1; M2 needs both.

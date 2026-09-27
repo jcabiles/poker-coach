@@ -115,7 +115,7 @@
   byte-identical output before and after the move. This is a done-condition, not a pytest test,
   because it reads the local database.
 - **`sixmax_baseline`:**
-  - `fidelity_check(real_rows, sim_rows)` is tested with hand-made counts for `PASS`, `FAIL`,
+  - `fidelity_check(pairs)` (one list of `{bot, stat, real_k, real_n, sim_k, sim_n}`; amended at build, 2026-09-26) is tested with hand-made counts for `PASS`, `FAIL`,
     `CANT_TELL`, the 30-chance cutoff and the 1-miss boundary;
   - `run_baseline(n_hands=60, seed=…)` is tested to be deterministic across two runs and to
     contain six seats with no 9-max position labels;
