@@ -62,3 +62,19 @@ of the three minor fixes: Tier 0 (tests and a doc label), deterministic checks g
 | W1-3 | `m2-lag-retune.md` labels | minor | The 22% baseline and the 10-20% band carried only "APPROXIMATE"; S7 was missing from the VPIP/PFR union rows. | Refuter. | fixed: baseline labelled DERIVED, band basis stated, S7 added with unchanged ranges. | Report text. |
 | W1-4 | report, S3 format | optional | The LAG page S3 never states its format, so item 1's opening targets rest on M1's 6-max inference. | Refuter. | accepted: stated in the report; the targets are M1's frozen figures. | n/a |
 | W1-5 | report, S12 | optional | S12 (format unstated) is not in the LAG union rows. | Fix worker. | rejected: M1 lets S12 widen a range only beside a 6-max source and its values (28, 24) sit inside the ranges, so the ranges would not move. | n/a |
+
+## M2 build, wave 2 (the board-made-hand fix)
+
+Fan-in: one fresh Claude `refuter` (Opus, behavior-touching), verdict PASS, no blocker, major or minor
+finding. Independently confirmed: a brute-force comparison of the rule over 609,729 hands (0 mismatches),
+`make check` green, the mutation copy (rule removed: 5 new tests, both digests and three other pins fail;
+old tests pass, so every re-pin is caused by the fix alone), `check_test_weakening.py` clean, and the 9-max
+matched replay reproduced byte for byte (4,000 hands, 13 changed, 13 attributed, 161 of 161 export rows
+attributed, 0 unattributed). The 6-max share dump was not re-dumped by the reviewer.
+
+| ID | Target | Severity | Finding | Evidence | Status | Resolution test |
+|----|--------|----------|---------|----------|--------|-----------------|
+| W2-1 | `personas_postflop.py:123` | optional | The `len(board) == 5` check is redundant because `_best5` returns `None` on a four-card board; the four-card guard test cannot tell the check apart. | Refuter, `_best5` at :87-96. | rejected: the explicit check states spec §4's rule and costs nothing. | n/a |
+| W2-2 | scratch near-tie labels | optional | The "(higher)" label in the scratch near-tie script is misleading for a low flush card. | Refuter. | accepted: the report (T5) words that case with the spec's "low flush card" wording; classification is unchanged. | Report wording in T5. |
+| W2-3 | design (spec §4) | optional | An unbeatable board-made chop, such as a royal flush on the board, is now a bluff-catcher and can fold to a bet. | Refuter; the one raise-to-fold hand (9-max #3210) was a correct fold to a higher straight. | accepted: the project owner chose the bluff-catcher class (2026-09-30). | n/a |
+| W2-4 | ticket T2 owned files | minor | Two 9-max pins outside T2's owned list (`test_buyin_spread.py`, `test_limper_coverage_belt.py`) failed on the fix and were re-pinned. | Maker report; refuter mutation copy. | fixed: spec §4 allows it; the ticket's owned-files line now names both files. | Ticket text. |

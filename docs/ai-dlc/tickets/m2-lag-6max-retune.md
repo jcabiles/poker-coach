@@ -86,7 +86,9 @@ then the whole-branch review, the merge gate, the PR
 - **Owned files:** `backend/app/domain/personas_postflop.py` (`_made_bucket` only),
   `backend/tests/test_board_made_hands.py` (new), `backend/tests/test_bot_decisions_golden.py`
   (digest constants), `backend/tests/test_personas_postflop.py` (stat pins only), and the scratch
-  folder `m2-sim/`.
+  folder `m2-sim/`. Built as: two more 9-max exact pins failed on the fix alone and were re-pinned
+  under spec §4's "any other 9-max pin only if it fails" clause: `backend/tests/test_buyin_spread.py`
+  and `backend/tests/test_limper_coverage_belt.py` (verified by re-running the old tests with the rule removed).
 - **Golden path:** the board-trips branch and F7 comment at `personas_postflop.py:123-140`; direct
   bucket calls as in `test_mw_catch_toppair.py:185`.
 - **Done-condition:**

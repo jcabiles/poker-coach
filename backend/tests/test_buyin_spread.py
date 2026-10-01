@@ -342,12 +342,22 @@ def _hash_manifest(manifest: dict) -> str:
 # below. An engine file WAS changed by this ticket, unlike S3-T2 — but it is a
 # true no-op for a pack that does not author the field, and the commit that
 # added it left all six packs unauthored and the whole suite green.
+# RE-RECORDED for M2 (2026-10-01, slice-authorized): a straight or better the
+# five-card board makes alone, hole cards adding nothing, now classes
+# MIDDLE_PAIR, not MONSTER, so those river decisions and their
+# `hand_class_bucket` values change. Values immediately before it:
+#   manifest      7e42a6243deb532ebbf6eaca4c64347bbe79fc9c2cc9e9b4bde27ac8c52c0193
+#   hands         948372e1cfdec7b0b014b4e706210bd08af54413836d0b8b36a5353c7633d2ae
+#   seat_outcomes 32b645c7bc3173c5eec90ee849abea800bcbebacae6a8a0422dfb413645cda69
+#   decisions     e7d41831ea14007b01922e4a8b74f4e8187b9847a3c87b3653f4998db6ebdb76
+# The manifest moves only through its decisions row count; no pack changed.
+# ATTRIBUTION: with only that rule removed this test passes at the old values.
 _GOLDEN_SEED = 777
 _GOLDEN_N_HANDS = 25
-_GOLDEN_MANIFEST_SHA256 = "7e42a6243deb532ebbf6eaca4c64347bbe79fc9c2cc9e9b4bde27ac8c52c0193"
-_GOLDEN_HANDS_SHA256 = "948372e1cfdec7b0b014b4e706210bd08af54413836d0b8b36a5353c7633d2ae"
-_GOLDEN_SEAT_OUTCOMES_SHA256 = "32b645c7bc3173c5eec90ee849abea800bcbebacae6a8a0422dfb413645cda69"
-_GOLDEN_DECISIONS_SHA256 = "e7d41831ea14007b01922e4a8b74f4e8187b9847a3c87b3653f4998db6ebdb76"
+_GOLDEN_MANIFEST_SHA256 = "e77aafecef3f10fae26b0c1da6da165d3a460d4dcc34c937b2724e26f607d6c1"
+_GOLDEN_HANDS_SHA256 = "10e16a450162d4e6d99bf4bda96ff5b61be3966868da3d0bd7ade38b243e7fbb"
+_GOLDEN_SEAT_OUTCOMES_SHA256 = "8284931825f602ff4637b5916c2580f4505746ccd2560ab3ad8a9c44fd2c688b"
+_GOLDEN_DECISIONS_SHA256 = "0f55f6e6915f56ff12cea897759af3b73ec010c381b00f7f2b2a63a45cec24de"
 
 
 def test_default_path_matches_pinned_golden_digests(tmp_path):
