@@ -8,6 +8,9 @@ and Wilson-interval definitions on scripted hands.
 from __future__ import annotations
 
 import random
+from types import SimpleNamespace
+
+import pytest
 
 from app.domain.action import Decision
 from app.domain.archetypes import VillainType
@@ -16,7 +19,15 @@ from app.domain.spot import ActionType, Street
 from app.domain.table.deck import deal_hand
 from app.domain.table.engine import apply, start_hand
 from tools.export_analytics import play_one_hand
-from tools.table_stats import Hand, replay, settle_hand, stats_for, wilson
+from tools.table_stats import (
+    Hand,
+    non_aggressor_bet_fractions,
+    raise_multiples,
+    replay,
+    settle_hand,
+    stats_for,
+    wilson,
+)
 
 # 6-max seat map used throughout: seat 0 stands in for the owner (TAG), the
 # rest are the other five archetypes the ticket names.
@@ -240,3 +251,85 @@ def test_wilson_interval():
     # Floating point can push a bound a hair past [0, 1]; both ends clamp.
     assert wilson(0, 10)[0] == 0.0
     assert wilson(5, 5)[1] == 1.0
+
+
+# --- raise multiple and non-aggressor bet size, on hand-built rows ---
+
+
+def _row(seat, street, action, amount, pot_before, to_call=0.0, inv_before=0.0):
+    return {
+        "seat": seat,
+        "street": street,
+        "action": action,
+        "amount": amount,
+        "pot_before": pot_before,
+        "to_call": to_call,
+        "street_inv_before": inv_before,
+    }
+
+
+def _one_hand(rows):
+    hand = SimpleNamespace(hand_no=1, seats={1: None, 2: None})
+    return [hand], {1: rows}
+
+
+def test_raise_multiples_station_example_is_4_77x():
+    hands, replays = _one_hand(
+        [_row(1, "flop", "bet", 1.98, 6.0), _row(2, "flop", "raise", 9.45, 7.98, to_call=1.98)]
+    )
+    assert raise_multiples([2], hands, replays) == [pytest.approx(9.45 / 1.98)]
+    assert raise_multiples([1], hands, replays) == []
+
+
+def test_raise_multiples_uses_street_inv_before_for_a_re_raise():
+    # seat 2 bet 2, seat 1 raised to 6, seat 2 re-raises 14 more: 16 / 6.
+    hands, replays = _one_hand(
+        [
+            _row(2, "turn", "bet", 2.0, 8.0),
+            _row(1, "turn", "raise", 6.0, 10.0, to_call=2.0),
+            _row(2, "turn", "raise", 14.0, 16.0, to_call=4.0, inv_before=2.0),
+        ]
+    )
+    assert raise_multiples([2], hands, replays) == [pytest.approx(16.0 / 6.0)]
+
+
+def test_raise_multiples_ignores_preflop_and_empty_input():
+    hands, replays = _one_hand([_row(2, "preflop", "raise", 9.0, 1.5, to_call=2.0)])
+    assert raise_multiples([2], hands, replays) == []
+    assert raise_multiples([2], [], {}) == []
+
+
+def test_non_aggressor_bet_fraction_counts_a_lead_and_skips_the_aggressors_cbet():
+    # Seat 1 raised preflop (last aggressor) and c-bets the flop: excluded.
+    # Seat 2 leads the flop of another hand at 1/2 pot: counted.
+    hands, replays = _one_hand(
+        [
+            _row(1, "preflop", "raise", 3.0, 1.5, to_call=1.0),
+            _row(1, "flop", "bet", 3.0, 6.0),
+        ]
+    )
+    assert non_aggressor_bet_fractions([1], hands, replays) == []
+    hands, replays = _one_hand(
+        [
+            _row(1, "preflop", "raise", 3.0, 1.5, to_call=1.0),
+            _row(2, "flop", "bet", 3.0, 6.0),
+        ]
+    )
+    assert non_aggressor_bet_fractions([2], hands, replays) == [0.5]
+
+
+def test_non_aggressor_bet_fraction_probe_after_the_flop_aggressor_checks():
+    # Seat 1 bet the flop (last aggressor); seat 2 probes the turn: counted.
+    hands, replays = _one_hand(
+        [
+            _row(1, "flop", "bet", 3.0, 6.0),
+            _row(2, "flop", "call", 3.0, 9.0, to_call=3.0),
+            _row(2, "turn", "bet", 6.0, 12.0),
+        ]
+    )
+    assert non_aggressor_bet_fractions([2], hands, replays) == [0.5]
+
+
+def test_non_aggressor_bet_fraction_skips_a_bet_into_an_empty_pot():
+    hands, replays = _one_hand([_row(2, "flop", "bet", 3.0, 0.0)])
+    assert non_aggressor_bet_fractions([2], hands, replays) == []

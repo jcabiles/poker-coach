@@ -538,15 +538,17 @@ _PRE_M3_FIRES = {
     # content changed and every _WANT_* coverage shape still fires (verified:
     # BB x1 49, BB x2 21, BB x3 4) — stream displacement, not a coverage
     # regression.
-    ("UTG2", 1): 91,
-    ("LJ", 1): 104,
-    ("HJ", 1): 127,
-    ("CO", 1): 90,
-    ("CO", 2): 33,
-    ("SB", 1): 70,
-    ("SB", 2): 31,
-    ("BTN", 1): 85,
-    ("BTN", 2): 39,
+    # Re-pinned for the board-made-hand fix, which displaces the shared organic
+    # stream; attribution proven by reverting the rule. Every _WANT_* shape still fires.
+    ("UTG2", 1): 101,
+    ("LJ", 1): 99,
+    ("HJ", 1): 135,
+    ("CO", 1): 107,
+    ("CO", 2): 32,
+    ("SB", 1): 75,
+    ("SB", 2): 30,
+    ("BTN", 1): 90,
+    ("BTN", 2): 37,
 }
 
 

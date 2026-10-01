@@ -4394,11 +4394,15 @@ _GOLDEN_STATS_N200 = {
     # ATTRIBUTION PROVEN, not assumed: with the LAG pack file reverted and every
     # other edit in this branch left in place, this test passes untouched at the
     # old values; restoring the pack reproduces the new ones.
-    "calling_station": (0.2709677419354839, 0.16393442622950818, 0.696113074204947),
+    # RE-RECORDED for M2 (2026-10-01, slice-authorized): a straight or better the
+    # five-card board makes alone, with hole cards adding nothing, now classes
+    # MIDDLE_PAIR, not MONSTER. Only the station and fish rows move at this seed
+    # (shared-stream displacement after their first such river decision).
+    "calling_station": (0.27936507936507937, 0.1774193548387097, 0.702054794520548),
     "lag": (2.826923076923077, 0.4666666666666667, 0.5531914893617021),
     "maniac": (3.3728813559322033, 0.4222222222222222, 0.5495049504950495),
     "nit": (1.5666666666666667, None, 0.625),
-    "passive_fish": (0.7946428571428571, 0.46875, 0.5297029702970297),
+    "passive_fish": (0.6538461538461539, 0.47368421052631576, 0.5763546798029556),
     "tag": (3.0, None, 0.6666666666666666),
 }
 

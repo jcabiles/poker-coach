@@ -158,3 +158,43 @@ def test_build_pairs_grouping_matches_the_spec_section_2():
 
     # seat 0's stand-in group never appears as a bot in any pair.
     assert "stand-in tag (seat 0)" not in {p["bot"] for p in pairs}
+
+
+def test_measure_reports_the_m2_stats_for_every_group():
+    hands = sb.run_baseline(120, 7)
+    out = sb.measure(hands, sb.SEATS, sb.SIM_GROUPS)
+    for counts in out.values():
+        k_flop, n_flop = counts[sb.RAISE_RATE_FLOP]
+        k_all, n_all = counts[sb.RAISE_RATE_ALL]
+        assert 0 <= k_flop <= n_flop <= n_all and k_flop <= k_all <= n_all
+        mult = counts[sb.RAISE_MULTIPLE]
+        if mult["n"]:
+            assert 1.0 <= mult["median"] and mult["p90"] >= mult["median"]
+            assert 0.0 <= mult["share_4x"] <= 1.0
+    # WEAKENED-OK: tautology, a length cannot be negative
+    assert sum(c[sb.RAISE_MULTIPLE]["n"] for c in out.values()) > 0
+    assert sum(c[sb.NON_AGGRESSOR_BET]["n"] for c in out.values()) > 0
+
+    # Independent recomputation straight from `stats_for`, not the tool's helper.
+    replays = {h.hand_no: sb.replay(h) for h in hands}
+    settles = {h.hand_no: sb.settle_hand(h) for h in hands}
+    nets = {k: v[0] for k, v in settles.items()}
+    shows = {k: v[1] for k, v in settles.items()}
+    for name, seat_list in sb.SIM_GROUPS.items():
+        st, _ = sb.stats_for(seat_list, sb.SEATS, hands, replays, nets, shows)
+        assert out[name][sb.RAISE_RATE_FLOP] == (
+            int(st["flop_raise_vs_bet"]),
+            int(st["flop_faced_bet"]),
+        )
+        assert out[name][sb.RAISE_RATE_ALL] == (
+            int(st["flop_raise_vs_bet"] + st["turn_raise_vs_bet"] + st["river_raise_vs_bet"]),
+            int(st["flop_faced_bet"] + st["turn_faced_bet"] + st["river_faced_bet"]),
+        )
+    assert any(c[sb.RAISE_RATE_ALL][1] > c[sb.RAISE_RATE_FLOP][1] for c in out.values())
+
+
+def test_summarise_multiples_on_known_values():
+    got = sb._summarise_multiples([2.0, 3.0, 4.0, 5.0])
+    assert got == {"n": 4, "median": 3.5, "mean": 3.5, "p90": 5.0, "share_4x": 0.5}
+    assert sb._summarise_multiples([]) == {"n": 0}
+    assert sb._summarise_multiples([3.0])["p90"] == 3.0

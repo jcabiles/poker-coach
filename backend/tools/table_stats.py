@@ -308,3 +308,45 @@ def stats_for(seat_list, seats, hands, replays, nets, shows):
                 if nets[h.hand_no].get(seat, 0) > 0:
                     st["wsd_win"] += 1
     return st, per_pos
+
+
+def _postflop_rows(seat_list, hands, replays):
+    """Yield (replay rows of the hand, index, row) for every post-flop row a
+    seat in `seat_list` acted on. Only seats actually dealt into the hand."""
+    for h in hands:
+        acts = replays[h.hand_no]
+        for i, a in enumerate(acts):
+            if a["seat"] in seat_list and a["seat"] in h.seats and a["street"] != "preflop":
+                yield acts, i, a
+
+
+def raise_multiples(seat_list, hands, replays) -> list[float]:
+    """Size of each post-flop raise as a multiple of the bet it raised:
+    (street_inv_before + amount) / (street_inv_before + to_call), i.e. the
+    raiser's new street total over the street total he was raising to. A 1.98bb
+    lead raised to 9.45bb is 4.77x. A raise needs to_call > 0, so the
+    denominator is never zero."""
+    return [
+        (a["street_inv_before"] + a["amount"]) / (a["street_inv_before"] + a["to_call"])
+        for _, _, a in _postflop_rows(seat_list, hands, replays)
+        if a["action"] == "raise" and a["to_call"] > 0
+    ]
+
+
+def non_aggressor_bet_fractions(seat_list, hands, replays) -> list[float]:
+    """Each post-flop bet (opening bet of a street: leads, probes, stabs) made
+    by a seat that is NOT the last aggressor, as amount / pot_before. The last
+    aggressor is the seat of the most recent bet or raise in earlier actions of
+    the hand (any street, preflop included); a continuation bet by it is
+    excluded. Bets into an empty pot are skipped (no fraction)."""
+    out = []
+    for acts, i, a in _postflop_rows(seat_list, hands, replays):
+        if a["action"] != "bet" or a["pot_before"] <= 0:
+            continue
+        prior = [
+            p for p in acts[:i] if p["street"] != a["street"] and p["action"] in ("bet", "raise")
+        ]
+        if prior and prior[-1]["seat"] == a["seat"]:
+            continue
+        out.append(a["amount"] / a["pot_before"])
+    return out
