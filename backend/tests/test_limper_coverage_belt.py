@@ -538,14 +538,8 @@ _PRE_M3_FIRES = {
     # content changed and every _WANT_* coverage shape still fires (verified:
     # BB x1 49, BB x2 21, BB x3 4) — stream displacement, not a coverage
     # regression.
-    # RE-RECORDED for M2 (2026-10-01, slice-authorized): a straight or better
-    # the five-card board makes alone, hole cards adding nothing, now classes
-    # MIDDLE_PAIR, not MONSTER, so those river decisions change and the shared
-    # organic stream displaces (old counts: UTG2 x1 91,
-    # LJ x1 104, HJ x1 127, CO x1 90, CO x2 33, SB x1 70, SB x2 31, BTN x1 85,
-    # BTN x2 39). ATTRIBUTION: with only that rule removed this test passes at
-    # the old counts. Every _WANT_* shape still fires (BB x1 46, BB x2 22,
-    # BB x3 7).
+    # Re-pinned for the board-made-hand fix, which displaces the shared organic
+    # stream; attribution proven by reverting the rule. Every _WANT_* shape still fires.
     ("UTG2", 1): 101,
     ("LJ", 1): 99,
     ("HJ", 1): 135,

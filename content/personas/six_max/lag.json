@@ -38,6 +38,7 @@
     "block sizes the LAG's leads, probes and stabs (bets made when it is not",
     "the last aggressor), so those shrink too: mean 0.61 of pot before, 0.49",
     "after.",
+    "Dropping the 1.0 size also lowers the bluff weighting on the LAG's leads and raises when it is not the aggressor (size-weighted bluff factor about 1.022 to 0.954, roughly 7% fewer bluffs there).",
     "",
     "Not touched: `sizing_by_node` (its `raise` node is never read by a bot)",
     "and the pre-flop `sizing` block (open 3.0, 3-bet 3.5, 4-bet 2.4)."

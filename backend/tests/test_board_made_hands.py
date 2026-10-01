@@ -1,7 +1,7 @@
 """A straight or better that the five-card board makes alone is not the bot's
 monster: when the hole cards add nothing, `_made_bucket` classes the hand
 MIDDLE_PAIR (a bluff-catcher). Any hole card that improves the best five, and
-any board of fewer than five cards, keeps MONSTER (M2 spec section 4).
+any board of fewer than five cards, keeps MONSTER (the board-made-hand rule).
 
 Found by the blind 200-hand review (2026-09-25): AQo on 9s 8c 6s 5c 7s and KJo
 on 5s 6h 7c 9c 8s were played as monsters."""

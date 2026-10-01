@@ -1,6 +1,6 @@
 ## Bottom line
 
-**Outcome (added in commit 3; the text below this paragraph is unchanged from commit 1).** The retune passes four of the six frozen items outright and misses one seat of the first. Items 3 (raise rate when bet into: 18.1%, 846 faced bets), 4 (raise size: 5.9% at 4x or more, median 2.66x, 153 raises), 5 (9-max unchanged, proven hand by hand) and 6 (no other bot touched) pass. Item 1 (opening rates) passes at LJ, HJ, BTN and SB and fails at CO on the judged seed (28.5% [25.2%, 32.1%] against 33); the project owner waived that miss on 2026-10-01 because the held-out seeds 1-5 and 6-10 give 33.5% at CO, and the frozen check stays as written. Item 2 is reported: VPIP is inside its range, PFR (18.5%) is under the 20 floor, a known gap that does not block the pull request. Not settled: the LAG also opens less than the unchanged TAG at CO on the judged seed (the project owner accepted this only at LJ and HJ); the raise-rate and raise-size bands are approximate, not sourced; the LAG's flop c-bet and showdown rate have no sourced range, so the roadmap's full supporting check is not claimed as passed; and the project owner's 200-hand Challenge verdict happens after merge.
+**Outcome (added in commit 3; the text below this paragraph is unchanged from commit 1).** The retune passes four of the six frozen items outright and misses one seat of the first. Items 3 (raise rate when bet into: 18.1%, 846 faced bets), 4 (raise size: 5.9% at 4x or more, median 2.66x, 153 raises), 5 (9-max unchanged, proven hand by hand) and 6 (no other bot touched) pass. Item 1 (opening rates) passes at LJ, HJ, BTN and SB and fails at CO on the judged seed (28.5% [25.2%, 32.1%] against 33); the project owner waived that miss on 2026-10-01 because the held-out seeds 1-5 and 6-10 give 33.5% at CO, and the frozen check stays as written. Item 2 is reported: VPIP is inside its range, PFR (18.5%) is under the 20 floor, a known gap that does not block the pull request. Not settled: the LAG also opens less than the unchanged TAG at CO on the judged seed (the project owner accepted this only at LJ and HJ); the raise-rate and raise-size bands are approximate, not sourced; the LAG's flop c-bet and showdown rate have no sourced range, so the roadmap's full supporting check is not claimed as passed; and the project owner's 200-hand Challenge verdict happens after merge. Also not settled: post-flop, the LAG now raises into bets less often than the TAG and about as often as the nit, and its raises are smaller than the TAG's (section 4); the project owner accepted this for now on 2026-10-01.
 
 The retune of the loose-aggressive (LAG) bot at 6-max is judged against targets frozen in this file, before any tuning. Opening rates by seat, VPIP and PFR come from sources already verified in the M1 baseline report. The two new post-flop stats have no verified source: the sourcing pass found no published 6-max figure for how often a LAG raises when bet into, or for its raise size as a multiple of the bet. Both therefore use approximate bands (raise rate 10-20%; raises of 4x the bet or more at most 10% with a median of 2.5-3.5x). The LAG's flop c-bet and showdown rate stay unsourced, so the roadmap's full supporting check cannot be claimed as passed. The project owner's 200-hand Challenge verdict is not judged here.
 
@@ -199,6 +199,16 @@ The judged runs use one shared random stream per table, so any changed decision 
 
 **Result: the LAG opens fewer hands than the unchanged TAG at LJ and HJ (accepted), and on the judged seed also at CO, and its PFR is below the TAG's.** The project owner accepted the LAG opening fewer hands than the TAG at LJ and HJ only. On the judged seed the LAG also opens less than the TAG at CO (28.5% against 32.7%), and its PFR is below the TAG's (18.5% against 19.9%; pooled seeds 1-5: 19.4% against 19.6%). This goes to the post-merge verdict record: whether the project owner can still name each bot's type.
 
+#### Post-flop overlap, judged run, commit 3, seed 20260926, 6,000 hands
+
+Post-flop the retuned LAG overlaps the other bots more than the opening rates suggest. It raises into a bet (flop, turn and river pooled) less often than the unchanged TAG and about as often as the nit, and its raises are smaller than the TAG's. The project owner accepted this for now on 2026-10-01, the same treatment as the opening-rate gaps above: the 200-hand Challenge verdict after merge records whether each bot's type is still nameable, and the remedy if not is a second settings change to the LAG file. The nit is the tight, passive bot.
+
+| Stat | LAG | TAG | Nit |
+|---|---|---|---|
+| raise when bet into (flop+turn+river) | n=846 · 18.1% [15.6%, 20.8%] | n=1485 · 23.6% [21.5%, 25.9%] | n=400 · 18.2% [14.8%, 22.3%] |
+| raises at 4x the bet or more | 5.9% (n=153 raises) | 25.9% (n=351 raises) | 24.7% (n=73 raises) |
+| median raise multiple | 2.66x | 3.00x | 3.00x |
+
 #### Judged run, commit 3, seed 20260926, 6,000 hands
 
 | Stat | LAG | TAG |
@@ -308,7 +318,7 @@ The near-tie scan (`c2-near-ties.txt`) counts river decisions where the hole car
 
 ### 9. Not judged here
 
-**The project owner's 200-hand Challenge verdict happens after merge, and the roadmap box stays unticked until then.** It includes whether the project owner can still name each bot's type, given the LAG now opens fewer hands than the TAG at LJ and HJ (accepted) and, on the judged seed, also at CO, with a PFR below the TAG's (section 4). A pass here is also not proof that settings alone suffice: the project owner judges the settings change and the board-made-hand fix together, and the matched replays above only report each part's share.
+**The project owner's 200-hand Challenge verdict happens after merge, and the roadmap box stays unticked until then.** It includes whether the project owner can still name each bot's type, given the LAG now opens fewer hands than the TAG at LJ and HJ (accepted) and, on the judged seed, also at CO, with a PFR below the TAG's (section 4), and given the post-flop overlap in the same section (the LAG raises into bets less often than the TAG, about as often as the nit, with smaller raises than the TAG's; accepted for now on 2026-10-01). A pass here is also not proof that settings alone suffice: the project owner judges the settings change and the board-made-hand fix together, and the matched replays above only report each part's share.
 
 ### Appendix: the matched-replay script
 

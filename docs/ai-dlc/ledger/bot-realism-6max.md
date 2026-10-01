@@ -16,7 +16,12 @@ scheme: 2026-09-26
   `../reviews/m2-lag-6max-retune-r1-refuter.md`, `../reviews/m2-lag-6max-retune-r1-sol.md`.
   The two agreed on the main blocker (the shared random stream). They disagreed on one severity
   (C2 blocker vs R13 minor); adjudicated minor, since the fix is the same.
-- whole-branch review: not yet run.
+- whole-branch review (2026-10-01): ran on branch head ee93bd7. Gate first: `make check` green, test-weakening
+  check clean against the merge base. Reviewers, in one message: a fresh Claude `refuter` (Opus, mode whole-branch),
+  a fresh Claude `refuter` (Sonnet, mode standards) and Codex `gpt-6-sol` (high; both lenses). Reports:
+  `../reviews/m2-lag-6max-retune-branch-refuter-interaction.md`,
+  `../reviews/m2-lag-6max-retune-branch-refuter-standards.md` and `../reviews/m2-lag-6max-retune-branch-sol.md`
+  (Codex, raw). Every finding is ledgered in the M2 whole-branch rows below.
 
 ## M2 spec, round 1
 
@@ -111,3 +116,29 @@ minor fixes were re-checked deterministically (diff of the report, grep), Tier 0
 | W4-3 | report §6 and ledger W3-1 | minor | "About 2.6 standard errors" had no saved source (the reviewer gets 2.4-2.5). | Refuter. | fixed: the phrase is removed from the report and from W3-1. | grep finds none. |
 | W4-4 | report, item 6 command | optional | The command adds `-uall`, which the spec's command lacks; it is needed to list files inside new folders. | Refuter. | accepted: same result, clearer output. | n/a |
 | W4-5 | report, scratch sources | optional | The report cites scratch output files that are not in the repo. | Refuter. | accepted: the spec keeps the matched-replay script out of the tree (§13); the report inlines it and states each figure's conditions. | n/a |
+
+## M2 whole-branch review (2026-10-01, branch head ee93bd7)
+
+Reviewers: Claude `refuter` Opus (interaction lens): FAIL on one major (W5-1), otherwise clean; Claude `refuter`
+Sonnet (standards lens): PASS-WITH-ISSUES, minors only; Codex `gpt-6-sol` (both lenses): FAIL against the frozen
+CO check (W5-2, already ruled) plus two standards majors (W5-3, W5-4). Reviewers were briefed blind to the
+interview, the spec review and this ledger; the project owner's 2026-10-01 waiver therefore reached them only as
+text in the report.
+
+| ID | Target | Severity | Finding | Evidence | Status | Resolution test |
+|----|--------|----------|---------|----------|--------|-----------------|
+| W5-1 | report §4, §9; roadmap M2 entry | major | The separation write-up covers only the pre-flop overlap. After the retune the LAG's post-flop raising is below the unchanged TAG's and level with the nit's (raise when bet into: LAG 18.1%, TAG 23.6%, nit 18.2%; raises of 4x or more: LAG 5.9%, TAG 25.9%). | Opus re-ran the judged simulation; the figures are in the report's per-bot table. | waived: project owner 2026-10-01 — disclose it and open the PR; the 200-hand verdict after merge records whether each bot's type is still nameable, and the remedy is a second settings change to the LAG file. Disclosure added to the report and roadmap. | Report §4 and §9 state the post-flop overlap and the owner's acceptance. |
+| W5-2 | spec §7 item 1 (CO) | major | The judged CO interval does not contain 33. | Codex; same fact as W3-1. | waived: project owner 2026-10-01 (see W3-1); the report keeps the frozen check marked FAIL, shows the held-out seeds beside it, and states the waiver. | As W3-1. |
+| W5-3 | `personas_postflop.py:121` | major | The retained comment "monster even on paired boards" sits above the new exception and is stale. | Codex (engineering standards: no stale claim left in place "corrected" by a second comment). | fixed: the comment now reads "straight or better: monster unless the board makes it alone (below)". | Diff is comment-only; `make check` green. |
+| W5-4 | `test_limper_coverage_belt.py` | major | The re-pin grew an already oversized file (590 to 598 lines) without flagging it. | Codex. | accepted: eight lines of re-pin text, flagged here and in the PR; splitting oversized files is out of scope (spec §13). | PR "Review focus" names it. |
+| W5-5 | `postflop.py:271-274` | minor | The hero-side grader `_hand_category` still calls any straight or flush across hole plus board "strong", even when the board makes it alone, so it disagrees with the bot rule now. It feeds the river graders. | Opus. | accepted: latent (the river graders are not reached yet per the project's coverage notes) and the roadmap bars other engine changes; named in the PR as a follow-up. | PR "Not in this PR". |
+| W5-6 | tests (several) | minor | A never-failing assertion (`n >= 0`); re-pin comments that re-list old digests and counts; two bare internal labels in test comments. | Sonnet standards review. | fixed: assertion deleted (WEAKENED-OK note: a length cannot be negative), comments trimmed to the constraint, labels replaced with plain words. | `check_test_weakening.py` 0 failing, 1 exempt (judged fine); `make check` green. |
+| W5-7 | `lag.json` `_doc` | optional | Dropping the 1.0 size lowers the bluff weighting on the LAG's leads and raises when it is not the aggressor (about 1.022 to 0.954); the notes did not say so. | Opus. | fixed: one sentence added to the `_doc`. | File text. |
+| W5-8 | `sixmax_baseline.py` summaries | minor | Possible primitive obsession: tuples and dicts mix, a key sniff tells them apart, one type hint reads `dict[str, float]` yet returns `{"n": 0}`. | Sonnet. | accepted: matches the surrounding tool code; mypy and tests pass; not worth a refactor in this slice. | n/a |
+| W5-9 | `table_stats.py` | minor | The definition of a raise into a bet exists in `stats_for` and in `raise_multiples`. | Sonnet. | accepted: the spec keeps `stats_for` and its four callers unchanged (spec §3); the two are tested against each other by the measure test. | n/a |
+| W5-10 | `test_rr_emit.py` | minor | The 6-max tests repeat the base LAG tests and the file grows from 555 to 604 lines. | Sonnet. | accepted: the spec names this file for these tests and mirrors the base block; flagged here and in the PR. | n/a |
+| W5-11 | `sixmax_baseline.py:435` | optional | `POSTFLOP_STREETS` repeats a street tuple that `stats_for` writes inline. | Opus. | rejected: touching `stats_for` is out of scope (spec §3). | n/a |
+| W5-12 | `personas_postflop.py` and its test file | minor | Pre-existing oversized files grow by a few lines. | Sonnet. | accepted: flagged here and in the PR; splitting is the cleanup project's. | PR "Review focus". |
+| W5-13 | `escapes.md` | minor | The placeholder `PR #TBD` is committed. | Sonnet. | open until the PR number exists; fixed in a follow-up commit on the PR branch right after the PR is opened. | `escapes.md` carries the number. |
+| W5-14 | report length | optional | The report is about 580 lines, mostly the inlined script. | Sonnet. | accepted: the spec requires the script inlined; the repo keeps per-slice research files. | n/a |
+| W5-15 | requirements | minor | Reviewers listed the CO miss and the LAG-below-TAG opens at CO as requirements the branch does not carry. | Opus, Sonnet, Codex. | accepted: both are disclosed in the report and ruled by the project owner (W3-1, W3-2); the roadmap's 200-hand verdict and the c-bet and WTSD ranges are expressly outstanding. | n/a |

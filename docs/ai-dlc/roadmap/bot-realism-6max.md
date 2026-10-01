@@ -189,6 +189,9 @@ status: approved (owner, 2026-09-25)
     - known gaps: PFR 18.5% is under the 20 floor; the LAG opens less than the TAG at LJ and HJ
       (accepted) and on the judged seed also at CO; flop c-bet and showdown rate have no sourced
       range, so the full supporting check is not claimed.
+    - post-flop overlap: the LAG raises into bets 18.1% of the time against the TAG's 23.6% and the nit's
+      18.2%, and only 5.9% of its raises are 4x or more (TAG 25.9%); accepted for now by the project
+      owner on 2026-10-01. The 200-hand verdict records it; the remedy if needed is a second LAG settings change.
   - **Assumption status:** untested. The simulation passing does not prove settings alone suffice:
     the project owner judges the fix and the settings together, and the matched replays report each
     part's share.

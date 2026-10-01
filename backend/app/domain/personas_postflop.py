@@ -118,7 +118,7 @@ def _made_bucket(hole: tuple[Card, Card], board: list[Card]) -> StrengthBucket:
     rank = _best5(list(hole) + list(board))
     cat = rank[0]
 
-    if cat >= 4:  # straight/flush/boat/quads — monster even on paired boards
+    if cat >= 4:  # straight or better: monster unless the board makes it alone (below)
         # Board-made (five cards, hole adds nothing): it plays for everyone, so a bluff-catcher.
         if len(board) == 5 and _best5(list(board)) == rank:
             return StrengthBucket.MIDDLE_PAIR

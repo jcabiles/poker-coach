@@ -253,7 +253,7 @@ def test_wilson_interval():
     assert wilson(5, 5)[1] == 1.0
 
 
-# --- M2 T1: raise multiple and non-aggressor bet size, on hand-built rows ---
+# --- raise multiple and non-aggressor bet size, on hand-built rows ---
 
 
 def _row(seat, street, action, amount, pot_before, to_call=0.0, inv_before=0.0):

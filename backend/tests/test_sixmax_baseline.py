@@ -171,7 +171,7 @@ def test_measure_reports_the_m2_stats_for_every_group():
         if mult["n"]:
             assert 1.0 <= mult["median"] and mult["p90"] >= mult["median"]
             assert 0.0 <= mult["share_4x"] <= 1.0
-        assert counts[sb.NON_AGGRESSOR_BET]["n"] >= 0
+    # WEAKENED-OK: tautology, a length cannot be negative
     assert sum(c[sb.RAISE_MULTIPLE]["n"] for c in out.values()) > 0
     assert sum(c[sb.NON_AGGRESSOR_BET]["n"] for c in out.values()) > 0
 
