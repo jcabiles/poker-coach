@@ -48,3 +48,17 @@ scheme: 2026-09-26
 | R15 | spec §4 | minor | 360 hands hold only one genuine fix hand. | R1 run. | fixed: matched replay uses 4,000 hands. | As R1. |
 | R16 | spec §4 | minor | "Four-card boards (flop, turn)" is wrong; near-tie cases that still classify as monster go unnamed. | `equity.py:46-53`. | fixed: rev 2 §4 wording and known limits; the report names them. | Spec and report wording. |
 | R17 | spec §4 | minor | The must-stay-monster tests do not exist yet; a board full house case is missing. | Contract map §D. | fixed: rev 2 §4 says "add", with the full-house pair. | Tests present in commit 2. |
+
+## M2 build, wave 1 (stats and frozen targets)
+
+Fan-in: one fresh Claude `refuter` (Sonnet), verdict PASS-WITH-ISSUES, no blocker or major. `make check`, the
+test-weakening check (0 failing) and the byte-identical judged run were all confirmed independently. Review
+of the three minor fixes: Tier 0 (tests and a doc label), deterministic checks green, no second reviewer.
+
+| ID | Target | Severity | Finding | Evidence | Status | Resolution test |
+|----|--------|----------|---------|----------|--------|-----------------|
+| W1-1 | `test_sixmax_baseline.py` measure test | minor | The test asserted only bounds, so a swapped street key or a wrong pooled sum stayed green. | Refuter, by reading. | fixed: the test now recomputes the flop and pooled pairs from `stats_for` directly. | `make check` green. |
+| W1-2 | `test_table_stats.py` | minor | No test for a bet into an empty pot, the skip branch of `non_aggressor_bet_fractions`. | Refuter, by reading. | fixed: test added. | `make check` green. |
+| W1-3 | `m2-lag-retune.md` labels | minor | The 22% baseline and the 10-20% band carried only "APPROXIMATE"; S7 was missing from the VPIP/PFR union rows. | Refuter. | fixed: baseline labelled DERIVED, band basis stated, S7 added with unchanged ranges. | Report text. |
+| W1-4 | report, S3 format | optional | The LAG page S3 never states its format, so item 1's opening targets rest on M1's 6-max inference. | Refuter. | accepted: stated in the report; the targets are M1's frozen figures. | n/a |
+| W1-5 | report, S12 | optional | S12 (format unstated) is not in the LAG union rows. | Fix worker. | rejected: M1 lets S12 widen a range only beside a 6-max source and its values (28, 24) sit inside the ranges, so the ranges would not move. | n/a |

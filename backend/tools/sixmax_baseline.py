@@ -23,14 +23,26 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import random
+import statistics
 import sys
 from datetime import UTC, datetime
 
 from app.domain.archetypes import VillainType
 from app.domain.personas import load_persona_packs
 from tools.export_analytics import _draw_buyin_targets, _git_sha, play_one_hand
-from tools.table_stats import Hand, load, replay, resolve_db_path, settle_hand, stats_for, wilson
+from tools.table_stats import (
+    Hand,
+    load,
+    non_aggressor_bet_fractions,
+    raise_multiples,
+    replay,
+    resolve_db_path,
+    settle_hand,
+    stats_for,
+    wilson,
+)
 
 SEATS: dict[int, str] = {
     0: VillainType.TAG.value,  # stand-in for the owner
@@ -59,6 +71,11 @@ REAL_ROWS: dict[str, tuple[int, str]] = {
     "tag seat 4": (4, "tag"),
     "station": (5, "station"),
 }
+POSTFLOP_STREETS = ("flop", "turn", "river")
+RAISE_RATE_FLOP = "raise when bet into (flop)"
+RAISE_RATE_ALL = "raise when bet into (flop+turn+river)"
+RAISE_MULTIPLE = "raise multiple"
+NON_AGGRESSOR_BET = "non-aggressor bet (pot fraction)"
 FIDELITY_STATS = ("VPIP", "PFR")
 MIN_REAL_CHANCES = 30
 MIN_ELIGIBLE = 8
@@ -78,13 +95,30 @@ def run_baseline(n_hands: int, seed: int) -> list[Hand]:
     return hands
 
 
+def _summarise_multiples(values: list[float]) -> dict[str, float]:
+    """n, median, mean, 90th percentile (nearest rank) and share at 4x or more."""
+    n = len(values)
+    if n == 0:
+        return {"n": 0}
+    ordered = sorted(values)
+    return {
+        "n": n,
+        "median": statistics.median(ordered),
+        "mean": sum(ordered) / n,
+        "p90": ordered[max(0, math.ceil(0.9 * n) - 1)],
+        "share_4x": sum(1 for v in ordered if v >= 4.0) / n,
+    }
+
+
 def measure(hands: list[Hand], seats: dict[int, str], groups: dict[str, list[int]]) -> dict:
-    """{group: {stat label: (successes, chances)}}, every stat via `stats_for`."""
+    """{group: {stat label: (successes, chances)}}, every stat via `stats_for`;
+    plus two summary rows, a dict each: the raise multiple and the
+    non-aggressor bet size (definitions in `tools/table_stats.py`)."""
     replays = {h.hand_no: replay(h) for h in hands}
     settles = {h.hand_no: settle_hand(h) for h in hands}
     nets = {k: v[0] for k, v in settles.items()}
     shows = {k: v[1] for k, v in settles.items()}
-    out: dict[str, dict[str, tuple[int, int]]] = {}
+    out: dict[str, dict] = {}
     for name, seat_list in groups.items():
         st, per_pos = stats_for(seat_list, seats, hands, replays, nets, shows)
         counts = {
@@ -96,6 +130,17 @@ def measure(hands: list[Hand], seats: dict[int, str], groups: dict[str, list[int
             counts[f"RFI {pos}"] = (int(pc.get("rfi", 0)), int(pc.get("rfi_opp", 0)))
         counts["flop c-bet"] = (int(st["cbet"]), int(st["cbet_opp"]))
         counts["WTSD"] = (int(st["wtsd_num"]), int(st["saw_flop"]))
+        counts[RAISE_RATE_FLOP] = (int(st["flop_raise_vs_bet"]), int(st["flop_faced_bet"]))
+        counts[RAISE_RATE_ALL] = (
+            sum(int(st[f"{s}_raise_vs_bet"]) for s in POSTFLOP_STREETS),
+            sum(int(st[f"{s}_faced_bet"]) for s in POSTFLOP_STREETS),
+        )
+        counts[RAISE_MULTIPLE] = _summarise_multiples(raise_multiples(seat_list, hands, replays))
+        sizes = non_aggressor_bet_fractions(seat_list, hands, replays)
+        counts[NON_AGGRESSOR_BET] = {
+            "n": len(sizes),
+            "mean": sum(sizes) / len(sizes) if sizes else 0.0,
+        }
         out[name] = counts
     return out
 
@@ -188,12 +233,28 @@ def _cell(k: int, n: int) -> str:
     return f"n={n} · {_pct(k / n)} [{_pct(lo)}, {_pct(hi)}]"
 
 
+def _summary_cell(v: dict) -> str:
+    if v["n"] == 0:
+        return "n=0 · —"
+    if "median" in v:
+        return (
+            f"n={v['n']} · median {v['median']:.2f}x · mean {v['mean']:.2f}x · "
+            f"p90 {v['p90']:.2f}x · >=4x {_pct(v['share_4x'])}"
+        )
+    return f"n={v['n']} · mean {v['mean']:.2f} of pot"
+
+
 def _stats_table(title: str, groups: dict[str, dict]) -> list[str]:
     stat_names = list(next(iter(groups.values())).keys())
     lines = [f"## {title}", "", "| stat | " + " | ".join(groups) + " |"]
     lines.append("|---|" + "---|" * len(groups))
     for stat in stat_names:
-        cells = [_cell(*groups[g][stat]) for g in groups]
+        cells = [
+            _summary_cell(groups[g][stat])
+            if isinstance(groups[g][stat], dict)
+            else _cell(*groups[g][stat])
+            for g in groups
+        ]
         lines.append(f"| {stat} | " + " | ".join(cells) + " |")
     lines.append("")
     return lines
@@ -282,6 +343,13 @@ def main() -> None:
         f"- date (UTC): {datetime.now(UTC).date().isoformat()}",
         "",
         "Cells: chances n · rate [95% Wilson interval].",
+        "",
+    ]
+    lines += [
+        "Definitions: `raise when bet into` = any raise when to_call > 0 (a bet was "
+        "faced), post-flop. `raise multiple` = (street_inv_before + amount) / "
+        "(street_inv_before + to_call) for each post-flop raise. `non-aggressor bet` = "
+        "bet / pot for each post-flop bet by a seat that is not the last aggressor.",
         "",
     ]
     lines += _stats_table("Simulated bots (6-max)", sim)

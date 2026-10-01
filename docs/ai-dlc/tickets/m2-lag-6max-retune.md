@@ -1,5 +1,5 @@
 # Tickets — M2, retune the LAG at 6-max (plus the board-straight fix)
-status: proposed (awaiting the project owner's go; the --auto-build pre-approval was voided because the spec review needed owner rulings)
+status: approved (the project owner invoked /ai-org:build on this spec, 2026-09-30; workers: Claude only)
 
 ## Bottom line
 - Five tickets in four waves build spec rev 2 (`../specs/m2-lag-6max-retune.md`) as three build
