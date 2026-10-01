@@ -1,0 +1,185 @@
+{
+  "id": "override_lag_6max",
+  "version": "1.0.0",
+  "domain": "persona_override",
+  "_doc": [
+    "The LAG's 6-max-only settings (M2, the LAG retune at 6-max; spec",
+    "docs/ai-dlc/specs/m2-lag-6max-retune.md section 5). Merged over",
+    "content/personas/lag.json by load_persona_packs(table_size=6) only; 9-max",
+    "play never reads this file. Targets are frozen in",
+    "docs/ai-dlc/research/bot-realism-6max/m2-lag-retune.md. Before/after",
+    "figures below are pooled seeds 1-5, 6,000 simulated 6-max hands each,",
+    "95-105bb stacks, never the judged seed 20260926.",
+    "",
+    "preflop.unopened: emitted verbatim by tools/rr_emit.py from",
+    "ladders/six_max/lag.unopened.json; edit the spec and re-emit, never these",
+    "nodes (test_rr_emit.py fails on drift). Targets are measured RFI LJ 20,",
+    "HJ 23, CO 33, BTN 50, SB 43, source triple S3 (6-max inferred, NL10",
+    "online, PokerStrategy), VERIFIED with M1's format caveat. Calibration is",
+    "in the spec's _doc.",
+    "",
+    "postflop.continue_ref 2.0 (base 0.55): APPROXIMATE, no verified source.",
+    "It lowers how often the LAG raises when bet into (facing nodes only;",
+    "c-bets are not affected), toward the judgement band 10-20%. Measured,",
+    "flop+turn+river pooled: 30.9% [29.6, 32.2] of 5,031 faced bets before,",
+    "18.2% [17.0, 19.5] of 3,891 after.",
+    "",
+    "postflop.sizing {0.33: 0.25, 0.5: 0.65, 0.75: 0.1} (base 0.2/0.4/0.29/",
+    "0.11 on 0.33/0.5/0.75/1.0): APPROXIMATE, no verified source. This flat",
+    "block is replaced whole by the merge. It sizes every post-flop raise, and",
+    "the target is raises of 4x the bet or more at most 10% with a median of",
+    "2.5-3.5x: before 25.7% at 4x or more, median 3.00x (1,554 raises); after",
+    "4.5%, median 2.66x (709 raises). The 1.0 size is dropped because it is",
+    "the main source of 4x-plus raises; the large band (0.75 + 1.0) stays at",
+    "the 0.10 floor that test_persona_size_ecology.py requires, as do small",
+    "and medium.",
+    "",
+    "SIDE EFFECT, accepted by the project owner (2026-09-30): the same flat",
+    "block sizes the LAG's leads, probes and stabs (bets made when it is not",
+    "the last aggressor), so those shrink too: mean 0.61 of pot before, 0.49",
+    "after.",
+    "",
+    "Not touched: `sizing_by_node` (its `raise` node is never read by a bot)",
+    "and the pre-flop `sizing` block (open 3.0, 3-bet 3.5, 4-bet 2.4)."
+  ],
+  "persona": "lag",
+  "table_size": 6,
+  "preflop": {
+    "unopened": [
+      {
+        "facing": "unopened",
+        "positions": [
+          "LJ"
+        ],
+        "mixes": [
+          {
+            "combos": "22+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, ATo+, KJo+, QJo",
+            "weights": {
+              "raise": 1.0
+            }
+          },
+          {
+            "combos": "K8s, Q8s, J8s",
+            "weights": {
+              "raise": 0.4,
+              "fold": 0.6
+            }
+          }
+        ]
+      },
+      {
+        "facing": "unopened",
+        "positions": [
+          "HJ"
+        ],
+        "mixes": [
+          {
+            "combos": "22+, A2s+, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, A9o+, KJo+, QJo",
+            "weights": {
+              "raise": 1.0
+            }
+          },
+          {
+            "combos": "K7s, Q7s, J7s, T7s, 97s",
+            "weights": {
+              "raise": 0.4,
+              "fold": 0.6
+            }
+          }
+        ]
+      },
+      {
+        "facing": "unopened",
+        "positions": [
+          "CO"
+        ],
+        "mixes": [
+          {
+            "combos": "22+, A2s+, K5s+, Q6s+, J6s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s, A7o+, KTo+, QTo+, JTo, T9o",
+            "weights": {
+              "raise": 1.0
+            }
+          },
+          {
+            "combos": "K4s, Q5s, J5s, T5s, 95s, 85s, 74s, 64s, 53s",
+            "weights": {
+              "raise": 0.4,
+              "fold": 0.6
+            }
+          }
+        ]
+      },
+      {
+        "facing": "unopened",
+        "positions": [
+          "BTN"
+        ],
+        "mixes": [
+          {
+            "combos": "22+, A2s+, K2s+, Q2s+, J3s+, T4s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, A4o+, K8o+, Q8o+, J8o+, T8o+",
+            "weights": {
+              "raise": 1.0
+            }
+          },
+          {
+            "combos": "J2s, T3s, 93s, 83s, 73s, 63s, 52s, 42s, K7o, Q7o, J7o, T7o",
+            "weights": {
+              "raise": 0.4,
+              "fold": 0.6
+            }
+          }
+        ]
+      },
+      {
+        "facing": "unopened",
+        "positions": [
+          "SB"
+        ],
+        "mixes": [
+          {
+            "combos": "22+, A2s+, K3s+, Q4s+, J5s+, T5s+, 95s+, 85s+, 75s+, 64s+, A4o+, K8o+, Q9o+, J9o+",
+            "weights": {
+              "raise": 1.0
+            }
+          },
+          {
+            "combos": "K2s, Q3s, J4s, T4s, 94s, 84s, 74s, 63s, J8o",
+            "weights": {
+              "raise": 0.4,
+              "fold": 0.6
+            }
+          }
+        ]
+      },
+      {
+        "facing": "unopened",
+        "positions": [
+          "BB"
+        ],
+        "mixes": [
+          {
+            "combos": "22+, A2s+, K2s+, Q2s+, J4s+, T4s+, 95s+, 85s+, 75s+, 64s+, 54s, A6o+, K8o+, Q8o+, J8o+, T9o",
+            "weights": {
+              "raise": 1.0
+            }
+          },
+          {
+            "combos": "J3s, T3s, 94s, 84s, 74s, 63s, 53s, A5o, K7o, Q7o, J7o, T8o",
+            "weights": {
+              "raise": 0.4,
+              "fold": 0.6
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "postflop": {
+    "continue_ref": 2.0,
+    "sizing": {
+      "0.33": 0.25,
+      "0.5": 0.65,
+      "0.75": 0.1
+    }
+  }
+}

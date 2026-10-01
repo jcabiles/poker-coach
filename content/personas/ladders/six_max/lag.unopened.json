@@ -1,0 +1,130 @@
+{
+  "id": "ladder_lag_unopened_6max",
+  "version": "1.0.0",
+  "domain": "persona_ladder",
+  "_doc": [
+    "The LAG's 6-max opening ranges (M2, the LAG retune at 6-max; spec",
+    "docs/ai-dlc/specs/m2-lag-6max-retune.md section 5). Like the base spec",
+    "beside it (../lag.unopened.json), this file is NOT loaded at runtime: it is",
+    "read only by backend/tools/rr_emit.py, and its emitted nodes are pasted",
+    "into the `preflop.unopened` of the 6-max override named in `emits`.",
+    "",
+    "Seats are the 6-max set: LJ, HJ, CO, BTN, SB and BB. There are no UTG seats.",
+    "BB is copied unchanged from the base spec. The tier ladder (a full-weight",
+    "core plus a one-class edge at raise 0.4) is the base spec's, because it is",
+    "the LAG's edge identity. Depths are authored per row; there is no width",
+    "scalar. `raise_pct` is the combo-weighted width the emitter produces, an",
+    "annotation the emitter never reads (test_rr_emit.py asserts it is honest).",
+    "",
+    "TARGETS, frozen in docs/ai-dlc/research/bot-realism-6max/m2-lag-retune.md.",
+    "The target is the MEASURED RFI (raise first in: the share of hands the seat",
+    "opens with a raise when everyone before it has folded), not the authored",
+    "width: LJ 20, HJ 23, CO 33, BTN 50, SB 43. Source triple S3 (6-max",
+    "inferred, NL10 online, PokerStrategy 'Average Pre-flop Ranges: LAG'),",
+    "VERIFIED with M1's caveat that the page never states its format.",
+    "",
+    "CALIBRATION. Widths were calibrated on pooled seeds 1-5 (6,000 simulated",
+    "6-max hands each, tools.sixmax_baseline.run_baseline), never on the judged",
+    "seed 20260926. Measured RFI comes out a little above the width at later",
+    "seats, because the players who folded before them hold weaker cards on",
+    "average; it matters most at SB, where a width of 41.00 measured 44.4.",
+    "Pooled measurement of these widths (95% Wilson interval):",
+    "    LJ  width 20.12 -> RFI 19.9 [18.8, 21.0]",
+    "    HJ  width 23.08 -> RFI 23.6 [22.4, 24.9]",
+    "    CO  width 32.91 -> RFI 33.5 [31.8, 35.2]",
+    "    BTN width 49.32 -> RFI 50.4 [47.9, 53.0]",
+    "    SB  width 41.00 -> RFI 44.4 [41.3, 47.5]",
+    "Every seat's pooled RFI is within one standard error of its target, so no",
+    "width was moved further (SB's 44.4 against 43 is 0.9 standard errors).",
+    "Measured with the override's final post-flop values; RFI is a pre-flop",
+    "stat, but post-flop changes reshuffle later hands of the same seed.",
+    "",
+    "SHAPE. Every seat plays all pairs and every suited ace at full weight; the",
+    "width comes off the offsuit rows first (LJ offsuit is ATo+, KJo+, QJo) and",
+    "off the bottom of the suited king-to-jack rows second. Known and accepted",
+    "by the project owner (2026-09-30): from LJ and HJ this LAG opens fewer",
+    "hands than the unchanged TAG."
+  ],
+  "persona": "lag",
+  "facing": "unopened",
+  "emits": "content/personas/six_max/lag.json",
+  "tiers": [
+    {
+      "name": "core",
+      "kind": "core",
+      "weights": { "raise": 1.0 }
+    },
+    {
+      "name": "edge",
+      "kind": "slope",
+      "width": 1,
+      "weights": { "raise": 0.4, "fold": 0.6 }
+    }
+  ],
+  "monotone_seats": ["LJ", "HJ", "CO", "BTN"],
+  "seats": {
+    "LJ": {
+      "raise_pct": 20.12,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 4, "Qs": 3, "Js": 2, "Ts": 1, "9s": 1,
+        "8s": 1, "7s": 1,
+        "Ao": 4, "Ko": 2, "Qo": 1
+      },
+      "slopes": {
+        "pairs": [0], "As": [0], "Ts": [0], "9s": [0], "8s": [0], "7s": [0],
+        "Ao": [0], "Ko": [0], "Qo": [0]
+      }
+    },
+    "HJ": {
+      "raise_pct": 23.08,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 5, "Qs": 4, "Js": 3, "Ts": 2, "9s": 1,
+        "8s": 1, "7s": 1, "6s": 1, "5s": 1,
+        "Ao": 5, "Ko": 2, "Qo": 1
+      },
+      "slopes": {
+        "pairs": [0], "As": [0], "8s": [0], "7s": [0], "6s": [0], "5s": [0],
+        "Ao": [0], "Ko": [0], "Qo": [0]
+      }
+    },
+    "CO": {
+      "raise_pct": 32.91,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 8, "Qs": 6, "Js": 5, "Ts": 4, "9s": 3,
+        "8s": 2, "7s": 2, "6s": 1, "5s": 1,
+        "Ao": 7, "Ko": 3, "Qo": 2, "Jo": 1, "To": 1
+      },
+      "slopes": {
+        "pairs": [0], "As": [0], "Ao": [0], "Ko": [0], "Qo": [0], "Jo": [0],
+        "To": [0]
+      }
+    },
+    "BTN": {
+      "raise_pct": 49.32,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 8, "Ts": 6, "9s": 5,
+        "8s": 4, "7s": 3, "6s": 2, "5s": 2, "4s": 1,
+        "Ao": 10, "Ko": 5, "Qo": 4, "Jo": 3, "To": 2
+      },
+      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Ao": [0] }
+    },
+    "SB": {
+      "raise_pct": 41.0,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 10, "Qs": 8, "Js": 6, "Ts": 5, "9s": 4,
+        "8s": 3, "7s": 2, "6s": 2,
+        "Ao": 10, "Ko": 5, "Qo": 3, "Jo": 2
+      },
+      "slopes": { "pairs": [0], "As": [0], "Ao": [0], "Ko": [0], "Qo": [0] }
+    },
+    "BB": {
+      "raise_pct": 45.04,
+      "depths": {
+        "pairs": 13, "As": 12, "Ks": 11, "Qs": 10, "Js": 7, "Ts": 6, "9s": 4,
+        "8s": 3, "7s": 2, "6s": 2, "5s": 1,
+        "Ao": 8, "Ko": 5, "Qo": 4, "Jo": 3, "To": 1
+      },
+      "slopes": { "pairs": [0], "As": [0], "Ks": [0], "Qs": [0] }
+    }
+  }
+}

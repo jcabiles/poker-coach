@@ -173,7 +173,25 @@ status: approved (owner, 2026-09-25)
     - If the owner still flags the LAG, the other lanes do **not** proceed.
     - Instead the roadmap returns to framing: are the defects in the decision code rather than
       the values?
-  - **Assumption status:** untested.
+  - **Built (2026-10-01) on `feat/m2-lag-retune`:** the board-made-hand fix at both table sizes
+    (its own commit), then the LAG's 6-max override (opening ranges by seat, smaller raises, fewer
+    raises when bet into). Spec `specs/m2-lag-6max-retune.md`; results report
+    `research/bot-realism-6max/m2-lag-retune.md`. **The box stays unticked:** the project owner's
+    200-hand verdict is this slice's check.
+  - **Measured result (seed 20260926, 6,000 hands, simulated):**
+    - opening rates: LJ, HJ, BTN and SB inside their sourced figures; CO misses on the judged seed
+      (28.5% against 33), waived by the project owner on 2026-10-01 because held-out seeds 1-5 and
+      6-10 give 33.5%;
+    - raise rate when bet into 18.1% (band 10-20%, approximate); raises at 4x or more 5.9% (at most
+      10%, approximate), median 2.66x;
+    - 9-max unchanged apart from the fix's hands: 13 of 4,000 changed, all attributed;
+    - no other bot's settings touched;
+    - known gaps: PFR 18.5% is under the 20 floor; the LAG opens less than the TAG at LJ and HJ
+      (accepted) and on the judged seed also at CO; flop c-bet and showdown rate have no sourced
+      range, so the full supporting check is not claimed.
+  - **Assumption status:** untested. The simulation passing does not prove settings alone suffice:
+    the project owner judges the fix and the settings together, and the matched replays report each
+    part's share.
 
 - [ ] **R1 — Research how strategy changes with stack depth.** ICE 7·8·8. Runs in parallel with
   M1.

@@ -426,6 +426,55 @@ def test_lag_authored_raise_pct_annotations_match_emitted_widths(lag_emitted):
         ), seat
 
 
+# ==================================== M2 — the lag's 6-max production spec
+# Same direction of authorship as the base lag spec, but the emitted nodes live
+# in the 6-max override file's `preflop.unopened`, pasted verbatim, so the drift
+# gate is exact equality rather than the per-mix semantic comparison above.
+
+LAG6_SPEC_PATH = CONTENT / "personas" / "ladders" / "six_max" / "lag.unopened.json"
+LAG6_OVERRIDE_PATH = (
+    CONTENT.parent / json.loads(LAG6_SPEC_PATH.read_text(encoding="utf-8"))["emits"]
+)
+# The base lag spec's guard: pin where `emits` resolves before any test uses it.
+assert LAG6_OVERRIDE_PATH == CONTENT / "personas" / "six_max" / "lag.json", (
+    f"6-max lag spec 'emits' resolves to {LAG6_OVERRIDE_PATH}, "
+    "not content/personas/six_max/lag.json"
+)
+
+
+def _load_lag6_spec() -> dict:
+    return json.loads(LAG6_SPEC_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def lag6_emitted() -> list[dict]:
+    return emit_nodes(_load_lag6_spec())
+
+
+def test_lag6_override_unopened_is_what_the_spec_emits(lag6_emitted):
+    override = json.loads(LAG6_OVERRIDE_PATH.read_text(encoding="utf-8"))
+    assert override["preflop"]["unopened"] == lag6_emitted
+
+
+def test_lag6_ladder_widths_strictly_increase_toward_the_button(lag6_emitted):
+    spec = _load_lag6_spec()
+    by_seat = {n["positions"][0]: n for n in lag6_emitted}
+    widths = [_raise_width_pct(by_seat[s]) for s in spec["monotone_seats"]]
+    assert widths == sorted(widths) and len(set(widths)) == len(widths), (
+        f"6-max lag ladder not strictly increasing over {spec['monotone_seats']}: "
+        f"{[round(w, 2) for w in widths]}"
+    )
+
+
+def test_lag6_authored_raise_pct_annotations_match_emitted_widths(lag6_emitted):
+    spec = _load_lag6_spec()
+    for node in lag6_emitted:
+        seat = node["positions"][0]
+        assert _raise_width_pct(node) == pytest.approx(
+            spec["seats"][seat]["raise_pct"], abs=0.005
+        ), seat
+
+
 # ======================================== N-TAGCOMP — the tag production spec
 # The THIRD spec proved here, and the second in the production direction (the
 # spec generated the pack, so this asserts the committed pack is still what the

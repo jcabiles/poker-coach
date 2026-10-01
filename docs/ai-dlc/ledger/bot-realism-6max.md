@@ -78,3 +78,36 @@ attributed, 0 unattributed). The 6-max share dump was not re-dumped by the revie
 | W2-2 | scratch near-tie labels | optional | The "(higher)" label in the scratch near-tie script is misleading for a low flush card. | Refuter. | accepted: the report (T5) words that case with the spec's "low flush card" wording; classification is unchanged. | Report wording in T5. |
 | W2-3 | design (spec §4) | optional | An unbeatable board-made chop, such as a royal flush on the board, is now a bluff-catcher and can fold to a bet. | Refuter; the one raise-to-fold hand (9-max #3210) was a correct fold to a higher straight. | accepted: the project owner chose the bluff-catcher class (2026-09-30). | n/a |
 | W2-4 | ticket T2 owned files | minor | Two 9-max pins outside T2's owned list (`test_buyin_spread.py`, `test_limper_coverage_belt.py`) failed on the fix and were re-pinned. | Maker report; refuter mutation copy. | fixed: spec §4 allows it; the ticket's owned-files line now names both files. | Ticket text. |
+
+## M2 build, wave 3 (the LAG's 6-max settings)
+
+Fan-in: one fresh Claude `refuter` (Opus, behavior-touching), verdict PASS-WITH-ISSUES on the work, no blocker
+or major issue. Independently confirmed: scope (two new content files, `test_rr_emit.py`, the 6-max digest line
+only; the 9-max digest line has 0 diff), the override merges as written, the curve spec emits exactly the pasted
+nodes, the new drift, `emits`, annotation and monotone tests fail when broken (throwaway-worktree mutations),
+calibration reproduced on seeds 1-5 with the final spec dated before the judged run, the judged run
+byte-identical to the saved output, and `make check` green. The reviewer did not judge the CO ruling below.
+
+| ID | Target | Severity | Finding | Evidence | Status | Resolution test |
+|----|--------|----------|---------|----------|--------|-----------------|
+| W3-1 | spec §7 item 1, LAG CO opening rate | major | The frozen check misses at one seat: CO measured 28.5% [25.2, 32.1] against the 33 target on the judged seed. LJ, HJ, BTN and SB pass. | Judged run (seed 20260926, 6,000 hands); held-out seeds 1-5 give CO 33.5% [31.8, 35.2] and seeds 6-10 (never used to tune) give 33.5% [31.9, 35.2], and every seat contains its target on seeds 6-10. The maker stopped rather than tune on the judged seed. | waived: project owner 2026-10-01 — a low draw on one seed, since two sets of untouched seeds put CO on target; the frozen check stays as written, the CO fail is reported with the held-out seeds beside it. | Report's §7 table shows the fail, the waiver and the held-out numbers. |
+| W3-2 | report, LAG vs TAG | minor | On the judged seed the LAG also opens less than the TAG at CO (28.5 vs 32.7), and its PFR is below the TAG's (18.5 vs 19.9; pooled seeds 1-5: 19.4 vs 19.6). The project owner accepted the inversion only at LJ and HJ. | Refuter, judged run. | fixed: ticket T5's report states this in the LAG-vs-TAG table and the post-merge verdict record. | Report table. |
+| W3-3 | provenance of the judged run | minor | The judged run's header names commit c333e5a because it ran on the uncommitted tree; spec §6 wants runs at commit 3. | Refuter. | fixed: the run is repeated twice on the committed head and compared byte for byte (header SHA aside) before the PR. | `cmp` result in the report. |
+| W3-4 | `test_rr_emit.py` size | optional | The file grew from 555 to 604 lines; it was already over ~500. | Refuter. | accepted: spec §1 names this file for the tests. | n/a |
+| W3-5 | 6-max tests | optional | No test pins the 6-max spec's seat list or the postflop values; `continue_ref` 2.0 to 1.9 leaves the 360-hand digest unchanged. | Refuter. | accepted: the spec does not require it, and the judged run checks the values. | n/a |
+
+## M2 build, wave 4 (results report and bookkeeping)
+
+Fan-in: one fresh Claude `refuter` (Sonnet; documentation audit, no behavior change), verdict PASS-WITH-ISSUES,
+no blocker or major issue. Every sourced figure and every spec §7 verdict was re-derived from the saved outputs
+and matched; the frozen-target text above `## Results` was unchanged apart from one added outcome paragraph;
+the appendix script is byte-identical to the scratch original; the name and path greps were clean. The three
+minor fixes were re-checked deterministically (diff of the report, grep), Tier 0, no second reviewer.
+
+| ID | Target | Severity | Finding | Evidence | Status | Resolution test |
+|----|--------|----------|---------|----------|--------|-----------------|
+| W4-1 | report §5, matched-replay row | minor | The row sat under a "Commit 1 / Commit 3" header though its "before" is commit 2. | Refuter. | fixed: the row has its own "Commit 2 / Commit 3" table. | Report text. |
+| W4-2 | report §1, provenance | minor | The commit-1 judged run's header names the spec-revision commit `1676ac1`, not `09d25b0`, and the report did not say why. | Refuter. | fixed: one explanatory sentence added. | Report text. |
+| W4-3 | report §6 and ledger W3-1 | minor | "About 2.6 standard errors" had no saved source (the reviewer gets 2.4-2.5). | Refuter. | fixed: the phrase is removed from the report and from W3-1. | grep finds none. |
+| W4-4 | report, item 6 command | optional | The command adds `-uall`, which the spec's command lacks; it is needed to list files inside new folders. | Refuter. | accepted: same result, clearer output. | n/a |
+| W4-5 | report, scratch sources | optional | The report cites scratch output files that are not in the repo. | Refuter. | accepted: the spec keeps the matched-replay script out of the tree (§13); the report inlines it and states each figure's conditions. | n/a |

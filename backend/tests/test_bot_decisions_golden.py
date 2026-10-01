@@ -17,12 +17,13 @@ N_HANDS = 360
 NINE_MAX_SEED = 20260927
 SIX_MAX_SEED = 20260927
 
-# Pinned 2026-09-27; re-pinned 2026-10-01 for the board-made-hand fix. A future
+# Pinned 2026-09-27; re-pinned 2026-10-01 for the board-made-hand fix, and
+# SIX_MAX_DIGEST again 2026-10-01 for the LAG's 6-max override. A future
 # change to bot behaviour re-pins these constants when a bot decision
 # intentionally changes; diff `per_hand_digests()` between commits to see
 # exactly which hands moved.
 NINE_MAX_DIGEST = "28587d00627855ed337aef61ab56e5e4277b60fbda9b52ef266883be15ba9475"
-SIX_MAX_DIGEST = "4bc33bb4ee3fb183113e4bf474fbf4ea84ff77a9a25cc0b7522763f303f4c7ee"
+SIX_MAX_DIGEST = "85460e2018075821e6ea83fcb7f9b081cdb1531abe90dda793058907ee60d988"
 
 
 def _hand_fingerprint(state: HandState) -> str:
