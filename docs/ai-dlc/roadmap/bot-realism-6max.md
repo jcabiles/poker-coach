@@ -15,8 +15,8 @@ status: approved (owner, 2026-09-25)
 - **Running alongside:** research on how poker strategy changes as stacks get deeper, which feeds
   the deep-stack lane.
 - **Next action:** M1 and M1b are done: the simulation matches the owner's table, and bot settings can
-  now differ at 6-max. Next is M2 (retune the LAG at 6-max), once the M1b PR is merged. R1 can run
-  alongside.
+  now differ at 6-max. Next is M2 (retune the LAG at 6-max), once the M1b PR is merged. R1 (the
+  deep-stack research) is done; see its entry below.
 
 ## North-star outcome
 - **Outcome:** in one 200-hand 6-max Challenge session, the owner rules each bot "plays like its
@@ -196,7 +196,7 @@ status: approved (owner, 2026-09-25)
     the project owner judges the fix and the settings together, and the matched replays report each
     part's share.
 
-- [ ] **R1 — Research how strategy changes with stack depth.** ICE 7·8·8. Runs in parallel with
+- [x] **R1 — Research how strategy changes with stack depth.** ICE 7·8·8. Runs in parallel with
   M1.
   - **Problem:** the bots are tuned for about 100bb, but live stacks now run from 50bb to 455bb.
     No committed source says how real players change strategy as stacks deepen.
@@ -213,7 +213,15 @@ status: approved (owner, 2026-09-25)
   - **No-gos:** no solver tables (a global no-go). Sourced heuristics only.
   - **Riskiest assumption:** usable, citable numbers exist for deep-stack adjustments.
   - **Cheapest test:** the research itself.
-  - **Assumption status:** untested.
+  - **Built (2026-10-01):** report at `docs/research/deep-stack-strategy.md`; findings ledger
+    `ledger/r1-deep-stack-research.md`. Result:
+    - one pair stops being an automatic stack-off between SPR 3 and 6 (three sources); the
+      two-pair (about 5) and set (about 10) cutoffs rest on one author;
+    - opening, 3-bet and 4-bet changes with depth are direction-only, with no percentages;
+    - no public population data by depth, and no source above 300bb.
+  - **Assumption status:** partly held, 2026-10-01. Citable numbers exist for commitment
+    thresholds and set-mining odds. They do not exist for opening, 3-bet, c-bet or barrel rates by
+    depth, or for how real players behave by depth, so the deep-stack lane has to measure its own.
 
 ## NEXT (validated problems, not yet spec'd; each waits on M2's verdict)
 - **Calling station: pre-flop width and odd leads.**
