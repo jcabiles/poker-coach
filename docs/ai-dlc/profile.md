@@ -7,8 +7,12 @@ artifact_dir: docs/ai-dlc
 # and resumes from its first unchecked slice — never from memory of what seemed
 # next. This field was missing entirely until 2026-08-18, which is why the boot
 # checklist in .claude/CLAUDE.md kept pointing at a key that was not there.
-active:       bot-realism-6max
-              # roadmap: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
+active:       bot-realism-6max coach-math
+              # TWO active roadmaps (owner, 2026-10-03). ASK THE OWNER which one to work on
+              # before picking up any slice; never choose silently.
+              #   docs/ai-dlc/roadmap/bot-realism-6max.md — bots play like live $1/$2 players
+              #   docs/ai-dlc/roadmap/coach-math.md       — the coach's poker math is correct
+              # older: docs/ai-dlc/roadmap/phone-and-6max.md (APPROVED 2026-09-18)
               # run of 2026-09-22 complete: P4 (#232) → P3b (#233) → always-on (PR), stacked; owner merges in order
               # prior: bot-realism-flywheel — Two-mode Simulate MERGED 2026-09-18, box unticked
               #   until the owner plays Challenge mode; slice 3 (calldown) CLOSED 2026-09-18.

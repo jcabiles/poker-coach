@@ -1,5 +1,5 @@
-# Bot Realism at 6-max Roadmap — updated 2026-09-25
-status: approved (owner, 2026-09-25)
+# Bot Realism at 6-max Roadmap — updated 2026-10-03
+status: approved (owner, 2026-09-25); amendment of 2026-10-03 approved (owner, 2026-10-03)
 
 ## Bottom line
 - **Goal:** make every bot at the 6-max table play like its type, judged by the owner in a
@@ -12,11 +12,14 @@ status: approved (owner, 2026-09-25)
 - **Testing the bet first:** measure all five bots on thousands of simulated 6-max hands, then
   retune the LAG alone and have the owner play it. Tuning the other bots waits until the owner
   judges the LAG.
-- **Running alongside:** research on how poker strategy changes as stacks get deeper, which feeds
-  the deep-stack lane.
-- **Next action:** M1 and M1b are done: the simulation matches the owner's table, and bot settings can
-  now differ at 6-max. Next is M2 (retune the LAG at 6-max), once the M1b PR is merged. R1 (the
-  deep-stack research) is done; see its entry below.
+- **Target changed (owner, 2026-10-03): the bots aim at a live $1/$2 card room, not online
+  6-max.** An audit found the 6-max table plays like an online game. It has one recreational
+  player out of five, 85% heads-up flops and 2.5bb opens, and its stat ranges come from online
+  tracking-software guides. The live retarget starts with sourced live numbers (L1) and a
+  measured gap (L2), both of which change no bot behaviour.
+- **Next action:** the owner plays about 200 Challenge hands and gives the M2 verdict on the
+  retuned LAG. L1 and L2 can run meanwhile. M1, M1b and R1 are done (archived in
+  `bot-realism-6max-archive.md`).
 
 ## North-star outcome
 - **Outcome:** in one 200-hand 6-max Challenge session, the owner rules each bot "plays like its
@@ -24,8 +27,10 @@ status: approved (owner, 2026-09-25)
   - **Baseline** (session `4b35736f`, 2026-09-25): 3 of 5 pass on the owner's feel. The owner
     flagged the LAG and the calling station.
   - **Target:** 5 of 5.
-- **Supporting check, never the verdict:** each bot's stats land inside real 6-max ranges, with a
-  cited source for each range. The stats are measured on 5,000 or more simulated hands:
+- **Supporting check, never the verdict:** each bot's stats land inside **live $1/$2 ranges**
+  (re-anchored by the owner on 2026-10-03; M1 and M2 used online 6-max ranges, which stay as
+  their record). Each range has a cited source and comes from L1. The stats are measured on 5,000
+  or more simulated hands:
   - VPIP and PFR — how often a bot plays a hand, and how often it raises before the flop;
   - opening rate by seat;
   - c-bet — how often the pre-flop raiser bets the flop;
@@ -37,6 +42,15 @@ status: approved (owner, 2026-09-25)
   new round starts before the verdict on the last one.
 
 ## Evidence this roadmap starts from
+- **The 2026-10-03 audit** (`../reviews/coach-math-audit-2026-10-03.md`, findings 12–17) was
+  checked by nine independent reviewers. It found:
+  - the 6-max lineup is nit, TAG, TAG, LAG, station;
+  - 84.7% of flops are heads-up, and the station starts 99% of limped pots;
+  - median opens are 2.5bb, and the repo's two research docs disagree on live open size;
+  - 57% of seat-hands start above 150bb;
+  - no rake.
+
+  It refuted river over-bluffing: bots already under-bluff, as live players do.
 - **The owner's notes, 2026-09-25:**
   - The LAG plays like a maniac: aggressive at odd times and too loose, especially from early
     seats.
@@ -68,82 +82,6 @@ status: approved (owner, 2026-09-25)
   persona).
 
 ## NOW (in order; ICE = impact · confidence · ease, each out of 10)
-
-- [x] **M1 — Measure the 6-max baseline.** ICE 9·8·6.
-  - **Problem:** every number we have comes from 200 hands, which is too few per bot and per seat
-    to tune against.
-  - **Outcome link:** it provides the stats half of the north star, and it checks that the
-    simulator can stand in for the owner's play before any tuning relies on it.
-  - **What it delivers:**
-    - Teach the bot-vs-bot simulator (`backend/tools/export_analytics.py`, 9-max only today) to
-      run the live 6-max lineup: nit, LAG, TAG, TAG and station, with a TAG as the stand-in for
-      the hero seat.
-    - Run 5,000 or more hands at the existing 95–105bb starting spread. Deep-stack effects belong
-      to the deep-stack lane, not here.
-    - Source the real 6-max ranges each stat is judged against, cited with the existing
-      `(format, pool, source)` provenance rule. Reuse `docs/ai-dlc/research/rfi-seat-provenance.md`
-      where it applies. Today's persona bands are 9-max.
-    - Produce a per-bot stats table set against those ranges.
-  - **Pass/fail:** the report exists at `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md`
-    and does all of the following:
-    - gives every stat above with its sample size and a 95% confidence interval, per bot;
-    - cites a real 6-max range for each stat, or marks the stat unsourced;
-    - reports the fidelity check below.
-  - **Appetite:** a few days.
-  - **No-gos:**
-    - no change to any settings file;
-    - no change to bot behaviour;
-    - 9-max export output stays byte-identical (the existing default-path regression tests pass
-      unchanged).
-  - **Riskiest assumption:** simulated bot-vs-bot hands reproduce what the owner sees at the
-    table.
-  - **Cheapest test** (fixed before the run):
-    - Compare each bot's VPIP, PFR and flop c-bet rate between the simulation and the 200 real
-      hands in session `4b35736f`. That is up to 15 comparisons.
-    - **Narrowed at spec time (owner ruling, 2026-09-26):** flop c-bet had too few real chances
-      for most bots, so the pre-registered check is VPIP and PFR only, 10 comparisons. The one
-      c-bet comparison that did reach 30 chances, the LAG's, would also have passed (real 50.0%,
-      pass range 28.2–69.2%).
-    - **A comparison is eligible only if the real hands gave it 30 or more chances** (owner ruling,
-      2026-09-25).
-    - **Fewer than 8 eligible comparisons: the result is "can't tell yet".** Tuning does not start.
-      The owner plays more Challenge hands, up to the 500–1,000 already offered, and the check
-      re-runs on the combined sessions.
-    - **Passes** if at most one eligible real rate falls outside the simulated 95% confidence
-      interval widened by the real sample's own interval (one miss is a pass: owner ruling,
-      2026-09-26). **Fails** if two or more eligible comparisons fall outside it. On a failure M1 stops and reports, and nothing downstream starts.
-    - Known limit: the owner, not a stand-in, sat in the real hero seat.
-  - **Assumption status:** tested 2026-09-26 — held for pre-flop play (VPIP/PFR, 10 of 10 eligible, 0 misses); post-flop untested against real play.
-  - **Report:** `docs/ai-dlc/research/bot-realism-6max/m1-baseline.md`.
-
-- [x] **M1b — Let bot settings differ by table size.** ICE 6·8·7. Owner ruled it in, 2026-09-25.
-  Can run alongside M1; M2 needs both. Built 2026-09-27 on `feat/m1b-table-size-settings`:
-  - **Where values go:** a bot's 6-max values live in `content/personas/six_max/<bot>.json`, holding
-    only what differs.
-  - **What an override can replace:** all preflop rules for a situation, and any single dial (`null`
-    deletes a dial).
-  - **Where it is read:** the live table, the villain-range view and the M1 tool at 6 seats. 9-max
-    never reads it.
-  - **Specs:** `../specs/m1b-table-size-settings.md` and `../ledger/m1b-table-size-settings.md`.
-  - **What it delivers:** a bot's settings can carry 6-max-specific values, while 9-max keeps
-    reading exactly what it reads today.
-  - **Pass/fail:**
-    - 9-max bot decisions are byte-identical on a fixed seed set;
-    - one 6-max override is proved live by a test.
-  - **No-gos:** no settings values change in this slice.
-  - **Riskiest assumption:** an override layer can be added without making settings hard to
-    reason about.
-  - **Cheapest test:** the byte-identical 9-max check.
-  - **Assumption status:** held, 2026-09-27. Both pass/fail checks pass:
-    - A golden fingerprint of every bot decision over 360 seeded hands, pinned before any code
-      changed, is unchanged at 9-max and at 6-max.
-    - A test-only override is proved live through the loader, played hands, both live-table call
-      sites and the villain-range view. 9-max sessions are proved to ignore it.
-    - "Easy to reason about" is judged by these facts:
-      - one small file per bot holds only what differs;
-      - one merge function applies it;
-      - every settings safety check also runs on the merged 6-max result.
-      - The real test comes when M2 authors the first override.
 
 - [ ] **M2 — Retune the LAG only, at 6-max only.** ICE 8·5·7. **Starts only after M1 passes and
   M1b is merged.**
@@ -196,34 +134,115 @@ status: approved (owner, 2026-09-25)
     the project owner judges the fix and the settings together, and the matched replays report each
     part's share.
 
-- [x] **R1 — Research how strategy changes with stack depth.** ICE 7·8·8. Runs in parallel with
-  M1.
-  - **Problem:** the bots are tuned for about 100bb, but live stacks now run from 50bb to 455bb.
-    No committed source says how real players change strategy as stacks deepen.
-  - **What it delivers:** a `/research` pass on expert and academic material:
-    - how pre-flop ranges, commitment thresholds (stack-to-pot ratio, SPR) and post-flop
-      aggression change from 100bb to 200bb and beyond;
-    - any published studies, white papers or population metrics we can reuse, each dated and
-      cited.
-  - **Pass/fail:** `docs/research/deep-stack-strategy.md` exists and does all of the following:
+> **Lanes added 2026-10-03 follow the six-phase template** in `coach-math.md` ("How every lane
+> runs"): research, evaluate, ideate, plan, build, verify. Builds stay locked until the lane's
+> riskiest assumption holds. L1 and L2 change no bot behaviour, so they may run before the M2
+> verdict. **Phases they skip, and why:** L1 is the research phase of the live retarget, and L2
+> is its evaluate phase. Neither changes code, so neither has its own ideate, plan or build;
+> those phases belong to "Make the 6-max table live-shaped" in NEXT, which consumes both.
+
+- [ ] **L1 — Source live $1/$2 benchmarks.** ICE 9·5·7.
+  - **Problem:** every stat range the bots are judged against comes from online
+    tracking-software guides. No committed source describes a live $1/$2 table.
+  - **Outcome link:** this supplies the supporting check's live ranges, and it sets the target
+    for the live-table build.
+  - **Research, first principles** (`docs/research/live-low-stakes-benchmarks.md`):
+    - **What each stat measures**, and how seat count, rake and straddles move it. The stats
+      are:
+      - VPIP and PFR;
+      - open-limp rate and over-limp rate;
+      - players to the flop;
+      - open size by seat and by number of limpers;
+      - 3-bet rate;
+      - c-bet;
+      - WTSD and W$SD (won money at showdown);
+      - river bet and raise rates.
+    - **Table make-up:** the share of recreational players versus regulars at live $1/$2, and
+      the usual seat count.
+    - **The open-size conflict:** settle the disagreement between `01-preflop-strategy.md` (4–6bb
+      live) and `10-bet-sizing-by-node-persona.md` §3 (3bb).
+    - **Labels:** every figure is labelled sourced or approximate. R1 found no public population
+      data by stack depth, so gaps are expected and are stated, not filled.
+  - **Pass/fail:** the report exists and does all of the following:
     - opens with a plain summary;
-    - gives numbers that the deep-stack lane can turn into settings, with sources;
-    - labels every figure as sourced or approximate.
-  - **Appetite:** one research pass.
-  - **No-gos:** no solver tables (a global no-go). Sourced heuristics only.
-  - **Riskiest assumption:** usable, citable numbers exist for deep-stack adjustments.
-  - **Cheapest test:** the research itself.
-  - **Built (2026-10-01):** report at `docs/research/deep-stack-strategy.md`; findings ledger
-    `ledger/r1-deep-stack-research.md`. Result:
-    - one pair stops being an automatic stack-off between SPR 3 and 6 (three sources); the
-      two-pair (about 5) and set (about 10) cutoffs rest on one author;
-    - opening, 3-bet and 4-bet changes with depth are direction-only, with no percentages;
-    - no public population data by depth, and no source above 300bb.
-  - **Assumption status:** partly held, 2026-10-01. Citable numbers exist for commitment
-    thresholds and set-mining odds. They do not exist for opening, 3-bet, c-bet or barrel rates by
-    depth, or for how real players behave by depth, so the deep-stack lane has to measure its own.
+    - gives a range plus a source and a label for each stat;
+    - settles the open-size conflict;
+    - describes the table make-up.
+  - **Appetite:** one `/research` pass, blind-verified.
+  - **No-gos:** no hand-history imports (a global no-go); online ranges are never presented as
+    live.
+  - **Riskiest assumption:** sourced live numbers exist for the core stats, which are VPIP,
+    players to the flop and open size.
+  - **Cheapest test:** the research itself. If fewer than three core stats are sourced, the
+    supporting check becomes direction-only, and the owner's feel carries the verdict alone.
+  - **Assumption status:** untested.
+
+- [ ] **L2 — Measure the gap to a live table.** ICE 8·7·8. It needs L1.
+  - **Problem:** nobody knows how far each bot, and the table as a whole, sits from live play.
+  - **Evaluate:**
+    - run the existing tooling (`backend/tools/sixmax_baseline.py`, `table_stats.py`) on
+      5,000 or more seeded hands at 6 seats;
+    - build a gap table per bot and per stat, plus table-level gaps: players to the flop, limp
+      rate, open size and the stack-depth spread.
+  - **Pass/fail:** `docs/ai-dlc/research/bot-realism-6max/l2-live-gap.md` holds the gap table,
+    the seeds and the commands that re-run it.
+  - **Appetite:** about 1 day.
+  - **No-gos:** no bot setting changes.
+  - **Riskiest assumption:** the live gap is closable through settings and the lineup, not
+    through decision code. The audit found one counterexample: the TAG has no over-limp option
+    at all.
+  - **Cheapest test:** tag every gap in the table "a setting reaches it" or "needs code". If most
+    gaps need code, this roadmap's bet ("settings, not decision code") fails for the live
+    retarget, and the roadmap returns to framing.
+  - **Assumption status:** untested.
 
 ## NEXT (validated problems, not yet spec'd; each waits on M2's verdict)
+- **Make the 6-max table live-shaped** (the owner set the direction on 2026-10-03; it needs L1,
+  L2 and the M2 verdict).
+  - **Problem today** (audit findings 13–16, 6,000 simulated hands): one recreational player in
+    five seats; 84.7% of flops heads-up; the station starts 1,432 of 1,452 limped pots; TAG and
+    LAG open to a median 2.5bb; 57% of seat-hands start above 150bb after 500 hands.
+  - **Research and evaluate:** L1 supplies the live targets, and L2 the measured gap per stat.
+  - **Ideate:** lineup options. More recreational seats can reuse the passive fish and maniac
+    that 9-max already has, which reverses the 2026-09 lineup choice. Other options:
+    - over-limping and wider calls behind limpers;
+    - live open sizes;
+    - a spread of buy-ins.
+  - **Sub-slices:** the lineup; limps and multiway pots; open sizes. Each is followed by a
+    simulation re-measure, and the round ends with the owner's 200-hand verdict.
+  - **Known collision:** more multiway pots mean fewer graded hero decisions. That is the
+    grading-coverage item (lane 7) in `coach-math.md`.
+- **Rake** (the owner approved it on 2026-10-03, at both table sizes).
+  - **The default to build:** about 10% of the pot, capped at $5 plus a $1 promo drop, with no
+    flop no drop (a pot that ends preflop pays nothing). At $1/$2 the cap is 3bb. Other rules
+    (a flat drop, other caps) are configuration, not the target.
+  - **Research:** mostly done (`docs/research/rake-and-adjustments.md`). Top-up: the per-player
+    cost is unsourced. The "35–60 bb/100" figure is the whole table's drop; one player's share
+    is roughly 4–10 bb/100, an estimate (audit finding 17). Also cover split pots, side pots
+    and uncalled bets.
+  - **Evaluate:** the ledger before and after on seeded hands; the hero's net result with and
+    without rake; how often the cap binds.
+  - **Ideate:** where rake is taken (engine settlement versus the ledger), how it is shown at
+    the table, and how it is configured.
+  - **Sub-slices:** engine settlement and the ledger; the table display; then rake in the
+    coach's pricing (lane 8 of `coach-math.md`).
+  - **Byte-identity note:** rake changes settlement directly, and later bot decisions only
+    through the smaller stacks it leaves (stacks carry over, and the commitment dial reads
+    stack ÷ pot). The 9-max check therefore confirms that hands are identical up to the first
+    raked pot, and that every later divergence traces to a stack difference.
+- **Bots judge commitment from their own stack, not the effective stack** (audit finding 12).
+  - **Evidence:** `table/play.py:300` and `personas_postflop.py:1889` use the bot's own stack.
+    In 1–4% of bot postflop decisions, the own and effective stack-to-pot ratios point opposite
+    ways (12 × 500 seeded hands).
+  - **Research:** effective stack and SPR from first principles (shared with `coach-math`
+    lane 4's research).
+  - **Evaluate:** count the affected decisions per bot at 6 seats, and list hands where the
+    wrong commitment cost or won chips.
+  - **Ideate:** pass the effective stack into the existing dial; or a separate effective-SPR
+    input; or a clamp only where the two disagree.
+  - **Sub-slices:** 6-max first (owner, 2026-10-03), then 9-max only with an owner ruling.
+  - **The cost:** it changes decision code, so it needs a named exception like the
+    board-straight fix.
 - **Calling station: pre-flop width and odd leads.**
   - **Evidence:**
     - The owner finds its pre-flop range too wide, and saw it lead into the raiser in hand 86
@@ -237,7 +256,7 @@ status: approved (owner, 2026-09-25)
     - the pre-flop raiser bets the flop only 20–50% of the time;
     - big pots are checked down;
     - bets into them are raised 26–29% of the time, at about 5×;
-    - WTSD is 48–80%, against roughly 25–30% for real regulars;
+    - WTSD is 48–80%, against roughly 25–30% for real regulars (an online figure; L1 replaces it);
     - the nit calls down like a recreational player and lost 238bb.
   - **Open question:** is this one shared cause or several?
 - **Everyone plays too tight behind a limper, and the two TAGs are identical.**
@@ -249,10 +268,11 @@ status: approved (owner, 2026-09-25)
   - **Evidence:** live stacks reach 455bb, while the commitment dials assume about 100bb.
   - **Direction (owner, 2026-09-25):** the bots adjust to depth. Stacks keep carrying over, with
     no table maximum.
-  - **Waits on R1's numbers.** Its first step is its own measurement: how often deep stacks
+  - **R1's research is in** (`docs/research/deep-stack-strategy.md`; SPR cutoffs sourced,
+    direction only elsewhere). The first step is its own measurement: how often deep stacks
     (over 150bb) lead to bad commitments, taken from the owner's real sessions and from a
     simulation run with deep starting stacks.
-  - **Open question:** the grader's advice is also about 100bb-based. In scope or not?
+  - **The grader's 100bb assumption** is now `coach-math.md` lane 4 (stack depth), not here.
 
 ## LATER (bets, no dates)
 - **Bet:** once 6-max passes, the owner will stop choosing 9-max.
@@ -265,14 +285,21 @@ status: approved (owner, 2026-09-25)
   - **Review:** after M2.
 
 ## Bookkeeping
-- **This roadmap is `active:` in `docs/ai-dlc/profile.md`** (owner, 2026-09-25). It replaces
+- **This roadmap and `coach-math.md` are both active** in `docs/ai-dlc/profile.md` (owner,
+  2026-10-03). A session asks the owner which one to work on. This roadmap replaced
   `phone-and-6max`, whose remaining items are checks the owner owes, not builds.
+- **Finished slices** M1, M1b and R1 are in `bot-realism-6max-archive.md`.
 - **The flywheel roadmap is closed:** the owner's 200-hand Challenge session `4b35736f` met its
   last box.
 
 ## Out of scope / no-gos
-- **9-max stays byte-identical.** Every change is 6-max-only. The one exception is the board-straight
-  bug fix (owner, 2026-09-25).
+- **9-max stays byte-identical.** Every change is 6-max-only, with two exceptions:
+  - the board-straight bug fix (owner, 2026-09-25);
+  - rake (owner, 2026-10-03). It changes how pots are settled, and later bot decisions only
+    through the resulting stacks; see the rake item in NEXT for the check.
+- **Not planned** (owner, 2026-10-03): bet-sizing tells, bots adapting to the hero, and bb/100 with
+  a confidence interval.
+- **The coach's grading** belongs to `coach-math.md`, not here.
 - **No change to the decision engine unless M2 fails,** and then only after re-framing. There are
   two named exceptions: M1b's table-size settings layer and the board-straight bug fix.
 - **The repo's global no-gos still apply:**

@@ -12,19 +12,27 @@ Local NLHE (No-Limit Hold'em) training web app. Monorepo:
 
 See `README.md` for setup, architecture, and status.
 
-## Active initiative — Bot realism at 6-max (2026-09)
+## Active initiatives — two roadmaps (2026-10-03). Ask the owner which one to work on.
 
-Making every bot at the 6-max table play like its type, judged by the owner in a 200-hand
-Challenge session, with each bot's stats in real 6-max ranges as the supporting check. Read before
-touching anything:
-- Roadmap (slices, bets, pass/fail): `docs/ai-dlc/roadmap/bot-realism-6max.md`
-- Evidence: `docs/ai-dlc/reviews/bot-review-200-hands-2026-09-25.md` (a blind review of the
-  owner's 200 hands)
-- Orientation for a fresh session: `docs/ai-dlc/START-HERE.md`
+Both are active. **Before picking up any slice, ask the owner which roadmap to work on; never
+choose silently.**
+- **Bot realism at 6-max** — `docs/ai-dlc/roadmap/bot-realism-6max.md`. Every bot at the 6-max
+  table plays like its type *at a live $1/$2 table* (owner, 2026-10-03), judged by the owner in a
+  200-hand Challenge session, with each bot's stats in sourced live ranges as the supporting
+  check. Evidence: `docs/ai-dlc/reviews/bot-review-200-hands-2026-09-25.md`.
+- **Coach math** — `docs/ai-dlc/roadmap/coach-math.md`. The coach's poker math is correct: hand
+  reading, call pricing, stack depth, preflop grading and betting rules, measured by a 25-spot
+  textbook test. It changes no bot behaviour. Evidence:
+  `docs/ai-dlc/reviews/coach-math-audit-2026-10-03.md`.
+- Orientation for a fresh session: `docs/ai-dlc/START-HERE.md`.
 
-**Rules this initiative adds:** 9-max stays byte-identical, with one exception — the
-board-straight bug fix, which applies at both table sizes. Tuning the other bots waits until the
-owner judges the retuned LAG.
+**Rules these initiatives add:**
+- 9-max stays byte-identical, with two named exceptions: the board-straight bug fix, and rake
+  (which changes settlement directly and later bot decisions only through stack sizes).
+- Tuning the other bots waits until the owner judges the retuned LAG.
+- Every lane runs six phases — research, evaluate, ideate, plan, build, verify — and its build
+  stays locked until its riskiest assumption has been tested (`coach-math.md`, "How every lane
+  runs").
 
 **The predecessors are closed or parked.** The phone + 6-max roadmap
 (`docs/ai-dlc/roadmap/phone-and-6max.md`) is built. The bot-realism flywheel closed on

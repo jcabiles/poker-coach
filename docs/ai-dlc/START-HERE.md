@@ -1,14 +1,19 @@
-# START HERE — poker-coach AI-DLC orientation (updated 2026-08-05)
+# START HERE — poker-coach AI-DLC orientation (updated 2026-10-03)
 
 One page for a fresh session (any model tier). Read top to bottom; follow links only as needed.
 
 ## What this initiative is (durable — for live status, see below)
 
-The governing initiative, as of 2026-09-18, is **phone access + 6-max**
-(`roadmap/phone-and-6max.md`, approved and in flight — no separate PRD exists yet for this
-initiative): let the owner play the trainer from his Android phone on the home wifi, then add
-6-max tables. Read `roadmap/phone-and-6max.md` and `ledger/phone-and-6max.md` first for this
-work.
+**Two roadmaps are active as of 2026-10-03. Ask the owner which one to work on before picking
+up any slice.**
+- **`roadmap/bot-realism-6max.md`** — bots at the 6-max table play like live $1/$2 players.
+  Ledger: `ledger/bot-realism-6max.md`.
+- **`roadmap/coach-math.md`** — the coach's poker math is correct, measured by a 25-spot
+  textbook test. Ledger: `ledger/coach-math-roadmap.md`. Evidence:
+  `reviews/coach-math-audit-2026-10-03.md`.
+
+The **phone access + 6-max** roadmap (`roadmap/phone-and-6max.md`, approved 2026-09-18) is
+built; its remaining items are checks the owner owes, not builds.
 
 The **bot-realism flywheel** (`roadmap/bot-realism-flywheel.md`, PRD in `prd/`) governed the
 repository through 2026-09-18 and is not closed, only superseded as the lead initiative: it has
@@ -22,7 +27,8 @@ Everything doubles as the owner's analytics/DS portfolio via the **poker-analyti
 
 ## Where are we right now — read the ROADMAP, not this file
 
-**Current position = the first unchecked `[ ]` box in `roadmap/phone-and-6max.md`** (each box
+**Current position = the first unchecked `[ ]` box in whichever active roadmap the owner
+names** (each box
 carries a dated progress note when work is in flight). Checkboxes and their notes are updated
 INSIDE each slice's landing commit, so the committed roadmap is exactly as current as the last
 merge. This file deliberately does NOT narrate slice-by-slice status — a committed narrative goes
@@ -34,8 +40,9 @@ before "cleaning" anything. `/ai-org:*` skills are owner-invoked only.
 ## Reading order
 
 1. `profile.md` — stack, verify commands, invariants, `active:` initiative.
-2. `roadmap/phone-and-6max.md` — the governing plan; resume from the first `[ ]`.
-3. `ledger/phone-and-6max.md` — review rounds, rescued facts, and measurements behind the roadmap.
+2. The active roadmap the owner names (`roadmap/bot-realism-6max.md` or
+   `roadmap/coach-math.md`); resume from its first `[ ]`.
+3. That roadmap's ledger — review rounds and the findings behind the roadmap.
 4. Still touching bot-realism-flywheel work (its one open box, or the paused persona-realism
    items behind it)? Read `roadmap/bot-realism-flywheel.md`, `prd/bot-realism-flywheel.md`, and
    `poker-analytics:docs/methods/estimand-contract.md` (the S2a methods & estimand contract,
