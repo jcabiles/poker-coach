@@ -60,12 +60,14 @@ MAIN := $(patsubst %/,%,$(dir $(shell git rev-parse --path-format=absolute --git
 BASE ?= main
 
 # Claim an agent ticket: `make ticket ID=<id>` creates .worktrees/<id> on branch ticket/<id>
-# from $(BASE). An existing branch means another session already claimed it. The new worktree
-# gets links to the main checkout's backend/.venv and frontend/node_modules so `make check` runs.
+# from $(BASE). An existing branch means another session already claimed it.
+# Tool folders installed in the main checkout, linked into each ticket worktree.
+LINK_DIRS := backend/.venv frontend/node_modules
+
 .PHONY: ticket
 ticket:
 	@test -n "$(ID)" || { echo "usage: make ticket ID=<ticket id> [BASE=<branch>]"; exit 2; }
+	@case "$(ID)" in -* | .* | *[!A-Za-z0-9._-]*) echo "ticket id may use only letters, digits, dot, dash and underscore"; exit 2 ;; esac
 	@if git show-ref --verify --quiet refs/heads/ticket/$(ID); then echo "ticket $(ID) is already claimed (branch ticket/$(ID) exists)"; exit 1; fi
 	git -C "$(MAIN)" worktree add -b ticket/$(ID) "$(MAIN)/.worktrees/$(ID)" $(BASE)
-	ln -s "$(MAIN)/$(BACKEND)/.venv" "$(MAIN)/.worktrees/$(ID)/$(BACKEND)/.venv"
-	ln -s "$(MAIN)/$(FRONTEND)/node_modules" "$(MAIN)/.worktrees/$(ID)/$(FRONTEND)/node_modules"
+	@for d in $(LINK_DIRS); do test -e "$(MAIN)/$$d" && ln -s "$(MAIN)/$$d" "$(MAIN)/.worktrees/$(ID)/$$d" || echo "not linked: $$d (missing in the main checkout)"; done

@@ -45,22 +45,6 @@ turn/river graders) and **`T-agentcoach`** (LLM session coaching, narrate-only, 
 first), are no longer blocked by the flywheel. Neither is scheduled. The persona-realism roadmap
 remains **PAUSED**.
 
-## Session boot checklist + misalignment tripwires (owner-mandated, 2026-08-05)
-
-Before picking up ANY work: (1) read `docs/ai-dlc/profile.md` `active:` and open that roadmap; (2) read its pass/fail state and resume from the first unchecked slice — never from memory of what seemed next; (3) if the work spans poker-analytics, read that repo's `docs/FLYWHEEL-STATUS.md` first (its per-directory memory knows nothing about this repo's decisions).
-
-**Tripwires — STOP and tell the owner (do not proceed, do not silently reconcile) when:**
-- a ticket/spec contradicts the active roadmap or PRD, or cites a paused/superseded doc as authority;
-- poker-coach and poker-analytics artifacts disagree about interface, ownership, or priorities;
-- research findings undercut a planned slice's premise;
-- the work in front of you doesn't serve the north-star outcome in the active roadmap;
-- you find yourself about to re-derive a decision an existing doc already records differently.
-
-Global no-gos: no auth/accounts/hosting/billing · no solver tables (heuristic + interim EV only, label EVs *approximate*) · no hand-history imports · no live-session logger · no browsable lessons library (point-of-need concept cards only).
-
-**Turn and river ARE graded** — `backend/app/domain/providers/{turn,river}.py` shipped as slices S5–S8 and are dispatched by street in `composite.py:49-50`. They are simply not *reached*; see `T-cover`. Only **full-hand (2k)** remains deferred.
-<!-- History (kept out of context 2026-08-01): a "turn/river engine deferred" no-go used to sit here. It was removed 2026-07-25 after being stale ~15 days and misleading two analyses; superseded 2026-07-09/10 per professional-teacher-rework.md:3-5 + simulate-table.md:7-9. Stated positively above so the retracted claim is no longer re-injected every session. -->
-
 ## Commands
 
 A ticket worktree has no `backend/.venv` or `frontend/node_modules` of its own. `make ticket` links
@@ -86,46 +70,6 @@ Do the simplest thing that meets the ticket's acceptance criteria — no extra f
 
 Type-check baselines: modules listed under `[[tool.mypy.overrides]]` with `BASELINE(date)` in `backend/pyproject.toml`, and rules at `warn` with `BASELINE(date)` in `frontend/biome.jsonc`. Burn them down; never widen them silently.
 
-### Credentials on disk — never end a session with "you should rotate those"
-
-A session that concludes a credential must be deleted or rotated **hands the
-owner runnable commands, in the right order, in that same reply.** Reporting
-"those keys should be rotated" and stopping is not a handoff; it is a to-do item
-the owner then has to design themselves, which is why that report has been made
-more than once without the cleanup ever happening.
-
-Current status of any specific credential belongs in `CLAUDE.local.md`, not
-here. This file is committed to a PUBLIC repository, so a live "these keys are
-still valid at this path" note here is a signpost for anyone reading. The rule
-is durable and public; the status is neither.
-
-An agent cannot revoke a key — that needs a browser login at the provider. What
-an agent CAN do is remove every excuse not to:
-
-1. **Name the keys without printing them.** First 12 and last 4 characters plus
-   the length is enough to find a key in a console, and safe to put on screen.
-2. **Give the console URLs** — Anthropic `https://console.anthropic.com/settings/keys`,
-   OpenAI `https://platform.openai.com/api-keys`.
-3. **Point at the teardown script, or write one.** For the S6 probe keys it is
-   **`./scripts/teardown_probe_access.sh`** — the mirror of
-   `setup_probe_access.sh` (which lives with the gitignored research artifacts
-   under `detection-s6/`). It shows fingerprints, opens both consoles, waits for
-   confirmation, deletes `~/.config/s6-probe-keys.sh`, and removes
-   `api.anthropic.com` from the sandbox allowlist. One command, and it aborts
-   without touching anything if the owner does not confirm.
-4. **State the order and why.** Revoke first, delete second. Deleting the file
-   does not make a disclosed key safe, and on APFS overwriting it does not
-   reliably destroy the old blocks. Revocation at the provider is the only thing
-   that ends the exposure; deletion is tidying up afterwards.
-5. **Say plainly that rotation is the owner's to do**, rather than implying it
-   has been handled.
-
-**Any script that writes a credential to disk ships its teardown at the same
-time, in a TRACKED location.** `setup_probe_access.sh` shipped with a one-line
-comment saying to clean up later, no way to do it, and inside a gitignored
-directory — so nothing about it survived to another machine. Setup and teardown
-are one deliverable, and the teardown belongs in `scripts/`.
-
 ### Where machine-local things go
 
 This repository is **public**. Three tiers, and putting something in the wrong
@@ -148,23 +92,31 @@ delete — never in `local/`, and never in the repo at all.
 
 ## Working an agent ticket
 
-1. **Pick.** Use the ticket your prompt names. Otherwise take the first unchecked ticket in
-   `docs/ai-dlc/agent-tickets.md` whose branch does not exist yet
-   (`git branch --list 'ticket/*'`). If none is left, stop and say so.
-2. **Claim it** from the repo root with `make ticket ID=<id>`. It refuses a ticket whose branch
-   already exists, which means another session has it.
-   - Codex: this writes to `.git`, so it asks the project owner's approval.
-   - Gemini (agy) cannot run commands. Work only if you were started inside that ticket's
-     worktree (`.worktrees/<id>`); otherwise stop and say which ticket you would take.
-3. **Work only inside `.worktrees/<id>`.** Start the session from the repo root (Codex) so the
-   main checkout's `backend/.venv` and `frontend/node_modules` stay readable.
+**The ticket is the authority for the session.** Session-start checklists for roadmap work
+elsewhere in this file or in `.claude/CLAUDE.md` do not apply to an agent ticket. Never read another
+repo; if the ticket needs one, stop and say so.
+
+1. **Pick.** Use the ticket your prompt names. Otherwise (Codex or Claude) take the first
+   unchecked ticket in `docs/ai-dlc/agent-tickets.md` whose branch does not exist yet
+   (`git branch --list 'ticket/*'`). If none is left, stop and say so. Gemini never picks: the
+   caller names its ticket, claims it and starts Gemini inside `.worktrees/<id>`; started
+   anywhere else, Gemini stops and says which ticket it would take.
+2. **Claim it** from the repo root with `make ticket ID=<id>` (Codex asks the project owner's
+   approval, because this writes to `.git`). It refuses a ticket whose branch already exists,
+   which means another session has it. It branches from the local `main` branch, which the
+   caller keeps current; Codex has no network to fetch it.
+3. **Work only inside `.worktrees/<id>`.** Start Codex from the repo root. `make ticket` links
+   the main checkout's `backend/.venv` and `frontend/node_modules` into the worktree; never install packages
+   there, because Codex has no network.
 4. **Write the failing test first.** Add a test that fails because of the bug, then fix the code,
-   then confirm the test passes. Change only what the ticket needs.
+   then confirm the test passes. Change only what the ticket needs. Gemini writes the test and
+   the fix but cannot run them, and says so.
 5. **Run `make check` inside the worktree** and report its last lines. Gemini cannot run it: say
    so, and the caller runs it.
-6. **Commit** (Codex asks approval; Gemini never commits and lists its changed files instead):
+6. **Commit** (Codex asks approval; Gemini never commits):
    - Subject: Conventional Commits (`fix:`, `test:`, `refactor:`, `docs:`, `chore:`),
      imperative, at most 50 characters. The body says why when it is not obvious.
    - End with the two trailer lines from the shared rules (`Agent-Vendor:`, `Agent-Model:`).
    - One logical change per commit; never commit work in progress.
-7. **Stop and report:** the ticket, the commit hash, the check result and anything left undone.
+7. **Stop and report:** the ticket, the commit hash and the check result (Gemini: the changed
+   files and "check not run"), and anything left undone.
