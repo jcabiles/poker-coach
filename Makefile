@@ -54,3 +54,18 @@ build-frontend:
 fix:
 	cd $(BACKEND) && .venv/bin/ruff format . && .venv/bin/ruff check --fix .
 	cd $(FRONTEND) && node_modules/.bin/biome check --write src
+
+# --- agent tickets ---------------------------------------------------------
+MAIN := $(patsubst %/,%,$(dir $(shell git rev-parse --path-format=absolute --git-common-dir)))
+BASE ?= main
+
+# Claim an agent ticket: `make ticket ID=<id>` creates .worktrees/<id> on branch ticket/<id>
+# from $(BASE). An existing branch means another session already claimed it. The new worktree
+# gets links to the main checkout's backend/.venv and frontend/node_modules so `make check` runs.
+.PHONY: ticket
+ticket:
+	@test -n "$(ID)" || { echo "usage: make ticket ID=<ticket id> [BASE=<branch>]"; exit 2; }
+	@if git show-ref --verify --quiet refs/heads/ticket/$(ID); then echo "ticket $(ID) is already claimed (branch ticket/$(ID) exists)"; exit 1; fi
+	git -C "$(MAIN)" worktree add -b ticket/$(ID) "$(MAIN)/.worktrees/$(ID)" $(BASE)
+	ln -s "$(MAIN)/$(BACKEND)/.venv" "$(MAIN)/.worktrees/$(ID)/$(BACKEND)/.venv"
+	ln -s "$(MAIN)/$(FRONTEND)/node_modules" "$(MAIN)/.worktrees/$(ID)/$(FRONTEND)/node_modules"
