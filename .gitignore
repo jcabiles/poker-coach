@@ -65,3 +65,9 @@ Thumbs.db
 # of the repository.
 local/
 CLAUDE.local.md
+
+# Agent ticket worktrees (make ticket ID=...)
+.worktrees/
+# Links to the main checkout's tools in a ticket worktree (a trailing-slash pattern misses a link)
+/backend/.venv
+/frontend/node_modules
