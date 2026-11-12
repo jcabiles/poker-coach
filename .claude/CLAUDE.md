@@ -34,11 +34,6 @@ Before picking up ANY work: (1) read `docs/ai-dlc/profile.md` `active:` and open
 - the work in front of you doesn't serve the north-star outcome in the active roadmap;
 - you find yourself about to re-derive a decision an existing doc already records differently.
 
-Global no-gos: no auth/accounts/hosting/billing · no solver tables (heuristic + interim EV only, label EVs *approximate*) · no hand-history imports · no live-session logger · no browsable lessons library (point-of-need concept cards only).
-
-**Turn and river ARE graded** — `backend/app/domain/providers/{turn,river}.py` shipped as slices S5–S8 and are dispatched by street in `composite.py:49-50`. They are simply not *reached*; see `T-cover`. Only **full-hand (2k)** remains deferred.
-<!-- History (kept out of context 2026-08-01): a "turn/river engine deferred" no-go used to sit here. It was removed 2026-07-25 after being stale ~15 days and misleading two analyses; superseded 2026-07-09/10 per professional-teacher-rework.md:3-5 + simulate-table.md:7-9. Stated positively above so the retracted claim is no longer re-injected every session. -->
-
 ## Credentials on disk — never end a session with "you should rotate those"
 
 A session that concludes a credential must be deleted or rotated **hands the
